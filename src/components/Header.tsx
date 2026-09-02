@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cloud, Save, HardDrive, Sun, Moon } from 'lucide-react';
+import { Cloud, Save, HardDrive, Sun, Moon, Building2 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Logo } from './Logo';
 
@@ -47,8 +47,23 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
 
-        {/* Right Actions: Theme toggle, Google Drive sync & quick save */}
+        {/* Right Actions: Nav Link, Theme toggle, Google Drive sync & quick save */}
         <div className="flex items-center gap-2 sm:gap-3">
+          
+          {/* Tamamlanan Projelerimiz Sayfasına Yönlendiren Buton */}
+          <a
+            href="/AB-YAPI-/tamamlanan-projeler.html"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+              isLight
+                ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+                : 'bg-[#18181b] hover:bg-zinc-800 text-zinc-200 border-zinc-700'
+            }`}
+            title="Tamamlanan Projeler Listesini Görüntüle"
+          >
+            <Building2 className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="hidden sm:inline">Tamamlanan Projeler</span>
+          </a>
+
           {/* Light / Dark Mode Toggle Button */}
           {onToggleTheme && (
             <button
