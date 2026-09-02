@@ -39,7 +39,6 @@ import {
 } from './types';
 
 export default function App() {
-  // Theme state ('light' | 'dark')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
       return (localStorage.getItem('ab_yapi_theme') as 'light' | 'dark') || 'dark';
@@ -48,7 +47,6 @@ export default function App() {
     }
   });
 
-  // Sync theme to root html element for clean Tailwind CSS light/dark modes
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -67,13 +65,11 @@ export default function App() {
 
   const isLight = theme === 'light';
 
-  // Navigation
   const [activeTab, setActiveTab] = useState<
     'hesapla' | 'model' | 'katplani' | 'teklif' | 'sozlesme' | 'sartname' | 'raporlar' | 'gecmis'
   >('hesapla');
   const [isDrivePanelOpen, setIsDrivePanelOpen] = useState(false);
 
-  // Project state
   const [params, setParams] = useState<ProjectParams>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_last_params');
@@ -82,7 +78,6 @@ export default function App() {
     return DEFAULT_PARAMS;
   });
 
-  // Shared 3D & 2D Building Model Parameters
   const [buildingModelParams, setBuildingModelParams] = useState<BuildingModelParams>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_building_model');
@@ -101,7 +96,6 @@ export default function App() {
     });
   };
 
-  // Sync 3D & 2D model metrics into main calculation engine
   const handleSyncModelToCalculator = (modelUpdates: Partial<ProjectParams>) => {
     setParams((prev) => ({
       ...prev,
@@ -113,22 +107,18 @@ export default function App() {
     );
   };
 
-  // Calculation Results
   const results: CalculationResult = useMemo(() => {
     return calculateProject(params);
   }, [params]);
 
-  // Auth & Drive
   const [user, setUser] = useState<User | null>(null);
   const [hasToken, setHasToken] = useState(false);
   const [isSavingToDrive, setIsSavingToDrive] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Delete confirmation modal state
   const [fileToDelete, setFileToDelete] = useState<DriveProjectFile | null>(null);
   const [isDeletingFile, setIsDeletingFile] = useState(false);
 
-  // Local calculation history
   const [historyList, setHistoryList] = useState<SavedProjectData[]>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_history');
@@ -137,7 +127,6 @@ export default function App() {
     return [];
   });
 
-  // Initialize Auth state listener
   useEffect(() => {
     const unsubscribe = initAuth(
       (currentUser, token) => {
@@ -152,7 +141,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Save current params to local storage on changes
   useEffect(() => {
     try {
       localStorage.setItem('ab_yapi_last_params', JSON.stringify(params));
@@ -166,7 +154,6 @@ export default function App() {
     }, 4500);
   };
 
-  // Perform calculation and save snapshot to history
   const handleCalculate = () => {
     const newSnapshot: SavedProjectData = {
       version: '1.0.0',
@@ -183,7 +170,6 @@ export default function App() {
     showNotification('success', 'Hesaplama tamamlandı ve tüm tablolar güncellendi!');
   };
 
-  // Quick save to Google Drive from header button
   const handleQuickSave = async () => {
     if (!hasToken || !user) {
       setIsDrivePanelOpen(true);
@@ -209,7 +195,6 @@ export default function App() {
     }
   };
 
-  // Load project from history or Drive
   const handleLoadProject = (savedData: SavedProjectData) => {
     if (savedData && savedData.params) {
       setParams(savedData.params);
@@ -218,7 +203,6 @@ export default function App() {
     }
   };
 
-  // Handle destructive file deletion in Google Drive with confirmation dialog
   const handleConfirmDeleteDriveFile = async () => {
     if (!fileToDelete) return;
     setIsDeletingFile(true);
@@ -243,11 +227,10 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen h-auto overflow-y-auto print:h-auto print:overflow-visible flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-200 ${
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-200 ${
         isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#09090b] text-[#fafafa]'
       }`}
     >
-      {/* Top Header - print:hidden eklendi */}
       <div className="print:hidden">
         <Header
           user={user}
@@ -260,9 +243,8 @@ export default function App() {
         />
       </div>
 
-      {/* Main Container - Kaydırma çubukları serbest bırakıldı ve yazdırma için p-0 m-0 verildi */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-24 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 print:h-auto print:overflow-visible">
-        {/* Toast Feedback */}
+      {/* pb-36 eklendi: Alt taraftaki kartlar sabit menünün arkasında kalmayıp tam kayacak */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-36 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0">
         {feedback && (
           <div
             className={`mb-5 p-4 rounded-2xl text-xs flex items-center justify-between border shadow-lg transition-all animate-fade-in print:hidden ${
@@ -295,9 +277,9 @@ export default function App() {
           </div>
         )}
 
-        {/* Primary Desktop/Tablet Navigation Tabs */}
+        {/* Sekme Menüsü Düzeltmesi: w-full, flex-wrap ve sm:flex-nowrap eklendi */}
         <div
-          className={`flex items-center gap-1.5 overflow-x-auto p-1.5 mb-6 rounded-2xl print:hidden scrollbar-none border shadow-sm transition-colors ${
+          className={`flex items-center gap-1.5 overflow-x-auto w-full max-w-full p-1.5 mb-6 rounded-2xl print:hidden border shadow-sm transition-colors ${
             isLight
               ? 'bg-white border-slate-200 shadow-slate-100 text-slate-700'
               : 'bg-[#121214] border-zinc-800/80 shadow-black/20'
@@ -306,7 +288,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('hesapla')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'hesapla'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : isLight
@@ -321,7 +303,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('model')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'model'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : isLight
@@ -336,7 +318,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('katplani')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'katplani'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : isLight
@@ -351,7 +333,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('teklif')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'teklif'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : isLight
@@ -366,7 +348,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('sozlesme')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'sozlesme'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : isLight
@@ -381,7 +363,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('sartname')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'sartname'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : isLight
@@ -396,7 +378,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('raporlar')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'raporlar'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : isLight
@@ -411,7 +393,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('gecmis')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'gecmis'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                 : isLight
@@ -510,9 +492,9 @@ export default function App() {
         )}
       </main>
 
-      {/* Mobile Bottom Navigation Bar */}
+      {/* Sadece Mobilde Görünmesini Sağlamak İçin md:hidden Eklendi */}
       <nav
-        className={`fixed bottom-0 inset-x-0 z-30 backdrop-blur-md border-t shadow-xl print:hidden transition-colors ${
+        className={`fixed bottom-0 inset-x-0 z-30 backdrop-blur-md border-t shadow-xl print:hidden transition-colors md:hidden ${
           isLight
             ? 'bg-white/95 border-slate-200 text-slate-700 shadow-slate-200'
             : 'bg-[#09090b]/95 border-zinc-800/80 text-zinc-300'
@@ -619,7 +601,6 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Google Drive Management Modal */}
       <DrivePanel
         isOpen={isDrivePanelOpen}
         onClose={() => setIsDrivePanelOpen(false)}
@@ -636,7 +617,6 @@ export default function App() {
         }}
       />
 
-      {/* Destructive Action Confirmation Modal for Drive Deletions */}
       <ConfirmModal
         isOpen={!!fileToDelete}
         title="Google Drive Dosyasını Sil"
