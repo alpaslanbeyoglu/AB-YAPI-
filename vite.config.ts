@@ -6,7 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   return {
-    base: '/AB-YAPI/',
+    base: '/AB-YAPI-/',
     plugins: [
       react(),
       tailwindcss(),
@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'logo.svg'],
         manifest: {
-          id: '/AB-YAPI/',
+          id: '/AB-YAPI-/',
           name: 'AB Yapı İnşaat & Mimari Hesaplayıcı',
           short_name: 'AB Yapı',
           description: 'AB Yapı kentsel dönüşüm, inşaat maliyeti, 3D bina modeli ve 2D mimari kat planı uygulaması',
@@ -22,8 +22,8 @@ export default defineConfig(({ mode }) => {
           background_color: '#09090b',
           display: 'standalone',
           orientation: 'any',
-          start_url: '/AB-YAPI/',
-          scope: '/AB-YAPI/',
+          start_url: '/AB-YAPI-/',
+          scope: '/AB-YAPI-/',
           icons: [
             {
               src: '/pwa-192x192.png',
