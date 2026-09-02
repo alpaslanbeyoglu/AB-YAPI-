@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <!-- Definitions for gradients and shadows -->
+  <defs>
+    <!-- Left Tower (Dark Slate / Charcoal) -->
+    <linearGradient id="leftFront" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="leftSide" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="leftRoof" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#475569" />
+    </linearGradient>
+
+    <!-- Center Tower (Teal / Turquoise - Tallest) -->
+    <linearGradient id="centerFront" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#147b85" />
+      <stop offset="100%" stop-color="#0e626b" />
+    </linearGradient>
+    <linearGradient id="centerSide" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0e626b" />
+      <stop offset="100%" stop-color="#084249" />
+    </linearGradient>
+    <linearGradient id="centerRoof" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#147b85" />
+      <stop offset="100%" stop-color="#229aa7" />
+    </linearGradient>
+
+    <!-- Right Tower (Amber / Golden Yellow) -->
+    <linearGradient id="rightFront" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="rightSide" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+    <linearGradient id="rightRoof" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#fbbf24" />
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(0, -10)">
+    <!-- LEFT TOWER -->
+    <!-- Left face -->
+    <path d="M 185 190 L 185 300 L 202 308 L 202 182 Z" fill="url(#leftFront)" />
+    <!-- Right face -->
+    <path d="M 202 182 L 202 308 L 219 299 L 219 191 Z" fill="url(#leftSide)" />
+    <!-- Roof peak angled up-right -->
+    <path d="M 185 190 L 202 175 L 219 191 L 202 182 Z" fill="url(#leftRoof)" />
+
+    <!-- MIDDLE TOWER (Tallest) -->
+    <!-- Left face -->
+    <path d="M 224 150 L 224 300 L 249 313 L 249 140 Z" fill="url(#centerFront)" />
+    <!-- Right face -->
+    <path d="M 249 140 L 249 313 L 274 300 L 274 150 Z" fill="url(#centerSide)" />
+    <!-- Roof peak pointed gable -->
+    <path d="M 224 150 L 249 130 L 274 150 L 249 140 Z" fill="url(#centerRoof)" />
+
+    <!-- RIGHT TOWER -->
+    <!-- Left face -->
+    <path d="M 279 191 L 279 299 L 296 308 L 296 182 Z" fill="url(#rightFront)" />
+    <!-- Right face -->
+    <path d="M 296 182 L 296 308 L 313 190 L 313 190 Z" fill="url(#rightSide)" />
+    <!-- Roof peak angled up-left -->
+    <path d="M 279 191 L 296 175 L 313 190 L 296 182 Z" fill="url(#rightRoof)" />
+  </g>
+
+  <!-- BRAND NAME: AB YAPI -->
+  <text x="250" y="362" text-anchor="middle" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-weight="900" font-size="52" fill="#1e293b" letter-spacing="3">AB YAPI</text>
+
+  <!-- MOTTO: GÜVENE YÜKSELEN YAPILAR -->
+  <text x="250" y="392" text-anchor="middle" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-weight="600" font-size="14.5" fill="#475569" letter-spacing="4.5">GÜVENE YÜKSELEN YAPILAR</text>
+</svg>

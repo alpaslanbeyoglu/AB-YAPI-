@@ -1,0 +1,7 @@
+{
+  "name": "AB Yapı Hesaplayıcı",
+  "description": "AB Yapı kentsel dönüşüm, inşaat maliyet hesaplama, 3D yapı modelleme, mimari kat planı ve resmi sözleşme paneli.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
