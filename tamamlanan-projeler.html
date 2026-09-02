@@ -33,20 +33,22 @@
       padding: 0 20px;
     }
 
-    /* Header ve Logo Alanı */
+    /* Header ve SVG Logo Alanı */
     .page-header {
       text-align: center;
       margin-bottom: 32px;
     }
 
     .logo-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
       margin-bottom: 12px;
     }
 
-    .company-logo {
-      max-width: 180px;
+    .svg-logo {
+      width: 180px;
       height: auto;
-      border-radius: 8px;
     }
 
     .page-header h1 {
@@ -241,12 +243,17 @@
 
 <div class="container">
   <div class="page-header">
-    <!-- Logoyu HTML içinde Base64 formatında doğrudan gömdüm (Yüklenmeme sorunu olmaz) -->
+    <!-- AB YAPI LOGOSU (Doğrudan Kodun İçine Vektörel Olarak Gömüldü) -->
     <div class="logo-container">
-      <img src="https://raw.githubusercontent.com/alpaslanbeyoglu/AB-YAPI-/main/logo.png" alt="AB YAPI Logo" class="company-logo" onerror="this.onerror=null; this.src='https://via.placeholder.com/180x80?text=AB+YAPI';">
+      <svg class="svg-logo" viewBox="0 0 300 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="30" height="70" x="85" y="10" fill="#2d3748" rx="3"/>
+        <rect width="30" height="90" x="120" y="-10" fill="#2b6cb0" rx="3"/>
+        <rect width="30" height="60" x="155" y="20" fill="#d69e2e" rx="3"/>
+        <text x="150" y="95" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="800" font-size="28" fill="#1a202c" letter-spacing="2">AB YAPI</text>
+        <text x="150" y="112" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="10" fill="#718096" letter-spacing="3">GÜVENE YÜKSELEN YAPILAR</text>
+      </svg>
     </div>
     
-    <div class="slogan">GÜVENE YÜKSELEN YAPILAR</div>
     <h1>Tamamlanan Projelerimiz</h1>
 
     <!-- Toplam Proje Sayacı -->
@@ -415,7 +422,11 @@
 
     cards.forEach(card => {
       const cardText = card.innerText.toLowerCase();
-      card.style.display = cardText.includes(query) ? 'flex' : 'none';
+      if (cardText.includes(query)) {
+        card.style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
     });
 
     updateProjectCount();
