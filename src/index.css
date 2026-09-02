@@ -85,10 +85,31 @@
     box-shadow: 0 0 0 1px #6366f1 !important;
   }
 
-  @media print {
-    body {
-      background-color: #ffffff !important;
-      color: #000000 !important;
+ /* Yazdırma Esnasında Üst Menü ve Navigasyonu Gizleme */
+@media print {
+  /* Sayfa üstündeki navigasyon barı, butonlar ve yönlendirmeleri gizler */
+  header,
+  nav,
+  .no-print,
+  button,
+  [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Yazdırılacak ana belgenin en üstteki gereksiz boşluğunu sıfırlar */
+  body, #root, main {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Yazdırılabilir alanın sayfanın en başından başlamasını sağlar */
+  .print-area {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+}
     }
   }
 }
