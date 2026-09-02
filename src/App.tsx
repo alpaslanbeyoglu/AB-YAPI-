@@ -243,27 +243,29 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-200 ${
+      className={`min-h-screen h-auto overflow-y-auto print:h-auto print:overflow-visible flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-200 ${
         isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#09090b] text-[#fafafa]'
       }`}
     >
-      {/* Top Header with Drive Sync, Quick Actions & Theme Switcher */}
-      <Header
-        user={user}
-        hasToken={hasToken}
-        isSavingToDrive={isSavingToDrive}
-        onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
-        onQuickSave={handleQuickSave}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
+      {/* Top Header - print:hidden eklendi */}
+      <div className="print:hidden">
+        <Header
+          user={user}
+          hasToken={hasToken}
+          isSavingToDrive={isSavingToDrive}
+          onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
+          onQuickSave={handleQuickSave}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+      </div>
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-24">
+      {/* Main Container - Kaydırma çubukları serbest bırakıldı ve yazdırma için p-0 m-0 verildi */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-24 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 print:h-auto print:overflow-visible">
         {/* Toast Feedback */}
         {feedback && (
           <div
-            className={`mb-5 p-4 rounded-2xl text-xs flex items-center justify-between border shadow-lg transition-all animate-fade-in ${
+            className={`mb-5 p-4 rounded-2xl text-xs flex items-center justify-between border shadow-lg transition-all animate-fade-in print:hidden ${
               feedback.type === 'success'
                 ? isLight
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
@@ -293,7 +295,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Primary Desktop/Tablet Navigation Tabs (Bento Segmented Control) */}
+        {/* Primary Desktop/Tablet Navigation Tabs */}
         <div
           className={`flex items-center gap-1.5 overflow-x-auto p-1.5 mb-6 rounded-2xl print:hidden scrollbar-none border shadow-sm transition-colors ${
             isLight
@@ -508,7 +510,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Mobile Bottom Navigation Bar (Bento Native PWA) */}
+      {/* Mobile Bottom Navigation Bar */}
       <nav
         className={`fixed bottom-0 inset-x-0 z-30 backdrop-blur-md border-t shadow-xl print:hidden transition-colors ${
           isLight
