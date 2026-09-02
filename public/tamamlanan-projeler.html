@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AB-YAPI | Tamamlanan Projelerimiz</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #0f172a;
+      --secondary: #475569;
+      --accent: #2563eb;
+      --success: #16a34a;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: #334155;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    /* Header ve Logo Alanı */
+    .page-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo-container {
+      margin-bottom: 12px;
+    }
+
+    .company-logo {
+      max-width: 180px;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    .page-header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 10px 0 6px 0;
+    }
+
+    .slogan {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: #64748b;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    /* Sayaç Kutusu */
+    .stats-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 10px 24px;
+      border-radius: 50px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+      margin-bottom: 24px;
+    }
+
+    .stats-count {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .stats-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    /* Manuel Proje Ekleme Paneli */
+    .add-project-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 32px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    }
+
+    .add-project-card h3 {
+      margin-top: 0;
+      font-size: 18px;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .form-grid input {
+      padding: 10px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .btn-add-project {
+      grid-column: 1 / -1;
+      background-color: var(--primary);
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-add-project:hover {
+      background-color: #1e293b;
+    }
+
+    /* Arama Kutusu */
+    .search-box-container {
+      max-width: 600px;
+      margin: 0 auto 32px auto;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 15px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      outline: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      transition: all 0.2s;
+      box-sizing: border-box;
+    }
+
+    /* Kart Izgarası */
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .project-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .project-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    .badge-status {
+      display: inline-block;
+      align-self: flex-start;
+      padding: 4px 10px;
+      background-color: #dcfce7;
+      color: var(--success);
+      font-weight: 600;
+      font-size: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+
+    .project-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 0 0 8px 0;
+    }
+
+    .project-address {
+      background: #f1f5f9;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #334155;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .project-address strong {
+      color: var(--primary);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 10px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+
+    .btn-action {
+      flex: 1;
+      text-align: center;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+
+    .btn-maps { background-color: #f1f5f9; color: var(--primary); }
+    .btn-street { background-color: #eff6ff; color: var(--accent); }
+    .btn-delete { background-color: #fee2e2; color: #dc2626; border: none; padding: 8px; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="page-header">
+    <!-- Logoyu HTML içinde Base64 formatında doğrudan gömdüm (Yüklenmeme sorunu olmaz) -->
+    <div class="logo-container">
+      <img src="https://raw.githubusercontent.com/alpaslanbeyoglu/AB-YAPI-/main/logo.png" alt="AB YAPI Logo" class="company-logo" onerror="this.onerror=null; this.src='https://via.placeholder.com/180x80?text=AB+YAPI';">
+    </div>
+    
+    <div class="slogan">GÜVENE YÜKSELEN YAPILAR</div>
+    <h1>Tamamlanan Projelerimiz</h1>
+
+    <!-- Toplam Proje Sayacı -->
+    <div class="stats-bar">
+      <span class="stats-count" id="totalProjectCount">0</span>
+      <span class="stats-label">Tamamlanan Proje / Lokasyon</span>
+    </div>
+  </div>
+
+  <!-- MANUEL PROJE EKLEME FORMU -->
+  <div class="add-project-card">
+    <h3>➕ Yeni Tamamlanan Proje Ekle</h3>
+    <div class="form-grid">
+      <input type="text" id="newTitle" placeholder="Proje Adı (Örn: Çınar Sk. No: 18)" required>
+      <input type="text" id="newAddress" placeholder="Sokak / Kapı No (Örn: Çınar Sk. No: 18)" required>
+      <input type="text" id="newDistrict" placeholder="İlçe / Şehir (Örn: Fatih / İstanbul)" value="Fatih / İstanbul">
+      <input type="text" id="newCoords" placeholder="Enlem, Boylam (Örn: 41.0047, 28.9337)">
+      <button class="btn-add-project" onclick="addNewProject()">Projeyi Listeye Ekle</button>
+    </div>
+  </div>
+
+  <!-- Arama Filtresi -->
+  <div class="search-box-container">
+    <input type="text" id="searchInput" class="search-input" placeholder="Sokak adı veya kapı numarası yazarak arayın..." onkeyup="filterProjects()">
+  </div>
+
+  <!-- Proje Adres Listesi -->
+  <div class="projects-grid" id="projectsContainer"></div>
+</div>
+
+<script>
+  // KML'den Çıkarılan Sabit Projeler Listesi
+  const initialProjects = [
+    { id: 1, title: "AB-YAPI Merkez Ofis", address: "Kocamustafapaşa", district: "Fatih / İstanbul", lat: "41.004813", lng: "28.933724", isOffice: true },
+    { id: 2, title: "Çınar Sokak No: 2", address: "Çınar Sk. No: 2, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.004768", lng: "28.933771" },
+    { id: 3, title: "Çınar Sokak No: 14", address: "Çınar Sk. No: 14, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.005280", lng: "28.933787" },
+    { id: 4, title: "Marmara Caddesi No: 64", address: "Marmara Cd. No: 64, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.002360", lng: "28.932800" },
+    { id: 5, title: "Demirci Osman Sokak No: 9", address: "Demirci Osman Sk. No: 9, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.002884", lng: "28.932902" },
+    { id: 6, title: "Demirci Osman Sokak No: 23", address: "Demirci Osman Sk. No: 23, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.002637", lng: "28.932571" },
+    { id: 7, title: "Demirci Osman Sokak No: 25", address: "Demirci Osman Sk. No: 25, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.002561", lng: "28.932514" },
+    { id: 8, title: "Demirci Osman Sokak No: 102", address: "Demirci Osman Sk. No: 102, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.000811", lng: "28.929924" },
+    { id: 9, title: "Cambaziye Sokak No: 38", address: "Cambaziye Sk. No: 38, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.002848", lng: "28.932514" },
+    { id: 10, title: "Cambaziye Sokak No: 46", address: "Cambaziye Sk. No: 46, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.002655", lng: "28.932836" },
+    { id: 11, title: "Tütüncüzade Sokak No: 5", address: "Tütüncüzade Sk. No: 5, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.005046", lng: "28.934234" },
+    { id: 12, title: "Kürkçübaşı Çeşmesi Sokak No: 42", address: "Kürkçübaşı Çeşmesi Sk. No: 42, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.005889", lng: "28.943891" },
+    { id: 13, title: "Ahmet Hikmet Sokak No: 44", address: "Ahmet Hikmet Sk. No: 44, Fatih Mah.", district: "Fatih / İstanbul", lat: "41.008826", lng: "28.940347" },
+    { id: 14, title: "Mecitbey Sokak No: 23", address: "Mecitbey Sk. No: 23, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.009681", lng: "28.929486" },
+    { id: 15, title: "Zikirci Sokak No: 18", address: "Zikirci Sk. No: 18, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.009722", lng: "28.928867" },
+    { id: 16, title: "Hacıhamza Sokak No: 7", address: "Hacıhamza Sk. No: 7, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.002207", lng: "28.924524" },
+    { id: 17, title: "Silivrikapı Caddesi No: 69", address: "Silivrikapı Cd. No: 69, Silivrikapı Mah.", district: "Fatih / İstanbul", lat: "41.006614", lng: "28.925632" },
+    { id: 18, title: "Yağhane Sokak Projesi", address: "Yağhane Sk., Silivrikapı Mah.", district: "Fatih / İstanbul", lat: "41.007388", lng: "28.925359" },
+    { id: 19, title: "Yediemirler Sokak Projesi", address: "Yediemirler Sk., Silivrikapı Mah.", district: "Fatih / İstanbul", lat: "41.007206", lng: "28.925713" },
+    { id: 20, title: "Sebzeci Sokak No: 20", address: "Sebzeci Sk. No: 20, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.004882", lng: "28.930022" },
+    { id: 21, title: "Sebzeci Sokak No: 21", address: "Sebzeci Sk. No: 21, Kocamustafapaşa Mah.", district: "Fatih / İstanbul", lat: "41.005019", lng: "28.929852" },
+    { id: 22, title: "Ali Fakih Sokak No: 56", address: "Ali Fakih Sk. No: 56, Sümbül Efendi Mah.", district: "Fatih / İstanbul", lat: "41.002099", lng: "28.926823" }
+  ];
+
+  let projects = [];
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadProjects();
+  });
+
+  function loadProjects() {
+    const saved = localStorage.getItem('abyapi_completed_projects');
+    if (saved) {
+      projects = JSON.parse(saved);
+    } else {
+      projects = [...initialProjects];
+      saveProjects();
+    }
+    renderProjects();
+  }
+
+  function saveProjects() {
+    localStorage.setItem('abyapi_completed_projects', JSON.stringify(projects));
+  }
+
+  function renderProjects() {
+    const container = document.getElementById('projectsContainer');
+    container.innerHTML = '';
+
+    projects.forEach(p => {
+      const isOffice = p.isOffice;
+      const badgeStyle = isOffice ? 'background:#e0f2fe; color:#0284c7;' : '';
+      const badgeText = isOffice ? '📍 Merkez Ofis' : '✓ Tamamlandı';
+
+      const cardHtml = `
+        <div class="project-card" data-id="${p.id}">
+          <div>
+            <span class="badge-status" style="${badgeStyle}">${badgeText}</span>
+            <h3 class="project-title">${p.title}</h3>
+            <div class="project-address">
+              <strong>Açık Adres:</strong>
+              ${p.address}<br><b>İlçe:</b> ${p.district}
+            </div>
+          </div>
+          <div class="card-actions">
+            <a href="https://maps.google.com/?q=${p.lat},${p.lng}" target="_blank" class="btn-action btn-maps">Haritada Aç ↗</a>
+            <a href="https://www.google.com/maps?q=&layer=c&cbll=${p.lat},${p.lng}" target="_blank" class="btn-action btn-street">Sokak Görünümü ↗</a>
+            ${!isOffice ? `<button class="btn-delete" onclick="deleteProject(${p.id})">🗑️</button>` : ''}
+          </div>
+        </div>
+      `;
+      container.innerHTML += cardHtml;
+    });
+
+    updateProjectCount();
+  }
+
+  function addNewProject() {
+    const title = document.getElementById('newTitle').value;
+    const address = document.getElementById('newAddress').value;
+    const district = document.getElementById('newDistrict').value;
+    const coords = document.getElementById('newCoords').value;
+
+    if (!title || !address) {
+      alert("Lütfen Proje Adı ve Adres alanlarını doldurun!");
+      return;
+    }
+
+    let lat = "41.0048";
+    let lng = "28.9337";
+
+    if (coords && coords.includes(',')) {
+      const parts = coords.split(',');
+      lat = parts[0].trim();
+      lng = parts[1].trim();
+    }
+
+    const newObj = {
+      id: Date.now(),
+      title,
+      address,
+      district,
+      lat,
+      lng,
+      isOffice: false
+    };
+
+    projects.push(newObj);
+    saveProjects();
+    renderProjects();
+
+    document.getElementById('newTitle').value = '';
+    document.getElementById('newAddress').value = '';
+    document.getElementById('newCoords').value = '';
+  }
+
+  function deleteProject(id) {
+    if (confirm("Bu projeyi kaldırmak istediğinize emin misiniz?")) {
+      projects = projects.filter(p => p.id !== id);
+      saveProjects();
+      renderProjects();
+    }
+  }
+
+  function updateProjectCount() {
+    const visibleCards = document.querySelectorAll('.project-card:not([style*="display: none"])');
+    document.getElementById('totalProjectCount').innerText = visibleCards.length;
+  }
+
+  function filterProjects() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    const cards = document.querySelectorAll('.project-card');
+
+    cards.forEach(card => {
+      const cardText = card.innerText.toLowerCase();
+      card.style.display = cardText.includes(query) ? 'flex' : 'none';
+    });
+
+    updateProjectCount();
+  }
+</script>
+
+</body>
+</html>
