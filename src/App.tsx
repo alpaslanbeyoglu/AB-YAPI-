@@ -133,6 +133,9 @@ export default function App() {
         contractorShareRate: newParams.contractorShareRate,
         projectModel: newParams.projectModel,
         flatCount: newParams.flatCount,
+        hasCantilever: newParams.hasCantilever,
+        cantileverDepth: newParams.cantileverDepth,
+        cantileverDirection: newParams.cantileverDirection,
       };
 
       try {
@@ -183,6 +186,9 @@ export default function App() {
           hasGroundFloorShop: !!next.hasGroundFloorShop,
           shopCount: next.shopCount || 1,
           shopHeight: next.shopHeight || 3.8,
+          hasCantilever: next.hasCantilever !== undefined ? next.hasCantilever : prevCalc.hasCantilever,
+          cantileverDepth: next.cantileverDepth !== undefined ? next.cantileverDepth : prevCalc.cantileverDepth,
+          cantileverDirection: next.cantileverDirection !== undefined ? next.cantileverDirection : prevCalc.cantileverDirection,
         };
 
         try {

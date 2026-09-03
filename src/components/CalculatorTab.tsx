@@ -474,75 +474,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             </>
           )}
 
-          {/* Çıkma / Tabla Konsolu (1. Kattan sonra tabla çıkması) */}
-          <div className="p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200 space-y-2">
-            <label className="block text-xs font-semibold text-amber-900 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-amber-600" />
-                <span>1. Kattan İtibaren Tabla Çıkması:</span>
-              </span>
-              {params.hasCantilever ? (
-                <span className="text-[10px] font-bold bg-amber-600 text-white px-2 py-0.5 rounded-full">
-                  Çıkma Var ({params.cantileverDepth || 1.2}m)
-                </span>
-              ) : (
-                <span className="text-[10px] font-medium bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">
-                  Çıkmasız
-                </span>
-              )}
-            </label>
-            <select
-              value={params.hasCantilever ? 'cantilever' : 'no_cantilever'}
-              onChange={(e) => {
-                const hasC = e.target.value === 'cantilever';
-                onChangeParams({
-                  ...params,
-                  hasCantilever: hasC,
-                  cantileverDepth: params.cantileverDepth || 1.2,
-                  cantileverDirection: params.cantileverDirection || 'front_back',
-                });
-              }}
-              className={`w-full text-xs px-3 py-2 rounded-xl border transition-all ${inputBg}`}
-            >
-              <option value="no_cantilever">Çıkmasız (Taban Oturumu ile Aynı)</option>
-              <option value="cantilever">Tabla Çıkması Var (Kapalı / Konsol Çıkma)</option>
-            </select>
-          </div>
-
-          {params.hasCantilever && (
-            <>
-              <div>
-                <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-                  Çıkma Derinliği (m):
-                </label>
-                <input
-                  type="number"
-                  step="0.05"
-                  min="0.5"
-                  max="2.5"
-                  value={params.cantileverDepth || 1.2}
-                  onChange={(e) => updateParam('cantileverDepth', parseFloat(e.target.value) || 1.2)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                />
-              </div>
-
-              <div>
-                <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-                  Çıkma Yönü:
-                </label>
-                <select
-                  value={params.cantileverDirection || 'front_back'}
-                  onChange={(e) => updateParam('cantileverDirection', e.target.value as any)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                >
-                  <option value="front_back">Ön ve Arka Cephe (Standart İmar)</option>
-                  <option value="front">Yalnız Ön Cephe</option>
-                  <option value="all">Dört Cephe Çıkmalı (Ayrık Nizam)</option>
-                </select>
-              </div>
-            </>
-          )}
-
+          {/* İnşaat / Yapı Tipi */}
           <div>
             <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
               İnşaat / Yapı Tipi:

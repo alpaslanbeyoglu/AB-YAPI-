@@ -8,35 +8,78 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult)
       ? '2027 Projeksiyon Modeli (3 Milyon TL Kredi / 180 Ay Vade)'
       : 'Desteksiz / Öz Kaynaklı Yapım';
 
+  const isContractorShareModel = params.projectModel === 'contractorShare';
+
   const flatRows = res.flatResults
     .map(
-      (f) => `
-      <tr>
-        <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id}</td>
-        <td style="padding:8px;border:1px solid #ddd;">${f.name} <br><small style="color:#666;">TC: ${f.tc}</small></td>
-        <td style="padding:8px;border:1px solid #ddd;">${f.area} m²</td>
-        <td style="padding:8px;border:1px solid #ddd;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-        <td style="padding:8px;border:1px solid #ddd;">-${f.downPayment.toLocaleString('tr-TR')} TL</td>
-        <td style="padding:8px;border:1px solid #ddd;">${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-        <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-      </tr>`
+      (f) => {
+        if (isContractorShareModel) {
+          const fundingType = f.isContractorShare ? 'Müteahhit Payı Satış' : 'Arsa Payı Mahsubu';
+          return `
+          <tr>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id}</td>
+            <td style="padding:8px;border:1px solid #ddd;">${f.name} <br><small style="color:#666;">TC: ${f.tc}</small></td>
+            <td style="padding:8px;border:1px solid #ddd;">${f.area} m²</td>
+            <td style="padding:8px;border:1px solid #ddd;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;color:#047857;font-weight:bold;">-${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL<br><small style="color:#666;">${fundingType}</small></td>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;color:#047857;background-color:#f0fdf4;">0 TL</td>
+          </tr>`;
+        } else {
+          return `
+          <tr>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id}</td>
+            <td style="padding:8px;border:1px solid #ddd;">${f.name} <br><small style="color:#666;">TC: ${f.tc}</small></td>
+            <td style="padding:8px;border:1px solid #ddd;">${f.area} m²</td>
+            <td style="padding:8px;border:1px solid #ddd;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;">-${f.downPayment.toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;">-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          </tr>`;
+        }
+      }
     )
     .join('');
 
-  const stageRows = res.flatResults
-    .map(
-      (f) => `
-      <tr>
-        <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id} (${f.name})</td>
-        <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-        <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-        <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-        <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${f.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-        <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-        <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-      </tr>`
-    )
-    .join('');
+  const table1Header = isContractorShareModel
+    ? `<tr><th>Daire No</th><th>Hak Sahibi</th><th>Alan</th><th>Daire Yapım Bedeli</th><th>Kat Karşılığı İndirimi</th><th style="color:#1e3a8a;">Net Malik Borcu</th></tr>`
+    : `<tr><th>Daire No</th><th>Hak Sahibi</th><th>Alan</th><th>Toplam Borç</th><th>Ödenen Peşinat</th><th>Dönüşüm Desteği</th><th style="color:#1e3a8a;">Kalan Borç</th></tr>`;
+
+  let table2OrStatement = '';
+  if (isContractorShareModel) {
+    table2OrStatement = `
+    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:16px;margin-bottom:20px;font-size:13px;color:#065f46;line-height:1.6;">
+      <strong>🤝 Kat Karşılığı Finansman Beyanı:</strong>
+      <p style="margin:4px 0 0 0;">Kat Karşılığı Yapım Modelinde, tüm imalat ve yapım maliyetleri müteahhite devredilen paylar ile finanse edildiğinden, arsa maliklerinin herhangi bir nakit borçlanması veya inşaat fiziki ilerlemesine bağlı hakediş takvimi bulunmamaktadır.</p>
+    </div>`;
+  } else {
+    table2OrStatement = `
+    <h3>2. Fiziki İlerleme Hakediş Takvimi (TL)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Daire No / Hak Sahibi</th>
+          <th>1. Aşama (%${params.stage1Pay})</th>
+          <th>2. Aşama (%${params.stage2Pay})</th>
+          <th>3. Aşama (%${params.stage3Pay})</th>
+          <th>4. Aşama (%${params.stage4Pay})</th>
+          <th>5. Aşama (%${params.stage5Pay})</th>
+          <th>Toplam Malik Borcu</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${res.flatResults.map(f => `
+        <tr>
+          <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id} (${f.name})</td>
+          <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:8px;border:1px solid #ddd;font-weight:bold;color:#4f46e5;">${f.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  }
 
   return `<!DOCTYPE html>
 <html lang="tr">
@@ -71,27 +114,11 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult)
   <h3>1. Hak Sahipleri Ödeme ve Borçlandırma Özeti</h3>
   <table>
     <thead>
-      <tr>
-        <th>Daire No</th><th>Hak Sahibi</th><th>Alan</th><th>Toplam Borç</th><th>Ödenen Peşinat</th><th>Dönüşüm Desteği</th><th>Kalan Borç</th>
-      </tr>
+      ${table1Header}
     </thead>
     <tbody>${flatRows}</tbody>
   </table>
-  <h3>2. Fiziki İlerleme Hakediş Takvimi (TL)</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Daire No / Hak Sahibi</th>
-        <th>1. Aşama (%${params.stage1Pay})</th>
-        <th>2. Aşama (%${params.stage2Pay})</th>
-        <th>3. Aşama (%${params.stage3Pay})</th>
-        <th>4. Aşama (%${params.stage4Pay})</th>
-        <th>5. Aşama (%${params.stage5Pay})</th>
-        <th>Toplam Borç</th>
-      </tr>
-    </thead>
-    <tbody>${stageRows}</tbody>
-  </table>
+  ${table2OrStatement}
   <div style="background:#fff8e6;border:1px solid #ffeeba;border-radius:6px;padding:12px;margin-top:20px;font-size:12px;color:#856404;line-height:1.5;">
     <strong>📌 Önemli Bilgilendirme ve Teslim Koşulları:</strong>
     <p style="margin:4px 0 0 0;">Yukarıda belirtilen proje süresine ruhsat alma ve iskân süreçleri dahildir. Firmamız kontrolü dışındaki gecikmeler proje süresine eklenir.</p>

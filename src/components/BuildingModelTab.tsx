@@ -517,6 +517,68 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       className="w-full accent-indigo-600 cursor-pointer"
                     />
                   </div>
+
+                  {/* Tabla / Konsol Çıkması (Cantilever) */}
+                  <div className="pt-3 border-t border-slate-200/60 space-y-3">
+                    <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={modelParams.hasCantilever || false}
+                        onChange={(e) => updateParams({ hasCantilever: e.target.checked })}
+                        className="rounded-sm text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className={`font-semibold ${textTitle}`}>1. Kattan İtibaren Tabla Çıkması (Konsol)</span>
+                    </label>
+
+                    {modelParams.hasCantilever && (
+                      <div className="pl-6 space-y-3 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+                        {/* Cantilever Depth */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <label className={`font-medium ${textTitle}`}>Çıkma Derinliği:</label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                step="0.05"
+                                min="0.5"
+                                max="2.5"
+                                value={modelParams.cantileverDepth || 1.2}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  if (!isNaN(val) && val > 0) updateParams({ cantileverDepth: val });
+                                }}
+                                className={`w-20 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                              />
+                              <span className={`text-xs font-medium ${textMuted}`}>m</span>
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="2.5"
+                            step="0.05"
+                            value={modelParams.cantileverDepth || 1.2}
+                            onChange={(e) => updateParams({ cantileverDepth: parseFloat(e.target.value) })}
+                            className="w-full accent-indigo-600 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Cantilever Direction */}
+                        <div className="space-y-1">
+                          <label className={`block text-xs font-medium ${textTitle} mb-1`}>Çıkma Yönü:</label>
+                          <select
+                            value={modelParams.cantileverDirection || 'front_back'}
+                            onChange={(e) => updateParams({ cantileverDirection: e.target.value as any })}
+                            className={`w-full text-xs px-2.5 py-1.5 rounded-lg border focus:outline-hidden ${inputBg}`}
+                          >
+                            <option value="front_back">Ön ve Arka Cephe (Standart İmar)</option>
+                            <option value="front">Yalnız Ön Cephe</option>
+                            <option value="all">Dört Cephe Çıkmalı (Ayrık Nizam)</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
