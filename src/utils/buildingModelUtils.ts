@@ -24,6 +24,9 @@ export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   hasGroundFloorShop: false,
   shopCount: 1,
   shopHeight: 3.80,
+  hasCantilever: false,
+  cantileverDepth: 1.20,
+  cantileverDirection: 'front_back',
 };
 
 export interface RoomDetail {
@@ -41,6 +44,8 @@ export interface RoomDetail {
 
 export interface BuildingMetrics {
   footprintArea: number;       // Taban alanı (m²)
+  upperFloorGrossArea: number; // Çıkmalı kat brüt alanı (m²)
+  cantileverArea: number;      // Çıkma ile kazanılan fark (m²)
   totalBuiltArea: number;      // Toplam inşaat alanı (m²)
   totalHeight: number;         // Toplam bina yüksekliği (m)
   totalFlats: number;          // Toplam daire sayısı
@@ -54,11 +59,38 @@ export interface BuildingMetrics {
 }
 
 export function calculateBuildingMetrics(params: BuildingModelParams): BuildingMetrics {
-  const footprintArea = Math.round(params.facadeWidth * params.facadeDepth * 10) / 10;
-  const totalFloors = params.floorCount + params.basementCount;
-  // If duplex roof, attic floor adds ~60% of a floor's built area
-  const duplexAtticArea = params.roofType === 'duplex' ? footprintArea * 0.65 : params.roofType === 'mansard' ? footprintArea * 0.5 : 0;
-  const totalBuiltArea = Math.round((footprintArea * totalFloors + duplexAtticArea) * 10) / 10;
+  const footprintArea = Math.round(params.facadeWidth * params.facadeDepth * 100) / 100;
+  
+  // Tabla / Konsol Çıkması (Cantilever)
+  const hasCantilever = !!params.hasCantilever;
+  const cantileverDepth = params.cantileverDepth || 1.2;
+  let upperFloorGrossArea = footprintArea;
+  if (hasCantilever && cantileverDepth > 0) {
+    if (params.cantileverDirection === 'all') {
+      upperFloorGrossArea = (params.facadeWidth + 2 * cantileverDepth) * (params.facadeDepth + 2 * cantileverDepth);
+    } else if (params.cantileverDirection === 'front') {
+      upperFloorGrossArea = params.facadeWidth * (params.facadeDepth + cantileverDepth);
+    } else {
+      // front_back
+      upperFloorGrossArea = params.facadeWidth * (params.facadeDepth + 2 * cantileverDepth);
+    }
+    upperFloorGrossArea = Math.round(upperFloorGrossArea * 100) / 100;
+  }
+  const cantileverArea = Math.round(Math.max(0, upperFloorGrossArea - footprintArea) * 100) / 100;
+
+  const upperFloorsCount = Math.max(0, params.floorCount - 1);
+  const basementFloorsCount = params.basementCount || 0;
+  const duplexAtticArea =
+    params.roofType === 'duplex'
+      ? Math.round(upperFloorGrossArea * 0.65 * 100) / 100
+      : params.roofType === 'mansard'
+      ? Math.round(upperFloorGrossArea * 0.5 * 100) / 100
+      : 0;
+
+  // Ground floor + basement floors + upper floors (with cantilever) + duplex attic
+  const totalBuiltArea = Math.round(
+    (footprintArea * (1 + basementFloorsCount) + upperFloorGrossArea * upperFloorsCount + duplexAtticArea) * 100
+  ) / 100;
 
   const roofHeightAdd =
     params.roofType === 'mansard'
@@ -70,30 +102,36 @@ export function calculateBuildingMetrics(params: BuildingModelParams): BuildingM
       : 0.9;
   const hasShop = !!params.hasGroundFloorShop;
   const groundHeight = hasShop ? (params.shopHeight || 3.8) : params.floorHeight;
-  const totalHeight = Math.round(((params.floorCount > 1 ? (params.floorCount - 1) * params.floorHeight + groundHeight : groundHeight) + roofHeightAdd) * 10) / 10;
+  const totalHeight = Math.round(
+    ((params.floorCount > 1 ? (params.floorCount - 1) * params.floorHeight + groundHeight : groundHeight) + roofHeightAdd) * 100
+  ) / 100;
+
   const residentialFloors = hasShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
   const totalFlats = residentialFloors * params.flatsPerFloor;
 
-  const stairTotalArea = Math.round(params.stairWidth * params.stairDepth * 10) / 10;
-  const elevatorTotalArea = Math.round(params.elevatorWidth * params.elevatorDepth * params.elevatorCount * 10) / 10;
-  const coreHallArea = Math.round(params.stairWidth * 2.0 * 10) / 10; // Kat koridoru
-  const coreArea = Math.round((stairTotalArea + elevatorTotalArea + coreHallArea) * 10) / 10;
+  const stairTotalArea = Math.round(params.stairWidth * params.stairDepth * 100) / 100;
+  const elevatorTotalArea = Math.round(params.elevatorWidth * params.elevatorDepth * params.elevatorCount * 100) / 100;
+  const coreHallArea = Math.round(params.stairWidth * 2.0 * 100) / 100; // Kat koridoru
+  const coreArea = Math.round((stairTotalArea + elevatorTotalArea + coreHallArea) * 100) / 100;
 
-  // Dış duvar payı ~%8
-  const wallLoss = footprintArea * 0.08;
-  const residentialAreaOnFloor = Math.max(20, footprintArea - coreArea - wallLoss);
+  // Normal kat bazında alan
+  const activeGross = hasCantilever ? upperFloorGrossArea : footprintArea;
+  const wallLoss = Math.round(activeGross * 0.08 * 100) / 100;
+  const residentialAreaOnFloor = Math.max(20, Math.round((activeGross - coreArea - wallLoss) * 100) / 100);
 
-  const flatNetArea = Math.round((residentialAreaOnFloor / params.flatsPerFloor) * 10) / 10;
-  const flatGrossArea = Math.round((footprintArea / params.flatsPerFloor) * 10) / 10;
-  const balconyTotalArea = Math.round(params.balconyDepth * 3.5 * 10) / 10;
+  const flatNetArea = Math.round((residentialAreaOnFloor / params.flatsPerFloor) * 100) / 100;
+  const flatGrossArea = Math.round((activeGross / params.flatsPerFloor) * 100) / 100;
+  const balconyTotalArea = Math.round(params.balconyDepth * 3.5 * 100) / 100;
 
   return {
     footprintArea,
+    upperFloorGrossArea,
+    cantileverArea,
     totalBuiltArea,
     totalHeight,
     totalFlats,
     coreArea,
-    floorGrossArea: footprintArea,
+    floorGrossArea: activeGross,
     flatGrossArea,
     flatNetArea,
     stairTotalArea,
@@ -789,6 +827,306 @@ export function getFloorFlatLayouts(
         yPercent: 53,
       },
       rooms: quadRoomsRR,
+    },
+  ];
+}
+
+export function getShopFloorLayout(
+  params: BuildingModelParams,
+  metrics: BuildingMetrics
+): FlatLayout[] {
+  const footprint = metrics.footprintArea;
+  const coreArea = metrics.coreArea;
+  const netShopTotal = Math.max(30, Math.round((footprint - coreArea - footprint * 0.08) * 100) / 100);
+  const shopCount = Math.max(1, Math.min(4, params.shopCount || 1));
+
+  if (shopCount === 1) {
+    return [
+      {
+        id: 'shop-1',
+        name: 'Zemin Ticari Mağaza / Dükkan',
+        flatNumber: 1,
+        netArea: netShopTotal,
+        grossArea: footprint,
+        bounds: {
+          xPercent: 2,
+          yPercent: 2,
+          widthPercent: 96,
+          depthPercent: 96,
+        },
+        entranceDoor: {
+          xPercent: 50,
+          yPercent: 98, // Front street facade
+        },
+        rooms: [
+          {
+            id: 'vitrin_showroom',
+            name: 'Ön Cephe Vitrini & Karşılama',
+            type: 'salon',
+            areaM2: Math.round(netShopTotal * 0.28 * 100) / 100,
+            widthM: Math.round(params.facadeWidth * 0.9 * 10) / 10,
+            depthM: 3.5,
+            xPercent: 4,
+            yPercent: 68,
+            widthPercent: 92,
+            depthPercent: 28,
+          },
+          {
+            id: 'ana_satis',
+            name: 'Ana Teşhir & Perakende Alanı',
+            type: 'room',
+            areaM2: Math.round(netShopTotal * 0.44 * 100) / 100,
+            widthM: Math.round(params.facadeWidth * 0.5 * 10) / 10,
+            depthM: 6.0,
+            xPercent: 4,
+            yPercent: 8,
+            widthPercent: 42,
+            depthPercent: 56,
+          },
+          {
+            id: 'ofis_kasa',
+            name: 'Yönetici Ofisi / Kasa Noktası',
+            type: 'room',
+            areaM2: Math.round(netShopTotal * 0.14 * 100) / 100,
+            widthM: 3.8,
+            depthM: 3.5,
+            xPercent: 54,
+            yPercent: 8,
+            widthPercent: 42,
+            depthPercent: 26,
+          },
+          {
+            id: 'depo_mal_kabul',
+            name: 'Arka Depo & Mal Kabul',
+            type: 'hall',
+            areaM2: Math.round(netShopTotal * 0.08 * 100) / 100,
+            widthM: 3.0,
+            depthM: 2.5,
+            xPercent: 54,
+            yPercent: 38,
+            widthPercent: 26,
+            depthPercent: 26,
+          },
+          {
+            id: 'shop_wc',
+            name: 'Personel WC & Lavabo',
+            type: 'bath',
+            areaM2: Math.round(netShopTotal * 0.06 * 100) / 100,
+            widthM: 1.8,
+            depthM: 2.0,
+            xPercent: 82,
+            yPercent: 38,
+            widthPercent: 14,
+            depthPercent: 26,
+          },
+        ],
+      },
+    ];
+  }
+
+  // 2 Shops
+  const shopNet = Math.round((netShopTotal / 2) * 100) / 100;
+  return [
+    {
+      id: 'shop-1',
+      name: 'Dükkan 1 (Sol Cephe)',
+      flatNumber: 1,
+      netArea: shopNet,
+      grossArea: Math.round((footprint / 2) * 100) / 100,
+      bounds: {
+        xPercent: 2,
+        yPercent: 2,
+        widthPercent: 46.5,
+        depthPercent: 96,
+      },
+      entranceDoor: {
+        xPercent: 25,
+        yPercent: 98,
+      },
+      rooms: [
+        {
+          id: 'vitrin_1',
+          name: 'Vitrin & Ön Satış Alanı',
+          type: 'salon',
+          areaM2: Math.round(shopNet * 0.45 * 100) / 100,
+          widthM: 5.5,
+          depthM: 4.2,
+          xPercent: 4,
+          yPercent: 50,
+          widthPercent: 92,
+          depthPercent: 46,
+        },
+        {
+          id: 'satis_1',
+          name: 'Mağaza Teşhir Bölümü',
+          type: 'room',
+          areaM2: Math.round(shopNet * 0.35 * 100) / 100,
+          widthM: 5.5,
+          depthM: 4.0,
+          xPercent: 4,
+          yPercent: 6,
+          widthPercent: 92,
+          depthPercent: 40,
+        },
+        {
+          id: 'wc_1',
+          name: 'Ofis & WC',
+          type: 'bath',
+          areaM2: Math.round(shopNet * 0.20 * 100) / 100,
+          widthM: 2.2,
+          depthM: 2.5,
+          xPercent: 55,
+          yPercent: 6,
+          widthPercent: 41,
+          depthPercent: 24,
+        },
+      ],
+    },
+    {
+      id: 'shop-2',
+      name: 'Dükkan 2 (Sağ Cephe)',
+      flatNumber: 2,
+      netArea: shopNet,
+      grossArea: Math.round((footprint / 2) * 100) / 100,
+      bounds: {
+        xPercent: 51.5,
+        yPercent: 2,
+        widthPercent: 46.5,
+        depthPercent: 96,
+      },
+      entranceDoor: {
+        xPercent: 75,
+        yPercent: 98,
+      },
+      rooms: [
+        {
+          id: 'vitrin_2',
+          name: 'Vitrin & Ön Satış Alanı',
+          type: 'salon',
+          areaM2: Math.round(shopNet * 0.45 * 100) / 100,
+          widthM: 5.5,
+          depthM: 4.2,
+          xPercent: 4,
+          yPercent: 50,
+          widthPercent: 92,
+          depthPercent: 46,
+        },
+        {
+          id: 'satis_2',
+          name: 'Mağaza Teşhir Bölümü',
+          type: 'room',
+          areaM2: Math.round(shopNet * 0.35 * 100) / 100,
+          widthM: 5.5,
+          depthM: 4.0,
+          xPercent: 4,
+          yPercent: 6,
+          widthPercent: 92,
+          depthPercent: 40,
+        },
+        {
+          id: 'wc_2',
+          name: 'Ofis & WC',
+          type: 'bath',
+          areaM2: Math.round(shopNet * 0.20 * 100) / 100,
+          widthM: 2.2,
+          depthM: 2.5,
+          xPercent: 4,
+          yPercent: 6,
+          widthPercent: 41,
+          depthPercent: 24,
+        },
+      ],
+    },
+  ];
+}
+
+export function getBasementFloorLayout(
+  params: BuildingModelParams,
+  metrics: BuildingMetrics
+): FlatLayout[] {
+  const footprint = metrics.footprintArea;
+  const coreArea = metrics.coreArea;
+  const netBasement = Math.max(30, Math.round((footprint - coreArea - footprint * 0.08) * 100) / 100);
+
+  return [
+    {
+      id: 'basement-communal',
+      name: 'Bodrum Kat Ortak Alan & Hizmet Birimleri',
+      flatNumber: 0,
+      netArea: netBasement,
+      grossArea: footprint,
+      bounds: {
+        xPercent: 2,
+        yPercent: 2,
+        widthPercent: 96,
+        depthPercent: 96,
+      },
+      entranceDoor: {
+        xPercent: 50,
+        yPercent: 50,
+      },
+      rooms: [
+        {
+          id: 'otopark',
+          name: 'Kapalı Otopark & Manevra Alanı',
+          type: 'salon',
+          areaM2: Math.round(netBasement * 0.48 * 100) / 100,
+          widthM: Math.round(params.facadeWidth * 0.9 * 10) / 10,
+          depthM: 6.5,
+          xPercent: 4,
+          yPercent: 52,
+          widthPercent: 92,
+          depthPercent: 44,
+        },
+        {
+          id: 'siginak',
+          name: 'Afet Sığınağı (Mevzuata Uygun)',
+          type: 'room',
+          areaM2: Math.round(netBasement * 0.22 * 100) / 100,
+          widthM: 4.8,
+          depthM: 4.5,
+          xPercent: 4,
+          yPercent: 6,
+          widthPercent: 42,
+          depthPercent: 42,
+        },
+        {
+          id: 'su_deposu',
+          name: 'Yangın & Kullanım Suyu Deposu',
+          type: 'hall',
+          areaM2: Math.round(netBasement * 0.12 * 100) / 100,
+          widthM: 3.2,
+          depthM: 2.8,
+          xPercent: 54,
+          yPercent: 6,
+          widthPercent: 22,
+          depthPercent: 42,
+        },
+        {
+          id: 'jenerator_pano',
+          name: 'Trafo, Pano & Jeneratör Odası',
+          type: 'bath',
+          areaM2: Math.round(netBasement * 0.10 * 100) / 100,
+          widthM: 2.8,
+          depthM: 2.8,
+          xPercent: 78,
+          yPercent: 6,
+          widthPercent: 18,
+          depthPercent: 20,
+        },
+        {
+          id: 'bina_depo',
+          name: 'Bina Sakinleri Eklenti Deposu',
+          type: 'hall',
+          areaM2: Math.round(netBasement * 0.08 * 100) / 100,
+          widthM: 2.8,
+          depthM: 2.2,
+          xPercent: 78,
+          yPercent: 28,
+          widthPercent: 18,
+          depthPercent: 20,
+        },
+      ],
     },
   ];
 }

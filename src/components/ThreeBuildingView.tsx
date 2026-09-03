@@ -137,6 +137,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       interiorCutMode = 'solid',
       showFurniture = true,
       flatsPerFloor = 2,
+      hasGroundFloorShop = false,
+      shopCount = 1,
+      shopHeight = 3.8,
+      hasCantilever = false,
+      cantileverDepth = 1.2,
+      cantileverDirection = 'front_back',
     } = params;
 
     const isXRay = interiorCutMode === 'xray';
@@ -268,15 +274,63 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       wireframe: isWireframe,
     });
 
+    // Commercial Shop Materials
+    const commercialFloorMat = new THREE.MeshStandardMaterial({
+      color: 0x334155, // Polished slate grey terrazzo
+      roughness: 0.25,
+      metalness: 0.1,
+    });
+    const shopSignFasciaMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a, // Dark anthracite fascia band
+      roughness: 0.3,
+      metalness: 0.4,
+    });
+    const shopSignGlowMat = new THREE.MeshBasicMaterial({
+      color: 0x60a5fa, // Illuminated LED blue-white sign
+    });
+    const shopCounterMat = new THREE.MeshStandardMaterial({
+      color: 0x475569, // Modern commercial retail desk
+      roughness: 0.3,
+      metalness: 0.2,
+    });
+    const shopSpotlightMat = new THREE.MeshBasicMaterial({
+      color: 0xfef08a, // Warm yellow ceiling spot
+    });
+    const soffitMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1e293b, // Dark composite soffit under cantilever
+      roughness: 0.4,
+      metalness: 0.2,
+    });
+    const downlightMat = new THREE.MeshBasicMaterial({
+      color: 0xfef3c7, // Warm white downlight
+    });
+
     // Floor thickness
     const slabThickness = 0.25;
     const colSize = 0.45;
     const totalFloors = N + B;
 
+    // Pre-calculate floor heights and base Y positions to support taller ground floor shop
+    const floorHeights: number[] = [];
+    const floorBaseYs: number[] = [];
+    let cumulativeY = 0;
+
+    for (let f = 0; f < totalFloors; f++) {
+      const isBasement = f < B;
+      const floorIndex = f - B;
+      const isShop = !isBasement && floorIndex === 0 && hasGroundFloorShop;
+      const fh = isShop ? shopHeight : H;
+      floorHeights.push(fh);
+      floorBaseYs.push(cumulativeY + f * (explodeRatio * 4.5));
+      cumulativeY += fh;
+    }
+
     for (let f = 0; f < totalFloors; f++) {
       const isBasement = f < B;
       const floorIndex = f - B; // 0 = Ground floor, 1 = 1st floor...
+      const isShopFloor = !isBasement && floorIndex === 0 && hasGroundFloorShop;
       const isTopFloor = f === totalFloors - 1;
+      const currentFloorH = floorHeights[f];
       const isVisible =
         selectedFloor === 'all' ||
         (selectedFloor === 'basement' && isBasement) ||
@@ -288,32 +342,72 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       floorGroup.name = `Floor_${floorIndex}`;
 
       // Calculate base Y position with explosion factor
-      const explodeOffset = f * (explodeRatio * 4.5);
-      const baseY = f * H + explodeOffset;
+      const baseY = floorBaseYs[f];
+
+      // Determine floor dimensions accounting for cantilevers on upper floors
+      let floorW = W;
+      let floorD = D;
+      let floorCenterZ = 0;
+
+      const isCantileverFloor = !isBasement && floorIndex >= 1 && hasCantilever;
+      if (isCantileverFloor) {
+        if (cantileverDirection === 'front') {
+          floorD = D + cantileverDepth;
+          floorCenterZ = cantileverDepth / 2;
+        } else if (cantileverDirection === 'all') {
+          floorW = W + 2 * cantileverDepth;
+          floorD = D + 2 * cantileverDepth;
+          floorCenterZ = 0;
+        } else {
+          // 'front_back'
+          floorD = D + 2 * cantileverDepth;
+          floorCenterZ = 0;
+        }
+      }
 
       // 1. FLOOR SLAB (Döşeme Betonu)
-      const slabGeo = new THREE.BoxGeometry(W, slabThickness, D);
-      const slabMesh = new THREE.Mesh(slabGeo, slabMaterial);
-      slabMesh.position.set(0, baseY + slabThickness / 2, 0);
+      const slabGeo = new THREE.BoxGeometry(floorW, slabThickness, floorD);
+      const slabMesh = new THREE.Mesh(slabGeo, isShopFloor ? commercialFloorMat : slabMaterial);
+      slabMesh.position.set(0, baseY + slabThickness / 2, floorCenterZ);
       slabMesh.castShadow = true;
       slabMesh.receiveShadow = true;
       floorGroup.add(slabMesh);
 
+      // Under-slab Cantilever Soffit (Konsol Altı Kaplama) on 1st Floor
+      if (hasCantilever && floorIndex === 1) {
+        const soffitGeo = new THREE.BoxGeometry(floorW, 0.08, floorD);
+        const soffitMesh = new THREE.Mesh(soffitGeo, soffitMaterial);
+        soffitMesh.position.set(0, baseY - 0.04, floorCenterZ);
+        floorGroup.add(soffitMesh);
+
+        // Recessed downlights under cantilever overhang
+        const dlCount = Math.max(3, Math.floor(floorW / 2.5));
+        for (let d = 0; d < dlCount; d++) {
+          const dlX = -floorW / 2 + (floorW / (dlCount + 1)) * (d + 1);
+          const dlMesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.12, 0.12, 0.04, 12),
+            downlightMat
+          );
+          dlMesh.position.set(dlX, baseY - 0.07, floorD / 2 - 0.4);
+          floorGroup.add(dlMesh);
+        }
+      }
+
       // Ceiling slab if top floor (Hidden in cutaway mode so inside is visible!)
       if (isTopFloor && (!isCutaway || selectedFloor !== 'all')) {
         const topSlab = new THREE.Mesh(slabGeo, slabMaterial);
-        topSlab.position.set(0, baseY + H, 0);
+        topSlab.position.set(0, baseY + currentFloorH, floorCenterZ);
         topSlab.castShadow = true;
         floorGroup.add(topSlab);
       }
 
-      const roomHeight = H - slabThickness;
+      const roomHeight = currentFloorH - slabThickness;
       const midY = baseY + slabThickness + roomHeight / 2;
 
       // 2. COLUMNS (Taşıyıcı Kolonlar)
       const colGeo = new THREE.BoxGeometry(colSize, roomHeight, colSize);
-      const colXCoords = [-W / 2 + colSize / 2, 0, W / 2 - colSize / 2];
-      const colZCoords = [-D / 2 + colSize / 2, 0, D / 2 - colSize / 2];
+      const colXCoords = [-floorW / 2 + colSize / 2, 0, floorW / 2 - colSize / 2];
+      const colZCoords = [floorCenterZ - floorD / 2 + colSize / 2, floorCenterZ, floorCenterZ + floorD / 2 - colSize / 2];
 
       colXCoords.forEach((cx) => {
         colZCoords.forEach((cz) => {
@@ -370,7 +464,66 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       floorGroup.add(cabinMesh);
 
       // 4. INTERIOR ROOMS & PARTITION WALLS (İç Mekan & Bölmeler)
-      if (!isBasement) {
+      if (isShopFloor) {
+        // COMMERCIAL SHOP INTERIOR (ZEMİN KAT TİCARİ MAĞAZA / DÜKKAN İÇİ)
+        const shopFloorGeo = new THREE.BoxGeometry(floorW - 0.4, 0.02, floorD - 0.4);
+        const shopFloorMesh = new THREE.Mesh(shopFloorGeo, commercialFloorMat);
+        shopFloorMesh.position.set(0, baseY + slabThickness + 0.01, floorCenterZ);
+        floorGroup.add(shopFloorMesh);
+
+        // Commercial partition if shopCount > 1
+        if (shopCount > 1) {
+          const divThick = 0.2;
+          const divGeo = new THREE.BoxGeometry(divThick, roomHeight, floorD - 1.2);
+          const divMesh = new THREE.Mesh(divGeo, interiorWallMat);
+          divMesh.position.set(0, midY, floorCenterZ - 0.4);
+          divMesh.castShadow = true;
+          floorGroup.add(divMesh);
+        }
+
+        // Retail Checkout Counters / Reception Desks
+        const activeShops = Math.min(2, shopCount);
+        for (let s = 0; s < activeShops; s++) {
+          const sSign = activeShops === 1 ? 0 : s === 0 ? -1 : 1;
+          const deskX = sSign * (floorW * 0.28);
+          const deskZ = floorCenterZ - floorD * 0.15;
+
+          // Counter
+          const counterGeo = new THREE.BoxGeometry(2.4, 1.1, 0.9);
+          const counterMesh = new THREE.Mesh(counterGeo, shopCounterMat);
+          counterMesh.position.set(deskX, baseY + slabThickness + 0.55, deskZ);
+          counterMesh.castShadow = true;
+          floorGroup.add(counterMesh);
+
+          // POS display
+          const posGeo = new THREE.BoxGeometry(0.4, 0.35, 0.1);
+          const posMesh = new THREE.Mesh(posGeo, frameMaterial);
+          posMesh.position.set(deskX, baseY + slabThickness + 1.28, deskZ);
+          floorGroup.add(posMesh);
+
+          // Display Islands in Showroom
+          const islandGeo = new THREE.BoxGeometry(1.6, 0.8, 1.2);
+          const islandMesh = new THREE.Mesh(islandGeo, woodFurnitureMat);
+          islandMesh.position.set(deskX, baseY + slabThickness + 0.4, floorCenterZ + floorD * 0.12);
+          islandMesh.castShadow = true;
+          floorGroup.add(islandMesh);
+
+          // Ceiling Track Lighting
+          const trackGeo = new THREE.BoxGeometry(floorW * 0.35, 0.08, 0.08);
+          const trackMesh = new THREE.Mesh(trackGeo, frameMaterial);
+          trackMesh.position.set(deskX, baseY + currentFloorH - 0.2, floorCenterZ);
+          floorGroup.add(trackMesh);
+
+          for (let sp = -1; sp <= 1; sp++) {
+            const spotMesh = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.08, 0.12, 0.15, 8),
+              shopSpotlightMat
+            );
+            spotMesh.position.set(deskX + sp * 0.9, baseY + currentFloorH - 0.3, floorCenterZ);
+            floorGroup.add(spotMesh);
+          }
+        }
+      } else if (!isBasement) {
         const intWallThick = 0.12;
         const intWallH = roomHeight;
         const floorFinishY = baseY + slabThickness + 0.02;
@@ -709,22 +862,108 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       }
 
       // 6. EXTERIOR FAÇADE WALLS & WINDOWS
-      if (!isBasement) {
+      if (isShopFloor) {
+        // COMMERCIAL STOREFRONT FAÇADE (VİTRİN, TABELA BANDI VE GİRİŞ MARKİZİ)
+        const backWallThick = 0.25;
+        // Back Wall
+        const backWallGeo = new THREE.BoxGeometry(floorW, roomHeight, backWallThick);
+        const backWallMesh = new THREE.Mesh(backWallGeo, wallMaterial);
+        backWallMesh.position.set(0, midY, floorCenterZ - floorD / 2 + backWallThick / 2);
+        backWallMesh.castShadow = !isXRay;
+        floorGroup.add(backWallMesh);
+
+        // Side Walls
+        const sideWallGeo = new THREE.BoxGeometry(backWallThick, roomHeight, floorD);
+        const leftSide = new THREE.Mesh(sideWallGeo, wallMaterial);
+        leftSide.position.set(-floorW / 2 + backWallThick / 2, midY, floorCenterZ);
+        floorGroup.add(leftSide);
+
+        const rightSide = new THREE.Mesh(sideWallGeo, wallMaterial);
+        rightSide.position.set(floorW / 2 - backWallThick / 2, midY, floorCenterZ);
+        floorGroup.add(rightSide);
+
+        // FRONT STOREFRONT (VİTRİN VE TABELA BANDI)
+        const frontZ = floorCenterZ + floorD / 2;
+        const vitrineHeight = roomHeight - 0.75;
+        const fasciaHeight = 0.75;
+
+        // 1. Sleek Commercial Signage Fascia Band (Işıklı Tabela Bandı)
+        const fasciaGeo = new THREE.BoxGeometry(floorW + 0.1, fasciaHeight, 0.3);
+        const fasciaMesh = new THREE.Mesh(fasciaGeo, shopSignFasciaMat);
+        fasciaMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ);
+        fasciaMesh.castShadow = true;
+        floorGroup.add(fasciaMesh);
+
+        // Illuminated Signage Bar
+        const signBarGeo = new THREE.BoxGeometry(floorW * 0.7, 0.35, 0.08);
+        const signBarMesh = new THREE.Mesh(signBarGeo, shopSignGlowMat);
+        signBarMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ + 0.16);
+        floorGroup.add(signBarMesh);
+
+        // 2. Modern Steel & Glass Entrance Canopy (Giriş Saçağı / Markiz)
+        const canopyDepth = 1.1;
+        const canopyGeo = new THREE.BoxGeometry(floorW * 0.85, 0.1, canopyDepth);
+        const canopyMesh = new THREE.Mesh(canopyGeo, frameMaterial);
+        canopyMesh.position.set(0, baseY + slabThickness + vitrineHeight + 0.05, frontZ + canopyDepth / 2);
+        canopyMesh.castShadow = true;
+        floorGroup.add(canopyMesh);
+
+        // 3. Full Height Storefront Glass Panels (Geniş Alüminyum Vitrin Camları)
+        const glassVitrineGeo = new THREE.BoxGeometry(floorW - 0.6, vitrineHeight, 0.08);
+        const glassVitrineMesh = new THREE.Mesh(glassVitrineGeo, glassMaterial);
+        glassVitrineMesh.position.set(0, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
+        floorGroup.add(glassVitrineMesh);
+
+        // Storefront Vertical Aluminum Mullions
+        const mullionCount = Math.max(4, Math.floor(floorW / 2));
+        for (let m = 0; m <= mullionCount; m++) {
+          const mx = -(floorW - 0.6) / 2 + ((floorW - 0.6) / mullionCount) * m;
+          const mulGeo = new THREE.BoxGeometry(0.08, vitrineHeight, 0.12);
+          const mulMesh = new THREE.Mesh(mulGeo, frameMaterial);
+          mulMesh.position.set(mx, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
+          floorGroup.add(mulMesh);
+        }
+
+        // Commercial Entrance Glass Doors with Stainless Handles
+        const doorW = 1.8;
+        const doorH = Math.min(2.4, vitrineHeight - 0.2);
+        const doorFrameGeo = new THREE.BoxGeometry(doorW, doorH, 0.14);
+        const doorFrameMesh = new THREE.Mesh(doorFrameGeo, frameMaterial);
+        doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, frontZ - 0.02);
+        floorGroup.add(doorFrameMesh);
+
+        const doorGlass = new THREE.Mesh(
+          new THREE.BoxGeometry(doorW - 0.15, doorH - 0.15, 0.06),
+          glassMaterial
+        );
+        doorGlass.position.copy(doorFrameMesh.position);
+        floorGroup.add(doorGlass);
+
+        // Vertical steel handles
+        for (const hSide of [-0.15, 0.15]) {
+          const handle = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.025, 0.025, 0.9, 8),
+            new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
+          );
+          handle.position.set(hSide, baseY + slabThickness + 1.1, frontZ + 0.1);
+          floorGroup.add(handle);
+        }
+      } else if (!isBasement) {
         const wallThick = 0.22;
         const winWidth = 1.8;
         const winHeight = 1.6;
         const winSill = 0.85;
 
         // Front Wall (Z = D/2)
-        const frontWallZ = D / 2 - wallThick / 2;
+        const frontWallZ = floorCenterZ + floorD / 2 - wallThick / 2;
         const currentMat = f % 2 === 0 ? woodMaterial : wallMaterial;
 
         // Front piers / wall panels
-        const panelWidth = (W - 3 * winWidth) / 4;
+        const panelWidth = (floorW - 3 * winWidth) / 4;
         for (let p = 0; p < 4; p++) {
           const pGeo = new THREE.BoxGeometry(panelWidth, roomHeight, wallThick);
           const pMesh = new THREE.Mesh(pGeo, currentMat);
-          const px = -W / 2 + panelWidth / 2 + p * (panelWidth + winWidth);
+          const px = -floorW / 2 + panelWidth / 2 + p * (panelWidth + winWidth);
           pMesh.position.set(px, midY, frontWallZ);
           pMesh.castShadow = !isXRay;
           pMesh.receiveShadow = true;
@@ -773,31 +1012,31 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         }
 
         // Back Wall (Z = -D/2)
-        const backWallZ = -D / 2 + wallThick / 2;
-        const backWallGeo = new THREE.BoxGeometry(W, roomHeight, wallThick);
+        const backWallZ = floorCenterZ - floorD / 2 + wallThick / 2;
+        const backWallGeo = new THREE.BoxGeometry(floorW, roomHeight, wallThick);
         const backWallMesh = new THREE.Mesh(backWallGeo, wallMaterial);
         backWallMesh.position.set(0, midY, backWallZ);
         backWallMesh.castShadow = !isXRay;
         floorGroup.add(backWallMesh);
 
-        // Side Walls (Left X = -W/2, Right X = W/2)
-        const sideWallGeo = new THREE.BoxGeometry(wallThick, roomHeight, D);
+        // Side Walls (Left X = -floorW/2, Right X = floorW/2)
+        const sideWallGeo = new THREE.BoxGeometry(wallThick, roomHeight, floorD);
         const leftSide = new THREE.Mesh(sideWallGeo, wallMaterial);
-        leftSide.position.set(-W / 2 + wallThick / 2, midY, 0);
+        leftSide.position.set(-floorW / 2 + wallThick / 2, midY, floorCenterZ);
         leftSide.castShadow = !isXRay;
         floorGroup.add(leftSide);
 
         const rightSide = new THREE.Mesh(sideWallGeo, wallMaterial);
-        rightSide.position.set(W / 2 - wallThick / 2, midY, 0);
+        rightSide.position.set(floorW / 2 - wallThick / 2, midY, floorCenterZ);
         rightSide.castShadow = !isXRay;
         floorGroup.add(rightSide);
 
         // 7. BALCONY (Balkon Çıkması) on normal floors
         if (bD > 0.3 && floorIndex > 0) {
-          const balcWidth = W * 0.38;
+          const balcWidth = floorW * 0.38;
           const balcSlabGeo = new THREE.BoxGeometry(balcWidth, 0.2, bD);
           const balcSlab = new THREE.Mesh(balcSlabGeo, slabMaterial);
-          balcSlab.position.set(-W / 4, baseY + 0.1, D / 2 + bD / 2);
+          balcSlab.position.set(-floorW / 4, baseY + 0.1, floorCenterZ + floorD / 2 + bD / 2);
           balcSlab.castShadow = true;
           floorGroup.add(balcSlab);
 
@@ -805,13 +1044,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const railHeight = 1.05;
           const glassRailGeo = new THREE.BoxGeometry(balcWidth, railHeight, 0.05);
           const glassRail = new THREE.Mesh(glassRailGeo, glassMaterial);
-          glassRail.position.set(-W / 4, baseY + 0.2 + railHeight / 2, D / 2 + bD);
+          glassRail.position.set(-floorW / 4, baseY + 0.2 + railHeight / 2, floorCenterZ + floorD / 2 + bD);
           floorGroup.add(glassRail);
 
           // Top railing handrail
           const handrailGeo = new THREE.BoxGeometry(balcWidth + 0.04, 0.06, 0.08);
           const handrail = new THREE.Mesh(handrailGeo, frameMaterial);
-          handrail.position.set(-W / 4, baseY + 0.2 + railHeight, D / 2 + bD);
+          handrail.position.set(-floorW / 4, baseY + 0.2 + railHeight, floorCenterZ + floorD / 2 + bD);
           floorGroup.add(handrail);
         }
       } else {
@@ -833,7 +1072,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     // (Only render roof if not isolated to a lower floor or cutaway)
     const shouldRenderRoof = selectedFloor === 'all' || selectedFloor === N - 1;
     if (shouldRenderRoof && !isCutaway) {
-      const topFloorY = totalFloors * H + totalFloors * (explodeRatio * 4.5);
+      const topFloorY = floorBaseYs[totalFloors - 1] + floorHeights[totalFloors - 1];
       const roofGroup = new THREE.Group();
 
       if (roofType === 'gable') {
@@ -1503,7 +1742,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             {Array.from({ length: params.floorCount }).map((_, i) => (
               <option key={i} value={i}>
                 {i === 0
-                  ? 'Zemin Kat'
+                  ? params.hasGroundFloorShop
+                    ? 'Zemin Kat (Dükkan / Mağaza)'
+                    : 'Zemin Kat (Giriş / Daireler)'
+                  : i === 1 && params.hasCantilever
+                  ? '1. Kat (Çıkmalı Normal Kat)'
                   : i === params.floorCount - 1 && params.roofType === 'duplex'
                   ? `${i}. Kat (Dubleks Alt Kat)`
                   : `${i}. Normal Kat`}

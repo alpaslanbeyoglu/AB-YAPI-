@@ -258,28 +258,28 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className={`border rounded-3xl p-4 text-center ${cardBg}`}>
           <span className={`text-[11px] font-medium block mb-1 ${textMuted}`}>Taban Alanı</span>
-          <span className={`text-xl font-bold font-mono ${textTitle}`}>{metrics.footprintArea}</span>
+          <span className={`text-xl font-bold font-mono ${textTitle}`}>{metrics.footprintArea.toFixed(2)}</span>
           <span className={`text-xs ml-1 ${textMuted}`}>m²</span>
         </div>
 
         <div className={`border rounded-3xl p-4 text-center ${cardBg}`}>
           <span className={`text-[11px] font-medium block mb-1 ${textMuted}`}>Toplam İnşaat Alanı</span>
           <span className="text-xl font-bold text-indigo-600 font-mono">
-            {metrics.totalBuiltArea}
+            {metrics.totalBuiltArea.toFixed(2)}
           </span>
           <span className={`text-xs ml-1 ${textMuted}`}>m²</span>
         </div>
 
         <div className={`border rounded-3xl p-4 text-center ${cardBg}`}>
           <span className={`text-[11px] font-medium block mb-1 ${textMuted}`}>Bina Yüksekliği (H)</span>
-          <span className={`text-xl font-bold font-mono ${textTitle}`}>{metrics.totalHeight}</span>
+          <span className={`text-xl font-bold font-mono ${textTitle}`}>{metrics.totalHeight.toFixed(2)}</span>
           <span className={`text-xs ml-1 ${textMuted}`}>m</span>
         </div>
 
         <div className={`border rounded-3xl p-4 text-center ${cardBg}`}>
           <span className={`text-[11px] font-medium block mb-1 ${textMuted}`}>Daire Net Alanı</span>
           <span className="text-xl font-bold text-emerald-600 font-mono">
-            ~{metrics.flatNetArea}
+            ~{metrics.flatNetArea.toFixed(2)}
           </span>
           <span className={`text-xs ml-1 ${textMuted}`}>m²</span>
         </div>
@@ -287,7 +287,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         <div className={`border rounded-3xl p-4 text-center col-span-2 sm:col-span-1 ${cardBg}`}>
           <span className={`text-[11px] font-medium block mb-1 ${textMuted}`}>Merdiven & Asansör</span>
           <span className="text-xl font-bold text-amber-600 font-mono">
-            {metrics.coreArea}
+            {metrics.coreArea.toFixed(2)}
           </span>
           <span className={`text-xs ml-1 ${textMuted}`}>m²</span>
         </div>

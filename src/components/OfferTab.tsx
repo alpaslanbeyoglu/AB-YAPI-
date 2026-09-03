@@ -143,8 +143,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             <span className="text-indigo-700 font-bold">{params.projectAddress}</span>
           </p>
           <p>
-            <strong className="text-slate-700">Bina Oturumu:</strong> {results.baseArea} m² |{' '}
-            <strong className="text-slate-700">Toplam İnşaat Alanı:</strong> {results.totalArea} m² |{' '}
+            <strong className="text-slate-700">Bina Oturumu:</strong>{' '}
+            {results.baseArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m² |{' '}
+            <strong className="text-slate-700">Toplam İnşaat Alanı:</strong>{' '}
+            {results.totalArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m² |{' '}
             <strong className="text-slate-700">Daire Sayısı:</strong> {results.flatCount} Adet
           </p>
           <p>
@@ -231,7 +233,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 <th className="p-3 border-b border-slate-200 font-semibold">1. Aşama (%{params.stage1Pay})</th>
                 <th className="p-3 border-b border-slate-200 font-semibold">2. Aşama (%{params.stage2Pay})</th>
                 <th className="p-3 border-b border-slate-200 font-semibold">3. Aşama (%{params.stage3Pay})</th>
-                <th className="p-3 border-b border-slate-200 font-semibold">4. Aşama (%{params.stage4Pay} + Destek)</th>
+                <th className="p-3 border-b border-slate-200 font-semibold">4. Aşama (%{params.stage4Pay})</th>
                 <th className="p-3 border-b border-slate-200 font-semibold">5. Aşama (%{params.stage5Pay})</th>
                 <th className="p-3 border-b border-slate-200 font-semibold">Toplam Borç</th>
               </tr>

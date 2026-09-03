@@ -29,6 +29,11 @@ export interface ProjectParams {
   shopCount?: number;
   shopHeight?: number;
 
+  // Çıkma / Tabla Konsolu (1. kattan sonra tabla çıkması)
+  hasCantilever?: boolean;
+  cantileverDepth?: number;
+  cantileverDirection?: 'front_back' | 'front' | 'all';
+
   // Cost items
   costNotaryContract: number;
   costCompany: number;
@@ -174,4 +179,8 @@ export interface BuildingModelParams {
   hasGroundFloorShop?: boolean;
   shopCount?: number;
   shopHeight?: number;
+  // Çıkma / Tabla Konsolu (1. kattan itibaren konsol çıkması)
+  hasCantilever?: boolean;
+  cantileverDepth?: number;
+  cantileverDirection?: 'front_back' | 'front' | 'all';
 }

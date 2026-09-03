@@ -59,7 +59,7 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult)
   <div class="box">
     <h4>📍 Yapı & Proje Genel Bilgileri</h4>
     <p><strong>Yapı Adresi:</strong> ${params.projectAddress}</p>
-    <p><strong>Bina Oturumu:</strong> ${res.baseArea} m² | <strong>Toplam İnşaat Alanı:</strong> ${res.totalArea} m² | <strong>Daire Sayısı:</strong> ${res.flatCount} Adet</p>
+    <p><strong>Bina Oturumu:</strong> ${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m² | <strong>Toplam İnşaat Alanı:</strong> ${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m² | <strong>Daire Sayısı:</strong> ${res.flatCount} Adet</p>
     <p><strong>Birim İmalat Fiyatı:</strong> ${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m² (${res.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²)</p>
     ${
       params.durationOption !== 'hide'
@@ -85,7 +85,7 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult)
         <th>1. Aşama (%${params.stage1Pay})</th>
         <th>2. Aşama (%${params.stage2Pay})</th>
         <th>3. Aşama (%${params.stage3Pay})</th>
-        <th>4. Aşama (%${params.stage4Pay} + Destek)</th>
+        <th>4. Aşama (%${params.stage4Pay})</th>
         <th>5. Aşama (%${params.stage5Pay})</th>
         <th>Toplam Borç</th>
       </tr>

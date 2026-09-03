@@ -20,6 +20,11 @@ export const DEFAULT_PARAMS: ProjectParams = {
   shopCount: 1,
   shopHeight: 3.80,
 
+  // Çıkma / Tabla Konsolu (1. Kattan sonra tabla çıkması)
+  hasCantilever: false,
+  cantileverDepth: 1.20,
+  cantileverDirection: 'front_back',
+
   // Cost items
   costNotaryContract: 35000,
   costCompany: 45000,
@@ -96,9 +101,31 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     stage3Pay,
     stage4Pay,
     stage5Pay,
+    hasCantilever,
+    cantileverDepth = 1.2,
+    cantileverDirection = 'front_back',
   } = params;
 
-  const totalArea = Math.max(1, baseBuildArea * floorCount);
+  // Calculate upper floor area if cantilever (tabla çıkması) is present
+  const upperFloorsCount = Math.max(0, floorCount - 1);
+  let upperFloorArea = baseBuildArea;
+  if (hasCantilever && cantileverDepth > 0) {
+    // Estimate facade width and depth based on typical aspect ratio
+    const estW = Math.sqrt(baseBuildArea / 1.2);
+    const estD = estW * 1.2;
+    if (cantileverDirection === 'all') {
+      upperFloorArea = (estW + 2 * cantileverDepth) * (estD + 2 * cantileverDepth);
+    } else if (cantileverDirection === 'front') {
+      upperFloorArea = estW * (estD + cantileverDepth);
+    } else {
+      // front_back (standard)
+      upperFloorArea = estW * (estD + 2 * cantileverDepth);
+    }
+    upperFloorArea = Math.round(upperFloorArea * 100) / 100;
+  }
+
+  const rawTotalArea = baseBuildArea + upperFloorsCount * upperFloorArea;
+  const totalArea = Math.round(Math.max(1, rawTotalArea) * 100) / 100;
 
   let kabaDaysPerFloor = 22;
   let inceDaysPerFloor = 28;
@@ -146,46 +173,54 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       flatCount * params.costSalesMarketing) *
     costMultiplier;
 
-  const concreteM3 = totalArea * 0.45;
-  const steelTon = totalArea * 0.04;
+  const concreteM3 = Math.round(totalArea * 0.45 * 100) / 100;
+  const steelTon = Math.round(totalArea * 0.04 * 100) / 100;
 
   const kabaTotalCost =
-    (concreteM3 * params.priceConcrete +
-      steelTon * params.priceSteel +
-      totalArea * params.costKabaWork) *
-    kabaTypeMult *
-    costMultiplier;
+    Math.round(
+      (concreteM3 * params.priceConcrete +
+        steelTon * params.priceSteel +
+        totalArea * params.costKabaWork) *
+      kabaTypeMult *
+      costMultiplier * 100
+    ) / 100;
 
   const systemsCost =
-    (params.costElevator +
-      flatCount * params.priceSmartHome +
-      params.costIntercom +
-      flatCount * params.priceGas) *
-    costMultiplier;
+    Math.round(
+      (params.costElevator +
+        flatCount * params.priceSmartHome +
+        params.costIntercom +
+        flatCount * params.priceGas) *
+      costMultiplier * 100
+    ) / 100;
 
   const finishingTotalCost =
-    (flatCount * params.pricePlumbing +
-      flatCount * params.priceElectric +
-      totalArea * 0.18 * params.pricePvc +
-      totalArea * params.priceTiles +
-      flatCount * params.priceKitchen +
-      flatCount * params.priceDoors +
-      totalArea * 2.8 * params.pricePaintPlaster) *
-    inceTypeMult *
-    costMultiplier;
+    Math.round(
+      (flatCount * params.pricePlumbing +
+        flatCount * params.priceElectric +
+        totalArea * 0.18 * params.pricePvc +
+        totalArea * params.priceTiles +
+        flatCount * params.priceKitchen +
+        flatCount * params.priceDoors +
+        totalArea * 2.8 * params.pricePaintPlaster) *
+      inceTypeMult *
+      costMultiplier * 100
+    ) / 100;
 
   const subTotalCost =
-    officialCost + sgkSalesCost + kabaTotalCost + systemsCost + finishingTotalCost;
-  const profitAmount = subTotalCost * (profitRate / 100);
-  const grandTotal = subTotalCost + profitAmount;
+    Math.round(
+      (officialCost + sgkSalesCost + kabaTotalCost + systemsCost + finishingTotalCost) * 100
+    ) / 100;
+  const profitAmount = Math.round(subTotalCost * (profitRate / 100) * 100) / 100;
+  const grandTotal = Math.round((subTotalCost + profitAmount) * 100) / 100;
 
-  const netCostPerSqM = subTotalCost / totalArea;
-  const grossCostPerSqM = grandTotal / totalArea;
+  const netCostPerSqM = Math.round((subTotalCost / totalArea) * 100) / 100;
+  const grossCostPerSqM = Math.round((grandTotal / totalArea) * 100) / 100;
   const baseCostPerSqM =
     includeProfitOwner === 'yes' ? grossCostPerSqM : netCostPerSqM;
 
-  const netUsdPerSqM = usdRate > 0 ? netCostPerSqM / usdRate : 0;
-  const grossUsdPerSqM = usdRate > 0 ? grossCostPerSqM / usdRate : 0;
+  const netUsdPerSqM = usdRate > 0 ? Math.round((netCostPerSqM / usdRate) * 100) / 100 : 0;
+  const grossUsdPerSqM = usdRate > 0 ? Math.round((grossCostPerSqM / usdRate) * 100) / 100 : 0;
 
   const s1 = stage1Pay / 100;
   const s2 = stage2Pay / 100;
@@ -220,11 +255,11 @@ export function calculateProject(params: ProjectParams): CalculationResult {
         ? 0
         : Math.max(0, remainingAfterDown - usedCredit);
 
-    const p1 = netRemainingDebt * s1;
-    const p2 = netRemainingDebt * s2;
-    const p3 = netRemainingDebt * s3;
-    const p4 = netRemainingDebt * s4 + usedCredit;
-    const p5 = netRemainingDebt * s5;
+    const p1 = Math.round(netRemainingDebt * s1 * 100) / 100;
+    const p2 = Math.round(netRemainingDebt * s2 * 100) / 100;
+    const p3 = Math.round(netRemainingDebt * s3 * 100) / 100;
+    const p4 = Math.round(netRemainingDebt * s4 * 100) / 100;
+    const p5 = Math.round(netRemainingDebt * s5 * 100) / 100;
 
     totalStageIncomes[0] += p1 + paid / 5;
     totalStageIncomes[1] += p2;
@@ -237,10 +272,10 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       name: flat.name,
       tc: flat.tc,
       area: flat.area,
-      grossPay,
+      grossPay: Math.round(grossPay * 100) / 100,
       downPayment: paid,
       usedCredit,
-      netRemainingDebt,
+      netRemainingDebt: Math.round(netRemainingDebt * 100) / 100,
       isContractorShare: projectModel === 'contractorShare' && !isOwner,
       stagePayments: [p1, p2, p3, p4, p5],
     });
