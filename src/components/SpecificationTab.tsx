@@ -249,8 +249,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
       <td>${results.flatCount} Adet</td>
     </tr>
     <tr>
-      <th>Daire Tipi (Oda + Salon)</th>
-      <td>${params.roomType || '3+1'} Konut Yapı Standardı</td>
+      <th>Daire Tipi (Oda + Salon Sayısı)</th>
+      <td>${params.roomType || '3+1'} (${params.roomType === '1+1' ? '1 Oda, 1 Salon' : params.roomType === '2+1' ? '2 Oda, 1 Salon' : params.roomType === '3+1' ? '3 Oda, 1 Salon' : params.roomType === '4+1' ? '4 Oda, 1 Salon' : params.roomType}) Konut Yapı Standardı</td>
     </tr>
     <tr>
       <th>Zemin Kat Dükkan Seçeneği</th>
@@ -807,8 +807,10 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   <p className="text-xs font-semibold text-slate-800">{results.flatCount} Daire</p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Daire Tipi (Oda + Salon)</span>
-                  <p className="text-xs font-semibold text-indigo-600 font-bold font-mono">{params.roomType || '3+1'}</p>
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Daire Tipi (Oda + Salon Sayısı)</span>
+                  <p className="text-xs font-semibold text-indigo-600 font-bold font-mono">
+                    {params.roomType || '3+1'} ({params.roomType === '1+1' ? '1 Oda, 1 Salon' : params.roomType === '2+1' ? '2 Oda, 1 Salon' : params.roomType === '3+1' ? '3 Oda, 1 Salon' : params.roomType === '4+1' ? '4 Oda, 1 Salon' : params.roomType})
+                  </p>
                 </div>
               </div>
             </div>

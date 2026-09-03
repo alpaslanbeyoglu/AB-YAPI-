@@ -146,10 +146,11 @@ const staleRenderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType:
 };
 
 // Helper to render front-elevation building schematic with CAD style dimensions
-const renderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType: string) => {
+const renderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType: string, baseBuildArea: number = 120) => {
   const N = floorCount || 5;
   const floorHeight = 22;
   const shopHeight = 32;
+  const estW = Math.sqrt(baseBuildArea / 1.2);
   
   const floors = [];
   let currentY = 190; // Bottom base ground line
@@ -279,7 +280,7 @@ const renderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType: stri
         {/* Tick Slashes */}
         <line x1="42" y1="208" x2="48" y2="202" />
         <line x1="172" y1="208" x2="178" y2="202" />
-        <text x="110" y="215" fill="#10b981" fontSize="6.5" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace">GENİŞLİK: 18.20 m</text>
+        <text x="110" y="215" fill="#10b981" fontSize="6.5" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace">GENİŞLİK: {estW.toFixed(2)} m</text>
 
         {/* Vertical Height Dimension at Right */}
         <line x1="195" y1={topY} x2="195" y2="190" />
@@ -300,7 +301,12 @@ const renderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType: stri
 };
 
 // Helper to render CAD style Ground Floor Plan
-const renderGroundFloorPlanSvg = (hasShop: boolean, roomType = '3+1', grossArea = 120, netArea = 96) => {
+const renderGroundFloorPlanSvg = (hasShop: boolean, roomType = '3+1', grossArea = 120, netArea = 96, baseBuildArea = 120) => {
+  const estW = Math.sqrt(baseBuildArea / 1.2);
+  const estD = estW * 1.2;
+  const shopGross = Math.round(((baseBuildArea * 0.85) / 2) * 10) / 10;
+  const shopNet = Math.round((shopGross * 0.8) * 10) / 10;
+
   return (
     <svg viewBox="0 0 220 220" className="w-full h-44 md:h-52 bg-[#090f1d] rounded-2xl border border-slate-800 shadow-inner">
       <defs>
@@ -353,14 +359,14 @@ const renderGroundFloorPlanSvg = (hasShop: boolean, roomType = '3+1', grossArea 
           {/* Shop 1 boundary on left */}
           <line x1="98" y1="45" x2="98" y2="175" strokeDasharray="3,3" />
           <text x="71" y="105" fill="#34d399" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold">DÜKKAN 01</text>
-          <text x="71" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~95 m²</text>
-          <text x="71" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~76 m²</text>
+          <text x="71" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~{shopGross} m²</text>
+          <text x="71" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~{shopNet} m²</text>
 
           {/* Shop 2 boundary on right */}
           <line x1="122" y1="45" x2="122" y2="175" strokeDasharray="3,3" />
           <text x="148" y="105" fill="#34d399" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold">DÜKKAN 02</text>
-          <text x="148" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~95 m²</text>
-          <text x="148" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~76 m²</text>
+          <text x="148" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~{shopGross} m²</text>
+          <text x="148" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~{shopNet} m²</text>
           
           <text x="110" y="58" fill="#10b981" fontSize="5" textAnchor="middle" stroke="none" fontWeight="bold">ORTAK HOL</text>
         </g>
@@ -395,7 +401,7 @@ const renderGroundFloorPlanSvg = (hasShop: boolean, roomType = '3+1', grossArea 
         <line x1="42" y1="26" x2="48" y2="20" stroke="#10b981" strokeWidth="0.8" />
         <line x1="172" y1="26" x2="178" y2="20" stroke="#10b981" strokeWidth="0.8" />
         {/* Dimension Text */}
-        <text x="110" y="16" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace">18.20 m</text>
+        <text x="110" y="16" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace">{estW.toFixed(2)} m</text>
 
         {/* Vertical dimension line on left */}
         <line x1="20" y1="45" x2="20" y2="175" stroke="#10b981" strokeWidth="0.8" />
@@ -406,7 +412,7 @@ const renderGroundFloorPlanSvg = (hasShop: boolean, roomType = '3+1', grossArea 
         <line x1="17" y1="48" x2="23" y2="42" stroke="#10b981" strokeWidth="0.8" />
         <line x1="17" y1="178" x2="23" y2="172" stroke="#10b981" strokeWidth="0.8" />
         {/* Dimension Text */}
-        <text x="12" y="113" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace" transform="rotate(-90, 12, 113)">15.50 m</text>
+        <text x="12" y="113" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace" transform="rotate(-90, 12, 113)">{estD.toFixed(2)} m</text>
       </g>
 
       <text x="110" y="202" fill="#38bdf8" fontSize="8" textAnchor="middle" stroke="none" fontWeight="bold" letterSpacing="1">
@@ -417,7 +423,10 @@ const renderGroundFloorPlanSvg = (hasShop: boolean, roomType = '3+1', grossArea 
 };
 
 // Helper to render CAD style Normal Floor Plan
-const renderNormalFloorPlanSvg = (roomType = '3+1', grossArea = 120, netArea = 96) => {
+const renderNormalFloorPlanSvg = (roomType = '3+1', grossArea = 120, netArea = 96, baseBuildArea = 120) => {
+  const estW = Math.sqrt(baseBuildArea / 1.2);
+  const estD = estW * 1.2;
+
   return (
     <svg viewBox="0 0 220 220" className="w-full h-44 md:h-52 bg-[#090f1d] rounded-2xl border border-slate-800 shadow-inner">
       <defs>
@@ -493,7 +502,7 @@ const renderNormalFloorPlanSvg = (roomType = '3+1', grossArea = 120, netArea = 9
         <line x1="42" y1="26" x2="48" y2="20" stroke="#10b981" strokeWidth="0.8" />
         <line x1="172" y1="26" x2="178" y2="20" stroke="#10b981" strokeWidth="0.8" />
         {/* Dimension Text */}
-        <text x="110" y="16" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace">18.20 m</text>
+        <text x="110" y="16" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace">{estW.toFixed(2)} m</text>
 
         {/* Vertical dimension line on left */}
         <line x1="20" y1="45" x2="20" y2="175" stroke="#10b981" strokeWidth="0.8" />
@@ -504,7 +513,7 @@ const renderNormalFloorPlanSvg = (roomType = '3+1', grossArea = 120, netArea = 9
         <line x1="17" y1="48" x2="23" y2="42" stroke="#10b981" strokeWidth="0.8" />
         <line x1="17" y1="178" x2="23" y2="172" stroke="#10b981" strokeWidth="0.8" />
         {/* Dimension Text */}
-        <text x="12" y="113" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace" transform="rotate(-90, 12, 113)">15.50 m</text>
+        <text x="12" y="113" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace" transform="rotate(-90, 12, 113)">{estD.toFixed(2)} m</text>
       </g>
 
       <text x="110" y="202" fill="#38bdf8" fontSize="8" textAnchor="middle" stroke="none" fontWeight="bold" letterSpacing="1">
@@ -523,6 +532,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [showDrawingsInReport, setShowDrawingsInReport] = useState(true);
 
   // Copy protection side effects and handlers
   React.useEffect(() => {
@@ -581,7 +591,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     setIsSaving(true);
     setSaveStatus(null);
     try {
-      const html = generateOfferHtml(params, results);
+       const html = generateOfferHtml(params, results, showDrawingsInReport);
       const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
       const fileName = `AB_YAPI_Teklif_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
       const res = await saveReportDocumentToDrive(
@@ -617,6 +627,18 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           <p className="text-xs text-slate-500 mt-0.5">
             Hak sahipleri borçlanma tablosu ve hakediş vadeleri ile hazır teklif belgesi
           </p>
+          <div className="mt-2.5 flex items-center gap-2">
+            <input
+              id="toggle-drawings-checkbox"
+              type="checkbox"
+              checked={showDrawingsInReport}
+              onChange={(e) => setShowDrawingsInReport(e.target.checked)}
+              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+            />
+            <label htmlFor="toggle-drawings-checkbox" className="text-xs font-medium text-slate-600 cursor-pointer select-none">
+              Şematik CAD Çizimlerini Çıktıda ve Raporlarda Göster
+            </label>
+          </div>
         </div>
         <div className="flex items-center gap-2.5">
           <button
@@ -774,10 +796,17 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         </div>
 
         {/* Dynamic Architectural Views Component */}
-        <div className="mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-200">
-          <h4 className="text-xs font-bold text-indigo-700 mb-4 uppercase tracking-wider flex items-center gap-2">
-            <Compass className="w-4 h-4" />
-            <span>📐 Dinamik Mimari Kütle Tasarımı & Şematik CAD Çizimleri</span>
+        <div className={`mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-200 ${!showDrawingsInReport ? 'print:hidden border-dashed border-slate-300 opacity-80' : ''}`}>
+          <h4 className="text-xs font-bold text-indigo-700 mb-4 uppercase tracking-wider flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <Compass className="w-4 h-4" />
+              <span>📐 Dinamik Mimari Kütle Tasarımı & Şematik CAD Çizimleri</span>
+            </span>
+            {!showDrawingsInReport && (
+              <span className="text-[10px] bg-amber-500/10 text-amber-700 border border-amber-500/25 px-2.5 py-0.5 rounded-full font-semibold print:hidden">
+                Çıktıda Gizlenecek
+              </span>
+            )}
           </h4>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -785,7 +814,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase text-center mb-1">
                 A. Ön Cephe Görünümü (Elevation)
               </span>
-              {renderFrontViewSvg(params.floorCount || 5, !!params.hasGroundFloorShop, params.roofType || 'gable')}
+              {renderFrontViewSvg(params.floorCount || 5, !!params.hasGroundFloorShop, params.roofType || 'gable', params.baseBuildArea)}
               <p className="text-[10px] text-slate-500 text-center italic mt-1">Dış ölçüler (Yükseklik/Genişlik) ve kat seviyeleri gösterilmiştir.</p>
             </div>
             
@@ -793,7 +822,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase text-center mb-1">
                 B. Zemin Kat Planı (Ground Floor)
               </span>
-              {renderGroundFloorPlanSvg(!!params.hasGroundFloorShop, `${params.roomType || '3+1'} ODA`, physicalGrossArea, physicalNetArea)}
+              {renderGroundFloorPlanSvg(!!params.hasGroundFloorShop, `${params.roomType || '3+1'} ODA`, physicalGrossArea, physicalNetArea, params.baseBuildArea)}
               <p className="text-[10px] text-slate-500 text-center italic mt-1">Daire ve bağımsız bölüm sınırları, asansör, merdiven ve dış ölçüleri içerir.</p>
             </div>
             
@@ -801,7 +830,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase text-center mb-1">
                 C. Normal Kat Planı (Normal Floor)
               </span>
-              {renderNormalFloorPlanSvg(`${params.roomType || '3+1'} ODA`, physicalGrossArea, physicalNetArea)}
+              {renderNormalFloorPlanSvg(`${params.roomType || '3+1'} ODA`, physicalGrossArea, physicalNetArea, params.baseBuildArea)}
               <p className="text-[10px] text-slate-500 text-center italic mt-1">Normal kat bağımsız bölüm sınırları, merdiven, asansör ve kat holünü gösterir.</p>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { ProjectParams, CalculationResult } from '../types';
 
-export function generateOfferHtml(params: ProjectParams, res: CalculationResult): string {
+export function generateOfferHtml(params: ProjectParams, res: CalculationResult, showDrawings: boolean = true): string {
   const supportText =
     params.transformationStatus === 'currentSupport'
       ? '2025/2026 Mevcut Model (875 Bin TL Hibe + 875 Bin TL Kredi)'
@@ -162,26 +162,27 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult)
     </div>
   </div>
 
+  ${showDrawings ? `
   <div style="margin-top: 25px; margin-bottom: 25px; page-break-inside: avoid;">
     <h3 style="border-bottom: 2px solid #1f7a7a; padding-bottom: 4px; color: #1f7a7a; text-transform: uppercase; font-size:14px; margin-bottom: 12px;">📐 Dinamik Mimari Kütle Tasarımı & Şematik CAD Çizimleri</h3>
     <div style="display: table; width: 100%; table-layout: fixed; border-spacing: 12px;">
       <div style="display: table-cell; background: #0b1329; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
         <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">A. Ön Cephe Görünümü (Elevation)</span>
-        ${generateFrontViewSvgString(params.floorCount || 5, !!params.hasGroundFloorShop, (params as any).roofType || 'gable')}
+        ${generateFrontViewSvgString(params.floorCount || 5, !!params.hasGroundFloorShop, (params as any).roofType || 'gable', params.baseBuildArea)}
         <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Dış ölçüler (Yükseklik/Genişlik) ve kat kotları</span>
       </div>
       <div style="display: table-cell; background: #060a13; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
         <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">B. Zemin Kat Planı (Ground Floor)</span>
-        ${generateGroundFloorPlanSvgString(!!params.hasGroundFloorShop, `${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep)}
+        ${generateGroundFloorPlanSvgString(!!params.hasGroundFloorShop, `${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep, params.baseBuildArea)}
         <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Bağımsız bölüm sınırları, asansör, merdiven, dış ölçüler</span>
       </div>
       <div style="display: table-cell; background: #060a13; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
         <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">C. Normal Kat Planı (Normal Floor)</span>
-        ${generateNormalFloorPlanSvgString(`${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep)}
+        ${generateNormalFloorPlanSvgString(`${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep, params.baseBuildArea)}
         <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Normal kat dairesel ve şematik sınırları, asansör, merdiven</span>
       </div>
     </div>
-  </div>
+  </div>` : ''}
 
   <h3>1. Hak Sahipleri Ödeme ve Borçlandırma Özeti</h3>
   <table>
@@ -298,10 +299,11 @@ export function generateContractHtml(params: ProjectParams, res: CalculationResu
 }
 
 // CAD SVG helpers for report exports
-function generateFrontViewSvgString(floorCount: number, hasShop: boolean, roofType: string): string {
+function generateFrontViewSvgString(floorCount: number, hasShop: boolean, roofType: string, baseBuildArea: number = 120): string {
   const N = floorCount || 5;
   const floorHeight = 22;
   const shopHeight = 32;
+  const estW = Math.sqrt(baseBuildArea / 1.2);
   
   const floors = [];
   let currentY = 190;
@@ -395,7 +397,7 @@ function generateFrontViewSvgString(floorCount: number, hasShop: boolean, roofTy
         <line x1="175" y1="190" x2="175" y2="210" stroke="#475569" stroke-width="0.5" />
         <line x1="42" y1="208" x2="48" y2="202" />
         <line x1="172" y1="208" x2="178" y2="202" />
-        <text x="110" y="215" fill="#10b981" font-size="6.5" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">GENİŞLİK: 18.20 m</text>
+        <text x="110" y="215" fill="#10b981" font-size="6.5" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">GENİŞLİK: \${estW.toFixed(2)} m</text>
 
         <line x1="195" y1="${topY}" x2="195" y2="190" />
         <line x1="175" y1="${topY}" x2="200" y2="${topY}" stroke="#475569" stroke-width="0.5" />
@@ -409,7 +411,12 @@ function generateFrontViewSvgString(floorCount: number, hasShop: boolean, roofTy
   `;
 }
 
-function generateGroundFloorPlanSvgString(hasShop: boolean, roomType = '3+1 ODA', grossArea = 120, netArea = 96): string {
+function generateGroundFloorPlanSvgString(hasShop: boolean, roomType = '3+1 ODA', grossArea = 120, netArea = 96, baseBuildArea = 120): string {
+  const estW = Math.sqrt(baseBuildArea / 1.2);
+  const estD = estW * 1.2;
+  const shopGross = Math.round(((baseBuildArea * 0.85) / 2) * 10) / 10;
+  const shopNet = Math.round((shopGross * 0.8) * 10) / 10;
+
   return `
     <svg viewBox="0 0 220 220" style="width:100%; max-height:220px; background:#060a13;">
       <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" stroke-width="1.5" />
@@ -444,13 +451,13 @@ function generateGroundFloorPlanSvgString(hasShop: boolean, roomType = '3+1 ODA'
         <g stroke="#34d399" stroke-width="1.2" fill="none">
           <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
           <text x="71" y="105" fill="#34d399" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 01</text>
-          <text x="71" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~95 m²</text>
-          <text x="71" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~76 m²</text>
+          <text x="71" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~\${shopGross} m²</text>
+          <text x="71" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\${shopNet} m²</text>
 
           <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" />
           <text x="148" y="105" fill="#34d399" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 02</text>
-          <text x="148" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~95 m²</text>
-          <text x="148" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~76 m²</text>
+          <text x="148" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~\${shopGross} m²</text>
+          <text x="148" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\${shopNet} m²</text>
           <text x="110" y="58" fill="#10b981" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">ORTAK HOL</text>
         </g>
       ` : `
@@ -476,21 +483,24 @@ function generateGroundFloorPlanSvgString(hasShop: boolean, roomType = '3+1 ODA'
         <line x1="175" y1="45" x2="175" y2="18" stroke="#475569" stroke-width="0.5" />
         <line x1="42" y1="26" x2="48" y2="20" stroke="#10b981" stroke-width="0.8" />
         <line x1="172" y1="26" x2="178" y2="20" stroke="#10b981" stroke-width="0.8" />
-        <text x="110" y="16" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">18.20 m</text>
+        <text x="110" y="16" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">\${estW.toFixed(2)} m</text>
 
         <line x1="20" y1="45" x2="20" y2="175" stroke="#10b981" stroke-width="0.8" />
         <line x1="45" y1="45" x2="15" y2="45" stroke="#475569" stroke-width="0.5" />
         <line x1="45" y1="175" x2="15" y2="175" stroke="#475569" stroke-width="0.5" />
         <line x1="17" y1="48" x2="23" y2="42" stroke="#10b981" stroke-width="0.8" />
         <line x1="17" y1="178" x2="23" y2="172" stroke="#10b981" stroke-width="0.8" />
-        <text x="12" y="113" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace" transform="rotate(-90, 12, 113)">15.50 m</text>
+        <text x="12" y="113" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace" transform="rotate(-90, 12, 113)">\${estD.toFixed(2)} m</text>
       </g>
       <text x="110" y="202" fill="#38bdf8" font-size="8" text-anchor="middle" stroke="none" font-weight="bold" letter-spacing="1">ZEMİN KAT PLANI</text>
     </svg>
   `;
 }
 
-function generateNormalFloorPlanSvgString(roomType = '3+1 ODA', grossArea = 120, netArea = 96): string {
+function generateNormalFloorPlanSvgString(roomType = '3+1 ODA', grossArea = 120, netArea = 96, baseBuildArea = 120): string {
+  const estW = Math.sqrt(baseBuildArea / 1.2);
+  const estD = estW * 1.2;
+
   return `
     <svg viewBox="0 0 220 220" style="width:100%; max-height:220px; background:#060a13;">
       <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" stroke-width="1.5" />
@@ -542,14 +552,14 @@ function generateNormalFloorPlanSvgString(roomType = '3+1 ODA', grossArea = 120,
         <line x1="175" y1="45" x2="175" y2="18" stroke="#475569" stroke-width="0.5" />
         <line x1="42" y1="26" x2="48" y2="20" stroke="#10b981" stroke-width="0.8" />
         <line x1="172" y1="26" x2="178" y2="20" stroke="#10b981" stroke-width="0.8" />
-        <text x="110" y="16" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">18.20 m</text>
+        <text x="110" y="16" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">\${estW.toFixed(2)} m</text>
 
         <line x1="20" y1="45" x2="20" y2="175" stroke="#10b981" stroke-width="0.8" />
         <line x1="45" y1="45" x2="15" y2="45" stroke="#475569" stroke-width="0.5" />
         <line x1="45" y1="175" x2="15" y2="175" stroke="#475569" stroke-width="0.5" />
         <line x1="17" y1="48" x2="23" y2="42" stroke="#10b981" stroke-width="0.8" />
         <line x1="17" y1="178" x2="23" y2="172" stroke="#10b981" stroke-width="0.8" />
-        <text x="12" y="113" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace" transform="rotate(-90, 12, 113)">15.50 m</text>
+        <text x="12" y="113" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace" transform="rotate(-90, 12, 113)">\${estD.toFixed(2)} m</text>
       </g>
       <text x="110" y="202" fill="#38bdf8" font-size="8" text-anchor="middle" stroke="none" font-weight="bold" letter-spacing="1">NORMAL KAT PLANI</text>
     </svg>
