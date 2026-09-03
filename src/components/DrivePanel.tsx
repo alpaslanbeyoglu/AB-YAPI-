@@ -198,25 +198,25 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
   return (
     <div
       id="drive-panel-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-fade-in"
       onClick={onClose}
     >
       <div
         id="drive-panel-modal"
-        className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl bg-[#121214] border border-zinc-800 shadow-2xl overflow-hidden text-zinc-300"
+        className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden text-slate-700"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4 bg-[#18181b]/80">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center">
               <Cloud className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white leading-tight">
+              <h2 className="text-base font-semibold text-slate-900 leading-tight">
                 Google Drive Entegrasyon Merkezi
               </h2>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 AB YAPI Projelerini, Teklif ve Sözleşmelerini Drive Bulutunda Yönetin
               </p>
             </div>
@@ -225,7 +225,7 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
             id="drive-panel-close-btn"
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
+            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -253,14 +253,14 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
 
           {/* Auth State Card */}
           {!hasToken || !user ? (
-            <div className="rounded-3xl border border-zinc-800 bg-[#18181b] p-6 text-center">
-              <div className="mx-auto w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-3">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-center">
+              <div className="mx-auto w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center mb-3">
                 <Cloud className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-semibold text-white mb-1">
+              <h3 className="text-base font-semibold text-slate-900 mb-1">
                 Google Drive Hesabınızı Bağlayın
               </h3>
-              <p className="text-xs text-zinc-400 max-w-md mx-auto mb-5 leading-relaxed">
+              <p className="text-xs text-slate-500 max-w-md mx-auto mb-5 leading-relaxed">
                 Hesapladığınız inşaat projelerini, hak sahipleri ödeme takvimlerini ve resmi sözleşme belgelerini Google Drive'ınızda güvenle yedekleyin.
               </p>
 
@@ -271,7 +271,7 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                   type="button"
                   onClick={handleSignIn}
                   disabled={isSigningIn}
-                  className="inline-flex items-center gap-3 bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-200 px-5 py-2.5 rounded-xl text-xs font-semibold shadow-md transition-all disabled:opacity-50 active:scale-95"
+                  className="inline-flex items-center gap-3 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 48 48">
                     <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
@@ -284,13 +284,13 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
               </div>
             </div>
           ) : (
-            <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="rounded-3xl border border-emerald-300 bg-emerald-50 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 {user.photoURL ? (
                   <img
                     src={user.photoURL}
                     alt={user.displayName || 'Profil'}
-                    className="w-10 h-10 rounded-2xl border border-emerald-400/40 shadow-sm"
+                    className="w-10 h-10 rounded-2xl border border-emerald-300 shadow-xs"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
@@ -300,22 +300,22 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                 )}
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm text-white">
+                    <span className="font-semibold text-sm text-slate-900">
                       {user.displayName || 'Google Kullanıcısı'}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                       Drive Bağlı
                     </span>
                   </div>
-                  <span className="text-xs text-zinc-400">{user.email}</span>
+                  <span className="text-xs text-slate-500">{user.email}</span>
                 </div>
               </div>
               <button
                 id="drive-logout-btn"
                 type="button"
                 onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-300 hover:text-red-400 font-medium px-3 py-1.5 rounded-xl border border-zinc-700/80 bg-[#18181b] hover:bg-zinc-800 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs text-slate-700 hover:text-red-600 font-medium px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Çıkış Yap</span>
@@ -326,13 +326,13 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
           {/* Action Cards when authenticated */}
           {hasToken && (
             <>
-              <div className="border border-zinc-800 rounded-3xl p-5 bg-[#18181b] space-y-4">
+              <div className="border border-slate-200 rounded-3xl p-5 bg-slate-50 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-white">
+                    <h3 className="text-sm font-semibold text-slate-900">
                       Aktif Projeyi Google Drive'a Kaydet
                     </h3>
-                    <p className="text-xs text-zinc-400 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       Tüm metrajlar, kat malikleri, hakediş oranları ve birim fiyatlar "AB YAPI Projeleri" klasörüne kaydedilir.
                     </p>
                   </div>
@@ -344,14 +344,14 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                     placeholder="Dosya adı (isteğe bağlı, boş bırakılırsa otomatik adlandırılır)"
                     value={customProjectName}
                     onChange={(e) => setCustomProjectName(e.target.value)}
-                    className="flex-1 text-xs px-3.5 py-2.5 bg-[#121214] border border-zinc-700/80 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                    className="flex-1 text-xs px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                   />
                   <button
                     id="save-current-json-btn"
                     type="button"
                     onClick={handleSaveJson}
                     disabled={isSaving}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all disabled:opacity-50 shrink-0 active:scale-95"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 shrink-0 active:scale-95"
                   >
                     <UploadCloud className="w-4 h-4" />
                     <span>{isSaving ? 'Kaydediliyor...' : "Projeyi Drive'a Kaydet"}</span>
@@ -359,15 +359,15 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                 </div>
 
                 {/* Quick Export Documents */}
-                <div className="pt-3 border-t border-zinc-800 flex flex-wrap gap-2">
+                <div className="pt-3 border-t border-slate-200 flex flex-wrap gap-2">
                   <button
                     id="save-offer-doc-btn"
                     type="button"
                     onClick={handleSaveOfferReport}
                     disabled={isSaving}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#121214] hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 rounded-xl text-xs font-medium transition-all active:scale-95"
+                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-medium transition-all active:scale-95"
                   >
-                    <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Teklif Belgesini Drive'a Aktar</span>
                   </button>
                   <button
@@ -375,9 +375,9 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                     type="button"
                     onClick={handleSaveContractReport}
                     disabled={isSaving}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#121214] hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 rounded-xl text-xs font-medium transition-all active:scale-95"
+                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-medium transition-all active:scale-95"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-sky-400" />
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-sky-600" />
                     <span>Sözleşme Belgesini Drive'a Aktar</span>
                   </button>
                 </div>
@@ -387,8 +387,8 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <FolderOpen className="w-4 h-4 text-indigo-400" />
-                    <h3 className="text-sm font-semibold text-white">
+                    <FolderOpen className="w-4 h-4 text-indigo-600" />
+                    <h3 className="text-sm font-semibold text-slate-900">
                       Drive'daki AB YAPI Dosyalarınız ({driveFiles.length})
                     </h3>
                   </div>
@@ -397,7 +397,7 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                     type="button"
                     onClick={loadFiles}
                     disabled={isLoadingFiles}
-                    className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isLoadingFiles ? 'animate-spin' : ''}`} />
                     <span>Yenile</span>
@@ -405,14 +405,14 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                 </div>
 
                 {isLoadingFiles ? (
-                  <div className="py-12 text-center text-xs text-zinc-500">
-                    <div className="inline-block w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2" />
+                  <div className="py-12 text-center text-xs text-slate-500">
+                    <div className="inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2" />
                     <p>Google Drive dosyaları listeleniyor...</p>
                   </div>
                 ) : driveFiles.length === 0 ? (
-                  <div className="p-8 text-center rounded-3xl border border-dashed border-zinc-800 text-xs text-zinc-500">
+                  <div className="p-8 text-center rounded-3xl border border-dashed border-slate-300 text-xs text-slate-500">
                     <p>Henüz Google Drive'da kayıtlı bir AB YAPI dosyası bulunamadı.</p>
-                    <p className="mt-1 text-zinc-600">
+                    <p className="mt-1 text-slate-400">
                       Yukarıdaki "Projeyi Drive'a Kaydet" butonunu kullanarak ilk yedeğinizi oluşturun.
                     </p>
                   </div>
@@ -423,17 +423,17 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                       return (
                         <div
                           key={file.id}
-                          className="flex items-center justify-between p-3.5 rounded-2xl border border-zinc-800/80 bg-[#18181b] hover:border-zinc-700 transition-all text-xs"
+                          className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 transition-all text-xs"
                         >
                           <div className="flex items-center gap-3 overflow-hidden mr-2">
-                            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0">
                               {isJson ? <FileSpreadsheet className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                             </div>
                             <div className="truncate">
-                              <p className="font-medium text-white truncate" title={file.name}>
+                              <p className="font-medium text-slate-900 truncate" title={file.name}>
                                 {file.name}
                               </p>
-                              <p className="text-[10px] text-zinc-500">
+                              <p className="text-[10px] text-slate-500">
                                 {file.modifiedTime ? new Date(file.modifiedTime).toLocaleString('tr-TR') : ''}
                               </p>
                             </div>
@@ -444,7 +444,7 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleLoadFile(file)}
-                                className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium rounded-lg flex items-center gap-1 transition-all active:scale-95"
+                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-medium rounded-lg flex items-center gap-1 transition-all active:scale-95"
                                 title="Projeyi Hesaplayıcıya Yükle"
                               >
                                 <Download className="w-3 h-3" />
@@ -457,7 +457,7 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                                 href={file.webViewLink}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                                className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
                                 title="Google Drive'da Aç"
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -467,7 +467,7 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
                             <button
                               type="button"
                               onClick={() => onRequestDeleteConfirm(file)}
-                              className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Google Drive'dan Sil"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -484,11 +484,11 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="border-t border-zinc-800 px-6 py-3.5 bg-[#18181b] flex justify-end">
+        <div className="border-t border-slate-200 px-6 py-3.5 bg-slate-50 flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-zinc-700/80 bg-[#121214] text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all active:scale-95"
+            className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-all active:scale-95"
           >
             Kapat
           </button>

@@ -21,6 +21,9 @@ export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   showDimensions: true,    // Ölçülendirme açık
   showInteriorRooms: true, // 3D modelde odaların ve bölmelerin görünmesi
   interiorCutMode: 'solid',// 'solid', 'xray', 'cutaway'
+  hasGroundFloorShop: false,
+  shopCount: 1,
+  shopHeight: 3.80,
 };
 
 export interface RoomDetail {
@@ -65,8 +68,11 @@ export function calculateBuildingMetrics(params: BuildingModelParams): BuildingM
       : params.roofType === 'gable'
       ? 2.5
       : 0.9;
-  const totalHeight = Math.round((params.floorCount * params.floorHeight + roofHeightAdd) * 10) / 10;
-  const totalFlats = params.floorCount * params.flatsPerFloor;
+  const hasShop = !!params.hasGroundFloorShop;
+  const groundHeight = hasShop ? (params.shopHeight || 3.8) : params.floorHeight;
+  const totalHeight = Math.round(((params.floorCount > 1 ? (params.floorCount - 1) * params.floorHeight + groundHeight : groundHeight) + roofHeightAdd) * 10) / 10;
+  const residentialFloors = hasShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+  const totalFlats = residentialFloors * params.flatsPerFloor;
 
   const stairTotalArea = Math.round(params.stairWidth * params.stairDepth * 10) / 10;
   const elevatorTotalArea = Math.round(params.elevatorWidth * params.elevatorDepth * params.elevatorCount * 10) / 10;

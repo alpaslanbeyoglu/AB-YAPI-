@@ -28,7 +28,7 @@ interface FloorPlan2DViewProps {
   onUpdateParams?: (updates: Partial<BuildingModelParams>) => void;
   onSyncWithCalculator?: (newParams: Partial<ProjectParams>) => void;
   onNavigateToCalculator?: () => void;
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'gray' | 'dark';
 }
 
 export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
@@ -36,12 +36,13 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
   onUpdateParams,
   onSyncWithCalculator,
   onNavigateToCalculator,
-  theme = 'dark',
+  theme = 'light',
 }) => {
   const planRef = useRef<HTMLDivElement>(null);
   const [isDuplexAtticView, setIsDuplexAtticView] = useState<boolean>(false);
   const [syncedFeedback, setSyncedFeedback] = useState<string | null>(null);
-  const isLight = theme === 'light';
+  const isGray = theme === 'gray';
+  const isLight = !isGray;
 
   const metrics = calculateBuildingMetrics(params);
   const isDuplex = params.roofType === 'duplex';
@@ -92,9 +93,9 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
     }
   };
 
-  const cardBg = isLight ? 'bg-white border-slate-200 text-slate-900 shadow-sm' : 'bg-[#121214] border-zinc-800 text-white shadow-xl';
-  const subCardBg = isLight ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-[#18181b] border-zinc-700/80 text-zinc-200';
-  const textMuted = isLight ? 'text-slate-500' : 'text-zinc-400';
+  const cardBg = isGray ? 'bg-slate-100 border-slate-300 text-slate-900 shadow-sm' : 'bg-white border-slate-200 text-slate-900 shadow-sm';
+  const subCardBg = isGray ? 'bg-white border-slate-300 text-slate-800' : 'bg-slate-50 border-slate-200 text-slate-800';
+  const textMuted = 'text-slate-500';
 
   return (
     <div className="space-y-6">

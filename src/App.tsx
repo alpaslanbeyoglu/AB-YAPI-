@@ -36,27 +36,32 @@ import {
   SavedProjectData,
   DriveProjectFile,
   BuildingModelParams,
+  AppTheme,
 } from './types';
 
 export default function App() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+  const [theme, setTheme] = useState<AppTheme>(() => {
     try {
-      return (localStorage.getItem('ab_yapi_theme') as 'light' | 'dark') || 'dark';
-    } catch (e) {
-      return 'dark';
-    }
+      const saved = localStorage.getItem('ab_yapi_theme');
+      if (saved === 'gray' || saved === 'light') return saved as AppTheme;
+    } catch (e) {}
+    return 'light';
   });
 
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
+    // Remove dark mode class completely - only light and gray
+    document.documentElement.classList.remove('dark');
+    if (theme === 'gray') {
+      document.documentElement.classList.add('theme-gray');
+      document.documentElement.classList.remove('theme-light');
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('theme-light');
+      document.documentElement.classList.remove('theme-gray');
     }
   }, [theme]);
 
   const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
+    const next: AppTheme = theme === 'light' ? 'gray' : 'light';
     setTheme(next);
     try {
       localStorage.setItem('ab_yapi_theme', next);
@@ -64,6 +69,7 @@ export default function App() {
   };
 
   const isLight = theme === 'light';
+  const isGray = theme === 'gray';
 
   const [activeTab, setActiveTab] = useState<
     'hesapla' | 'model' | 'katplani' | 'teklif' | 'sozlesme' | 'sartname' | 'raporlar' | 'gecmis'
@@ -86,24 +92,97 @@ export default function App() {
     return DEFAULT_BUILDING_PARAMS;
   });
 
+  // Keep Building Model and Calculator synchronized bidirectionally
+  const updateCalculatorParams = (newParams: ProjectParams) => {
+    setParams(newParams);
+    try {
+      localStorage.setItem('ab_yapi_last_params', JSON.stringify(newParams));
+    } catch (e) {}
+
+    // Live Sync to Building Model:
+    setBuildingModelParams((prevModel) => {
+      let newW = prevModel.facadeWidth;
+      let newD = prevModel.facadeDepth;
+      if (newParams.baseBuildArea && newParams.baseBuildArea > 0) {
+        // preserve aspect ratio if valid
+        const ratio = prevModel.facadeWidth / (prevModel.facadeDepth || 1);
+        const validRatio = ratio > 0.3 && ratio < 3.0 ? ratio : 14 / 18;
+        newD = Math.round(Math.sqrt(newParams.baseBuildArea / validRatio) * 10) / 10;
+        newW = Math.round((newParams.baseBuildArea / newD) * 10) / 10;
+      }
+
+      const resFloors = newParams.hasGroundFloorShop
+        ? Math.max(1, newParams.floorCount - 1)
+        : newParams.floorCount;
+      const calcFlatsPerFloor = Math.max(
+        1,
+        Math.min(4, Math.round(newParams.flatCount / Math.max(1, resFloors)))
+      );
+
+      const nextModel: BuildingModelParams = {
+        ...prevModel,
+        facadeWidth: newW,
+        facadeDepth: newD,
+        floorCount: newParams.floorCount,
+        flatsPerFloor: calcFlatsPerFloor,
+        hasGroundFloorShop: !!newParams.hasGroundFloorShop,
+        shopCount: newParams.shopCount || 1,
+        shopHeight: newParams.shopHeight || 3.8,
+      };
+
+      try {
+        localStorage.setItem('ab_yapi_building_model', JSON.stringify(nextModel));
+      } catch (e) {}
+      return nextModel;
+    });
+  };
+
   const updateBuildingModelParams = (updates: Partial<BuildingModelParams>) => {
     setBuildingModelParams((prev) => {
       const next = { ...prev, ...updates };
       try {
         localStorage.setItem('ab_yapi_building_model', JSON.stringify(next));
       } catch (e) {}
+
+      // Live Sync to Calculator:
+      setParams((prevCalc) => {
+        const area = Math.round(next.facadeWidth * next.facadeDepth * 10) / 10;
+        const resFloors = next.hasGroundFloorShop
+          ? Math.max(1, next.floorCount - 1)
+          : next.floorCount;
+        const totalFlats = resFloors * next.flatsPerFloor;
+
+        const nextCalc: ProjectParams = {
+          ...prevCalc,
+          baseBuildArea: area,
+          floorCount: next.floorCount,
+          flatCount: totalFlats,
+          hasGroundFloorShop: !!next.hasGroundFloorShop,
+          shopCount: next.shopCount || 1,
+          shopHeight: next.shopHeight || 3.8,
+        };
+
+        try {
+          localStorage.setItem('ab_yapi_last_params', JSON.stringify(nextCalc));
+        } catch (e) {}
+        return nextCalc;
+      });
+
       return next;
     });
   };
 
   const handleSyncModelToCalculator = (modelUpdates: Partial<ProjectParams>) => {
-    setParams((prev) => ({
-      ...prev,
-      ...modelUpdates,
-    }));
+    setParams((prev) => {
+      const next = { ...prev, ...modelUpdates };
+      try {
+        localStorage.setItem('ab_yapi_last_params', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     showNotification(
       'success',
-      '3D Model ve Kat Planı ölçüleri ana maliyet hesaplayıcısına başarıyla senkronize edildi.'
+      '3D Model, Kat Planı ve Hesaplama Paneli ölçüleri anlık olarak senkronize edildi.'
     );
   };
 
@@ -227,8 +306,8 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-200 ${
-        isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#09090b] text-[#fafafa]'
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 ${
+        isGray ? 'bg-slate-200/80 text-slate-900' : 'bg-slate-50 text-slate-900'
       }`}
     >
       <div className="print:hidden">
@@ -247,42 +326,42 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-36 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0">
         {feedback && (
           <div
-            className={`mb-5 p-4 rounded-2xl text-xs flex items-center justify-between border shadow-lg transition-all animate-fade-in print:hidden ${
+            className={`mb-5 p-4 rounded-2xl text-xs flex items-center justify-between border shadow-sm transition-all animate-fade-in print:hidden ${
               feedback.type === 'success'
-                ? isLight
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                  : 'bg-[#121214] text-emerald-300 border-emerald-500/30'
-                : isLight
-                ? 'bg-red-50 text-red-800 border-red-200'
-                : 'bg-[#121214] text-red-300 border-red-500/30'
+                ? isGray
+                  ? 'bg-emerald-100/90 text-emerald-900 border-emerald-300'
+                  : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                : isGray
+                ? 'bg-red-100/90 text-red-900 border-red-300'
+                : 'bg-red-50 text-red-900 border-red-200'
             }`}
           >
             <div className="flex items-center gap-2.5">
               {feedback.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
               )}
-              <span className={`font-medium ${isLight ? 'text-slate-800' : 'text-zinc-200'}`}>
+              <span className="font-semibold text-slate-800">
                 {feedback.message}
               </span>
             </div>
             <button
               type="button"
               onClick={() => setFeedback(null)}
-              className="text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300 text-base leading-none px-1"
+              className="text-slate-400 hover:text-slate-700 text-base leading-none px-1"
             >
               &times;
             </button>
           </div>
         )}
 
-        {/* Sekme Menüsü Düzeltmesi: w-full, flex-wrap ve sm:flex-nowrap eklendi */}
+        {/* Sekme Menüsü: w-full, flex-wrap ve sm:flex-nowrap */}
         <div
           className={`flex items-center gap-1.5 overflow-x-auto w-full max-w-full p-1.5 mb-6 rounded-2xl print:hidden border shadow-sm transition-colors ${
-            isLight
-              ? 'bg-white border-slate-200 shadow-slate-100 text-slate-700'
-              : 'bg-[#121214] border-zinc-800/80 shadow-black/20'
+            isGray
+              ? 'bg-slate-100 border-slate-300 text-slate-800'
+              : 'bg-white border-slate-200 text-slate-800'
           }`}
         >
           <button
@@ -291,9 +370,9 @@ export default function App() {
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'hesapla'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                : isGray
+                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <Calculator className="w-3.5 h-3.5" />
@@ -306,12 +385,12 @@ export default function App() {
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'model'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                : isGray
+                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <Box className="w-3.5 h-3.5 text-cyan-400" />
+            <Box className="w-3.5 h-3.5 text-indigo-500" />
             <span>2. 3D Model 🏢</span>
           </button>
 
@@ -321,12 +400,12 @@ export default function App() {
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'katplani'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                : isGray
+                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <Compass className="w-3.5 h-3.5 text-emerald-400" />
+            <Compass className="w-3.5 h-3.5 text-emerald-600" />
             <span>3. 2D Kat Planı 📐</span>
           </button>
 
@@ -336,12 +415,12 @@ export default function App() {
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'teklif'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                : isGray
+                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <FileText className="w-3.5 h-3.5 text-emerald-400" />
+            <FileText className="w-3.5 h-3.5 text-emerald-600" />
             <span>4. Teklif Çıktısı 📄</span>
           </button>
 
@@ -351,12 +430,12 @@ export default function App() {
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'sozlesme'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                : isGray
+                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <ScrollText className="w-3.5 h-3.5 text-blue-400" />
+            <ScrollText className="w-3.5 h-3.5 text-blue-600" />
             <span>5. Resmi Sözleşme 📜</span>
           </button>
 
@@ -366,12 +445,12 @@ export default function App() {
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'sartname'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                : isGray
+                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-amber-400" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600" />
             <span>6. Teknik Şartname 🏗️</span>
           </button>
 
@@ -381,12 +460,12 @@ export default function App() {
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'raporlar'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                : isGray
+                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <BarChart3 className="w-3.5 h-3.5 text-purple-400" />
+            <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
             <span>7. Müteahhit Raporu 📊</span>
           </button>
 
@@ -396,12 +475,12 @@ export default function App() {
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'gecmis'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+                : isGray
+                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <History className="w-3.5 h-3.5 text-pink-400" />
+            <History className="w-3.5 h-3.5 text-pink-600" />
             <span>8. Kayıtlar ({historyList.length})</span>
           </button>
         </div>
@@ -411,7 +490,7 @@ export default function App() {
           <CalculatorTab
             params={params}
             results={results}
-            onChangeParams={setParams}
+            onChangeParams={updateCalculatorParams}
             onCalculate={handleCalculate}
             onNavigateToModel={() => setActiveTab('model')}
             theme={theme}

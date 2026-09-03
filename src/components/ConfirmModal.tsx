@@ -27,29 +27,29 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   return (
     <div
       id="confirm-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-fade-in backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 animate-fade-in backdrop-blur-xs"
       onClick={onCancel}
     >
       <div
         id="confirm-modal-content"
-        className="w-full max-w-md rounded-3xl bg-[#121214] border border-zinc-800 p-6 shadow-2xl transition-all"
+        className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-xl transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3.5">
           <div
             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${
               isDestructive
-                ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                ? 'bg-red-50 border-red-200 text-red-600'
+                : 'bg-amber-50 border-amber-200 text-amber-600'
             }`}
           >
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div className="flex-1">
-            <h3 id="confirm-modal-title" className="text-base font-semibold text-white">
+            <h3 id="confirm-modal-title" className="text-base font-semibold text-slate-900">
               {title}
             </h3>
-            <p id="confirm-modal-desc" className="mt-2 text-xs text-zinc-400 leading-relaxed">
+            <p id="confirm-modal-desc" className="mt-2 text-xs text-slate-600 leading-relaxed">
               {message}
             </p>
           </div>
@@ -59,7 +59,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button
             id="confirm-modal-cancel-btn"
             type="button"
-            className="rounded-xl border border-zinc-700/80 bg-[#18181b] px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all active:scale-95"
+            className="rounded-xl border border-slate-300 bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-all active:scale-95"
             onClick={onCancel}
           >
             {cancelLabel}
@@ -67,10 +67,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button
             id="confirm-modal-confirm-btn"
             type="button"
-            className={`rounded-xl px-4 py-2.5 text-xs font-semibold text-white shadow-md transition-all active:scale-95 ${
+            className={`rounded-xl px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition-all active:scale-95 ${
               isDestructive
-                ? 'bg-red-600 hover:bg-red-500 shadow-red-600/20'
-                : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-indigo-600 hover:bg-indigo-700'
             }`}
             onClick={onConfirm}
           >

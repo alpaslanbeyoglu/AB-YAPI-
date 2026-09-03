@@ -3,14 +3,14 @@ import React from 'react';
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   variant?: 'full' | 'icon' | 'compact';
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'gray' | 'dark';
   className?: string;
 }
 
 export const Logo: React.FC<LogoProps> = ({
   size = 'md',
   variant = 'full',
-  theme = 'dark',
+  theme = 'light',
   className = '',
 }) => {
   // Dimensions for the icon mark
@@ -22,6 +22,7 @@ export const Logo: React.FC<LogoProps> = ({
   };
 
   const selectedSize = iconSizes[size];
+  const isGray = theme === 'gray';
   const isDark = theme === 'dark';
 
   const markSvg = (
@@ -129,7 +130,7 @@ export const Logo: React.FC<LogoProps> = ({
           </span>
           <span
             className={`block font-mono tracking-widest text-[8px] uppercase mt-0.5 ${
-              isDark ? 'text-zinc-400' : 'text-slate-500'
+              isDark ? 'text-zinc-400' : 'text-slate-600'
             }`}
           >
             İnşaat
@@ -162,10 +163,12 @@ export const Logo: React.FC<LogoProps> = ({
             className={`hidden sm:inline-block px-2 py-0.5 text-[9px] font-semibold rounded-full border ${
               isDark
                 ? 'bg-zinc-800/80 text-zinc-300 border-zinc-700'
-                : 'bg-slate-100 text-slate-700 border-slate-300'
+                : isGray
+                ? 'bg-white/80 text-slate-800 border-slate-300'
+                : 'bg-slate-100 text-slate-800 border-slate-300'
             }`}
           >
-            Kentsel Dönüşüm & Mühendislik
+            Kentsel Dönüşüm & Danışmanlık
           </span>
         </div>
         <span

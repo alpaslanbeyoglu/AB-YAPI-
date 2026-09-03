@@ -15,6 +15,11 @@ export const DEFAULT_PARAMS: ProjectParams = {
   costMultiplier: 2.5,
   profitRate: 25,
 
+  // Dükkan / Ticari Seçeneği
+  hasGroundFloorShop: false,
+  shopCount: 1,
+  shopHeight: 3.80,
+
   // Cost items
   costNotaryContract: 35000,
   costCompany: 45000,

@@ -1,3 +1,5 @@
+export type AppTheme = 'light' | 'gray';
+
 export interface FlatItem {
   id: number;
   name: string;
@@ -21,6 +23,11 @@ export interface ProjectParams {
   usdRate: number;
   costMultiplier: number;
   profitRate: number;
+
+  // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
+  hasGroundFloorShop?: boolean;
+  shopCount?: number;
+  shopHeight?: number;
 
   // Cost items
   costNotaryContract: number;
@@ -163,4 +170,8 @@ export interface BuildingModelParams {
   showDimensions: boolean;   // Ölçülendirme çizgileri
   showInteriorRooms: boolean;// 3D modelde odaların ve bölmelerin görünmesi
   interiorCutMode: 'solid' | 'xray' | 'cutaway'; // 'solid': dolu cephe, 'xray': şeffaf dış duvar, 'cutaway': açık kat kesiti
+  // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
+  hasGroundFloorShop?: boolean;
+  shopCount?: number;
+  shopHeight?: number;
 }

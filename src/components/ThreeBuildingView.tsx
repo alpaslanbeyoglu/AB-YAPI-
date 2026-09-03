@@ -23,12 +23,12 @@ import { BuildingModelParams } from '../types';
 
 interface ThreeBuildingViewProps {
   params: BuildingModelParams;
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'gray' | 'dark';
 }
 
 export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   params,
-  theme = 'dark',
+  theme = 'light',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -48,7 +48,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [isExportingGLTF, setIsExportingGLTF] = useState<boolean>(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
 
-  const isLight = theme === 'light';
+  const isGray = theme === 'gray';
+  const isLight = !isGray;
 
   // Colors & Materials depending on facade style
   const getStyleColors = useCallback((style: BuildingModelParams['facadeStyle']) => {
@@ -1053,8 +1054,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Background color based on theme
-    const bgHex = isLight ? 0xf8fafc : 0x09090b;
+    // Background color based on theme (light or gray, strictly no dark theme)
+    const bgHex = isGray ? 0xe2e8f0 : 0xf8fafc;
     scene.background = new THREE.Color(bgHex);
     scene.fog = new THREE.FogExp2(bgHex, 0.012);
 
@@ -1215,23 +1216,34 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     setIsExportingUSDZ(true);
     setExportFeedback('iPhone AR / USDZ modeli derleniyor...');
     try {
+      buildingGroupRef.current.updateMatrixWorld(true);
       const exporter = new USDZExporter();
-      const arrayBuffer = await exporter.parse(buildingGroupRef.current);
+      // Three.js USDZExporter uses parseAsync
+      const arrayBuffer = await exporter.parseAsync(buildingGroupRef.current, {
+        quickLookCompatible: true,
+        maxTextureSize: 1024,
+      });
       const blob = new Blob([arrayBuffer], { type: 'model/vnd.usdz+zip' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.rel = 'ar';
+      a.setAttribute('rel', 'ar');
       a.download = `AB_YAPI_${params.floorCount}Kat_Bina.usdz`;
+      const img = document.createElement('img');
+      img.alt = 'AR Quick Look';
+      a.appendChild(img);
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      setExportFeedback('iPhone AR Quick Look veya USDZ 3D modeli başarıyla oluşturuldu!');
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 500);
+      setExportFeedback('iPhone AR Quick Look (.usdz) başarıyla oluşturuldu ve indirildi!');
       setTimeout(() => setExportFeedback(null), 4000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('USDZ export error:', err);
-      setExportFeedback('USDZ dönüştürme hatası.');
-      setTimeout(() => setExportFeedback(null), 3000);
+      setExportFeedback('USDZ hatası: ' + (err?.message || 'Dönüştürme yapılamadı'));
+      setTimeout(() => setExportFeedback(null), 4000);
     } finally {
       setIsExportingUSDZ(false);
     }
@@ -1275,25 +1287,19 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   };
 
   return (
-    <div className="relative w-full h-[540px] sm:h-[620px] rounded-3xl overflow-hidden border shadow-2xl transition-colors duration-300">
+    <div className={`relative w-full h-[540px] sm:h-[620px] rounded-3xl overflow-hidden border ${isGray ? 'border-slate-300' : 'border-slate-200'} shadow-lg transition-colors duration-300`}>
       {/* Three.js canvas container */}
       <div
         ref={containerRef}
         className={`w-full h-full cursor-grab active:cursor-grabbing ${
-          isLight ? 'bg-slate-50' : 'bg-[#09090b]'
+          isGray ? 'bg-slate-200/50' : 'bg-slate-50'
         }`}
       />
 
       {/* Export Status Toast */}
       {exportFeedback && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-          <div
-            className={`px-4 py-2 rounded-2xl text-xs font-semibold shadow-xl border flex items-center gap-2 animate-fade-in ${
-              isLight
-                ? 'bg-white text-indigo-700 border-indigo-200'
-                : 'bg-[#18181b] text-indigo-300 border-indigo-500/40'
-            }`}
-          >
+          <div className="px-4 py-2 rounded-2xl text-xs font-semibold shadow-xl border flex items-center gap-2 animate-fade-in bg-white text-indigo-700 border-indigo-200">
             <Sparkles className="w-4 h-4 text-indigo-500 animate-spin" />
             <span>{exportFeedback}</span>
           </div>
@@ -1302,23 +1308,15 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
       {/* Top Left Overlay: Building Status & Active Cut Mode */}
       <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none z-10">
-        <div
-          className={`backdrop-blur-md px-3.5 py-2.5 rounded-2xl border shadow-xl flex items-center gap-3 ${
-            isLight
-              ? 'bg-white/90 text-slate-800 border-slate-200'
-              : 'bg-[#18181b]/90 text-zinc-200 border-zinc-700/70'
-          }`}
-        >
+        <div className={`backdrop-blur-md px-3.5 py-2.5 rounded-2xl border shadow-md flex items-center gap-3 ${
+          isGray ? 'bg-white/95 text-slate-800 border-slate-300' : 'bg-white/95 text-slate-800 border-slate-200'
+        }`}>
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <div className="text-xs">
             <span className="font-bold tracking-wide block">
               {params.floorCount} Kat + {params.basementCount} Bodrum ({params.roomType}) - Kat Başına {params.flatsPerFloor} Daire
             </span>
-            <span
-              className={`text-[10px] font-mono ${
-                isLight ? 'text-slate-500' : 'text-zinc-400'
-              }`}
-            >
+            <span className="text-[10px] font-mono text-slate-500">
               Ön: {params.facadeWidth.toFixed(1)}m × Yan: {params.facadeDepth.toFixed(1)}m | Çatı:{' '}
               {params.roofType === 'duplex'
                 ? 'Çatı Dubleksi'
@@ -1335,22 +1333,16 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       {/* Right Toolbar: Camera & Render & Export Controls */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-10">
         {/* Camera presets */}
-        <div
-          className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-xl ${
-            isLight
-              ? 'bg-white/90 border-slate-200 text-slate-700'
-              : 'bg-[#18181b]/90 border-zinc-700/70 text-zinc-300'
-          }`}
-        >
+        <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
+          isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
+        }`}>
           <button
             type="button"
             onClick={() => applyCameraPreset('iso')}
             className={`p-2 rounded-xl text-xs flex items-center justify-center transition-all ${
               cameraPreset === 'iso'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
             title="İzometrik Görünüm"
           >
@@ -1362,9 +1354,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             className={`p-2 rounded-xl text-xs flex items-center justify-center transition-all ${
               cameraPreset === 'front'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
             title="Ön Cephe Görünümü"
           >
@@ -1376,9 +1366,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             className={`p-2 rounded-xl text-xs flex items-center justify-center transition-all ${
               cameraPreset === 'side'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
             title="Yan Cephe Görünümü"
           >
@@ -1390,9 +1378,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             className={`p-2 rounded-xl text-xs flex items-center justify-center transition-all ${
               cameraPreset === 'top'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
             title="Üstten / Kuşbakışı Görünüm"
           >
@@ -1401,22 +1387,16 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         </div>
 
         {/* Visibility tools */}
-        <div
-          className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-xl ${
-            isLight
-              ? 'bg-white/90 border-slate-200 text-slate-700'
-              : 'bg-[#18181b]/90 border-zinc-700/70 text-zinc-300'
-          }`}
-        >
+        <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
+          isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
+        }`}>
           <button
             type="button"
             onClick={() => setIsWireframe(!isWireframe)}
             className={`p-2 rounded-xl text-xs transition-all ${
               isWireframe
                 ? 'bg-amber-600 text-white'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
             title="Tel Kafes (Wireframe) Modu"
           >
@@ -1428,9 +1408,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             className={`p-2 rounded-xl text-xs transition-all ${
               showCoreHighlight
                 ? 'bg-indigo-600 text-white'
-                : isLight
-                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
             title="Merdiven & Asansör Şaftını Vurgula"
           >
@@ -1439,11 +1417,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           <button
             type="button"
             onClick={handleDownloadSnapshot}
-            className={`p-2 rounded-xl transition-all text-xs ${
-              isLight
-                ? 'text-slate-600 hover:text-emerald-600 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800'
-            }`}
+            className="p-2 rounded-xl transition-all text-xs text-slate-600 hover:text-emerald-600 hover:bg-slate-100"
             title="3D Model Görüntüsünü İndir (PNG)"
           >
             <Download className="w-4 h-4" />
@@ -1451,13 +1425,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         </div>
 
         {/* 3D Exports for iOS / AR Quick Look */}
-        <div
-          className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-xl ${
-            isLight
-              ? 'bg-white/90 border-slate-200 text-slate-700'
-              : 'bg-[#18181b]/90 border-zinc-700/70 text-zinc-300'
-          }`}
-        >
+        <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
+          isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
+        }`}>
           <button
             type="button"
             onClick={handleExportUSDZ}
@@ -1465,9 +1435,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             className={`p-2 rounded-xl transition-all text-xs flex flex-col items-center gap-0.5 ${
               isExportingUSDZ
                 ? 'opacity-50 cursor-not-allowed'
-                : isLight
-                ? 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800'
-                : 'text-cyan-400 hover:bg-cyan-950/60 hover:text-cyan-200'
+                : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800'
             }`}
             title="iPhone/iPad AR Quick Look (.usdz)"
           >
@@ -1482,9 +1450,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             className={`p-2 rounded-xl transition-all text-xs flex flex-col items-center gap-0.5 ${
               isExportingGLTF
                 ? 'opacity-50 cursor-not-allowed'
-                : isLight
-                ? 'text-slate-600 hover:text-indigo-600 hover:bg-slate-100'
-                : 'text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800'
+                : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-100'
             }`}
             title="Evrensel 3D Modeli İndir (.glb)"
           >
@@ -1497,18 +1463,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       {/* Bottom Bar: Explode Floors Slider & Floor Isolation */}
       <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
         {/* Explode Floors Slider */}
-        <div
-          className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-xl text-xs ${
-            isLight
-              ? 'bg-white/95 border-slate-200 text-slate-800'
-              : 'bg-[#18181b]/90 border-zinc-700/70 text-zinc-200'
-          }`}
-        >
-          <span
-            className={`text-[11px] font-semibold flex items-center gap-1.5 ${
-              isLight ? 'text-slate-700' : 'text-zinc-300'
-            }`}
-          >
+        <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ${
+          isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
+        }`}>
+          <span className="text-[11px] font-semibold flex items-center gap-1.5 text-slate-700">
             <Layers className="w-3.5 h-3.5 text-indigo-500" />
             <span>Katları Patlat:</span>
           </span>
@@ -1521,24 +1479,16 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             onChange={(e) => setExplodeRatio(parseFloat(e.target.value))}
             className="w-24 sm:w-36 accent-indigo-600 cursor-pointer"
           />
-          <span className="font-mono text-[11px] text-indigo-500 font-bold">
+          <span className="font-mono text-[11px] text-indigo-600 font-bold">
             {Math.round(explodeRatio * 100)}%
           </span>
         </div>
 
         {/* Floor selector */}
-        <div
-          className={`pointer-events-auto flex items-center gap-2 backdrop-blur-md px-3.5 py-2 rounded-2xl border shadow-xl text-xs ${
-            isLight
-              ? 'bg-white/95 border-slate-200 text-slate-800'
-              : 'bg-[#18181b]/90 border-zinc-700/70 text-zinc-200'
-          }`}
-        >
-          <span
-            className={`text-[11px] ${
-              isLight ? 'text-slate-500' : 'text-zinc-400'
-            }`}
-          >
+        <div className={`pointer-events-auto flex items-center gap-2 backdrop-blur-md px-3.5 py-2 rounded-2xl border shadow-md text-xs ${
+          isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
+        }`}>
+          <span className="text-[11px] text-slate-600">
             Kat İncele:
           </span>
           <select
@@ -1546,11 +1496,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             onChange={(e) =>
               setSelectedFloor(e.target.value === 'all' ? 'all' : Number(e.target.value))
             }
-            className={`rounded-xl px-2.5 py-1 text-xs font-semibold focus:outline-hidden border ${
-              isLight
-                ? 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-600'
-                : 'bg-[#121214] border-zinc-700 text-zinc-200 focus:border-indigo-500'
-            }`}
+            className="rounded-xl px-2.5 py-1 text-xs font-semibold focus:outline-hidden border bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-600"
           >
             <option value="all">Tüm Bina</option>
             {params.basementCount > 0 && <option value="basement">Bodrum Kat</option>}

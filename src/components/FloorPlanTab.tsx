@@ -11,7 +11,7 @@ import {
   Layers,
   Ruler,
 } from 'lucide-react';
-import { BuildingModelParams, ProjectParams } from '../types';
+import { BuildingModelParams, ProjectParams, AppTheme } from '../types';
 import { calculateBuildingMetrics } from '../utils/buildingModelUtils';
 import { FloorPlan2DView } from './FloorPlan2DView';
 import { Logo } from './Logo';
@@ -22,7 +22,7 @@ interface FloorPlanTabProps {
   onSyncWithCalculator?: (newParams: Partial<ProjectParams>) => void;
   onNavigateToCalculator?: () => void;
   onNavigateToModel?: () => void;
-  theme?: 'light' | 'dark';
+  theme?: AppTheme;
 }
 
 export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
@@ -31,9 +31,9 @@ export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
   onSyncWithCalculator,
   onNavigateToCalculator,
   onNavigateToModel,
-  theme = 'dark',
+  theme = 'light',
 }) => {
-  const isLight = theme === 'light';
+  const isGray = theme === 'gray';
   const [syncedFeedback, setSyncedFeedback] = useState<string | null>(null);
 
   const metrics = calculateBuildingMetrics(params);
@@ -53,37 +53,28 @@ export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
     }
   };
 
-  const cardBg = isLight
-    ? 'bg-white border-slate-200 shadow-sm'
-    : 'bg-[#121214] border-zinc-800 shadow-xl';
-  const subCardBg = isLight
-    ? 'bg-slate-50 border-slate-200 text-slate-800'
-    : 'bg-[#18181b] border-zinc-700/80 text-zinc-200';
-  const textMuted = isLight ? 'text-slate-500' : 'text-zinc-400';
-  const textTitle = isLight ? 'text-slate-900' : 'text-white';
+  const cardBg = isGray
+    ? 'bg-slate-100 border-slate-300 shadow-sm'
+    : 'bg-white border-slate-200 shadow-sm';
+  const textMuted = 'text-slate-500';
+  const textTitle = 'text-slate-900';
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Feedback Toast */}
       {syncedFeedback && (
         <div
-          className={`p-4 rounded-2xl border text-xs flex items-center justify-between shadow-lg animate-fade-in ${
-            isLight
-              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-          }`}
+          className="p-4 rounded-2xl border text-xs flex items-center justify-between shadow-xs animate-fade-in bg-emerald-50 border-emerald-300 text-emerald-800"
         >
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-semibold">{syncedFeedback}</span>
           </div>
           {onNavigateToCalculator && (
             <button
               type="button"
               onClick={onNavigateToCalculator}
-              className={`inline-flex items-center gap-1.5 font-bold underline ${
-                isLight ? 'text-emerald-700 hover:text-emerald-900' : 'text-emerald-200 hover:text-white'
-              }`}
+              className="inline-flex items-center gap-1.5 font-bold underline text-emerald-700 hover:text-emerald-900"
             >
               <span>Hesaplama Tablosuna Git</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -104,11 +95,7 @@ export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
                 2D Mimari Kat Planı
               </h2>
               <span
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                  isLight
-                    ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
-                    : 'bg-cyan-950/60 text-cyan-300 border-cyan-800/80'
-                }`}
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-cyan-50 text-cyan-700 border-cyan-200"
               >
                 Vektörel Çizim
               </span>
@@ -126,9 +113,9 @@ export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
               type="button"
               onClick={onNavigateToModel}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                isLight
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
-                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-zinc-700'
+                isGray
+                  ? 'bg-white hover:bg-slate-50 text-slate-800 border-slate-300'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
               }`}
             >
               <Box className="w-3.5 h-3.5 text-indigo-400" />
