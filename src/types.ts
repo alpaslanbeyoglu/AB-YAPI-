@@ -23,6 +23,7 @@ export interface ProjectParams {
   contractorFlatIds?: number[]; // IDs of flats designated for contractor
   showContractorShare3D?: boolean; // Show contractor share on 3D model
   buildingType: 'standard' | 'luxury' | 'commercial';
+  roomType?: RoomType;
   usdRate: number;
   costMultiplier: number;
   profitRate: number;

@@ -11,6 +11,7 @@ export const DEFAULT_PARAMS: ProjectParams = {
   flatCount: 5,
   contractorShareRate: 50,
   buildingType: 'standard',
+  roomType: '3+1',
   usdRate: 48.24,
   costMultiplier: 2.5,
   profitRate: 25,
@@ -276,12 +277,14 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   synchronizedFlats.forEach((flat, idx) => {
     // Determine whether this flat is designated for the contractor
     let isContractor = false;
-    if (flat.isContractorShare !== undefined) {
-      isContractor = flat.isContractorShare;
-    } else if (params.contractorFlatIds && params.contractorFlatIds.length > 0) {
-      isContractor = params.contractorFlatIds.includes(flat.id);
-    } else if (projectModel === 'contractorShare') {
-      isContractor = idx + 1 > ownerFlatsCount;
+    if (projectModel === 'contractorShare') {
+      if (flat.isContractorShare !== undefined) {
+        isContractor = flat.isContractorShare;
+      } else if (params.contractorFlatIds && params.contractorFlatIds.length > 0) {
+        isContractor = params.contractorFlatIds.includes(flat.id);
+      } else {
+        isContractor = idx + 1 > ownerFlatsCount;
+      }
     }
 
     const isOwner = !isContractor;
