@@ -1065,6 +1065,91 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         floorGroup.add(bsMesh);
       }
 
+      // 7. CONTRACTOR AND OWNER FLAT OVERLAYS (Müteahhit ve Hak Sahibi Daire Bölmeleri)
+      const resFloors = hasGroundFloorShop ? Math.max(1, N - 1) : N;
+      if (params.showContractorShare3D && !isBasement && !isShopFloor) {
+        const resFloorSeq = hasGroundFloorShop ? floorIndex - 1 : floorIndex;
+        const totalFlats = resFloors * flatsPerFloor;
+        const defaultCount = Math.round(totalFlats * (params.contractorShareRate || 50) / 100);
+
+        for (let flatSeq = 0; flatSeq < flatsPerFloor; flatSeq++) {
+          const flatId = resFloorSeq * flatsPerFloor + flatSeq + 1;
+          const isContractor = params.contractorFlatIds && params.contractorFlatIds.length > 0
+            ? params.contractorFlatIds.includes(flatId)
+            : flatId > (totalFlats - defaultCount);
+
+          // Get dimensions and center offsets for this specific apartment zone
+          let zoneW = floorW * 0.95;
+          let zoneD = floorD * 0.95;
+          let zoneX = 0;
+          let zoneZ = floorCenterZ;
+
+          if (flatsPerFloor === 2) {
+            zoneW = floorW * 0.44;
+            zoneX = (flatSeq === 0) ? -floorW / 4 : floorW / 4;
+          } else if (flatsPerFloor === 3) {
+            if (flatSeq === 0) { // Left Front
+              zoneW = floorW * 0.42;
+              zoneD = floorD * 0.44;
+              zoneX = -floorW * 0.24;
+              zoneZ = floorCenterZ + floorD / 4;
+            } else if (flatSeq === 1) { // Right Front
+              zoneW = floorW * 0.42;
+              zoneD = floorD * 0.44;
+              zoneX = floorW * 0.24;
+              zoneZ = floorCenterZ + floorD / 4;
+            } else { // Rear
+              zoneW = floorW * 0.85;
+              zoneD = floorD * 0.44;
+              zoneX = 0;
+              zoneZ = floorCenterZ - floorD / 4;
+            }
+          } else if (flatsPerFloor === 4) {
+            zoneW = floorW * 0.44;
+            zoneD = floorD * 0.44;
+            if (flatSeq === 0) { // Front Left
+              zoneX = -floorW / 4;
+              zoneZ = floorCenterZ + floorD / 4;
+            } else if (flatSeq === 1) { // Front Right
+              zoneX = floorW / 4;
+              zoneZ = floorCenterZ + floorD / 4;
+            } else if (flatSeq === 2) { // Rear Left
+              zoneX = -floorW / 4;
+              zoneZ = floorCenterZ - floorD / 4;
+            } else { // Rear Right
+              zoneX = floorW / 4;
+              zoneZ = floorCenterZ - floorD / 4;
+            }
+          }
+
+          // Create translucent overlay box
+          const overlayGeo = new THREE.BoxGeometry(zoneW, roomHeight * 0.92, zoneD);
+          const overlayColor = isContractor ? 0xf59e0b : 0x10b981; // Orange vs Emerald Green
+          const overlayMat = new THREE.MeshBasicMaterial({
+            color: overlayColor,
+            transparent: true,
+            opacity: isContractor ? 0.35 : 0.15,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          });
+          const overlayMesh = new THREE.Mesh(overlayGeo, overlayMat);
+          overlayMesh.position.set(zoneX, midY, zoneZ);
+          floorGroup.add(overlayMesh);
+
+          // Technical wireframe around the box to make it look premium
+          const edgesGeo = new THREE.EdgesGeometry(overlayGeo);
+          const edgesMat = new THREE.LineBasicMaterial({
+            color: overlayColor,
+            linewidth: 1.5,
+            transparent: true,
+            opacity: 0.8,
+          });
+          const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
+          wireframe.position.set(zoneX, midY, zoneZ);
+          floorGroup.add(wireframe);
+        }
+      }
+
       buildingGroup.add(floorGroup);
     }
 

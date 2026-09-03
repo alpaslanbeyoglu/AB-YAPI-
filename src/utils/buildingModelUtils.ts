@@ -27,6 +27,8 @@ export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   hasCantilever: false,
   cantileverDepth: 1.20,
   cantileverDirection: 'front_back',
+  contractorFlatIds: [],
+  showContractorShare3D: false,
 };
 
 export interface RoomDetail {

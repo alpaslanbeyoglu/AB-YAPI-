@@ -26,7 +26,7 @@ import { SpecificationTab } from './components/SpecificationTab';
 import { AdminReportTab } from './components/AdminReportTab';
 import { HistoryTab } from './components/HistoryTab';
 
-import { DEFAULT_PARAMS, calculateProject } from './utils/calculatorEngine';
+import { DEFAULT_PARAMS, calculateProject, synchronizeFlats } from './utils/calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS } from './utils/buildingModelUtils';
 import { initAuth, setCachedToken } from './services/auth';
 import { saveProjectJsonToDrive, deleteDriveFile } from './services/drive';
@@ -128,6 +128,11 @@ export default function App() {
         hasGroundFloorShop: !!newParams.hasGroundFloorShop,
         shopCount: newParams.shopCount || 1,
         shopHeight: newParams.shopHeight || 3.8,
+        contractorFlatIds: newParams.contractorFlatIds,
+        showContractorShare3D: newParams.showContractorShare3D,
+        contractorShareRate: newParams.contractorShareRate,
+        projectModel: newParams.projectModel,
+        flatCount: newParams.flatCount,
       };
 
       try {
@@ -152,11 +157,29 @@ export default function App() {
           : next.floorCount;
         const totalFlats = resFloors * next.flatsPerFloor;
 
+        const synchronizedFlats = synchronizeFlats(
+          prevCalc.flats,
+          totalFlats,
+          area,
+          next.floorCount,
+          prevCalc.transformationStatus
+        );
+
+        // Keep contractor IDs valid
+        const contractorFlatIds = (prevCalc.contractorFlatIds || []).filter(
+          (id) => id <= totalFlats
+        );
+
         const nextCalc: ProjectParams = {
           ...prevCalc,
           baseBuildArea: area,
           floorCount: next.floorCount,
           flatCount: totalFlats,
+          flats: synchronizedFlats,
+          contractorFlatIds: next.contractorFlatIds !== undefined ? next.contractorFlatIds : contractorFlatIds,
+          showContractorShare3D: next.showContractorShare3D !== undefined ? next.showContractorShare3D : prevCalc.showContractorShare3D,
+          contractorShareRate: next.contractorShareRate !== undefined ? next.contractorShareRate : prevCalc.contractorShareRate,
+          projectModel: next.projectModel !== undefined ? next.projectModel : prevCalc.projectModel,
           hasGroundFloorShop: !!next.hasGroundFloorShop,
           shopCount: next.shopCount || 1,
           shopHeight: next.shopHeight || 3.8,
@@ -175,6 +198,24 @@ export default function App() {
   const handleSyncModelToCalculator = (modelUpdates: Partial<ProjectParams>) => {
     setParams((prev) => {
       const next = { ...prev, ...modelUpdates };
+      
+      const prevCount = prev.flatCount;
+      const nextCount = next.flatCount;
+      
+      if (nextCount !== prevCount || next.baseBuildArea !== prev.baseBuildArea || next.floorCount !== prev.floorCount) {
+        next.flats = synchronizeFlats(
+          next.flats || prev.flats,
+          nextCount,
+          next.baseBuildArea,
+          next.floorCount,
+          next.transformationStatus
+        );
+        // Keep contractor IDs valid
+        next.contractorFlatIds = (next.contractorFlatIds || prev.contractorFlatIds || []).filter(
+          (id) => id <= nextCount
+        );
+      }
+
       try {
         localStorage.setItem('ab_yapi_last_params', JSON.stringify(next));
       } catch (e) {}

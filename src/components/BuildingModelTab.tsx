@@ -76,6 +76,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
     typology: false,
     roof: false,
     shafts: false,
+    contractorShare: false,
   });
 
   const toggleSection = (sectionKey: string) => {
@@ -898,6 +899,147 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       <option value="brick_stone">Tuğla Doku & Doğal Taş Dokunuşu</option>
                     </select>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* CARD 6: CONTRACTOR SHARE (MÜTEAHHİT DAİRE PAYLAŞIMI) */}
+            <div className={`${cardBg} rounded-2xl border shadow-xs overflow-hidden`}>
+              <button
+                type="button"
+                onClick={() => toggleSection('contractorShare')}
+                className="w-full px-5 py-4 flex items-center justify-between text-left transition-colors hover:bg-slate-50/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
+                    Daire Dağılımı & Paylaşım
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <span>Müteahhit Payı</span>
+                  {collapsedSections.contractorShare ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </div>
+              </button>
+
+              {!collapsedSections.contractorShare && (
+                <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
+                  <div className="space-y-1.5 pt-3">
+                    <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={modelParams.projectModel === 'contractorShare'}
+                        onChange={(e) => {
+                          const isContractorModel = e.target.checked;
+                          updateParams({
+                            projectModel: isContractorModel ? 'contractorShare' : 'cash',
+                          });
+                        }}
+                        className="rounded-sm text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className={`font-semibold ${textTitle}`}>Kat Karşılığı Yapım Modeli</span>
+                    </label>
+                    <p className={`text-[10px] ${textMuted} leading-relaxed`}>
+                      Arsa sahipleri ile müteahhit arasında daire paylaşımı yapılan modeldir.
+                    </p>
+                  </div>
+
+                  {modelParams.projectModel === 'contractorShare' && (
+                    <div className="space-y-3.5 pt-1.5 border-t border-slate-100">
+                      <div className="space-y-1">
+                        <label className={`text-xs font-semibold block ${textTitle}`}>Müteahhit Daire Payı Oranı (%):</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={modelParams.contractorShareRate || 50}
+                          onChange={(e) => updateParams({ contractorShareRate: parseFloat(e.target.value) || 50 })}
+                          className={`w-full px-3 py-2 rounded-xl text-xs font-mono font-bold border focus:outline-hidden ${inputBg}`}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={modelParams.showContractorShare3D || false}
+                            onChange={(e) => updateParams({ showContractorShare3D: e.target.checked })}
+                            className="rounded-sm text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className={`font-semibold ${textTitle}`}>3D Modelde Payları Renklendir</span>
+                        </label>
+                        <p className={`text-[10px] ${textMuted} leading-relaxed`}>
+                          3D bina modeli üzerinde müteahhite kalan daireler <span className="text-amber-600 font-bold">Turuncu</span>, hak sahiplerine kalan daireler <span className="text-emerald-600 font-bold">Yeşil</span> renk şeffaf bloklar halinde belirtilir.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-slate-100">
+                        <span className={`block text-[11px] font-semibold ${textTitle}`}>
+                          Daireleri 3D Model İçin Belirle:
+                        </span>
+                        
+                        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-4 gap-1.5">
+                          {Array.from({ length: modelParams.flatCount || 12 }).map((_, i) => {
+                            const flatId = i + 1;
+                            const defaultCount = Math.round((modelParams.flatCount || 12) * ((modelParams.contractorShareRate || 50) / 100));
+                            const isContractor = modelParams.contractorFlatIds && modelParams.contractorFlatIds.length > 0
+                              ? modelParams.contractorFlatIds.includes(flatId)
+                              : flatId > ((modelParams.flatCount || 12) - defaultCount);
+                            return (
+                              <button
+                                key={flatId}
+                                type="button"
+                                onClick={() => {
+                                  const totalFlats = modelParams.flatCount || 12;
+                                  const currentIds = modelParams.contractorFlatIds && modelParams.contractorFlatIds.length > 0
+                                    ? [...modelParams.contractorFlatIds]
+                                    : Array.from({ length: totalFlats })
+                                        .map((_, i) => i + 1)
+                                        .slice(totalFlats - defaultCount);
+                                  
+                                  let nextIds: number[];
+                                  if (currentIds.includes(flatId)) {
+                                    nextIds = currentIds.filter(id => id !== flatId);
+                                  } else {
+                                    nextIds = [...currentIds, flatId];
+                                  }
+                                  
+                                  updateParams({
+                                    contractorFlatIds: nextIds,
+                                  });
+                                }}
+                                className={`py-1.5 text-xs font-mono font-bold rounded-lg border text-center transition-all ${
+                                  isContractor
+                                    ? 'bg-amber-500 border-amber-600 text-white shadow-sm'
+                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                }`}
+                              >
+                                D{flatId}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-600 pt-1">
+                          <span>
+                            Seçilen: <strong>{(modelParams.contractorFlatIds && modelParams.contractorFlatIds.length > 0) ? modelParams.contractorFlatIds.length : Math.round((modelParams.flatCount || 12) * ((modelParams.contractorShareRate || 50) / 100))} / {modelParams.flatCount || 12}</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateParams({
+                                contractorFlatIds: [],
+                              });
+                            }}
+                            className="text-indigo-600 font-medium hover:underline"
+                          >
+                            Otomatik Sıfırla
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

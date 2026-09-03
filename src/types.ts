@@ -7,6 +7,7 @@ export interface FlatItem {
   area: number;
   downPayment: number;
   useTransformationCredit: boolean;
+  isContractorShare?: boolean; // true = Müteahhit Dairesi, false = Hak Sahibi Dairesi
 }
 
 export interface ProjectParams {
@@ -19,6 +20,8 @@ export interface ProjectParams {
   floorCount: number;
   flatCount: number;
   contractorShareRate: number;
+  contractorFlatIds?: number[]; // IDs of flats designated for contractor
+  showContractorShare3D?: boolean; // Show contractor share on 3D model
   buildingType: 'standard' | 'luxury' | 'commercial';
   usdRate: number;
   costMultiplier: number;
@@ -183,4 +186,10 @@ export interface BuildingModelParams {
   hasCantilever?: boolean;
   cantileverDepth?: number;
   cantileverDirection?: 'front_back' | 'front' | 'all';
+  // Müteahhit Payı / Daire Paylaşımı
+  contractorFlatIds?: number[];          // Müteahhite kalacak dairelerin ID listesi
+  showContractorShare3D?: boolean;       // 3D model üzerinde müteahhit ve hak sahibi dairelerini görselleştirme seçeneği
+  projectModel?: 'cash' | 'contractorShare';
+  contractorShareRate?: number;
+  flatCount?: number;
 }

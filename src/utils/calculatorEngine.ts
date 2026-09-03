@@ -1,4 +1,4 @@
-import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow } from '../types';
+import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem } from '../types';
 
 export const DEFAULT_PARAMS: ProjectParams = {
   projectAddress: 'İstanbul, Fatih Kocamustafapaşa Mah. 1024 Ada 15 Parsel',
@@ -80,6 +80,36 @@ export function generateInitialFlats(baseArea: number, floorCount: number, flatC
   }));
 }
 
+export function synchronizeFlats(
+  flats: FlatItem[] = [],
+  flatCount: number,
+  baseBuildArea: number,
+  floorCount: number,
+  transStatus: string
+): FlatItem[] {
+  const newCount = Math.max(1, flatCount);
+  const total = baseBuildArea * floorCount;
+  const avg = parseFloat((total / newCount).toFixed(2));
+  return Array.from({ length: newCount }, (_, i) => {
+    const existing = flats[i];
+    if (existing) {
+      return {
+        ...existing,
+        id: i + 1,
+        area: avg, // Recalculate area to match the current flatCount & building size
+      };
+    }
+    return {
+      id: i + 1,
+      name: `Kat Maliki ${i + 1}`,
+      tc: `1000000000${i + 1}`,
+      area: avg,
+      downPayment: 0,
+      useTransformationCredit: transStatus !== 'none',
+    };
+  });
+}
+
 export function calculateProject(params: ProjectParams): CalculationResult {
   const {
     baseBuildArea,
@@ -95,7 +125,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     projectModel,
     contractorShareRate,
     includeProfitOwner,
-    flats,
+    flats = [],
     stage1Pay,
     stage2Pay,
     stage3Pay,
@@ -232,17 +262,35 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     projectModel === 'contractorShare' ? flatCount * (contractorShareRate / 100) : 0;
   const ownerFlatsCount = flatCount - contractorFlatsCount;
 
+  const synchronizedFlats = synchronizeFlats(
+    flats,
+    flatCount,
+    baseBuildArea,
+    floorCount,
+    transformationStatus
+  );
+
   const flatResults: FlatCalcResult[] = [];
   const totalStageIncomes = [0, 0, 0, 0, 0];
 
-  flats.forEach((flat, idx) => {
-    const isOwner = projectModel === 'contractorShare' ? idx + 1 <= ownerFlatsCount : true;
+  synchronizedFlats.forEach((flat, idx) => {
+    // Determine whether this flat is designated for the contractor
+    let isContractor = false;
+    if (flat.isContractorShare !== undefined) {
+      isContractor = flat.isContractorShare;
+    } else if (params.contractorFlatIds && params.contractorFlatIds.length > 0) {
+      isContractor = params.contractorFlatIds.includes(flat.id);
+    } else if (projectModel === 'contractorShare') {
+      isContractor = idx + 1 > ownerFlatsCount;
+    }
+
+    const isOwner = !isContractor;
     const grossPay = flat.area * baseCostPerSqM;
     const paid = flat.downPayment || 0;
     const remainingAfterDown = Math.max(0, grossPay - paid);
 
     let usedCredit = 0;
-    if (flat.useTransformationCredit && projectModel !== 'contractorShare') {
+    if (flat.useTransformationCredit && !isContractor && projectModel !== 'contractorShare') {
       if (transformationStatus === 'currentSupport') {
         usedCredit = Math.min(remainingAfterDown, 1750000);
       } else if (transformationStatus === 'futureSupport2027') {
@@ -251,7 +299,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     }
 
     const netRemainingDebt =
-      projectModel === 'contractorShare' && isOwner
+      (projectModel === 'contractorShare' && isOwner) || isContractor
         ? 0
         : Math.max(0, remainingAfterDown - usedCredit);
 
@@ -269,14 +317,16 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
     flatResults.push({
       id: flat.id,
-      name: flat.name,
-      tc: flat.tc,
+      name: isContractor && (!flat.name || flat.name.startsWith('Daire Sahibi'))
+        ? `Müteahhit Payı (Daire ${flat.id})`
+        : flat.name,
+      tc: isContractor ? '-' : flat.tc,
       area: flat.area,
       grossPay: Math.round(grossPay * 100) / 100,
       downPayment: paid,
       usedCredit,
       netRemainingDebt: Math.round(netRemainingDebt * 100) / 100,
-      isContractorShare: projectModel === 'contractorShare' && !isOwner,
+      isContractorShare: isContractor,
       stagePayments: [p1, p2, p3, p4, p5],
     });
   });

@@ -246,18 +246,104 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
           </div>
 
           {params.projectModel === 'contractorShare' && (
-            <div>
-              <label className="block text-xs font-medium text-emerald-700 mb-1.5">
-                Müteahhit Daire Payı Oranı (%):
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="99"
-                value={params.contractorShareRate}
-                onChange={(e) => updateParam('contractorShareRate', parseFloat(e.target.value) || 50)}
-                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-              />
+            <div className="space-y-4 p-4 rounded-2xl bg-amber-50/50 border border-amber-200/60 col-span-1 sm:col-span-2 lg:col-span-1">
+              <div>
+                <label className="block text-xs font-semibold text-amber-900 mb-1.5">
+                  Müteahhit Daire Payı Oranı (%):
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={params.contractorShareRate}
+                  onChange={(e) => updateParam('contractorShareRate', parseFloat(e.target.value) || 50)}
+                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                />
+              </div>
+
+              <div>
+                <span className="block text-[11px] font-semibold text-amber-900 mb-2">
+                  Müteahhite Kalacak Daireleri Seçin:
+                </span>
+                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-4 gap-1.5">
+                  {params.flats.map((flat) => {
+                    const defaultCount = Math.round(params.flatCount * (params.contractorShareRate / 100));
+                    const isContractor = params.contractorFlatIds && params.contractorFlatIds.length > 0
+                      ? params.contractorFlatIds.includes(flat.id)
+                      : flat.id > (params.flatCount - defaultCount);
+                    return (
+                      <button
+                        key={flat.id}
+                        type="button"
+                        onClick={() => {
+                          const currentIds = params.contractorFlatIds && params.contractorFlatIds.length > 0
+                            ? [...params.contractorFlatIds]
+                            : params.flats
+                                .slice(params.flatCount - defaultCount)
+                                .map(f => f.id);
+                          
+                          let nextIds: number[];
+                          if (currentIds.includes(flat.id)) {
+                            nextIds = currentIds.filter(id => id !== flat.id);
+                          } else {
+                            nextIds = [...currentIds, flat.id];
+                          }
+                          
+                          const updatedFlats = params.flats.map(f => {
+                            if (f.id === flat.id) {
+                              return { ...f, isContractorShare: !currentIds.includes(flat.id) };
+                            }
+                            return f;
+                          });
+
+                          onChangeParams({
+                            ...params,
+                            contractorFlatIds: nextIds,
+                            flats: updatedFlats,
+                          });
+                        }}
+                        className={`py-1.5 text-xs font-mono font-bold rounded-lg border text-center transition-all ${
+                          isContractor
+                            ? 'bg-amber-500 border-amber-600 text-white shadow-sm'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        D{flat.id}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between mt-2 pt-1 border-t border-amber-100">
+                  <span className="text-[10px] text-slate-600">
+                    Müteahhit Daire Sayısı: <strong className="text-amber-800 font-mono">{(params.contractorFlatIds && params.contractorFlatIds.length > 0) ? params.contractorFlatIds.length : Math.round(params.flatCount * (params.contractorShareRate / 100))} / {params.flatCount}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChangeParams({
+                        ...params,
+                        contractorFlatIds: [],
+                        flats: params.flats.map(f => ({ ...f, isContractorShare: undefined }))
+                      });
+                    }}
+                    className="text-[10px] text-indigo-600 font-medium hover:underline"
+                  >
+                    Orana Göre Sıfırla
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-amber-200/50">
+                <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={params.showContractorShare3D || false}
+                    onChange={(e) => updateParam('showContractorShare3D', e.target.checked)}
+                    className="rounded-sm text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className="font-medium text-slate-800">3D Modelde Müteahhit Paylarını Belirt</span>
+                </label>
+              </div>
             </div>
           )}
 
@@ -646,7 +732,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-1">
+                   <div className="pt-1 space-y-1.5">
                     <label className="flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer">
                       <input
                         type="checkbox"
@@ -656,6 +742,48 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       />
                       <span>Kentsel Dönüşüm Hibe/Kredisi Kullansın</span>
                     </label>
+
+                    {params.projectModel === 'contractorShare' && (
+                      <label className="flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={params.contractorFlatIds && params.contractorFlatIds.length > 0
+                            ? params.contractorFlatIds.includes(flat.id)
+                            : flat.id > (params.flatCount - Math.round(params.flatCount * (params.contractorShareRate / 100)))}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            const defaultCount = Math.round(params.flatCount * (params.contractorShareRate / 100));
+                            const currentIds = params.contractorFlatIds && params.contractorFlatIds.length > 0
+                              ? [...params.contractorFlatIds]
+                              : params.flats
+                                  .slice(params.flatCount - defaultCount)
+                                  .map(f => f.id);
+                            
+                            let nextIds: number[];
+                            if (isChecked) {
+                              nextIds = currentIds.includes(flat.id) ? currentIds : [...currentIds, flat.id];
+                            } else {
+                              nextIds = currentIds.filter(id => id !== flat.id);
+                            }
+
+                            const updatedFlats = params.flats.map((f, i) => {
+                              if (i === idx) {
+                                return { ...f, isContractorShare: isChecked };
+                              }
+                              return f;
+                            });
+
+                            onChangeParams({
+                              ...params,
+                              contractorFlatIds: nextIds,
+                              flats: updatedFlats,
+                            });
+                          }}
+                          className="rounded-sm text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="font-semibold text-amber-700">Müteahhit Dairesi / Payı</span>
+                      </label>
+                    )}
                   </div>
                 </div>
               ))}
