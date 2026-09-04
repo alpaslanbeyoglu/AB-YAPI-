@@ -60,6 +60,8 @@ export function printHtmlContent(htmlContent: string, documentTitle: string): vo
       printWin.document.write(printableHtml);
       printWin.document.close();
       printWin.focus();
+      // Directly trigger print in the new window
+      printWin.print();
       return;
     }
   } catch (err) {
