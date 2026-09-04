@@ -46,6 +46,7 @@ export function printHtmlContent(htmlContent: string, documentTitle: string): vo
         margin-bottom: 0 !important;
       }
       body { margin-top: 40mm; }
+      .no-print { display: none !important; }
     </style>
   `;
   const printScript = `
@@ -61,6 +62,7 @@ export function printHtmlContent(htmlContent: string, documentTitle: string): vo
         }, 500);
       });
     </script>
+    <button onclick="window.close()" class="no-print" style="position:fixed; top:20px; right:20px; padding:12px 24px; background:#4f46e5; color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; z-index:9999; box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);">Geri Dön / Kapat</button>
   `;
 
   let printableHtml = htmlContent;
