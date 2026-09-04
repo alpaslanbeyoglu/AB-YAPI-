@@ -30,6 +30,24 @@ export function downloadHtmlFile(htmlContent: string, filename: string): void {
  */
 export function printHtmlContent(htmlContent: string, documentTitle: string): void {
   // Inject auto-print script and print styling into the HTML if not present
+  const printStyle = `
+    <style media="print">
+      @page {
+        size: A4;
+        margin: 20mm;
+        margin-top: 50mm;
+      }
+      .print-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 1000;
+        margin-bottom: 0 !important;
+      }
+      body { margin-top: 40mm; }
+    </style>
+  `;
   const printScript = `
     <script>
       window.addEventListener('load', function() {
@@ -46,6 +64,9 @@ export function printHtmlContent(htmlContent: string, documentTitle: string): vo
   `;
 
   let printableHtml = htmlContent;
+  if (printableHtml.includes('</head>')) {
+    printableHtml = printableHtml.replace('</head>', `${printStyle}</head>`);
+  }
   if (printableHtml.includes('</body>')) {
     printableHtml = printableHtml.replace('</body>', `${printScript}</body>`);
   } else {

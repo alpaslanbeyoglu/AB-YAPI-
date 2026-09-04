@@ -149,7 +149,7 @@ export function generateOfferHtml(
   </style>
 </head>
 <body>
-  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f7a7a;padding-bottom:15px;margin-bottom:20px;">
+  <div class="print-header" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f7a7a;padding-bottom:15px;margin-bottom:20px;">
     <div style="display:flex;align-items:center;gap:12px;">
       ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:55px;max-width:140px;object-fit:contain;" />` : ''}
       <div>
@@ -286,9 +286,9 @@ export function generateContractHtml(
   </style>
 </head>
 <body>
-  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f7a7a;padding-bottom:12px;margin-bottom:20px;">
+  <div class="print-header" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f7a7a;padding-bottom:12px;margin-bottom:20px;">
     <div style="display:flex;align-items:center;gap:12px;">
-      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
+      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:80px;max-width:200px;object-fit:contain;" />` : ''}
       <div>
         <h2 style="margin:0;color:#37474f;text-align:left;">${contractTitle}</h2>
         <p style="margin:3px 0 0 0;font-size:11px;color:#556068;">Düzenleme Tarihi: ${new Date().toLocaleDateString('tr-TR')} | Belge No: ${compName}-2026/SÖZ-01</p>

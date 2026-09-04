@@ -84,9 +84,14 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   </style>
 </head>
 <body>
-  <div class="header-card">
-    <h1>${specTitle}</h1>
-    <h2>${specSubtitle}</h2>
+  <div class="header-card print-header">
+    <div style="display:flex; align-items:center; gap: 15px;">
+        ${profile.logoBase64 ? `<img src="${profile.logoBase64}" style="max-height: 50px; border-radius: 8px;" />` : ''}
+        <div>
+            <h1>${specTitle}</h1>
+            <h2>${specSubtitle}</h2>
+        </div>
+    </div>
     <div class="meta-grid">
       <div><strong>Yüklenici:</strong> ${profile.companyName}</div>
       <div><strong>Doküman Kodu:</strong> AB-TŞ-REV2026</div>
@@ -250,9 +255,14 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   </style>
 </head>
 <body>
-  <div class="header-card">
-    <h1>${projectTitle}</h1>
-    <h2>${projectSubtitle}</h2>
+  <div class="header-card print-header">
+    <div style="display:flex; align-items:center; gap: 15px;">
+        ${profile.logoBase64 ? `<img src="${profile.logoBase64}" style="max-height: 50px; border-radius: 8px;" />` : ''}
+        <div>
+            <h1>${projectTitle}</h1>
+            <h2>${projectSubtitle}</h2>
+        </div>
+    </div>
     <div class="meta-grid">
       <div><strong>Proje Adresi:</strong> ${params.projectAddress}</div>
       <div><strong>Bağımsız Bölüm Sayısı:</strong> ${totalUnits}</div>
