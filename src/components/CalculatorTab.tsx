@@ -490,6 +490,38 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             </select>
           </div>
 
+          {/* Çatı Tipi & Dubleks Seçeneği */}
+          <div>
+            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
+              Mimari Çatı Konstrüksiyonu:
+            </label>
+            <select
+              value={params.roofType || 'gable'}
+              onChange={(e) => updateParam('roofType', e.target.value as any)}
+              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+            >
+              <option value="gable">🏠 Kırma Çatı (Klasik 4 Eğimli / Kiremit Çatı)</option>
+              <option value="flat">🏙️ Düz Teras Çatı (Modern Parapetli Teras)</option>
+              <option value="mansard">🏛️ Mansart Çatı (Pencereli Çatı Arası Kat)</option>
+              <option value="duplex">🌟 Çatı Dubleksi (Dubleks Daire & Çatı Terası)</option>
+            </select>
+          </div>
+
+          {/* Bodrum Kat Sayısı */}
+          <div>
+            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
+              Bodrum Kat Sayısı (Otopark & Sığınak):
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="5"
+              value={params.basementCount !== undefined ? params.basementCount : 1}
+              onChange={(e) => updateParam('basementCount', parseInt(e.target.value, 10) || 0)}
+              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+            />
+          </div>
+
           <div>
             <label className="block text-xs font-medium text-emerald-700 mb-1.5">
               Güncel Dolar Kuru (1 USD = TL):

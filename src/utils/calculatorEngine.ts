@@ -26,6 +26,16 @@ export const DEFAULT_PARAMS: ProjectParams = {
   cantileverDepth: 1.20,
   cantileverDirection: 'front_back',
 
+  // Mimari Çatı ve Kütle Özellikleri
+  roofType: 'gable',
+  basementCount: 1,
+  flatsPerFloor: 2,
+  facadeWidth: 14.0,
+  facadeDepth: 18.0,
+  facadeStyle: 'wood_anthracite',
+  balconyDepth: 1.40,
+  elevatorCount: 1,
+
   // Cost items
   costNotaryContract: 35000,
   costCompany: 45000,

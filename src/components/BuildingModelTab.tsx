@@ -113,9 +113,20 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         hasGroundFloorShop: modelParams.hasGroundFloorShop,
         shopCount: modelParams.shopCount,
         shopHeight: modelParams.shopHeight,
+        roofType: modelParams.roofType,
+        roomType: modelParams.roomType,
+        basementCount: modelParams.basementCount,
+        hasCantilever: modelParams.hasCantilever,
+        cantileverDepth: modelParams.cantileverDepth,
+        cantileverDirection: modelParams.cantileverDirection,
+        facadeWidth: modelParams.facadeWidth,
+        facadeDepth: modelParams.facadeDepth,
+        flatsPerFloor: modelParams.flatsPerFloor,
+        facadeStyle: modelParams.facadeStyle,
+        balconyDepth: modelParams.balconyDepth,
       });
       setSyncedFeedback(
-        `Taban Alanı (${metrics.footprintArea} m²), ${modelParams.floorCount} Kat ve ${metrics.totalFlats} Daire ana hesaplama tablosuna başarıyla aktarıldı!`
+        `Taban Alanı (${metrics.footprintArea} m²), ${modelParams.floorCount} Kat, ${modelParams.roofType === 'duplex' ? 'Çatı Dubleksi' : modelParams.roofType === 'mansard' ? 'Mansart Çatı' : modelParams.roofType === 'flat' ? 'Düz Teras Çatı' : 'Kırma Çatı'} ve ${metrics.totalFlats} Daire ana hesaplama tablosuna aktarıldı!`
       );
       setTimeout(() => setSyncedFeedback(null), 4000);
     }

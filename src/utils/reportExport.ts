@@ -358,12 +358,7 @@ function generateFrontViewSvgString(floorCount: number, hasShop: boolean, roofTy
   `).join('');
 
   let roofMarkup = '';
-  if (roofType === 'gable') {
-    roofMarkup = `
-      <polygon points="45,${topY} 110,${topY - 24} 175,${topY}" fill="#1e293b" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1.2" />
-      <line x1="110" y1="${topY - 24}" x2="110" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="2,2" />
-    `;
-  } else if (roofType === 'flat') {
+  if (roofType === 'flat') {
     roofMarkup = `
       <rect x="45" y="${topY - 4}" width="130" height="4" stroke="#38bdf8" stroke-width="1.2" fill="#1e293b" />
       <line x1="60" y1="${topY - 4}" x2="60" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" />
@@ -375,12 +370,18 @@ function generateFrontViewSvgString(floorCount: number, hasShop: boolean, roofTy
       <line x1="65" y1="${topY - 18}" x2="65" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="1,2" />
       <line x1="155" y1="${topY - 18}" x2="155" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="1,2" />
     `;
-  } else {
+  } else if (roofType === 'duplex') {
     roofMarkup = `
       <polygon points="45,${topY} 65,${topY - 18} 155,${topY - 18} 175,${topY}" fill="#1e293b" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1.2" />
       <rect x="98" y="${topY - 13}" width="24" height="10" rx="1" fill="#0f172a" stroke="#38bdf8" stroke-width="1" />
       <line x1="110" y1="${topY - 13}" x2="110" y2="${topY - 3}" stroke="#38bdf8" stroke-width="0.5" />
       <text x="110" y="${topY - 15}" fill="#10b981" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">ÇATI DUBLEKSİ</text>
+    `;
+  } else {
+    // Default: gable (Kırma Çatı)
+    roofMarkup = `
+      <polygon points="45,${topY} 110,${topY - 24} 175,${topY}" fill="#1e293b" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1.2" />
+      <line x1="110" y1="${topY - 24}" x2="110" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="2,2" />
     `;
   }
 

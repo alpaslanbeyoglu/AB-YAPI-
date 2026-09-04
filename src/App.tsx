@@ -76,20 +76,30 @@ export default function App() {
   >('hesapla');
   const [isDrivePanelOpen, setIsDrivePanelOpen] = useState(false);
 
-  const [params, setParams] = useState<ProjectParams>(() => {
-    try {
-      const saved = localStorage.getItem('ab_yapi_last_params');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_PARAMS;
-  });
-
   const [buildingModelParams, setBuildingModelParams] = useState<BuildingModelParams>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_building_model');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        return { ...DEFAULT_BUILDING_PARAMS, ...JSON.parse(saved) };
+      }
     } catch (e) {}
     return DEFAULT_BUILDING_PARAMS;
+  });
+
+  const [params, setParams] = useState<ProjectParams>(() => {
+    try {
+      const saved = localStorage.getItem('ab_yapi_last_params');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_PARAMS,
+          ...parsed,
+          roofType: parsed.roofType || 'gable',
+          basementCount: parsed.basementCount !== undefined ? parsed.basementCount : 1,
+        };
+      }
+    } catch (e) {}
+    return DEFAULT_PARAMS;
   });
 
   // Keep Building Model and Calculator synchronized bidirectionally
@@ -121,10 +131,10 @@ export default function App() {
 
       const nextModel: BuildingModelParams = {
         ...prevModel,
-        facadeWidth: newW,
-        facadeDepth: newD,
+        facadeWidth: newParams.facadeWidth || newW,
+        facadeDepth: newParams.facadeDepth || newD,
         floorCount: newParams.floorCount,
-        flatsPerFloor: calcFlatsPerFloor,
+        flatsPerFloor: newParams.flatsPerFloor || calcFlatsPerFloor,
         hasGroundFloorShop: !!newParams.hasGroundFloorShop,
         shopCount: newParams.shopCount || 1,
         shopHeight: newParams.shopHeight || 3.8,
@@ -137,6 +147,10 @@ export default function App() {
         hasCantilever: newParams.hasCantilever,
         cantileverDepth: newParams.cantileverDepth,
         cantileverDirection: newParams.cantileverDirection,
+        roofType: newParams.roofType || prevModel.roofType,
+        basementCount: newParams.basementCount !== undefined ? newParams.basementCount : prevModel.basementCount,
+        facadeStyle: newParams.facadeStyle || prevModel.facadeStyle,
+        balconyDepth: newParams.balconyDepth !== undefined ? newParams.balconyDepth : prevModel.balconyDepth,
       };
 
       try {
@@ -191,6 +205,13 @@ export default function App() {
           hasCantilever: next.hasCantilever !== undefined ? next.hasCantilever : prevCalc.hasCantilever,
           cantileverDepth: next.cantileverDepth !== undefined ? next.cantileverDepth : prevCalc.cantileverDepth,
           cantileverDirection: next.cantileverDirection !== undefined ? next.cantileverDirection : prevCalc.cantileverDirection,
+          roofType: next.roofType,
+          basementCount: next.basementCount,
+          facadeWidth: next.facadeWidth,
+          facadeDepth: next.facadeDepth,
+          flatsPerFloor: next.flatsPerFloor,
+          facadeStyle: next.facadeStyle,
+          balconyDepth: next.balconyDepth,
         };
 
         try {

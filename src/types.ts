@@ -38,6 +38,16 @@ export interface ProjectParams {
   cantileverDepth?: number;
   cantileverDirection?: 'front_back' | 'front' | 'all';
 
+  // Mimari Çatı ve Kütle Özellikleri
+  roofType?: RoofType;
+  basementCount?: number;
+  facadeWidth?: number;
+  facadeDepth?: number;
+  flatsPerFloor?: number;
+  balconyDepth?: number;
+  facadeStyle?: 'modern' | 'wood_anthracite' | 'glass_minimal' | 'brick_stone';
+  elevatorCount?: number;
+
   // Cost items
   costNotaryContract: number;
   costCompany: number;

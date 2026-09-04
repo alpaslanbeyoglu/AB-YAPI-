@@ -5,6 +5,7 @@ import { saveReportDocumentToDrive } from '../services/drive';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
+import { getRoofInfo, getRoomTypeDescription } from '../utils/roofUtils';
 
 interface SpecificationTabProps {
   params: ProjectParams;
@@ -33,6 +34,12 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
   const projectTitle = "PROJEYE ÖZEL KENTSEL DÖNÜŞÜM YAPIM ŞARTNAMESİ";
   const projectSubtitle = `Adres: ${params.projectAddress || 'Belirtilmemiş'} | Özel Mühendislik ve Malzeme Listesi`;
+
+  const currentRoof = getRoofInfo(params.roofType);
+  const currentRoom = getRoomTypeDescription(params.roomType);
+  const totalUnitsDisplay = params.hasGroundFloorShop 
+    ? `${results.flatCount} Daire + ${params.shopCount || 1} Ticari Dükkan`
+    : `${results.flatCount} Daire`;
 
   const handleExportPdf = async () => {
     if (!specContainerRef.current) return;
@@ -204,10 +211,21 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 </html>`;
     } else {
       // Dynamic Project-Specific HTML
-      const isShop = params.hasGroundFloorShop ? "Evet" : "Hayır";
-      const roofDesc = params.roofType === 'gable' ? "Beşik Çatı" : params.roofType === 'flat' ? "Düz Teras Çatı" : params.roofType === 'mansard' ? "Mansard Çatı" : "Dubleks Teras Çatı";
-      const bType = params.buildingType === 'standard' ? 'Standart Konut' : params.buildingType === 'luxury' ? 'Lüks Konut / Rezidans' : 'Ticari + Konut';
-      const cantDesc = params.hasCantilever ? `Var (Derinlik: ${params.cantileverDepth}m, Yön: ${params.cantileverDirection === 'front_back' ? 'Ön-Arka' : params.cantileverDirection === 'front' ? 'Yalnız Ön' : 'Tüm Cepheler'})` : 'Yok';
+      const isShop = params.hasGroundFloorShop 
+        ? `Var (${params.shopCount || 1} Adet Zemin Kat Ticari Dükkan)` 
+        : "Yok (Tamamı Konut)";
+      const roofInfo = getRoofInfo(params.roofType);
+      const bType = params.buildingType === 'standard' ? 'Standart Konut (A Sınıfı)' : params.buildingType === 'luxury' ? 'Lüks Konut / Rezidans' : 'Ticari + Konut Karma Yapı';
+      const cantDesc = params.hasCantilever 
+        ? `Var (Konsol Çıkma: ${params.cantileverDepth || 1.2}m, Yön: ${params.cantileverDirection === 'front_back' ? 'Ön-Arka Cepheler' : params.cantileverDirection === 'front' ? 'Yalnızca Ön Cephe' : 'Ayrık / Tüm Cepheler'})` 
+        : 'Yok (Düz Prizmatik Kütle)';
+      const basementDesc = (params.basementCount ?? 1) > 0 
+        ? `${params.basementCount ?? 1} Kat Bodrum (Sığınak, Su Deposu, Ortak Alan & Kapalı Otopark)` 
+        : 'Bodrum Kat Yok';
+      const totalUnits = params.hasGroundFloorShop 
+        ? `${results.flatCount} Adet Konut + ${params.shopCount || 1} Adet Ticari Dükkan (Toplam ${results.flatCount + (params.shopCount || 1)} Bağımsız Bölüm)` 
+        : `${results.flatCount} Adet Konut`;
+      const roomDesc = getRoomTypeDescription(params.roomType);
 
       return `<!DOCTYPE html>
 <html lang="tr">
@@ -219,7 +237,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     .header-card { background: #1e3a8a; color: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; }
     .header-card h1 { margin: 0 0 5px 0; font-size: 20px; font-weight: 800; color: #60a5fa; }
     .header-card h2 { margin: 0 0 15px 0; font-size: 13px; font-weight: 400; color: #93c5fd; }
-    .meta-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 10px; font-size: 11px; border-top: 1px solid #3b82f6; padding-top: 15px; color: #eff6ff; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11px; border-top: 1px solid #3b82f6; padding-top: 15px; color: #eff6ff; }
     .specs-table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 25px; }
     .specs-table th, .specs-table td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
     .specs-table th { background: #f8fafc; font-weight: bold; width: 30%; color: #334155; }
@@ -235,7 +253,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     <h2>${projectSubtitle}</h2>
     <div class="meta-grid">
       <div><strong>Proje Adresi:</strong> ${params.projectAddress}</div>
-      <div><strong>Daire Sayısı:</strong> ${results.flatCount} Adet</div>
+      <div><strong>Bağımsız Bölüm Sayısı:</strong> ${totalUnits}</div>
       <div><strong>İmalat Süresi:</strong> ${results.finalMonths} Ay</div>
       <div><strong>Tarih:</strong> ${new Date().toLocaleDateString('tr-TR')}</div>
     </div>
@@ -260,16 +278,20 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
       <td>${results.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</td>
     </tr>
     <tr>
-      <th>Kat Adedi</th>
-      <td>${params.floorCount} Kat</td>
+      <th>Kat Yapısı</th>
+      <td>${params.floorCount} Normal Kat + ${(params.basementCount ?? 1)} Bodrum Kat ${params.hasGroundFloorShop ? `(Zemin Kat Ticari Dükkan + ${params.floorCount - 1} Normal Kat)` : '(Tamamı Konut)'}</td>
     </tr>
     <tr>
-      <th>Daire Adedi</th>
-      <td>${results.flatCount} Adet</td>
+      <th>Bodrum Kat Durumu</th>
+      <td>${basementDesc}</td>
+    </tr>
+    <tr>
+      <th>Bağımsız Bölüm Dağılımı</th>
+      <td>${totalUnits}</td>
     </tr>
     <tr>
       <th>Daire Tipi (Oda + Salon Sayısı)</th>
-      <td>${params.roomType || '3+1'} (${params.roomType === '1+1' ? '1 Oda, 1 Salon' : params.roomType === '2+1' ? '2 Oda, 1 Salon' : params.roomType === '3+1' ? '3 Oda, 1 Salon' : params.roomType === '4+1' ? '4 Oda, 1 Salon' : params.roomType}) Konut Yapı Standardı</td>
+      <td>${roomDesc} Yapı Standardı</td>
     </tr>
     <tr>
       <th>Zemin Kat Dükkan Seçeneği</th>
@@ -301,7 +323,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
   </table>
 
-  <div class="section-title">03. CEPHE VE GEOMETRİ AYRINTILARI</div>
+  <div class="section-title">03. CEPHE, ÇATI VE MİMARİ BİLEŞENLER AYRINTILARI</div>
   <table class="specs-table">
     <tr>
       <th>1. Kattan Sonra Çıkma Durumu</th>
@@ -309,7 +331,18 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Mimari Çatı Konstrüksiyonu</th>
-      <td>${roofDesc}</td>
+      <td>
+        <strong>${roofInfo.title}</strong> (${roofInfo.badge})<br />
+        <span style="font-size:11px; color:#475569; display:block; margin-top:4px;">${roofInfo.technicalSpecification}</span>
+      </td>
+    </tr>
+    <tr>
+      <th>Bodrum & Ortak Alanlar</th>
+      <td>${basementDesc}</td>
+    </tr>
+    <tr>
+      <th>Dış Cephe Yalıtımı (Mantolama)</th>
+      <td>Minimum 5 cm Karbonlu EPS mantolama, dekoratif mineral sıva ve silikon esaslı dış cephe boyası.</td>
     </tr>
   </table>
 
@@ -771,7 +804,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
               </div>
               <div>
                 <span className="block text-blue-300 font-sans text-[9px] uppercase">TOPLAM BAĞIMSIZ BÖLÜM</span>
-                <strong>{results.flatCount} Daire</strong>
+                <strong>{totalUnitsDisplay}</strong>
               </div>
               <div>
                 <span className="block text-blue-300 font-sans text-[9px] uppercase">TAHMİNİ YAPIM SÜRESİ</span>
@@ -779,7 +812,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
               </div>
               <div>
                 <span className="block text-blue-300 font-sans text-[9px] uppercase">TAAHHÜT TARİHİ</span>
-                <strong>Eylül 2026</strong>
+                <strong>{new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</strong>
               </div>
             </div>
           </div>
@@ -793,7 +826,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Proje Konumu (Adres)</span>
-                  <p className="text-xs font-semibold text-slate-800">{params.projectAddress}</p>
+                  <p className="text-xs font-semibold text-slate-800">{params.projectAddress || 'İstanbul'}</p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Yapı Sınıfı ve Standart</span>
@@ -816,17 +849,25 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Kat Yapısı</span>
                   <p className="text-xs font-semibold text-slate-800">
-                    {params.floorCount} Kat {params.hasGroundFloorShop ? "(Zemin Kat Dükkanlı)" : "(Tamamı Konut)"}
+                    {params.floorCount} Normal Kat + {(params.basementCount ?? 1)} Bodrum Kat {params.hasGroundFloorShop ? `(Zemin Kat: ${params.shopCount || 1} Ticari Dükkan)` : "(Tamamı Konut)"}
+                  </p>
+                </div>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Bodrum Kat & Altyapı</span>
+                  <p className="text-xs font-semibold text-slate-800">
+                    {(params.basementCount ?? 1) > 0 
+                      ? `${params.basementCount ?? 1} Kat Bodrum (Sığınak, Su Deposu, Otopark)` 
+                      : 'Bodrum Kat Planlanmamıştır'}
                   </p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Bağımsız Bölüm Sayısı</span>
-                  <p className="text-xs font-semibold text-slate-800">{results.flatCount} Daire</p>
+                  <p className="text-xs font-semibold text-slate-800">{totalUnitsDisplay}</p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Daire Tipi (Oda + Salon Sayısı)</span>
                   <p className="text-xs font-semibold text-indigo-600 font-bold font-mono">
-                    {params.roomType || '3+1'} ({params.roomType === '1+1' ? '1 Oda, 1 Salon' : params.roomType === '2+1' ? '2 Oda, 1 Salon' : params.roomType === '3+1' ? '3 Oda, 1 Salon' : params.roomType === '4+1' ? '4 Oda, 1 Salon' : params.roomType})
+                    {currentRoom}
                   </p>
                 </div>
               </div>
@@ -897,17 +938,36 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 </div>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-start justify-between gap-4">
-                  <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Mimari Çatı Konstrüksiyonu</span>
-                    <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                      Çatı tipi <span className="font-bold text-indigo-700">{params.roofType === 'gable' ? "Beşik Çatı" : params.roofType === 'flat' ? "Düz Teras Çatı" : params.roofType === 'mansard' ? "Mansard Çatı" : "Dubleks Teras Çatı"}</span> olarak projelendirilmiştir.
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Mimari Çatı Konstrüksiyonu</span>
+                      <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 font-semibold rounded text-[10px]">
+                        {currentRoof.badge}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-indigo-900 mt-0.5">
+                      {currentRoof.title}
+                    </p>
+                    <p className="text-[11px] text-slate-600 leading-relaxed pt-1">
+                      {currentRoof.technicalSpecification}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className="inline-block px-2.5 py-1 bg-amber-100 text-amber-800 font-semibold rounded-lg text-[10px] uppercase">
-                      {params.roofType === 'flat' ? 'Teras Yalıtımlı' : 'Karkas Kaplama'}
-                    </span>
-                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Dış Cephe Isı Yalıtımı & Mantolama</span>
+                  <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                    Isı yalıtım yönetmeliği TS 825 standartlarına uygun <span className="font-semibold text-indigo-700">minimum 5 cm kalınlığında Karbonlu EPS mantolama</span>, fileli sıva ve nefes alan silikonlu dış cephe boyası tatbikatı yapılacaktır.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Bodrum Kat & Sığınak / Otopark Altyapısı</span>
+                  <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                    {(params.basementCount ?? 1) > 0
+                      ? `${params.basementCount ?? 1} Kat Bodrum İmalatı: Deprem ve sığınak yönetmeliğine tam uyumlu sığınak, su deposu (hidroforlu), yangın tesisatı ve kapalı otopark alanları.`
+                      : 'Bodrum kat planlanmamış olup sığınak ve teknik hacimler zemin katta yönetmelik şartlarına göre ayrılacaktır.'}
+                  </p>
                 </div>
               </div>
             </div>

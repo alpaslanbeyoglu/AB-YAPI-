@@ -6,6 +6,7 @@ import { generateOfferHtml } from '../utils/reportExport';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
+import { getRoofTypeShortTitle } from '../utils/roofUtils';
 
 interface OfferTabProps {
   params: ProjectParams;
@@ -849,7 +850,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
           
           <p className="text-[10px] text-slate-500 mt-4 text-center italic">
-            * Yukarıdaki şematik CAD çizimleri, girdiğiniz kat adedi ({params.floorCount} Kat), zemin ticari alan durumu ({params.hasGroundFloorShop ? "Var" : "Yok"}) ve çatı tipi ({params.roofType === 'gable' ? "Beşik Çatı" : params.roofType === 'flat' ? "Düz Çatı / Teras" : params.roofType === 'mansard' ? "Mansard Çatı" : "Dubleks Teras Çatı"}) özelliklerine göre dinamik olarak şematize edilmiştir.
+            * Yukarıdaki şematik CAD çizimleri, girdiğiniz kat adedi ({params.floorCount} Kat), zemin ticari alan durumu ({params.hasGroundFloorShop ? "Var" : "Yok"}) ve çatı tipi ({getRoofTypeShortTitle(params.roofType)}) özelliklerine göre dinamik olarak şematize edilmiştir.
           </p>
         </div>
 
