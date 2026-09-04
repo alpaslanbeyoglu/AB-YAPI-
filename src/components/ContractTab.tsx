@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Printer, Cloud, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Cloud, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { saveReportDocumentToDrive } from '../services/drive';
 import { generateContractHtml } from '../utils/reportExport';
+import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
+import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 
 interface ContractTabProps {
@@ -22,6 +24,7 @@ export const ContractTab: React.FC<ContractTabProps> = ({
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const contractRef = useRef<HTMLDivElement>(null);
 
   const isGray = theme === 'gray';
 
@@ -31,6 +34,18 @@ export const ContractTab: React.FC<ContractTabProps> = ({
       : params.transformationStatus !== 'none'
       ? '6306 SAYILI KANUN KAPSAMINDA KENTSEL DÖNÜŞÜM BİNA YAPIM SÖZLEŞMESİ'
       : 'ÖZ KAYNAKLI BİNA YAPIM VE TAAHHÜT SÖZLEŞMESİ';
+
+  const handleExportPdf = async () => {
+    if (!contractRef.current) return;
+    const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
+    const fileName = `AB_YAPI_Resmi_Sozlesme_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    await exportElementToPdf(contractRef.current, fileName);
+  };
+
+  const handlePrint = () => {
+    const html = generateContractHtml(params, results);
+    printHtmlContent(html, `AB_YAPI_Resmi_Sozlesme_${params.projectAddress || 'Proje'}`);
+  };
 
   const handleSaveToDrive = async () => {
     if (!hasToken) {
@@ -81,19 +96,16 @@ export const ContractTab: React.FC<ContractTabProps> = ({
             type="button"
             onClick={handleSaveToDrive}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
           >
             <Cloud className="w-4 h-4" />
             <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold transition-all active:scale-95"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Yazdır / PDF</span>
-          </button>
+          <PrintAndPdfButtons
+            onExportPdf={handleExportPdf}
+            onPrint={handlePrint}
+            theme={theme}
+          />
         </div>
       </div>
 
@@ -116,6 +128,7 @@ export const ContractTab: React.FC<ContractTabProps> = ({
 
       {/* Contract Document Content */}
       <div
+        ref={contractRef}
         className={`border rounded-3xl p-6 sm:p-10 shadow-sm text-xs leading-relaxed text-slate-700 text-justify print:bg-white print:border-none print:shadow-none print:p-0 print:text-black ${
           isGray ? 'bg-slate-50 border-slate-300' : 'bg-white border-slate-200'
         }`}

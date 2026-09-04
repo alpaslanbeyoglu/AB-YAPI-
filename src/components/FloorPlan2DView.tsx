@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import {
-  Printer,
   Compass,
   Building,
   Info,
@@ -13,6 +12,8 @@ import {
   Shield,
   Grid,
 } from 'lucide-react';
+import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
+import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { BuildingModelParams, ProjectParams, RoomType } from '../types';
 import {
   calculateBuildingMetrics,
@@ -200,6 +201,37 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
       );
       setTimeout(() => setSyncedFeedback(null), 4000);
     }
+  };
+
+  const handleExportPdf = async () => {
+    if (!planRef.current) return;
+    const fileName = `AB_YAPI_2D_Kat_Plani_${selectedFloorTab}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    await exportElementToPdf(planRef.current, fileName, { landscape: true });
+  };
+
+  const handlePrint = () => {
+    if (!planRef.current) return;
+    const planHtml = `
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="UTF-8">
+        <title>AB YAPI - 2D Mimari Kat Planı</title>
+        <style>
+          @page { size: A4 landscape; margin: 10mm; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; color: #000; background: #fff; }
+          .print-container { width: 100%; display: flex; justify-content: center; }
+          svg { max-width: 100%; height: auto; }
+        </style>
+      </head>
+      <body>
+        <div class="print-container">
+          ${planRef.current.innerHTML}
+        </div>
+      </body>
+      </html>
+    `;
+    printHtmlContent(planHtml, `AB_YAPI_2D_Kat_Plani_${selectedFloorTab}`);
   };
 
   const cardBg = isGray
@@ -449,7 +481,7 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
               <button
                 type="button"
                 onClick={handleSyncToCalculator}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all active:scale-95 cursor-pointer ${
                   isLight
                     ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
                     : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
@@ -461,14 +493,11 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Yazdır / PDF</span>
-            </button>
+            <PrintAndPdfButtons
+              onExportPdf={handleExportPdf}
+              onPrint={handlePrint}
+              theme={theme}
+            />
           </div>
         </div>
 

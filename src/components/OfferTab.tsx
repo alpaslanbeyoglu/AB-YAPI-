@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Printer, Cloud, CheckCircle2, AlertCircle, ShieldCheck, FileText, Compass, LayoutGrid } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Cloud, CheckCircle2, AlertCircle, ShieldCheck, FileText, Compass, LayoutGrid } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { saveReportDocumentToDrive } from '../services/drive';
 import { generateOfferHtml } from '../utils/reportExport';
+import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
+import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 
 interface OfferTabProps {
@@ -533,6 +535,19 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [showDrawingsInReport, setShowDrawingsInReport] = useState(true);
+  const offerDocRef = useRef<HTMLDivElement>(null);
+
+  const handleExportPdf = async () => {
+    if (!offerDocRef.current) return;
+    const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
+    const fileName = `AB_YAPI_Musteri_Teklifi_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    await exportElementToPdf(offerDocRef.current, fileName);
+  };
+
+  const handlePrint = () => {
+    const html = generateOfferHtml(params, results, showDrawingsInReport);
+    printHtmlContent(html, `AB_YAPI_Musteri_Teklifi_${params.projectAddress || 'Proje'}`);
+  };
 
   // Copy protection side effects and handlers
   React.useEffect(() => {
@@ -645,19 +660,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             type="button"
             onClick={handleSaveToDrive}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
           >
             <Cloud className="w-4 h-4" />
             <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold transition-all active:scale-95"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Yazdır / PDF</span>
-          </button>
+          <PrintAndPdfButtons
+            onExportPdf={handleExportPdf}
+            onPrint={handlePrint}
+            theme={theme}
+          />
         </div>
       </div>
 
@@ -680,6 +692,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
       {/* Offer Document */}
       <div
+        ref={offerDocRef}
         onCopy={handleCopyProtect}
         onContextMenu={handleContextMenuProtect}
         onDragStart={(e) => e.preventDefault()}

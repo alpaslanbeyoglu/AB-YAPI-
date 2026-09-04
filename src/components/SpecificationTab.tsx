@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Printer, Cloud, CheckCircle2, AlertCircle, Sparkles, ShieldCheck, FileText, FileSpreadsheet, Layers, Compass, Building, Check } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Cloud, CheckCircle2, AlertCircle, Sparkles, ShieldCheck, FileText, FileSpreadsheet, Layers, Compass, Building, Check } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { saveReportDocumentToDrive } from '../services/drive';
+import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
+import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 
 interface SpecificationTabProps {
@@ -22,6 +24,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   const [activeTab, setActiveTab] = useState<'common' | 'project'>('common');
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const specContainerRef = useRef<HTMLDivElement>(null);
 
   const isGray = theme === 'gray';
 
@@ -30,6 +33,22 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
   const projectTitle = "PROJEYE ÖZEL KENTSEL DÖNÜŞÜM YAPIM ŞARTNAMESİ";
   const projectSubtitle = `Adres: ${params.projectAddress || 'Belirtilmemiş'} | Özel Mühendislik ve Malzeme Listesi`;
+
+  const handleExportPdf = async () => {
+    if (!specContainerRef.current) return;
+    const isCommon = activeTab === 'common';
+    const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
+    const fileName = isCommon
+      ? `AB_YAPI_Ortak_Teknik_Sartname_${new Date().toISOString().slice(0, 10)}.pdf`
+      : `AB_YAPI_Projeye_Ozel_Teknik_Sartname_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    await exportElementToPdf(specContainerRef.current, fileName);
+  };
+
+  const handlePrint = () => {
+    const html = generateSpecHtml();
+    const docTitle = activeTab === 'common' ? 'AB_YAPI_Ortak_Teknik_Sartname' : `AB_YAPI_Projeye_Ozel_Sartname_${params.projectAddress || 'Proje'}`;
+    printHtmlContent(html, docTitle);
+  };
 
   const generateSpecHtml = () => {
     if (activeTab === 'common') {
@@ -421,19 +440,16 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             type="button"
             onClick={handleSaveToDrive}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
           >
             <Cloud className="w-4 h-4" />
             <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-semibold transition-all active:scale-95"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Yazdır / PDF</span>
-          </button>
+          <PrintAndPdfButtons
+            onExportPdf={handleExportPdf}
+            onPrint={handlePrint}
+            theme={theme}
+          />
         </div>
       </div>
 
@@ -455,6 +471,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
       )}
 
       {/* RENDER ACTIVE TAB */}
+      <div ref={specContainerRef}>
       {activeTab === 'common' ? (
         /* Specification Document Body (matches scanned image exactly) */
         <div className="bg-white border border-slate-200 rounded-3xl shadow-md p-6 sm:p-10 text-xs leading-relaxed text-slate-800 print:border-none print:shadow-none print:p-0">
@@ -949,6 +966,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
           </div>
         </div>
       )}
+      </div>
 
     </div>
   );

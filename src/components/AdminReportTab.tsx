@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Printer, Cloud, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Cloud, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { saveReportDocumentToDrive } from '../services/drive';
+import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
+import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 
 interface AdminReportTabProps {
@@ -21,8 +23,21 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const adminDocRef = useRef<HTMLDivElement>(null);
 
   const isGray = theme === 'gray';
+
+  const handleExportPdf = async () => {
+    if (!adminDocRef.current) return;
+    const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
+    const fileName = `AB_YAPI_Yonetici_Finans_Raporu_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    await exportElementToPdf(adminDocRef.current, fileName);
+  };
+
+  const handlePrint = () => {
+    const html = generateAdminReportHtml();
+    printHtmlContent(html, `AB_YAPI_Yonetici_Finans_Raporu_${params.projectAddress || 'Proje'}`);
+  };
 
   const generateAdminReportHtml = () => {
     const cashFlowRowsHtml = results.cashFlowRows
@@ -168,19 +183,16 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
             type="button"
             onClick={handleSaveToDrive}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
           >
             <Cloud className="w-4 h-4" />
             <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-semibold transition-all active:scale-95"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Yazdır / PDF</span>
-          </button>
+          <PrintAndPdfButtons
+            onExportPdf={handleExportPdf}
+            onPrint={handlePrint}
+            theme={theme}
+          />
         </div>
       </div>
 
@@ -202,7 +214,10 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
       )}
 
       {/* Admin Document Content */}
-      <div className={`border rounded-3xl p-6 sm:p-10 shadow-sm text-xs leading-relaxed text-slate-700 print:bg-white print:border-none print:shadow-none print:p-0 print:text-black ${cardBg}`}>
+      <div
+        ref={adminDocRef}
+        className={`border rounded-3xl p-6 sm:p-10 shadow-sm text-xs leading-relaxed text-slate-700 print:bg-white print:border-none print:shadow-none print:p-0 print:text-black ${cardBg}`}
+      >
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 pb-5 mb-6 print:border-red-700">
           <div className="flex items-center gap-3">
             <Logo size="lg" variant="full" theme={theme} />
