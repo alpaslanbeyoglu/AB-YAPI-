@@ -462,16 +462,97 @@ function generateFrontViewSvgString(
   `;
 }
 
-function generateGroundFloorPlanSvgString(hasShop: boolean, roomType = '3+1 ODA', grossArea = 120, netArea = 96, baseBuildArea = 120): string {
+function generateGroundFloorPlanSvgString(
+  hasShop: boolean,
+  roomType = '3+1 ODA',
+  grossArea = 120,
+  netArea = 96,
+  baseBuildArea = 120,
+  flatsPerFloor = 2,
+  shopCount = 1
+): string {
   const estW = Math.sqrt(baseBuildArea / 1.2);
   const estD = estW * 1.2;
-  const shopGross = Math.round(((baseBuildArea * 0.85) / 2) * 10) / 10;
-  const shopNet = Math.round((shopGross * 0.8) * 10) / 10;
+
+  let contentMarkup = '';
+
+  if (hasShop) {
+    const sCount = Math.max(1, Math.min(4, shopCount));
+    const shopGross = Math.round(((baseBuildArea * 0.85) / sCount) * 10) / 10;
+    const shopNet = Math.round((shopGross * 0.8) * 10) / 10;
+
+    if (sCount === 1) {
+      contentMarkup = `
+        <g stroke="#34d399" stroke-width="1.2" fill="none">
+          <rect x="48" y="48" width="124" height="124" stroke-dasharray="3,3" />
+          <text x="110" y="105" fill="#34d399" font-size="6.5" text-anchor="middle" stroke="none" font-weight="bold">TİCARİ MAĞAZA / DÜKKAN</text>
+          <text x="110" y="116" fill="#64748b" font-size="5" text-anchor="middle" stroke="none">BRÜT: ~\\\${shopGross} m²</text>
+          <text x="110" y="123" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+        </g>
+      `;
+    } else if (sCount === 2) {
+      contentMarkup = `
+        <g stroke="#34d399" stroke-width="1.2" fill="none">
+          <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
+          <text x="71" y="105" fill="#34d399" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 01</text>
+          <text x="71" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~\\\${shopGross} m²</text>
+          <text x="71" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+
+          <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" />
+          <text x="148" y="105" fill="#34d399" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 02</text>
+          <text x="148" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~\\\${shopGross} m²</text>
+          <text x="148" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+          <text x="110" y="58" fill="#10b981" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">ORTAK HOL</text>
+        </g>
+      `;
+    } else if (sCount === 3) {
+      contentMarkup = `
+        <g stroke="#34d399" stroke-width="1.2" fill="none">
+          <line x1="88" y1="45" x2="88" y2="175" stroke-dasharray="3,3" />
+          <line x1="132" y1="45" x2="132" y2="175" stroke-dasharray="3,3" />
+          <text x="66" y="105" fill="#34d399" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 01</text>
+          <text x="66" y="115" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+
+          <text x="110" y="152" fill="#34d399" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 02</text>
+          <text x="110" y="161" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+
+          <text x="154" y="105" fill="#34d399" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 03</text>
+          <text x="154" y="115" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+          <text x="110" y="58" fill="#10b981" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">GİRİŞ / HOL</text>
+        </g>
+      `;
+    } else {
+      contentMarkup = `
+        <g stroke="#34d399" stroke-width="1.2" fill="none">
+          <line x1="110" y1="45" x2="110" y2="175" stroke-dasharray="3,3" />
+          <line x1="45" y1="110" x2="175" y2="110" stroke-dasharray="3,3" />
+          <text x="71" y="80" fill="#34d399" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 01</text>
+          <text x="71" y="89" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+
+          <text x="148" y="80" fill="#34d399" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 02</text>
+          <text x="148" y="89" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+
+          <text x="71" y="142" fill="#34d399" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 03</text>
+          <text x="71" y="151" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+
+          <text x="148" y="142" fill="#34d399" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 04</text>
+          <text x="148" y="151" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
+        </g>
+      `;
+    }
+  } else {
+    return generateNormalFloorPlanSvgString(roomType, grossArea, netArea, baseBuildArea, flatsPerFloor);
+  }
 
   return `
     <svg viewBox="0 0 220 220" style="width:100%; max-height:220px; background:#060a13;">
       <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" stroke-width="1.5" />
       <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="1,2" />
+
+      <!-- Watermark -->
+      <g stroke="#ff0000" stroke-width="0.3" fill="none" opacity="0.06" style="pointer-events:none;">
+        <text x="110" y="110" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle" transform="rotate(-30, 110, 110)">ÖRNEK ÇİZİMDİR • KESİN DEĞİLDİR</text>
+      </g>
 
       <g stroke="#f43f5e" stroke-width="1" fill="none">
         <rect x="98" y="70" width="24" height="24" stroke-width="1.2" />
@@ -498,35 +579,7 @@ function generateGroundFloorPlanSvgString(hasShop: boolean, roomType = '3+1 ODA'
         <text x="110" y="136" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">MERDİVEN</text>
       </g>
 
-      ${hasShop ? `
-        <g stroke="#34d399" stroke-width="1.2" fill="none">
-          <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
-          <text x="71" y="105" fill="#34d399" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 01</text>
-          <text x="71" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~\${shopGross} m²</text>
-          <text x="71" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\${shopNet} m²</text>
-
-          <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" />
-          <text x="148" y="105" fill="#34d399" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 02</text>
-          <text x="148" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~\${shopGross} m²</text>
-          <text x="148" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\${shopNet} m²</text>
-          <text x="110" y="58" fill="#10b981" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">ORTAK HOL</text>
-        </g>
-      ` : `
-        <g stroke="#a78bfa" stroke-width="1.2" fill="none">
-          <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
-          <text x="71" y="105" fill="#a78bfa" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01</text>
-          <text x="71" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
-          <text x="71" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
-          <text x="71" y="130" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
-
-          <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" />
-          <text x="148" y="105" fill="#a78bfa" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 02</text>
-          <text x="148" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
-          <text x="148" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
-          <text x="148" y="130" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
-          <text x="110" y="58" fill="#10b981" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">ORTAK HOL</text>
-        </g>
-      `}
+      \${contentMarkup}
 
       <g stroke="#e2e8f0" stroke-width="0.6" fill="none" opacity="0.8">
         <line x1="45" y1="23" x2="175" y2="23" stroke="#10b981" stroke-width="0.8" />
@@ -548,14 +601,97 @@ function generateGroundFloorPlanSvgString(hasShop: boolean, roomType = '3+1 ODA'
   `;
 }
 
-function generateNormalFloorPlanSvgString(roomType = '3+1 ODA', grossArea = 120, netArea = 96, baseBuildArea = 120): string {
+function generateNormalFloorPlanSvgString(
+  roomType = '3+1 ODA',
+  grossArea = 120,
+  netArea = 96,
+  baseBuildArea = 120,
+  flatsPerFloor = 2
+): string {
   const estW = Math.sqrt(baseBuildArea / 1.2);
   const estD = estW * 1.2;
+
+  const fCount = Math.max(1, Math.min(4, flatsPerFloor));
+  let flatLayoutMarkup = '';
+
+  if (fCount === 1) {
+    flatLayoutMarkup = `
+      <g stroke="#a78bfa" stroke-width="1.2" fill="none">
+        <rect x="48" y="48" width="124" height="124" stroke-dasharray="2,2" />
+        <text x="110" y="105" fill="#a78bfa" font-size="6.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (TAM KAT REZİDANS)</text>
+        <text x="110" y="116" fill="#64748b" font-size="5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
+        <text x="110" y="123" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+        <text x="110" y="131" fill="#a78bfa" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
+      </g>
+    `;
+  } else if (fCount === 2) {
+    flatLayoutMarkup = `
+      <g stroke="#a78bfa" stroke-width="1.2" fill="none">
+        <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
+        <text x="71" y="105" fill="#a78bfa" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (SOL)</text>
+        <text x="71" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
+        <text x="71" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+        <text x="71" y="130" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
+
+        <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" />
+        <text x="148" y="105" fill="#a78bfa" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 02 (SAĞ)</text>
+        <text x="148" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
+        <text x="148" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+        <text x="148" y="130" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
+        <text x="110" y="58" fill="#10b981" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">KAT HOLÜ</text>
+      </g>
+    `;
+  } else if (fCount === 3) {
+    flatLayoutMarkup = `
+      <g stroke="#a78bfa" stroke-width="1.2" fill="none">
+        <line x1="98" y1="45" x2="98" y2="110" stroke-dasharray="3,3" />
+        <line x1="122" y1="45" x2="122" y2="110" stroke-dasharray="3,3" />
+        <line x1="45" y1="110" x2="175" y2="110" stroke-dasharray="3,3" />
+        
+        <text x="71" y="75" fill="#a78bfa" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (ÖN SOL)</text>
+        <text x="71" y="84" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${Math.round(netArea * 0.95 * 10) / 10} m²</text>
+
+        <text x="148" y="75" fill="#a78bfa" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 02 (ÖN SAĞ)</text>
+        <text x="148" y="84" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${Math.round(netArea * 0.95 * 10) / 10} m²</text>
+
+        <text x="110" y="142" fill="#a78bfa" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 03 (ARKA BAHÇE)</text>
+        <text x="110" y="151" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${Math.round(netArea * 1.1 * 10) / 10} m²</text>
+        <text x="110" y="158" fill="#a78bfa" font-size="4" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
+        <text x="110" y="58" fill="#10b981" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">HOL</text>
+      </g>
+    `;
+  } else {
+    flatLayoutMarkup = `
+      <g stroke="#a78bfa" stroke-width="1.2" fill="none">
+        <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
+        <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" />
+        <line x1="45" y1="110" x2="175" y2="110" stroke-dasharray="3,3" />
+        
+        <text x="71" y="75" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (ÖN SOL)</text>
+        <text x="71" y="84" fill="#64748b" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+
+        <text x="148" y="75" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 02 (ÖN SAĞ)</text>
+        <text x="148" y="84" fill="#64748b" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+
+        <text x="71" y="140" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 03 (ARKA SOL)</text>
+        <text x="71" y="149" fill="#64748b" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+
+        <text x="148" y="140" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 04 (ARKA SAĞ)</text>
+        <text x="148" y="149" fill="#64748b" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+        <text x="110" y="58" fill="#10b981" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">HOL</text>
+      </g>
+    `;
+  }
 
   return `
     <svg viewBox="0 0 220 220" style="width:100%; max-height:220px; background:#060a13;">
       <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" stroke-width="1.5" />
       <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="1,2" />
+
+      <!-- Watermark -->
+      <g stroke="#ff0000" stroke-width="0.3" fill="none" opacity="0.06" style="pointer-events:none;">
+        <text x="110" y="110" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle" transform="rotate(-30, 110, 110)">ÖRNEK ÇİZİMDİR • KESİN DEĞİLDİR</text>
+      </g>
 
       <g stroke="#f43f5e" stroke-width="1" fill="none">
         <rect x="98" y="70" width="24" height="24" stroke-width="1.2" />
@@ -582,20 +718,7 @@ function generateNormalFloorPlanSvgString(roomType = '3+1 ODA', grossArea = 120,
         <text x="110" y="136" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">MERDİVEN</text>
       </g>
 
-      <g stroke="#a78bfa" stroke-width="1.2" fill="none">
-        <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
-        <text x="71" y="105" fill="#a78bfa" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DAİRE A (SOL)</text>
-        <text x="71" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
-        <text x="71" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
-        <text x="71" y="130" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
-
-        <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" />
-        <text x="148" y="105" fill="#a78bfa" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DAİRE B (SAĞ)</text>
-        <text x="148" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
-        <text x="148" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
-        <text x="148" y="130" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
-        <text x="110" y="58" fill="#10b981" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">KAT HOLÜ</text>
-      </g>
+      ${flatLayoutMarkup}
 
       <g stroke="#e2e8f0" stroke-width="0.6" fill="none" opacity="0.8">
         <line x1="45" y1="23" x2="175" y2="23" stroke="#10b981" stroke-width="0.8" />

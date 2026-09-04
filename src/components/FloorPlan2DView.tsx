@@ -558,6 +558,21 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
         </div>
       </div>
 
+      {/* Şematik Çizim Uyarı Bannerı */}
+      <div className={`p-4 rounded-2xl border flex items-start gap-3 text-xs leading-relaxed ${
+        isLight
+          ? 'bg-amber-50/70 border-amber-200 text-amber-800'
+          : 'bg-amber-950/20 border-amber-900/60 text-amber-300'
+      } print:hidden`}>
+        <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="font-bold">⚠️ Örnek Şematik Mimari Çizim Bilgilendirmesi</p>
+          <p>
+            Bu ekranda ve rapor çıktılarında üretilen 2D kat planı şeması, girdiğiniz dış ölçülere, merdiven/asansör boyutlarına ve katta seçilen daire sayısına göre <strong>dinamik ve fikir verme amaçlı (örnek)</strong> olarak çizdirilmektedir. Bu çizim kesinlikle bir inşaat uygulama projesi, statik projesi veya resmi belediye ruhsat projesi niteliğinde değildir. Kesin ölçüler ve oda yerleşimleri imar yönetmeliklerine bağlı resmi mimari proje aşamasında netleşecektir.
+          </p>
+        </div>
+      </div>
+
       {/* Architectural Plan SVG Viewer Card */}
       <div
         ref={planRef}
@@ -724,6 +739,22 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                 />
               </g>
             )}
+
+            {/* Watermark indicating this is a sample/draft schema */}
+            <g opacity="0.08" className="pointer-events-none select-none">
+              <text
+                x={bX + bW / 2}
+                y={bY + bH / 2}
+                fill="#ef4444"
+                fontSize={Math.max(16, bW / 12)}
+                fontWeight="900"
+                textAnchor="middle"
+                transform={`rotate(-28 ${bX + bW / 2} ${bY + bH / 2})`}
+                className="font-mono"
+              >
+                TASLAK ÖRNEKTİR • KESİN PROJE DEĞİLDİR
+              </text>
+            </g>
 
             {/* 2. STRUCTURAL AXIS LINES & BUBBLES (AKSLAR) */}
             <g id="structural-axes">

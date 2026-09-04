@@ -105,6 +105,18 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
         </div>
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-slate-700">Firma Adresi</label>
+        <textarea
+          name="address"
+          value={formData.address || ''}
+          onChange={handleInputChange}
+          rows={3}
+          className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="Firma adresi..."
+        />
+      </div>
+
       <button
         onClick={handleSave}
         className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition"

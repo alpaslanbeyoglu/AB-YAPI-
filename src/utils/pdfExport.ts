@@ -62,7 +62,14 @@ export function printHtmlContent(htmlContent: string, documentTitle: string): vo
         }, 500);
       });
     </script>
-    <button onclick="window.close()" class="no-print" style="position:fixed; top:20px; right:20px; padding:12px 24px; background:#4f46e5; color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; z-index:9999; box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);">Geri Dön / Kapat</button>
+    <div class="no-print" style="position:fixed; top:20px; right:20px; display:flex; flex-direction:column; align-items:flex-end; gap:6px; z-index:9999; font-family:sans-serif;">
+      <button onclick="window.close(); setTimeout(function() { window.history.back(); }, 300);" style="padding:12px 24px; background:#0284c7; color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; font-weight:bold; box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1); transition: background 0.2s;" onmouseover="this.style.background='#0369a1'" onmouseout="this.style.background='#0284c7'">
+        ← Ana Uygulamaya Geri Dön / Sekmeyi Kapat
+      </button>
+      <span style="font-size:11px; color:#475569; background:rgba(255,255,255,0.95); padding:4px 8px; border-radius:4px; border:1px solid #e2e8f0; box-shadow:0 2px 4px rgb(0 0 0 / 0.05);">
+        Not: Bu sekme otomatik açılmıştır. İade için buraya tıklayabilir veya sekmeyi kapatabilirsiniz.
+      </span>
+    </div>
   `;
 
   let printableHtml = htmlContent;

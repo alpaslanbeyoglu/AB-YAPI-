@@ -13,6 +13,8 @@ import {
   Box,
   Compass,
   Building,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Header } from './components/Header';
@@ -27,6 +29,7 @@ import { SpecificationTab } from './components/SpecificationTab';
 import { AdminReportTab } from './components/AdminReportTab';
 import { HistoryTab } from './components/HistoryTab';
 import { CompanyProfileTab } from './components/CompanyProfileTab';
+import { CostDetailsTab } from './components/CostDetailsTab';
 
 import { DEFAULT_PARAMS, calculateProject, synchronizeFlats } from './utils/calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS } from './utils/buildingModelUtils';
@@ -74,8 +77,9 @@ export default function App() {
   const isGray = theme === 'gray';
 
   const [activeTab, setActiveTab] = useState<
-    'hesapla' | 'model' | 'katplani' | 'teklif' | 'sozlesme' | 'sartname' | 'raporlar' | 'gecmis' | 'profile'
+    'hesapla' | 'model' | 'katplani' | 'maliyet' | 'teklif' | 'sozlesme' | 'sartname' | 'raporlar' | 'gecmis' | 'profile'
   >('hesapla');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isDrivePanelOpen, setIsDrivePanelOpen] = useState(false);
 
   const [buildingModelParams, setBuildingModelParams] = useState<BuildingModelParams>(() => {
@@ -397,7 +401,7 @@ export default function App() {
       {/* pb-36 eklendi: Alt taraftaki kartlar sabit menünün arkasında kalmayıp tam kayacak */}
       <main className="flex-1 w-full mx-auto p-4 sm:p-6 pb-36 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col md:flex-row gap-6">
         {/* Sidebar */}
-        <div className="w-full md:w-64 flex-shrink-0 print:hidden">
+        <div className={`w-full ${isSidebarOpen ? 'md:w-64' : 'md:w-20'} flex-shrink-0 print:hidden transition-all duration-300 ease-in-out`}>
           <div
             className={`flex flex-col gap-1.5 p-3 rounded-2xl border shadow-sm transition-colors ${
               isGray
@@ -405,140 +409,186 @@ export default function App() {
                 : 'bg-white border-slate-200 text-slate-800'
             }`}
           >
-          <button
-            type="button"
-            onClick={() => setActiveTab('hesapla')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'hesapla'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isGray
-                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Calculator className="w-3.5 h-3.5" />
-            <span>1. Hesaplama Paneli</span>
-          </button>
+            {/* Collapse Toggle Header */}
+            <div className={`flex items-center ${isSidebarOpen ? 'justify-between' : 'justify-center'} px-1 mb-2 border-b pb-2 ${isGray ? 'border-slate-200' : 'border-slate-100'}`}>
+              {isSidebarOpen && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Menü</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className={`p-1.5 rounded-lg hover:bg-slate-200/50 transition-colors text-slate-500 flex items-center justify-center`}
+                title={isSidebarOpen ? "Menüyü Daralt" : "Menüyü Genişlet"}
+              >
+                {isSidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('model')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'model'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isGray
-                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Box className="w-3.5 h-3.5 text-indigo-500" />
-            <span>2. 3D Model 🏢</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('hesapla')}
+              title="1. Hesaplama Paneli"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'hesapla'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Calculator className="w-4 h-4 shrink-0" />
+              {isSidebarOpen && <span>1. Hesaplama Paneli</span>}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('katplani')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'katplani'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isGray
-                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5 text-emerald-600" />
-            <span>3. 2D Kat Planı 📐</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('model')}
+              title="2. 3D Model"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'model'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Box className="w-4 h-4 text-indigo-500 shrink-0" />
+              {isSidebarOpen && <span>2. 3D Model 🏢</span>}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('teklif')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'teklif'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isGray
-                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5 text-emerald-600" />
-            <span>4. Teklif Çıktısı 📄</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('katplani')}
+              title="3. 2D Kat Planı"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'katplani'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Compass className="w-4 h-4 text-emerald-600 shrink-0" />
+              {isSidebarOpen && <span>3. 2D Kat Planı 📐</span>}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('sozlesme')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'sozlesme'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isGray
-                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <ScrollText className="w-3.5 h-3.5 text-blue-600" />
-            <span>5. Resmi Sözleşme 📜</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('maliyet')}
+              title="4. Maliyet Detayları"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'maliyet'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 text-amber-500 shrink-0" />
+              {isSidebarOpen && <span>4. Maliyet Detayları 📊</span>}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('sartname')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'sartname'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isGray
-                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600" />
-            <span>6. Teknik Şartname 🏗️</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('teklif')}
+              title="5. Teklif Çıktısı"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'teklif'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+              {isSidebarOpen && <span>5. Teklif Çıktısı 📄</span>}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('raporlar')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'raporlar'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isGray
-                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
-            <span>7. Müteahhit Raporu 📊</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('sozlesme')}
+              title="6. Resmi Sözleşme"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'sozlesme'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <ScrollText className="w-4 h-4 text-blue-600 shrink-0" />
+              {isSidebarOpen && <span>6. Resmi Sözleşme 📜</span>}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('profile')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'profile'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isGray
-                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Building className="w-3.5 h-3.5 text-indigo-600" />
-            <span>8. Firma Profili 🏢</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('sartname')}
+              title="7. Teknik Şartname"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'sartname'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4 text-amber-600 shrink-0" />
+              {isSidebarOpen && <span>7. Teknik Şartname 🏗️</span>}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('gecmis')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-              activeTab === 'gecmis'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                : isGray
-                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <History className="w-3.5 h-3.5 text-pink-600" />
-            <span>9. Kayıtlar ({historyList.length})</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('raporlar')}
+              title="8. Müteahhit Raporu"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'raporlar'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 text-purple-600 shrink-0" />
+              {isSidebarOpen && <span>8. Müteahhit Raporu 📈</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('profile')}
+              title="9. Firma Profili"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'profile'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Building className="w-4 h-4 text-indigo-600 shrink-0" />
+              {isSidebarOpen && <span>9. Firma Profili 🏢</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('gecmis')}
+              title={`10. Kayıtlar (${historyList.length})`}
+              className={`relative flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'gecmis'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <History className="w-4 h-4 text-pink-600 shrink-0" />
+              {isSidebarOpen ? (
+                <span>10. Kayıtlar ({historyList.length})</span>
+              ) : (
+                <span className="absolute top-1 right-1 bg-pink-100 text-pink-800 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+                  {historyList.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -610,6 +660,14 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'maliyet' && (
+          <CostDetailsTab
+            params={params}
+            results={results}
+            theme={theme}
+          />
+        )}
+
         {activeTab === 'teklif' && (
           <OfferTab
             params={params}
@@ -677,7 +735,7 @@ export default function App() {
             : 'bg-[#09090b]/95 border-zinc-800/80 text-zinc-300'
         }`}
       >
-        <div className="grid grid-cols-6 max-w-lg mx-auto">
+        <div className="grid grid-cols-7 max-w-lg mx-auto">
           <button
             type="button"
             onClick={() => setActiveTab('hesapla')}
@@ -727,6 +785,23 @@ export default function App() {
           >
             <Compass className="w-4 h-4" />
             <span className="text-[9px] mt-1">Kat Planı</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('maliyet')}
+            className={`flex flex-col items-center justify-center py-2.5 transition-colors ${
+              activeTab === 'maliyet'
+                ? isLight
+                  ? 'text-indigo-600 font-semibold'
+                  : 'text-indigo-400 font-semibold'
+                : isLight
+                ? 'text-slate-400 hover:text-slate-700'
+                : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 text-amber-500" />
+            <span className="text-[9px] mt-1">Maliyet</span>
           </button>
 
           <button
