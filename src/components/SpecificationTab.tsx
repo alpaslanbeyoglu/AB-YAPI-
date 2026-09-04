@@ -6,6 +6,7 @@ import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { getRoofInfo, getRoomTypeDescription } from '../utils/roofUtils';
+import { useCompanyProfile } from '../context/CompanyProfileContext';
 
 interface SpecificationTabProps {
   params: ProjectParams;
@@ -22,6 +23,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   onOpenDrivePanel,
   theme = 'light',
 }) => {
+  const { profile } = useCompanyProfile();
   const [activeTab, setActiveTab] = useState<'common' | 'project'>('common');
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -30,7 +32,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   const isGray = theme === 'gray';
 
   const specTitle = "KENTSEL DÖNÜŞÜM ORTAK TEKNİK ŞARTNAMESİ";
-  const specSubtitle = "AB Yapı Proje Çeşitlilikleri, Malzeme ve Uygulama Esasları";
+  const specSubtitle = `${profile.companyName} Proje Çeşitlilikleri, Malzeme ve Uygulama Esasları`;
 
   const projectTitle = "PROJEYE ÖZEL KENTSEL DÖNÜŞÜM YAPIM ŞARTNAMESİ";
   const projectSubtitle = `Adres: ${params.projectAddress || 'Belirtilmemiş'} | Özel Mühendislik ve Malzeme Listesi`;
@@ -46,14 +48,14 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     const isCommon = activeTab === 'common';
     const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
     const fileName = isCommon
-      ? `AB_YAPI_Ortak_Teknik_Sartname_${new Date().toISOString().slice(0, 10)}.pdf`
-      : `AB_YAPI_Projeye_Ozel_Teknik_Sartname_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      ? `${profile.companyName.replace(/ /g, '_')}_Ortak_Teknik_Sartname_${new Date().toISOString().slice(0, 10)}.pdf`
+      : `${profile.companyName.replace(/ /g, '_')}_Projeye_Ozel_Teknik_Sartname_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
     await exportElementToPdf(specContainerRef.current, fileName);
   };
 
   const handlePrint = () => {
     const html = generateSpecHtml();
-    const docTitle = activeTab === 'common' ? 'AB_YAPI_Ortak_Teknik_Sartname' : `AB_YAPI_Projeye_Ozel_Sartname_${params.projectAddress || 'Proje'}`;
+    const docTitle = activeTab === 'common' ? `${profile.companyName.replace(/ /g, '_')}_Ortak_Teknik_Sartname` : `${profile.companyName.replace(/ /g, '_')}_Projeye_Ozel_Sartname_${params.projectAddress || 'Proje'}`;
     printHtmlContent(html, docTitle);
   };
 
@@ -86,7 +88,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     <h1>${specTitle}</h1>
     <h2>${specSubtitle}</h2>
     <div class="meta-grid">
-      <div><strong>Yüklenici:</strong> AB YAPI - Güvene Yükselen Yapılar</div>
+      <div><strong>Yüklenici:</strong> ${profile.companyName}</div>
       <div><strong>Doküman Kodu:</strong> AB-TŞ-REV2026</div>
       <div><strong>Kapsam:</strong> Kentsel Dönüşüm Projeleri Esnek ve Standart Teknik Kriterleri</div>
       <div><strong>Tarih:</strong> Eylül 2026</div>

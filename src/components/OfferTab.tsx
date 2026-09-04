@@ -7,6 +7,7 @@ import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { getRoofTypeShortTitle } from '../utils/roofUtils';
+import { useCompanyProfile } from '../context/CompanyProfileContext';
 
 interface OfferTabProps {
   params: ProjectParams;
@@ -17,7 +18,7 @@ interface OfferTabProps {
 }
 
 // Helper to render front-elevation building schematic (stale)
-const staleRenderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType: string) => {
+const staleRenderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType: string, compName: string = 'AB YAPI') => {
   const N = floorCount || 5;
   const floorHeight = 22;
   const shopHeight = 32;
@@ -75,7 +76,7 @@ const staleRenderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType:
                 <line x1="151" y1={fl.y + 10} x2="151" y2={fl.y + 29} stroke="#38bdf8" strokeWidth="0.5" />
                 {/* Signboard */}
                 <rect x="48" y={fl.y + 2} width="124" height="6" fill="#38bdf8" fillOpacity="0.25" />
-                <text x="110" y={fl.y + 7} fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">AB TİCARET / TİCARİ MAĞAZA</text>
+                <text x="110" y={fl.y + 7} fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">{compName} TİCARET / TİCARİ MAĞAZA</text>
               </g>
             ) : (
               // Residential window patterns
@@ -149,7 +150,13 @@ const staleRenderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType:
 };
 
 // Helper to render front-elevation building schematic with CAD style dimensions
-const renderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType: string, baseBuildArea: number = 120) => {
+const renderFrontViewSvg = (
+  floorCount: number,
+  hasShop: boolean,
+  roofType: string,
+  baseBuildArea: number = 120,
+  compName: string = 'AB YAPI'
+) => {
   const N = floorCount || 5;
   const floorHeight = 22;
   const shopHeight = 32;
@@ -209,7 +216,7 @@ const renderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType: stri
                 <line x1="151" y1={fl.y + 10} x2="151" y2={fl.y + 29} stroke="#38bdf8" strokeWidth="0.5" />
                 {/* Signboard */}
                 <rect x="48" y={fl.y + 2} width="124" height="6" fill="#38bdf8" fillOpacity="0.25" />
-                <text x="110" y={fl.y + 7} fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">AB TİCARET / TİCARİ MAĞAZA</text>
+                <text x="110" y={fl.y + 7} fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">{compName} TİCARET / TİCARİ MAĞAZA</text>
               </g>
             ) : (
               // Residential window patterns
@@ -533,6 +540,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   onOpenDrivePanel,
   theme = 'light',
 }) => {
+  const { profile } = useCompanyProfile();
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [showDrawingsInReport, setShowDrawingsInReport] = useState(true);
@@ -541,13 +549,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const handleExportPdf = async () => {
     if (!offerDocRef.current) return;
     const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
-    const fileName = `AB_YAPI_Musteri_Teklifi_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+    const fileName = `${safeName}_Musteri_Teklifi_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
     await exportElementToPdf(offerDocRef.current, fileName);
   };
 
   const handlePrint = () => {
-    const html = generateOfferHtml(params, results, showDrawingsInReport);
-    printHtmlContent(html, `AB_YAPI_Musteri_Teklifi_${params.projectAddress || 'Proje'}`);
+    const html = generateOfferHtml(params, results, showDrawingsInReport, profile);
+    const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+    printHtmlContent(html, `${safeName}_Musteri_Teklifi_${params.projectAddress || 'Proje'}`);
   };
 
   // Copy protection side effects and handlers
@@ -607,13 +617,14 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     setIsSaving(true);
     setSaveStatus(null);
     try {
-       const html = generateOfferHtml(params, results, showDrawingsInReport);
+      const html = generateOfferHtml(params, results, showDrawingsInReport, profile);
       const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
-      const fileName = `AB_YAPI_Teklif_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
+      const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+      const fileName = `${safeName}_Teklif_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
       const res = await saveReportDocumentToDrive(
         fileName,
         html,
-        `AB YAPI Müşteri Teklifi - ${params.projectAddress}`
+        `${profile.companyName} Müşteri Teklifi - ${params.projectAddress}`
       );
       setSaveStatus({
         type: 'success',
@@ -705,12 +716,12 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         <div className="absolute inset-0 pointer-events-none overflow-hidden select-none opacity-[0.025] flex flex-wrap gap-16 justify-center items-center rotate-12 z-0">
           {Array.from({ length: 48 }).map((_, i) => (
             <span key={i} className="text-slate-900 font-extrabold text-[10px] tracking-widest whitespace-nowrap">
-              AB YAPI - KOPYALANMAZ / DIŞARI PAYLAŞILMAZ
+              {profile.companyName} - KOPYALANMAZ / DIŞARI PAYLAŞILMAZ
             </span>
           ))}
         </div>
 
-        {/* Title Header with Official AB YAPI Logo */}
+        {/* Title Header with Official Logo */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 pb-5 mb-6 print:border-slate-300">
           <div className="flex items-center gap-3">
             <Logo size="lg" variant="full" theme={theme} />
@@ -720,7 +731,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               İNŞAAT TEKLİF VE ÖDEME PLANI
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
-              Teklif No: AB-{new Date().getFullYear()}-{(results.flatCount || 10).toString().padStart(3, '0')} | Tarih: {new Date().toLocaleDateString('tr-TR')}
+              Teklif No: {(profile.companyName || 'AB').replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-{new Date().getFullYear()}-{(results.flatCount || 10).toString().padStart(3, '0')} | Tarih: {new Date().toLocaleDateString('tr-TR')}
             </p>
           </div>
         </div>
@@ -828,7 +839,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase text-center mb-1">
                 A. Ön Cephe Görünümü (Elevation)
               </span>
-              {renderFrontViewSvg(params.floorCount || 5, !!params.hasGroundFloorShop, params.roofType || 'gable', params.baseBuildArea)}
+              {renderFrontViewSvg(params.floorCount || 5, !!params.hasGroundFloorShop, params.roofType || 'gable', params.baseBuildArea, profile.companyName)}
               <p className="text-[10px] text-slate-500 text-center italic mt-1">Dış ölçüler (Yükseklik/Genişlik) ve kat seviyeleri gösterilmiştir.</p>
             </div>
             
@@ -1063,11 +1074,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         {/* Signature Blocks */}
         <div className="flex justify-between pt-6 px-6 text-xs text-slate-700">
           <div className="text-center">
-            <p className="font-semibold mb-14 text-slate-900">MÜŞTERİ / KAT MALİKİ İMZA</p>
+            <p className="font-semibold mb-1 text-slate-900">MÜŞTERİ / KAT MALİKİ İMZA</p>
+            <p className="text-[11px] text-slate-500 mb-10 leading-tight">Kat Maliki / Hak Sahibi</p>
             <p className="text-slate-400">.... / .... / 2026</p>
           </div>
           <div className="text-center">
-            <p className="font-semibold mb-14 text-slate-900">AB YAPI MÜTEAHHİTLİK İMZA / KAŞE</p>
+            <p className="font-semibold mb-1 text-slate-900">YÜKLENİCİ İMZA / KAŞE</p>
+            <p className="text-[11px] text-slate-500 mb-10 leading-tight">
+              {profile.legalName}
+              {profile.authorizedPerson ? <><br />Yetkili: {profile.authorizedPerson}</> : null}
+            </p>
             <p className="text-slate-400">.... / .... / 2026</p>
           </div>
         </div>

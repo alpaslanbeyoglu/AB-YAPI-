@@ -1,6 +1,21 @@
-import { ProjectParams, CalculationResult } from '../types';
+import { ProjectParams, CalculationResult, CompanyProfile } from '../types';
 
-export function generateOfferHtml(params: ProjectParams, res: CalculationResult, showDrawings: boolean = true): string {
+export function generateOfferHtml(
+  params: ProjectParams,
+  res: CalculationResult,
+  showDrawings: boolean = true,
+  companyProfile?: CompanyProfile
+): string {
+  const compName = companyProfile?.companyName || 'AB YAPI';
+  const compLegal = companyProfile?.legalName || 'AB YAPI MÜTEAHHİTLİK LİMİTED ŞİRKETİ';
+  const compSlogan = companyProfile?.slogan || 'Güvene Yükselen Yapılar';
+  const compAddress = companyProfile?.address || 'İstanbul';
+  const compPhone = companyProfile?.phone || '';
+  const compEmail = companyProfile?.email || '';
+  const compWeb = companyProfile?.website || '';
+  const compAuth = companyProfile?.authorizedPerson || '';
+  const compLogo = companyProfile?.logoBase64 || '';
+
   const supportText =
     params.transformationStatus === 'currentSupport'
       ? '2025/2026 Mevcut Model (875 Bin TL Hibe + 875 Bin TL Kredi)'
@@ -124,7 +139,7 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult,
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>AB YAPI - Teklif ve Ödeme Planı</title>
+  <title>${compName} - Teklif ve Ödeme Planı</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; color: #333; max-width: 1000px; margin: 0 auto; }
     h2, h3, h4 { color: #1f7a7a; }
@@ -134,9 +149,19 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult,
   </style>
 </head>
 <body>
-  <div style="text-align:center;border-bottom:2px solid #1f7a7a;padding-bottom:15px;margin-bottom:20px;">
-    <h2 style="margin:0;color:#37474f;">AB YAPI İNŞAAT TEKLİF VE ÖDEME PLANLAMA METNİ</h2>
-    <p style="margin:5px 0 0 0;font-size:12px;color:#556068;">Güvene Yükselen Yapılar - Resmi Müşteri Bilgilendirme Formu</p>
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f7a7a;padding-bottom:15px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:55px;max-width:140px;object-fit:contain;" />` : ''}
+      <div>
+        <h2 style="margin:0;color:#37474f;font-size:18px;">${compLegal}</h2>
+        <p style="margin:3px 0 0 0;font-size:11px;color:#556068;">${compSlogan} - Resmi Müşteri Bilgilendirme ve Teklif Formu</p>
+      </div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#666;">
+      ${compPhone ? `<div>📞 ${compPhone}</div>` : ''}
+      ${compEmail ? `<div>✉️ ${compEmail}</div>` : ''}
+      ${compAddress ? `<div>📍 ${compAddress}</div>` : ''}
+    </div>
   </div>
   <div class="box">
     <h4>📍 Yapı & Proje Genel Bilgileri</h4>
@@ -168,7 +193,7 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult,
     <div style="display: table; width: 100%; table-layout: fixed; border-spacing: 12px;">
       <div style="display: table-cell; background: #0b1329; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
         <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">A. Ön Cephe Görünümü (Elevation)</span>
-        ${generateFrontViewSvgString(params.floorCount || 5, !!params.hasGroundFloorShop, (params as any).roofType || 'gable', params.baseBuildArea)}
+        ${generateFrontViewSvgString(params.floorCount || 5, !!params.hasGroundFloorShop, (params as any).roofType || 'gable', params.baseBuildArea, compName)}
         <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Dış ölçüler (Yükseklik/Genişlik) ve kat kotları</span>
       </div>
       <div style="display: table-cell; background: #060a13; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
@@ -202,7 +227,8 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult,
       <p>.... / .... / 2026</p>
     </div>
     <div style="text-align:center;">
-      <p style="font-weight:bold;margin-bottom:40px;">AB YAPI MÜTEAHHİTLİK İMZA / KAŞE</p>
+      <p style="font-weight:bold;margin-bottom:6px;">YÜKLENİCİ İMZA / KAŞE</p>
+      <p style="font-size:11px;color:#555;margin:0 0 40px 0;">${compLegal}${compAuth ? `<br>Yetkili: ${compAuth}` : ''}</p>
       <p>.... / .... / 2026</p>
     </div>
   </div>
@@ -210,7 +236,19 @@ export function generateOfferHtml(params: ProjectParams, res: CalculationResult,
 </html>`;
 }
 
-export function generateContractHtml(params: ProjectParams, res: CalculationResult): string {
+export function generateContractHtml(
+  params: ProjectParams,
+  res: CalculationResult,
+  companyProfile?: CompanyProfile
+): string {
+  const compName = companyProfile?.companyName || 'AB YAPI';
+  const compLegal = companyProfile?.legalName || 'AB YAPI MÜTEAHHİTLİK LİMİTED ŞİRKETİ';
+  const compAddress = companyProfile?.address || 'Fatih Kocamustafapaşa Mah. İstanbul';
+  const compAuth = companyProfile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
+  const compAuthTitle = companyProfile?.authorizedTitle || 'Genel Müdür';
+  const compLogo = companyProfile?.logoBase64 || '';
+  const compTax = companyProfile?.taxOffice && companyProfile?.taxNumber ? `(${companyProfile.taxOffice} - V.No: ${companyProfile.taxNumber})` : '';
+
   const contractTitle =
     params.projectModel === 'contractorShare'
       ? 'ARSA PAYI KARŞILIĞI İNŞAAT VE GAYRİMENKUL SATIŞ VAADİ SÖZLEŞMESİ'
@@ -248,13 +286,18 @@ export function generateContractHtml(params: ProjectParams, res: CalculationResu
   </style>
 </head>
 <body>
-  <div style="text-align:center;border-bottom:2px solid #1f7a7a;padding-bottom:12px;margin-bottom:20px;">
-    <h2>${contractTitle}</h2>
-    <p style="margin:0;font-size:11px;color:#556068;">Düzenleme Tarihi: ${new Date().toLocaleDateString('tr-TR')} | Belge No: AB-YAPI-2026/SÖZ-01</p>
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f7a7a;padding-bottom:12px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
+      <div>
+        <h2 style="margin:0;color:#37474f;text-align:left;">${contractTitle}</h2>
+        <p style="margin:3px 0 0 0;font-size:11px;color:#556068;">Düzenleme Tarihi: ${new Date().toLocaleDateString('tr-TR')} | Belge No: ${compName}-2026/SÖZ-01</p>
+      </div>
+    </div>
   </div>
   <h3>BÖLÜM I: TARAFLAR VE PROJE TANIMI</h3>
   <h4>MADDE 1: TARAFLAR</h4>
-  <p><strong>1. YÜKLENİCİ:</strong> AB YAPI MÜTEAHHİTLİK LİMİTED ŞİRKETİ (Fatih Kocamustafapaşa Mah. İstanbul)<br>
+  <p><strong>1. YÜKLENİCİ (MÜTEAHHİT):</strong> ${compLegal} (${compAddress}) ${compTax} - Yetkili Temsilci: ${compAuth} (${compAuthTitle})<br>
   <strong>2. İŞ SAHİBİ / KAT MALİKLERİ:</strong> Ek-1 Hak Sahipleri Listesinde isim ve TC kimlikleri bulunan taşınmaz malikleri.</p>
   <h4>MADDE 2: SÖZLEŞME KONUSU VE GAYRİMENKUL</h4>
   <p>Tapuda <strong>${params.projectAddress}</strong> adresinde kayıtlı taşınmazın yıkılarak yerine taban oturumu <strong>${res.baseArea} m²</strong>, toplam brüt inşaat alanı <strong>${res.totalArea} m²</strong> olan ve toplam <strong>${res.flatCount} adet bağımsız bölümden</strong> oluşan yeni binanın yapılmasıdır.</p>
@@ -290,7 +333,8 @@ export function generateContractHtml(params: ProjectParams, res: CalculationResu
       <p>.... / .... / 2026</p>
     </div>
     <div style="text-align:center;">
-      <p style="font-weight:bold;margin-bottom:50px;">YÜKLENİCİ (AB YAPI MÜTEAHHİTLİK)</p>
+      <p style="font-weight:bold;margin-bottom:6px;">YÜKLENİCİ KAŞE / İMZA</p>
+      <p style="font-size:11px;color:#555;margin:0 0 40px 0;">${compLegal}<br>${compAuth} (${compAuthTitle})</p>
       <p>.... / .... / 2026</p>
     </div>
   </div>
@@ -299,7 +343,13 @@ export function generateContractHtml(params: ProjectParams, res: CalculationResu
 }
 
 // CAD SVG helpers for report exports
-function generateFrontViewSvgString(floorCount: number, hasShop: boolean, roofType: string, baseBuildArea: number = 120): string {
+function generateFrontViewSvgString(
+  floorCount: number,
+  hasShop: boolean,
+  roofType: string,
+  baseBuildArea: number = 120,
+  compName: string = 'AB YAPI'
+): string {
   const N = floorCount || 5;
   const floorHeight = 22;
   const shopHeight = 32;
@@ -335,7 +385,7 @@ function generateFrontViewSvgString(floorCount: number, hasShop: boolean, roofTy
           <line x1="110" y1="${fl.y + 10}" x2="110" y2="${fl.y + 29}" stroke="#38bdf8" stroke-width="0.5" />
           <line x1="151" y1="${fl.y + 10}" x2="151" y2="${fl.y + 29}" stroke="#38bdf8" stroke-width="0.5" />
           <rect x="48" y="${fl.y + 2}" width="124" height="6" fill="#38bdf8" fill-opacity="0.25" />
-          <text x="110" y="${fl.y + 7}" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">AB TİCARET / TİCARİ MAĞAZA</text>
+          <text x="110" y="${fl.y + 7}" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${compName} TİCARET / TİCARİ MAĞAZA</text>
         </g>
       ` : `
         <g stroke="#38bdf8" stroke-width="1" fill="none">

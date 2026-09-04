@@ -6,6 +6,7 @@ import { generateContractHtml } from '../utils/reportExport';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
+import { useCompanyProfile } from '../context/CompanyProfileContext';
 
 interface ContractTabProps {
   params: ProjectParams;
@@ -22,6 +23,7 @@ export const ContractTab: React.FC<ContractTabProps> = ({
   onOpenDrivePanel,
   theme = 'light',
 }) => {
+  const { profile } = useCompanyProfile();
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const contractRef = useRef<HTMLDivElement>(null);
@@ -38,13 +40,15 @@ export const ContractTab: React.FC<ContractTabProps> = ({
   const handleExportPdf = async () => {
     if (!contractRef.current) return;
     const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
-    const fileName = `AB_YAPI_Resmi_Sozlesme_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+    const fileName = `${safeName}_Resmi_Sozlesme_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
     await exportElementToPdf(contractRef.current, fileName);
   };
 
   const handlePrint = () => {
-    const html = generateContractHtml(params, results);
-    printHtmlContent(html, `AB_YAPI_Resmi_Sozlesme_${params.projectAddress || 'Proje'}`);
+    const html = generateContractHtml(params, results, profile);
+    const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+    printHtmlContent(html, `${safeName}_Resmi_Sozlesme_${params.projectAddress || 'Proje'}`);
   };
 
   const handleSaveToDrive = async () => {
@@ -56,13 +60,14 @@ export const ContractTab: React.FC<ContractTabProps> = ({
     setIsSaving(true);
     setSaveStatus(null);
     try {
-      const html = generateContractHtml(params, results);
+      const html = generateContractHtml(params, results, profile);
       const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
-      const fileName = `AB_YAPI_Sozlesme_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
+      const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+      const fileName = `${safeName}_Sozlesme_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
       const res = await saveReportDocumentToDrive(
         fileName,
         html,
-        `AB YAPI Resmi İnşaat Sözleşmesi - ${params.projectAddress}`
+        `${profile.companyName} Resmi İnşaat Sözleşmesi - ${params.projectAddress}`
       );
       setSaveStatus({
         type: 'success',
@@ -142,7 +147,7 @@ export const ContractTab: React.FC<ContractTabProps> = ({
               {contractTitle}
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
-              Tarih: {results.calculatedAt} | Belge No: AB-YAPI-{new Date().getFullYear()}/SÖZ-01
+              Tarih: {results.calculatedAt} | Belge No: {profile.companyName}-{new Date().getFullYear()}/SÖZ-01
             </p>
           </div>
         </div>
@@ -158,7 +163,8 @@ export const ContractTab: React.FC<ContractTabProps> = ({
               İşbu Sözleşme, aşağıda bilgileri yer alan taraflar arasında 6306 sayılı Afet Riski Altındaki Alanların Dönüştürülmesi Hakkında Kanun ve Türk Borçlar Kanunu hükümleri çerçevesinde imza altına alınmıştır:
             </p>
             <p className="mt-2 text-slate-700">
-              <strong className="text-slate-900">1. YÜKLENİCİ (MÜTEAHHİT):</strong> AB YAPI MÜTEAHHİTLİK LİMİTED ŞİRKETİ (Fatih Kocamustafapaşa Mah. İstanbul)
+              <strong className="text-slate-900">1. YÜKLENİCİ (MÜTEAHHİT):</strong> {profile.legalName} ({profile.address || 'İstanbul'})
+              {profile.taxOffice && profile.taxNumber ? ` [${profile.taxOffice} - V.No: ${profile.taxNumber}]` : ''} - Yetkili Temsilci: {profile.authorizedPerson} ({profile.authorizedTitle})
             </p>
             <p className="text-slate-700">
               <strong className="text-slate-900">2. İŞ SAHİBİ / KAT MALİKLERİ:</strong> İşbu Sözleşme'nin ayrılmaz parçası olan Ek-1 Hak Sahipleri Listesi'nde isim ve T.C. Kimlik numaraları yer alan gayrimenkul malikleri.
@@ -316,7 +322,12 @@ export const ContractTab: React.FC<ContractTabProps> = ({
               <p className="text-slate-400">.... / .... / 2026</p>
             </div>
             <div className="text-center">
-              <p className="font-semibold mb-14 text-slate-900">YÜKLENİCİ (AB YAPI MÜTEAHHİTLİK)</p>
+              <p className="font-semibold mb-1 text-slate-900">YÜKLENİCİ KAŞE / İMZA</p>
+              <p className="text-[11px] text-slate-500 mb-10 leading-tight">
+                {profile.legalName}
+                <br />
+                {profile.authorizedPerson} ({profile.authorizedTitle})
+              </p>
               <p className="text-slate-400">.... / .... / 2026</p>
             </div>
           </div>

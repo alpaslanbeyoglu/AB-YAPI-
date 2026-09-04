@@ -1,5 +1,25 @@
 export type AppTheme = 'light' | 'gray';
 
+export interface CompanyProfile {
+  companyName: string;          // Örn: "AB YAPI"
+  legalName: string;            // Örn: "AB YAPI MÜTEAHHİTLİK LİMİTED ŞİRKETİ"
+  slogan: string;               // Örn: "Güvene Yükselen Yapılar"
+  tagline: string;              // Örn: "Kentsel Dönüşüm & Danışmanlık"
+  authorizedPerson: string;     // Örn: "Müh. Alpaslan Beyoğlu"
+  authorizedTitle: string;      // Örn: "Müteahhit / Genel Müdür"
+  phone: string;                // Örn: "+90 (212) 585 10 20"
+  email: string;                // Örn: "info@abyapi.com.tr"
+  website: string;              // Örn: "www.abyapi.com.tr"
+  address: string;              // Örn: "Fatih Kocamustafapaşa Mah. İstanbul"
+  taxOffice: string;            // Örn: "Fatih V.D."
+  taxNumber: string;            // Örn: "0010523491"
+  tradeRegistryNo?: string;     // Örn: "İTO-412580"
+  mersisNo?: string;            // Örn: "0001052349100012"
+  iban?: string;                // Örn: "TR42 0001 0002 1234 5678 9050 01"
+  bankName?: string;            // Örn: "Ziraat Bankası A.Ş."
+  logoBase64?: string;          // Yüklenen özel firma logosu (Base64 dataURL formatında)
+}
+
 export interface FlatItem {
   id: number;
   name: string;
