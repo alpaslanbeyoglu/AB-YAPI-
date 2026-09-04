@@ -12,6 +12,7 @@ import {
   Share2,
   Box,
   Compass,
+  Building,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Header } from './components/Header';
@@ -25,6 +26,7 @@ import { ContractTab } from './components/ContractTab';
 import { SpecificationTab } from './components/SpecificationTab';
 import { AdminReportTab } from './components/AdminReportTab';
 import { HistoryTab } from './components/HistoryTab';
+import { CompanyProfileTab } from './components/CompanyProfileTab';
 
 import { DEFAULT_PARAMS, calculateProject, synchronizeFlats } from './utils/calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS } from './utils/buildingModelUtils';
@@ -72,7 +74,7 @@ export default function App() {
   const isGray = theme === 'gray';
 
   const [activeTab, setActiveTab] = useState<
-    'hesapla' | 'model' | 'katplani' | 'teklif' | 'sozlesme' | 'sartname' | 'raporlar' | 'gecmis'
+    'hesapla' | 'model' | 'katplani' | 'teklif' | 'sozlesme' | 'sartname' | 'raporlar' | 'gecmis' | 'profile'
   >('hesapla');
   const [isDrivePanelOpen, setIsDrivePanelOpen] = useState(false);
 
@@ -393,47 +395,16 @@ export default function App() {
       </div>
 
       {/* pb-36 eklendi: Alt taraftaki kartlar sabit menünün arkasında kalmayıp tam kayacak */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-36 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0">
-        {feedback && (
+      <main className="flex-1 w-full mx-auto p-4 sm:p-6 pb-36 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col md:flex-row gap-6">
+        {/* Sidebar */}
+        <div className="w-full md:w-64 flex-shrink-0 print:hidden">
           <div
-            className={`mb-5 p-4 rounded-2xl text-xs flex items-center justify-between border shadow-sm transition-all animate-fade-in print:hidden ${
-              feedback.type === 'success'
-                ? isGray
-                  ? 'bg-emerald-100/90 text-emerald-900 border-emerald-300'
-                  : 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                : isGray
-                ? 'bg-red-100/90 text-red-900 border-red-300'
-                : 'bg-red-50 text-red-900 border-red-200'
+            className={`flex flex-col gap-1.5 p-3 rounded-2xl border shadow-sm transition-colors ${
+              isGray
+                ? 'bg-slate-100 border-slate-300 text-slate-800'
+                : 'bg-white border-slate-200 text-slate-800'
             }`}
           >
-            <div className="flex items-center gap-2.5">
-              {feedback.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-              )}
-              <span className="font-semibold text-slate-800">
-                {feedback.message}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFeedback(null)}
-              className="text-slate-400 hover:text-slate-700 text-base leading-none px-1"
-            >
-              &times;
-            </button>
-          </div>
-        )}
-
-        {/* Sekme Menüsü: w-full, flex-wrap ve sm:flex-nowrap */}
-        <div
-          className={`flex items-center gap-1.5 overflow-x-auto w-full max-w-full p-1.5 mb-6 rounded-2xl print:hidden border shadow-sm transition-colors ${
-            isGray
-              ? 'bg-slate-100 border-slate-300 text-slate-800'
-              : 'bg-white border-slate-200 text-slate-800'
-          }`}
-        >
           <button
             type="button"
             onClick={() => setActiveTab('hesapla')}
@@ -541,6 +512,21 @@ export default function App() {
 
           <button
             type="button"
+            onClick={() => setActiveTab('profile')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+              activeTab === 'profile'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                : isGray
+                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Building className="w-3.5 h-3.5 text-indigo-600" />
+            <span>8. Firma Profili 🏢</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('gecmis')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'gecmis'
@@ -551,9 +537,44 @@ export default function App() {
             }`}
           >
             <History className="w-3.5 h-3.5 text-pink-600" />
-            <span>8. Kayıtlar ({historyList.length})</span>
+            <span>9. Kayıtlar ({historyList.length})</span>
           </button>
+          </div>
         </div>
+
+        {/* Tab Views */}
+        <div className="flex-1 w-full min-w-0">
+          {feedback && (
+            <div
+              className={`mb-5 p-4 rounded-2xl text-xs flex items-center justify-between border shadow-sm transition-all animate-fade-in print:hidden ${
+                feedback.type === 'success'
+                  ? isGray
+                    ? 'bg-emerald-100/90 text-emerald-900 border-emerald-300'
+                    : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                  : isGray
+                  ? 'bg-red-100/90 text-red-900 border-red-300'
+                  : 'bg-red-50 text-red-900 border-red-200'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                {feedback.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                )}
+                <span className="font-semibold text-slate-800">
+                  {feedback.message}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFeedback(null)}
+                className="text-slate-400 hover:text-slate-700 text-base leading-none px-1"
+              >
+                &times;
+              </button>
+            </div>
+          )}
 
         {/* Tab Views */}
         {activeTab === 'hesapla' && (
@@ -629,6 +650,12 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'profile' && (
+          <CompanyProfileTab
+            theme={theme}
+          />
+        )}
+
         {activeTab === 'gecmis' && (
           <HistoryTab
             historyList={historyList}
@@ -639,6 +666,7 @@ export default function App() {
             theme={theme}
           />
         )}
+        </div>
       </main>
 
       {/* Sadece Mobilde Görünmesini Sağlamak İçin md:hidden Eklendi */}

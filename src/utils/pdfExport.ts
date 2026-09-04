@@ -60,8 +60,7 @@ export function printHtmlContent(htmlContent: string, documentTitle: string): vo
       printWin.document.write(printableHtml);
       printWin.document.close();
       printWin.focus();
-      // Directly trigger print in the new window
-      printWin.print();
+      // Remove printWin.print() so the user can see it in a new tab and print/save as PDF themselves
       return;
     }
   } catch (err) {
