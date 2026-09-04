@@ -15,6 +15,8 @@ import {
   Building,
   ChevronLeft,
   ChevronRight,
+  Users,
+  Building2,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Header } from './components/Header';
@@ -30,6 +32,8 @@ import { AdminReportTab } from './components/AdminReportTab';
 import { HistoryTab } from './components/HistoryTab';
 import { CompanyProfileTab } from './components/CompanyProfileTab';
 import { CostDetailsTab } from './components/CostDetailsTab';
+import { OwnersTab } from './components/OwnersTab';
+import { CompletedProjectsTab } from './components/CompletedProjectsTab';
 
 import { DEFAULT_PARAMS, calculateProject, synchronizeFlats } from './utils/calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS } from './utils/buildingModelUtils';
@@ -77,7 +81,7 @@ export default function App() {
   const isGray = theme === 'gray';
 
   const [activeTab, setActiveTab] = useState<
-    'hesapla' | 'model' | 'katplani' | 'maliyet' | 'teklif' | 'sozlesme' | 'sartname' | 'raporlar' | 'gecmis' | 'profile'
+    'hesapla' | 'model' | 'katplani' | 'maliyet' | 'malikler' | 'teklif' | 'sozlesme' | 'sartname' | 'raporlar' | 'gecmis' | 'profile' | 'tamamlanan'
   >('hesapla');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isDrivePanelOpen, setIsDrivePanelOpen] = useState(false);
@@ -380,6 +384,15 @@ export default function App() {
     showNotification('success', 'Hesaplama geçmişi temizlendi.');
   };
 
+  const handleDeleteHistoryItem = (index: number) => {
+    const updated = historyList.filter((_, idx) => idx !== index);
+    setHistoryList(updated);
+    try {
+      localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
+    } catch (e) {}
+    showNotification('success', 'Seçilen proje kaydı başarıyla silindi.');
+  };
+
   return (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 ${
@@ -395,6 +408,7 @@ export default function App() {
           onQuickSave={handleQuickSave}
           theme={theme}
           onToggleTheme={toggleTheme}
+          onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}
         />
       </div>
 
@@ -490,8 +504,24 @@ export default function App() {
 
             <button
               type="button"
+              onClick={() => setActiveTab('malikler')}
+              title="5. Kat Malikleri & Ödemeler"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'malikler'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Users className="w-4 h-4 text-emerald-500 shrink-0" />
+              {isSidebarOpen && <span>5. Kat Malikleri & Ödemeler 👥</span>}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveTab('teklif')}
-              title="5. Teklif Çıktısı"
+              title="6. Teklif Çıktısı"
               className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'teklif'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
@@ -501,13 +531,13 @@ export default function App() {
               }`}
             >
               <FileText className="w-4 h-4 text-teal-600 shrink-0" />
-              {isSidebarOpen && <span>5. Teklif Çıktısı 📄</span>}
+              {isSidebarOpen && <span>6. Teklif Çıktısı 📄</span>}
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('sozlesme')}
-              title="6. Resmi Sözleşme"
+              title="7. Resmi Sözleşme"
               className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'sozlesme'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
@@ -517,13 +547,13 @@ export default function App() {
               }`}
             >
               <ScrollText className="w-4 h-4 text-blue-600 shrink-0" />
-              {isSidebarOpen && <span>6. Resmi Sözleşme 📜</span>}
+              {isSidebarOpen && <span>7. Resmi Sözleşme 📜</span>}
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('sartname')}
-              title="7. Teknik Şartname"
+              title="8. Teknik Şartname"
               className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'sartname'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
@@ -533,13 +563,13 @@ export default function App() {
               }`}
             >
               <FileSpreadsheet className="w-4 h-4 text-amber-600 shrink-0" />
-              {isSidebarOpen && <span>7. Teknik Şartname 🏗️</span>}
+              {isSidebarOpen && <span>8. Teknik Şartname 🏗️</span>}
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('raporlar')}
-              title="8. Müteahhit Raporu"
+              title="9. Müteahhit Raporu"
               className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'raporlar'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
@@ -549,13 +579,13 @@ export default function App() {
               }`}
             >
               <BarChart3 className="w-4 h-4 text-purple-600 shrink-0" />
-              {isSidebarOpen && <span>8. Müteahhit Raporu 📈</span>}
+              {isSidebarOpen && <span>9. Müteahhit Raporu 📈</span>}
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('profile')}
-              title="9. Firma Profili"
+              title="10. Firma Profili"
               className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'profile'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
@@ -565,13 +595,29 @@ export default function App() {
               }`}
             >
               <Building className="w-4 h-4 text-indigo-600 shrink-0" />
-              {isSidebarOpen && <span>9. Firma Profili 🏢</span>}
+              {isSidebarOpen && <span>10. Firma Profili 🏢</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('tamamlanan')}
+              title="11. Tamamlanan Projeler"
+              className={`flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                activeTab === 'tamamlanan'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                  : isGray
+                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Building2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              {isSidebarOpen && <span>11. Tamamlanan Projeler 🏆</span>}
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('gecmis')}
-              title={`10. Kayıtlar (${historyList.length})`}
+              title={`12. Kayıtlar (${historyList.length})`}
               className={`relative flex items-center ${isSidebarOpen ? 'gap-2 px-3.5' : 'justify-center p-2'} py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
                 activeTab === 'gecmis'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
@@ -582,7 +628,7 @@ export default function App() {
             >
               <History className="w-4 h-4 text-pink-600 shrink-0" />
               {isSidebarOpen ? (
-                <span>10. Kayıtlar ({historyList.length})</span>
+                <span>12. Kayıtlar ({historyList.length})</span>
               ) : (
                 <span className="absolute top-1 right-1 bg-pink-100 text-pink-800 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
                   {historyList.length}
@@ -634,6 +680,8 @@ export default function App() {
             onChangeParams={updateCalculatorParams}
             onCalculate={handleCalculate}
             onNavigateToModel={() => setActiveTab('model')}
+            onNavigateToCostDetails={() => setActiveTab('maliyet')}
+            onNavigateToOwners={() => setActiveTab('malikler')}
             theme={theme}
           />
         )}
@@ -664,6 +712,18 @@ export default function App() {
           <CostDetailsTab
             params={params}
             results={results}
+            theme={theme}
+            onChangeParams={updateCalculatorParams}
+            onCalculate={handleCalculate}
+          />
+        )}
+
+        {activeTab === 'malikler' && (
+          <OwnersTab
+            params={params}
+            results={results}
+            onChangeParams={updateCalculatorParams}
+            onCalculate={handleCalculate}
             theme={theme}
           />
         )}
@@ -714,11 +774,18 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'tamamlanan' && (
+          <CompletedProjectsTab
+            theme={theme}
+          />
+        )}
+
         {activeTab === 'gecmis' && (
           <HistoryTab
             historyList={historyList}
             onLoadItem={handleLoadProject}
             onClearHistory={handleClearHistory}
+            onDeleteItem={handleDeleteHistoryItem}
             onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
             hasDriveToken={hasToken}
             theme={theme}
@@ -735,7 +802,7 @@ export default function App() {
             : 'bg-[#09090b]/95 border-zinc-800/80 text-zinc-300'
         }`}
       >
-        <div className="grid grid-cols-7 max-w-lg mx-auto">
+        <div className="grid grid-cols-8 max-w-xl mx-auto">
           <button
             type="button"
             onClick={() => setActiveTab('hesapla')}
@@ -823,9 +890,9 @@ export default function App() {
 
           <button
             type="button"
-            onClick={() => setActiveTab('sozlesme')}
+            onClick={() => setActiveTab('malikler')}
             className={`flex flex-col items-center justify-center py-2.5 transition-colors ${
-              activeTab === 'sozlesme'
+              activeTab === 'malikler'
                 ? isLight
                   ? 'text-indigo-600 font-semibold'
                   : 'text-indigo-400 font-semibold'
@@ -834,8 +901,25 @@ export default function App() {
                 : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <ScrollText className="w-4 h-4" />
-            <span className="text-[9px] mt-1">Sözleşme</span>
+            <Users className="w-4 h-4" />
+            <span className="text-[9px] mt-1">Malikler</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('tamamlanan')}
+            className={`flex flex-col items-center justify-center py-2.5 transition-colors ${
+              activeTab === 'tamamlanan'
+                ? isLight
+                  ? 'text-indigo-600 font-semibold'
+                  : 'text-indigo-400 font-semibold'
+                : isLight
+                ? 'text-slate-400 hover:text-slate-700'
+                : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Building2 className="w-4 h-4 text-emerald-600" />
+            <span className="text-[9px] mt-1">Projeler</span>
           </button>
 
           <button

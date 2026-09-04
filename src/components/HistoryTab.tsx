@@ -6,6 +6,7 @@ interface HistoryTabProps {
   historyList: SavedProjectData[];
   onLoadItem: (data: SavedProjectData) => void;
   onClearHistory: () => void;
+  onDeleteItem: (index: number) => void;
   onOpenDrivePanel: () => void;
   hasDriveToken: boolean;
   theme?: AppTheme;
@@ -15,6 +16,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   historyList,
   onLoadItem,
   onClearHistory,
+  onDeleteItem,
   onOpenDrivePanel,
   hasDriveToken,
   theme = 'light',
@@ -104,14 +106,24 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => onLoadItem(item)}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-95"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Yükle</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onLoadItem(item)}
+                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Yükle</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteItem(idx)}
+                    title="Kayıtlı Projeyi Sil"
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-95 border border-transparent hover:border-red-200"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2.5 text-center pt-3 border-t border-slate-100 text-xs">

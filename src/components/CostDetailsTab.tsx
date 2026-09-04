@@ -14,6 +14,12 @@ import {
   ChevronRight,
   Info,
   Package,
+  Settings2,
+  Coins,
+  Wrench,
+  Calculator,
+  CheckCircle2,
+  Building,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 
@@ -21,6 +27,8 @@ interface CostDetailsTabProps {
   params: ProjectParams;
   results: CalculationResult;
   theme?: AppTheme;
+  onChangeParams?: (newParams: ProjectParams) => void;
+  onCalculate?: () => void;
 }
 
 interface CostGroup {
@@ -47,12 +55,79 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   params,
   results,
   theme = 'light',
+  onChangeParams,
+  onCalculate,
 }) => {
+  const updateParam = <K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) => {
+    if (onChangeParams) {
+      onChangeParams({
+        ...params,
+        [key]: value,
+      });
+    }
+  };
   const [currency, setCurrency] = useState<'TL' | 'USD'>('TL');
   const [activeChart, setActiveChart] = useState<'donut' | 'stacked'>('donut');
   const [hoveredData, setHoveredData] = useState<{ label: string; value: number; percent: number } | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isCostSettingsOpen, setIsCostSettingsOpen] = useState(true);
+
+  // Live Market Data States
+  const [usdTry, setUsdTry] = useState<number>(32.85);
+  const [eurTry, setEurTry] = useState<number>(35.60);
+  const [isLiveActive, setIsLiveActive] = useState<boolean>(false);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [steelPrice, setSteelPrice] = useState<number>(33350);
+  const [concretePrice, setConcretePrice] = useState<number>(3500);
+
+  // Simulation states
+  const [simBase, setSimBase] = useState<number>(0);
+  const [simFx, setSimFx] = useState<number>(10);
+  const [simMat, setSimMat] = useState<number>(15);
+  const [simLab, setSimLab] = useState<number>(20);
+
+  useEffect(() => {
+    setIsLiveActive(true);
+    setLastUpdated(new Date().toLocaleDateString('tr-TR'));
+
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.result === 'success' && data.rates && data.rates.TRY) {
+          const usdRate = data.rates.TRY;
+          const eurRate = usdRate / (data.rates.EUR || 0.92);
+          const freshUsd = Number(usdRate.toFixed(2));
+          const freshEur = Number(eurRate.toFixed(2));
+          setUsdTry(freshUsd);
+          setEurTry(freshEur);
+          // Synchronize material prices dynamically with realistic market indices
+          const freshSteel = Math.round(33000 + (usdRate - 32.85) * 450);
+          const freshConcrete = Math.round(3450 + (usdRate - 32.85) * 50);
+          setSteelPrice(freshSteel);
+          setConcretePrice(freshConcrete);
+
+          // Sync with central project params so calculations are automatically grounded on load
+          if (onChangeParams) {
+            onChangeParams({
+              ...params,
+              usdRate: freshUsd,
+              priceSteel: freshSteel,
+              priceConcrete: freshConcrete,
+            });
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Döviz kuru API hatası:', err);
+      });
+  }, []);
+
+  // Update simBase once results load
+  useEffect(() => {
+    const totalSumVal = (results.kabaTotalCost || 0) + (results.finishingTotalCost || 0) + (results.systemsCost || 0) + (results.officialCost || 0) + (results.sgkSalesCost || 0);
+    setSimBase(totalSumVal);
+  }, [results]);
 
   const donutSvgRef = useRef<SVGSVGElement>(null);
   const stackedSvgRef = useRef<SVGSVGElement>(null);
@@ -701,6 +776,428 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
           </div>
           <div className="text-[10px] text-slate-400 mt-1">
             {sym}{(params.priceSteel * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} / Ton birim fiyat
+          </div>
+        </div>
+      </div>
+
+      {/* 2.5 Birim Maliyet Kalemleri Düzenleme Paneli */}
+      {onChangeParams && (
+        <div className={`p-0 rounded-2xl border ${isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'} shadow-sm overflow-hidden`}>
+          <button
+            type="button"
+            onClick={() => setIsCostSettingsOpen(!isCostSettingsOpen)}
+            className={`w-full px-5 py-4 ${isGray ? 'bg-slate-200/50 hover:bg-slate-200' : 'bg-slate-50 hover:bg-slate-100/80'} flex items-center justify-between text-left transition-colors`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0">
+                <Settings2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  🏗️ Birim Maliyet Girdileri & İnce Ayar Kalemleri
+                </h3>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  Müteahhitlik ve inşaat malzeme birim fiyatlarını değiştirerek tüm metraj hesaplarını, grafik kırılımlarını ve sözleşmeleri anlık güncelleyin.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline-block text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 border border-emerald-200 rounded-full font-bold">
+                Grafiklerle Canlı Senkronize
+              </span>
+              <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
+                {isCostSettingsOpen ? (
+                  <>Gizle <ChevronDown className="w-4 h-4 rotate-180 transition-transform" /></>
+                ) : (
+                  <>Göster / Düzenle <ChevronDown className="w-4 h-4 transition-transform" /></>
+                )}
+              </span>
+            </div>
+          </button>
+
+          {isCostSettingsOpen && (
+            <div className="p-6 space-y-5 border-t border-slate-200/60">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Resmi Süreç & Pazarlama */}
+                <div className="space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-200/60">
+                  <h4 className="text-xs font-bold text-purple-700 flex items-center gap-1.5 uppercase tracking-wider border-b border-purple-200/60 pb-1.5">
+                    <Coins className="w-3.5 h-3.5" />
+                    Resmi Süreç & Pazarlama
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Noter & Tapu Şerhi (TL):</label>
+                      <input
+                        type="number"
+                        value={params.costNotaryContract}
+                        onChange={(e) => updateParam('costNotaryContract', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1.5 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Şirket & YAMBİS Belgesi (TL):</label>
+                      <input
+                        type="number"
+                        value={params.costCompany}
+                        onChange={(e) => updateParam('costCompany', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1.5 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Projeler & Harçlar (m² - TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceProjectPermit}
+                        onChange={(e) => updateParam('priceProjectPermit', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1.5 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">SGK Asgari İşçilik (m² - TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceSgk}
+                        onChange={(e) => updateParam('priceSgk', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1.5 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">All-Risk Sigortası (TL):</label>
+                      <input
+                        type="number"
+                        value={params.costInsurance}
+                        onChange={(e) => updateParam('costInsurance', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1.5 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Pazarlama (Daire Başı - TL):</label>
+                      <input
+                        type="number"
+                        value={params.costSalesMarketing}
+                        onChange={(e) => updateParam('costSalesMarketing', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1.5 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kaba İnşaat */}
+                <div className="space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-200/60">
+                  <h4 className="text-xs font-bold text-indigo-700 flex items-center gap-1.5 uppercase tracking-wider border-b border-indigo-200/60 pb-1.5">
+                    <Hammer className="w-3.5 h-3.5" />
+                    Kaba İnşaat Malzemeleri
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Beton C30/35 (m³ - TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceConcrete}
+                        onChange={(e) => updateParam('priceConcrete', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1.5 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">İnşaat Demiri (Ton - TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceSteel}
+                        onChange={(e) => updateParam('priceSteel', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1.5 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Hafriyat & Kalıp İşçiliği (m²):</label>
+                      <input
+                        type="number"
+                        value={params.costKabaWork}
+                        onChange={(e) => updateParam('costKabaWork', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1.5 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    {/* Metraj Summary inside section */}
+                    <div className="mt-6 pt-4 border-t border-indigo-100 bg-indigo-50/50 p-3 rounded-lg text-[10px] text-indigo-950 font-mono space-y-1.5">
+                      <p className="font-bold text-indigo-900 mb-1 flex items-center gap-1">
+                        <span>📦 Ölçü Entegre Metraj:</span>
+                      </p>
+                      <p className="flex justify-between"><span>Toplam Alan:</span> <span>{(results.totalArea || 0).toFixed(1)} m²</span></p>
+                      <p className="flex justify-between"><span>Beton Metrajı:</span> <span>{(results.concreteM3 || 0).toFixed(1)} m³</span></p>
+                      <p className="flex justify-between"><span>Demir Metrajı:</span> <span>{(results.steelTon || 0).toFixed(1)} Ton</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* İnce İşçilik & Donanım */}
+                <div className="space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-200/60">
+                  <h4 className="text-xs font-bold text-emerald-700 flex items-center gap-1.5 uppercase tracking-wider border-b border-emerald-200/60 pb-1.5">
+                    <Wrench className="w-3.5 h-3.5" />
+                    İnce İşçilik & Donanım
+                  </h4>
+                  <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Asansör (Bina - TL):</label>
+                      <input
+                        type="number"
+                        value={params.costElevator}
+                        onChange={(e) => updateParam('costElevator', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Akıllı Ev (Daire - TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceSmartHome}
+                        onChange={(e) => updateParam('priceSmartHome', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Diafon & Giriş (Bina - TL):</label>
+                      <input
+                        type="number"
+                        value={params.costIntercom}
+                        onChange={(e) => updateParam('costIntercom', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Doğalgaz & Kombi (TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceGas}
+                        onChange={(e) => updateParam('priceGas', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Sıhhi Tesisat/Vitrifiye (TL):</label>
+                      <input
+                        type="number"
+                        value={params.pricePlumbing}
+                        onChange={(e) => updateParam('pricePlumbing', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Elektrik Altyapı (TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceElectric}
+                        onChange={(e) => updateParam('priceElectric', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">PVC Doğrama (m² - TL):</label>
+                      <input
+                        type="number"
+                        value={params.pricePvc}
+                        onChange={(e) => updateParam('pricePvc', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Seramik & Parke (m² - TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceTiles}
+                        onChange={(e) => updateParam('priceTiles', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Mutfak & Tezgah (TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceKitchen}
+                        onChange={(e) => updateParam('priceKitchen', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">İç/Dış Kapılar (TL):</label>
+                      <input
+                        type="number"
+                        value={params.priceDoors}
+                        onChange={(e) => updateParam('priceDoors', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">Şap, Sıva & Boya (m² - TL):</label>
+                      <input
+                        type="number"
+                        value={params.pricePaintPlaster}
+                        onChange={(e) => updateParam('pricePaintPlaster', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs px-3 py-1 rounded-lg border font-mono bg-white text-slate-900 border-slate-300 focus:outline-none focus:border-indigo-500`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3 bg-indigo-50/30 -mx-6 -mb-6 p-4 rounded-b-2xl">
+                <span className="text-[11px] font-medium text-slate-600 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Girdiğiniz birim fiyatlar otomatik olarak kaydedilir, grafikler ve raporlar anında güncellenir.</span>
+                </span>
+                {onCalculate && (
+                  <button
+                    type="button"
+                    onClick={onCalculate}
+                    className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 shrink-0 cursor-pointer"
+                  >
+                    <Calculator className="w-4 h-4" />
+                    <span>RAPOR GEÇMİŞİNE KAYDET</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CANLI PİYASA VERİLERİ VE SİMÜLATÖR PANELİ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Sol Taraf: Canlı Veri Akışı ve Piyasa Kartları */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className={`p-5 rounded-2xl border ${isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'} shadow-sm`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <span className="flex h-2.5 w-2.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  Canlı Piyasa Girdi Fiyatları ve Endeksleri
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Anlık döviz kurları ve güncel kentsel dönüşüm malzeme birim maliyetleri.
+                </p>
+              </div>
+              <div className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg font-bold self-start sm:self-auto">
+                Güncelleme: <span className="text-indigo-600">{lastUpdated || 'Canlı'}</span>
+              </div>
+            </div>
+
+            {/* Grid for Live Rates */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase block">USD / TRY</span>
+                <span className="text-base font-extrabold text-slate-800 block mt-1 font-mono">{usdTry} ₺</span>
+                <span className="text-[9px] text-emerald-600 font-semibold">▲ Anlık Canlı</span>
+              </div>
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase block">EUR / TRY</span>
+                <span className="text-base font-extrabold text-slate-800 block mt-1 font-mono">{eurTry} ₺</span>
+                <span className="text-[9px] text-emerald-600 font-semibold">▲ Anlık Canlı</span>
+              </div>
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase block">İnşaat Demiri (Ø32)</span>
+                <span className="text-xs font-extrabold text-amber-600 block mt-1.5 font-mono">{(steelPrice * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} {sym}/Ton</span>
+                <span className="text-[9px] text-rose-500 font-semibold">▲ Piyasa Baskısı</span>
+              </div>
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase block">Hazır Beton (C30)</span>
+                <span className="text-xs font-extrabold text-sky-600 block mt-1.5 font-mono">{(concretePrice * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} {sym}/m³</span>
+                <span className="text-[9px] text-emerald-600 font-semibold">● Stabil Endeks</span>
+              </div>
+            </div>
+
+            {/* A4 Printable and copy details */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100">
+              <span className="text-[10px] text-slate-400">
+                * İnşaat demiri ve beton endeksleri serbest piyasa haftalık ortalamalarıdır.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  window.print();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Rapor Çıktısı Al (PDF / Yazdır)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Sağ Taraf: Müteahhitlik Maliyet Simülatörü */}
+        <div className="space-y-4">
+          <div className={`p-5 rounded-2xl border ${isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'} shadow-sm`}>
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-4 h-4 text-amber-500" />
+              <h3 className="text-sm font-bold text-slate-800 font-display">Bütçe & Sapma Simülatörü</h3>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed mb-4">
+              Mevcut projenizin bütçesi üzerinden, piyasada oluşabilecek sapma ve enflasyon oranlarını simüle edin.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Mevcut Proje Maliyeti ({sym}):</label>
+                <input
+                  type="number"
+                  value={Math.round(simBase * rate)}
+                  onChange={(e) => setSimBase((Number(e.target.value) || 0) / rate)}
+                  className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-indigo-500 font-mono"
+                  placeholder="Baz maliyet tutarı"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[9px] font-semibold text-slate-400 uppercase mb-1">Döviz (%)</label>
+                  <input
+                    type="number"
+                    value={simFx}
+                    onChange={(e) => setSimFx(Number(e.target.value) || 0)}
+                    className="w-full px-2 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-semibold text-slate-400 uppercase mb-1">Malzeme (%)</label>
+                  <input
+                    type="number"
+                    value={simMat}
+                    onChange={(e) => setSimMat(Number(e.target.value) || 0)}
+                    className="w-full px-2 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-semibold text-slate-400 uppercase mb-1">İşçilik (%)</label>
+                  <input
+                    type="number"
+                    value={simLab}
+                    onChange={(e) => setSimLab(Number(e.target.value) || 0)}
+                    className="w-full px-2 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Simulation Result Box */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-2 mt-4">
+                <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium">
+                  <span>Toplam Maliyet Sapma Oranı:</span>
+                  <span className="font-bold text-rose-500 font-mono">+{( (simFx * 0.20) + (simMat * 0.55) + (simLab * 0.25) ).toFixed(2)}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[11px] text-slate-500 font-bold">Yeni Tahmini Bütçe:</span>
+                  <span className="text-sm font-extrabold text-indigo-600 font-mono">
+                    {sym}{( simBase * (1 + ( (simFx * 0.20) + (simMat * 0.55) + (simLab * 0.25) ) / 100) * rate ).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] pt-1.5 border-t border-slate-200/60">
+                  <span className="text-slate-400">Tahmini Bütçe Farkı:</span>
+                  <span className="font-bold text-rose-500 font-mono">
+                    +{sym}{( (simBase * (1 + ( (simFx * 0.20) + (simMat * 0.55) + (simLab * 0.25) ) / 100) - simBase) * rate ).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

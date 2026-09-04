@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'logo.svg'],
+        workbox: {
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4MB
+        },
         manifest: {
           id: '/AB-YAPI-/',
           name: 'AB Yapı İnşaat & Mimari Hesaplayıcı',
