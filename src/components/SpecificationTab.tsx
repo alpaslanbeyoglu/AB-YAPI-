@@ -40,8 +40,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   const currentRoof = getRoofInfo(params.roofType);
   const currentRoom = getRoomTypeDescription(params.roomType);
   const totalUnitsDisplay = params.hasGroundFloorShop 
-    ? `${results.flatCount} Daire + ${params.shopCount || 1} Ticari Dükkan`
-    : `${results.flatCount} Daire`;
+    ? `${results.flatCount + (params.shopCount || 1)} Adet, ${results.flatCount} Daire, ${params.shopCount || 1} Dükkan`
+    : `${results.flatCount} Adet, ${results.flatCount} Daire, 0 Dükkan`;
 
   const handleExportPdf = async () => {
     if (!specContainerRef.current) return;

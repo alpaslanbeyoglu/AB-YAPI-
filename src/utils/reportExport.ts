@@ -54,13 +54,18 @@ export function generateOfferHtml(
         const floorNo = Math.min(totalFloors, Math.ceil(f.id / flatsPerFloor));
         const roomCountText = params.roomType ? `${params.roomType} Oda` : (f.area < 65 ? '1+1 Oda' : f.area < 95 ? '2+1 Oda' : f.area < 135 ? '3+1 Oda' : '4+1 Oda');
         const netArea = physicalNetArea_rep;
+        const flatBadge = f.flatType === 'mansard'
+          ? `<span style="background:#e0e7ff;color:#3730a3;padding:2px 5px;border-radius:4px;font-size:8px;font-weight:bold;display:inline-block;margin-top:2px;">Mansart Çatı (Ayrı B.B.)</span>`
+          : f.flatType === 'duplex'
+          ? `<span style="background:#d1fae5;color:#065f46;padding:2px 5px;border-radius:4px;font-size:8px;font-weight:bold;display:inline-block;margin-top:2px;">Çatı Dubleksi (Tek B.B.)</span>`
+          : '';
 
         if (isContractorShareModel) {
           const fundingType = f.isContractorShare ? 'Müteahhit Payı Satış' : 'Arsa Payı Mahsubu';
           return `
           <tr>
             <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">
-              Daire ${f.id}<br>
+              Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}<br>
               <small style="color:#4f46e5;font-weight:normal;">${floorNo}. Kat / ${totalFloors} Kat</small>
             </td>
             <td style="padding:8px;border:1px solid #ddd;">${f.name} <br><small style="color:#666;">TC: ${f.tc}</small></td>
@@ -76,7 +81,7 @@ export function generateOfferHtml(
           return `
           <tr>
             <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">
-              Daire ${f.id}<br>
+              Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}<br>
               <small style="color:#4f46e5;font-weight:normal;">${floorNo}. Kat / ${totalFloors} Kat</small>
             </td>
             <td style="padding:8px;border:1px solid #ddd;">${f.name} <br><small style="color:#666;">TC: ${f.tc}</small></td>
@@ -255,20 +260,23 @@ export function generateOfferHtml(
 
   ${showDrawings ? `
   <div style="margin-top: 25px; margin-bottom: 25px; page-break-inside: avoid;">
-    <h3 style="border-bottom: 2px solid #1f7a7a; padding-bottom: 4px; color: #1f7a7a; text-transform: uppercase; font-size:14px; margin-bottom: 12px;">📐 Dinamik Mimari 3D Bina Görünümleri (Canlı CAD Modeli)</h3>
+    <h3 style="border-bottom: 2px solid #1f7a7a; padding-bottom: 4px; color: #1f7a7a; text-transform: uppercase; font-size:14px; margin-bottom: 12px;">📐 Dinamik Mimari 3D Bina Görünümleri (Ön Tanımlı Cephe Yönleri)</h3>
     <div style="display: table; width: 100%; table-layout: fixed; border-spacing: 12px;">
       <div style="display: table-cell; background: #0b1329; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
-        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">A. Ön Cephe Görünümü (Elevation)</span>
+        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 2px; text-transform: uppercase;">A. Ön Cephe (Güney)</span>
+        <span style="font-size: 8.5px; color: #94a3b8; display: block; margin-bottom: 6px; font-weight: 600;">🧭 180° G (Front Elevation)</span>
         ${generateFrontViewSvgString(params.floorCount || 5, !!params.hasGroundFloorShop, params.roofType || 'gable', params.baseBuildArea, compName)}
         <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Dış ölçüler (Yükseklik/Genişlik) ve kat seviyeleri</span>
       </div>
       <div style="display: table-cell; background: #060a13; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
-        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">B. Kuşbakışı Görünüm (Top / Plan)</span>
+        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 2px; text-transform: uppercase;">B. Kuşbakışı Kat Planı</span>
+        <span style="font-size: 8.5px; color: #94a3b8; display: block; margin-bottom: 6px; font-weight: 600;">🧭 Üstten / Kuzey Açılı (Top Plan)</span>
         ${generateGroundFloorPlanSvgString(!!params.hasGroundFloorShop, `${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep, params.baseBuildArea)}
         <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Daire ve bağımsız bölüm sınırları, asansör ve merdiven kurgusu</span>
       </div>
       <div style="display: table-cell; background: #060a13; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
-        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">C. İzometrik Mimari Model (Isometric)</span>
+        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 2px; text-transform: uppercase;">C. 3D İzometrik Model</span>
+        <span style="font-size: 8.5px; color: #94a3b8; display: block; margin-bottom: 6px; font-weight: 600;">🧭 Güneydoğu Aksonometrik (3D ISO)</span>
         ${generateNormalFloorPlanSvgString(`${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep, params.baseBuildArea)}
         <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Yapının tamamını şeffaf katmanlarla gösteren 3D perspektif</span>
       </div>

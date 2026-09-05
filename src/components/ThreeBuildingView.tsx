@@ -19,7 +19,7 @@ import {
   Sparkles,
   CheckCircle2,
 } from 'lucide-react';
-import { BuildingModelParams } from '../types';
+import { BuildingModelParams, CameraPresetType } from '../types';
 import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid } from '../utils/footprintUtils';
 
 // Safe geometry constructors to completely prevent any NaN/null/zero bounding sphere errors in Three.js
@@ -73,7 +73,7 @@ interface ThreeBuildingViewProps {
   sunAzimuth?: number;
   buildingRotation?: number;
   isSolarHeatmap?: boolean;
-  forcedCameraPreset?: 'iso' | 'front' | 'side' | 'top';
+  forcedCameraPreset?: CameraPresetType;
   hideControls?: boolean;
 }
 
@@ -105,7 +105,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [isWireframe, setIsWireframe] = useState<boolean>(false);
   const [showCoreHighlight, setShowCoreHighlight] = useState<boolean>(true);
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
-  const [cameraPreset, setCameraPreset] = useState<'iso' | 'front' | 'side' | 'top'>(forcedCameraPreset || 'iso');
+  const [cameraPreset, setCameraPreset] = useState<CameraPresetType>(forcedCameraPreset || 'iso');
   const [isExportingUSDZ, setIsExportingUSDZ] = useState<boolean>(false);
   const [isExportingGLTF, setIsExportingGLTF] = useState<boolean>(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
@@ -2079,27 +2079,36 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   }, [solarMode, sunAltitude, sunAzimuth, buildingRotation, isLight]);
 
   // Camera presets
-  const applyCameraPreset = useCallback((preset: 'iso' | 'front' | 'side' | 'top') => {
+  const applyCameraPreset = useCallback((preset: CameraPresetType) => {
     if (!cameraRef.current || !controlsRef.current) return;
     setCameraPreset(preset);
     const camera = cameraRef.current;
     const controls = controlsRef.current;
-    const H = params.floorHeight * params.floorCount;
+    const H = (params?.floorHeight || 2.95) * (params?.floorCount || 5);
     const targetY = H / 2;
 
     controls.target.set(0, targetY, 0);
 
-    const dist = Math.max(params.facadeWidth, params.facadeDepth, H) * 1.8;
+    const W = params?.facadeWidth || 14;
+    const D = params?.facadeDepth || 16;
+    const dist = Math.max(W, D, H) * 1.8;
 
     switch (preset) {
       case 'front':
         camera.position.set(0, targetY + 2, dist);
         break;
+      case 'rear':
+        camera.position.set(0, targetY + 2, -dist);
+        break;
+      case 'right':
       case 'side':
         camera.position.set(dist, targetY + 2, 0);
         break;
+      case 'left':
+        camera.position.set(-dist, targetY + 2, 0);
+        break;
       case 'top':
-        camera.position.set(0, dist * 1.3, 0.1);
+        camera.position.set(0, dist * 1.35, 0.05);
         break;
       case 'iso':
       default:
@@ -2261,48 +2270,72 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           <button
             type="button"
             onClick={() => applyCameraPreset('iso')}
-            className={`p-2 rounded-xl text-xs flex items-center justify-center transition-all ${
+            className={`p-1.5 rounded-xl text-xs flex items-center justify-center transition-all ${
               cameraPreset === 'iso'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
-            title="İzometrik Görünüm"
+            title="3D İzometrik Görünüm (Aksonometrik)"
           >
             <Compass className="w-4 h-4" />
           </button>
           <button
             type="button"
             onClick={() => applyCameraPreset('front')}
-            className={`p-2 rounded-xl text-xs flex items-center justify-center transition-all ${
+            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
               cameraPreset === 'front'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
-            title="Ön Cephe Görünümü"
+            title="Ön Cephe (Güney / 180°)"
           >
             <span className="text-[10px] font-bold">ÖN</span>
           </button>
           <button
             type="button"
-            onClick={() => applyCameraPreset('side')}
-            className={`p-2 rounded-xl text-xs flex items-center justify-center transition-all ${
-              cameraPreset === 'side'
+            onClick={() => applyCameraPreset('rear')}
+            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
+              cameraPreset === 'rear'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
-            title="Yan Cephe Görünümü"
+            title="Arka Cephe (Kuzey / 0°)"
           >
-            <span className="text-[10px] font-bold">YAN</span>
+            <span className="text-[10px] font-bold">ARKA</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyCameraPreset('right')}
+            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
+              cameraPreset === 'right' || cameraPreset === 'side'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title="Sağ Yan Cephe (Doğu / 90°)"
+          >
+            <span className="text-[10px] font-bold">SAĞ</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyCameraPreset('left')}
+            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
+              cameraPreset === 'left'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title="Sol Yan Cephe (Batı / 270°)"
+          >
+            <span className="text-[10px] font-bold">SOL</span>
           </button>
           <button
             type="button"
             onClick={() => applyCameraPreset('top')}
-            className={`p-2 rounded-xl text-xs flex items-center justify-center transition-all ${
+            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
               cameraPreset === 'top'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
-            title="Üstten / Kuşbakışı Görünüm"
+            title="Kuşbakışı / Üstten Kat Planı"
           >
             <span className="text-[10px] font-bold">ÜST</span>
           </button>

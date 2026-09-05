@@ -112,27 +112,84 @@ export function synchronizeFlats(
   flatCount: number,
   baseBuildArea: number,
   floorCount: number,
-  transStatus: string
+  transStatus: string,
+  roofType?: ProjectParams['roofType'],
+  flatsPerFloor: number = 2,
+  mansardFlatCount?: number,
+  roofAtticArea: number = 0
 ): FlatItem[] {
   const newCount = Math.max(1, flatCount);
-  const total = baseBuildArea * floorCount;
-  const avg = parseFloat((total / newCount).toFixed(2));
+  const isMansard = roofType === 'mansard';
+  const isDuplex = roofType === 'duplex';
+  
+  // Mansart çatı tek seçildiğinde ekstra bağımsız bölümler eklenir
+  // Mansart + Dubleks seçildiğinde son katla birleşip TEK bağımsız bölüm sayılır
+  const extraMansardFlats = isMansard
+    ? (mansardFlatCount && mansardFlatCount > 0 ? mansardFlatCount : Math.max(1, flatsPerFloor))
+    : 0;
+
+  const normalFlatsCount = isMansard ? Math.max(1, newCount - extraMansardFlats) : newCount;
+  const normalTotalArea = baseBuildArea * floorCount;
+  const normalAvg = parseFloat((normalTotalArea / normalFlatsCount).toFixed(2));
+  
+  // Mansart bağımsız bölüm alanı (çatı piyesi inşaat alanına göre)
+  const mansardAvg = extraMansardFlats > 0 && roofAtticArea > 0
+    ? parseFloat((roofAtticArea / extraMansardFlats).toFixed(2))
+    : parseFloat((normalAvg * 0.70).toFixed(2));
+
+  // Dubleks için son kattaki dairelere eklenen çatı teras alanı
+  const duplexCount = Math.min(Math.max(1, flatsPerFloor), newCount);
+  const duplexAddArea = isDuplex && roofAtticArea > 0
+    ? parseFloat((roofAtticArea / duplexCount).toFixed(2))
+    : 0;
+
   return Array.from({ length: newCount }, (_, i) => {
     const existing = flats[i];
+    const isMansardFlat = isMansard && i >= normalFlatsCount;
+    const isDuplexFlat = isDuplex && i >= newCount - duplexCount;
+
+    let area = normalAvg;
+    let flatType: FlatItem['flatType'] = 'standard';
+    let description: string | undefined;
+
+    if (isMansardFlat) {
+      area = mansardAvg;
+      flatType = 'mansard';
+      description = 'Çatı Katı Mansart - Ayrı Bağımsız Bölüm';
+    } else if (isDuplexFlat) {
+      area = parseFloat((normalAvg + duplexAddArea).toFixed(2));
+      flatType = 'duplex';
+      description = 'Çatı Dubleksi - Tek Bağımsız Bölüm (Alt Kat + Çatı Terası)';
+    }
+
     if (existing) {
       return {
         ...existing,
         id: i + 1,
-        area: avg, // Recalculate area to match the current flatCount & building size
+        area,
+        flatType,
+        description,
+        name: existing.name && existing.name.startsWith('Kat Maliki')
+          ? (isMansardFlat ? `Kat Maliki ${i + 1} (Mansart Çatı)` : isDuplexFlat ? `Kat Maliki ${i + 1} (Çatı Dubleksi)` : existing.name)
+          : existing.name,
       };
     }
+
+    const defaultName = isMansardFlat
+      ? `Kat Maliki ${i + 1} (Mansart Çatı)`
+      : isDuplexFlat
+      ? `Kat Maliki ${i + 1} (Çatı Dubleksi)`
+      : `Kat Maliki ${i + 1}`;
+
     return {
       id: i + 1,
-      name: `Kat Maliki ${i + 1}`,
+      name: defaultName,
       tc: `1000000000${i + 1}`,
-      area: avg,
+      area,
       downPayment: 0,
       useTransformationCredit: transStatus !== 'none',
+      flatType,
+      description,
     };
   });
 }
@@ -186,8 +243,33 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     upperFloorArea = Math.round(upperFloorArea * 100) / 100;
   }
 
-  const rawTotalArea = activeBaseArea + upperFloorsCount * upperFloorArea;
+  // Çatı ve Dubleks İnşaat Alanı Hesabı:
+  const roofType = params.roofType || 'gable';
+  const isMansard = roofType === 'mansard';
+  const isDuplex = roofType === 'duplex';
+
+  const roofAtticArea = isDuplex
+    ? Math.round(upperFloorArea * 0.65 * 100) / 100
+    : isMansard
+    ? Math.round(upperFloorArea * 0.70 * 100) / 100
+    : 0;
+
+  const rawTotalArea = activeBaseArea + upperFloorsCount * upperFloorArea + roofAtticArea;
   const totalArea = Math.round(Math.max(1, rawTotalArea) * 100) / 100;
+
+  // Bağımsız Bölüm Sayısı Hesabı:
+  // KURAL: Mansart çatı tek seçildiğinde çatı katında ekstra bağımsız bölüm çıkar ve hesaplara dahil edilir.
+  // Mansart çatı + dubleks seçildiğinde son katla birleştiği için tek bağımsız bölüm kabul edilir (ekstra daire eklenmez).
+  const resFloors = params.hasGroundFloorShop ? Math.max(1, floorCount - 1) : floorCount;
+  const flatsPerFloor = params.flatsPerFloor || 2;
+  const normalFloorFlats = resFloors * flatsPerFloor;
+  const extraMansardFlats = isMansard
+    ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : Math.max(1, flatsPerFloor))
+    : 0;
+
+  const effectiveFlatCount = isMansard
+    ? Math.max(flatCount, normalFloorFlats + extraMansardFlats)
+    : flatCount;
 
   let kabaDaysPerFloor = 22;
   let inceDaysPerFloor = 28;
@@ -232,7 +314,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const sgkSalesCost =
     (totalArea * params.priceSgk +
       params.costInsurance +
-      flatCount * params.costSalesMarketing) *
+      effectiveFlatCount * params.costSalesMarketing) *
     costMultiplier;
 
   const concreteM3 = Math.round(totalArea * 0.45 * 100) / 100;
@@ -250,9 +332,9 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const systemsCost =
     Math.round(
       (params.costElevator +
-        flatCount * params.priceSmartHome +
+        effectiveFlatCount * params.priceSmartHome +
         params.costIntercom +
-        flatCount * params.priceGas) *
+        effectiveFlatCount * params.priceGas) *
       costMultiplier * 100
     ) / 100;
 
@@ -273,12 +355,12 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
   const finishingTotalCost =
     Math.round(
-      (flatCount * params.pricePlumbing +
-        flatCount * params.priceElectric +
+      (effectiveFlatCount * params.pricePlumbing +
+        effectiveFlatCount * params.priceElectric +
         totalArea * pvcAreaFactor * params.pricePvc +
         totalArea * params.priceTiles +
-        flatCount * params.priceKitchen +
-        flatCount * params.priceDoors +
+        effectiveFlatCount * params.priceKitchen +
+        effectiveFlatCount * params.priceDoors +
         totalArea * paintPlasterAreaFactor * params.pricePaintPlaster) *
       inceTypeMult *
       costMultiplier * 100
@@ -310,15 +392,19 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const s5 = stage5Pay / 100;
 
   const contractorFlatsCount =
-    projectModel === 'contractorShare' ? flatCount * (contractorShareRate / 100) : 0;
-  const ownerFlatsCount = flatCount - contractorFlatsCount;
+    projectModel === 'contractorShare' ? effectiveFlatCount * (contractorShareRate / 100) : 0;
+  const ownerFlatsCount = effectiveFlatCount - contractorFlatsCount;
 
   const synchronizedFlats = synchronizeFlats(
     flats,
-    flatCount,
+    effectiveFlatCount,
     baseBuildArea,
     floorCount,
-    transformationStatus
+    transformationStatus,
+    roofType,
+    flatsPerFloor,
+    params.mansardFlatCount,
+    roofAtticArea
   );
 
   const flatResults: FlatCalcResult[] = [];
@@ -383,6 +469,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       usedCredit,
       netRemainingDebt: Math.round(netRemainingDebt * 100) / 100,
       isContractorShare: isContractor,
+      flatType: flat.flatType || 'standard',
+      description: flat.description,
       stagePayments: [p1, p2, p3, p4, p5],
       monthlyInstallment,
     });
@@ -427,7 +515,12 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   return {
     totalArea,
     baseArea: baseBuildArea,
-    flatCount,
+    flatCount: effectiveFlatCount,
+    normalFlats: normalFloorFlats,
+    extraMansardFlats,
+    roofAtticArea,
+    isMansardIndependent: isMansard,
+    isDuplexUnified: isDuplex,
     autoDurationMonths,
     finalMonths,
     totalDays,

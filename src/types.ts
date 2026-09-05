@@ -88,6 +88,8 @@ export interface FlatItem {
   downPayment: number;
   useTransformationCredit: boolean;
   isContractorShare?: boolean; // true = Müteahhit Dairesi, false = Hak Sahibi Dairesi
+  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop'; // Daire tipi
+  description?: string; // Ek açıklama (örn: "Çatı Katı Mansart - Ayrı Bağımsız Bölüm", "Çatı Dubleksi - Tek Bağımsız Bölüm")
 }
 
 export interface ProjectParams {
@@ -136,6 +138,7 @@ export interface ProjectParams {
 
   // Mimari Çatı ve Kütle Özellikleri
   roofType?: RoofType;
+  mansardFlatCount?: number; // Mansart çatı tek seçildiğinde ortaya çıkan bağımsız bölüm sayısı (varsayılan katta daire sayısı kadar)
   basementCount?: number;
   floorHeight?: number;
   flatsPerFloor?: number;
@@ -203,6 +206,8 @@ export interface FlatCalcResult {
   usedCredit: number;
   netRemainingDebt: number;
   isContractorShare?: boolean;
+  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop';
+  description?: string;
   stagePayments: [number, number, number, number, number];
   monthlyInstallment: number; // Aylık taksit tutarı (TL)
 }
@@ -211,6 +216,11 @@ export interface CalculationResult {
   totalArea: number;
   baseArea: number;
   flatCount: number;
+  normalFlats?: number;
+  extraMansardFlats?: number;
+  roofAtticArea?: number;
+  isMansardIndependent?: boolean;
+  isDuplexUnified?: boolean;
   autoDurationMonths: number;
   finalMonths: number;
   totalDays: number;
@@ -266,9 +276,12 @@ export interface SavedProjectData {
   results: CalculationResult;
 }
 
-export type RoomType = '1+1' | '2+1' | '3+1' | '4+1';
+export type RoomType = '1+1' | '2+1' | '3+1' | '4+1' | '5+1';
 
 export type RoofType = 'gable' | 'flat' | 'mansard' | 'duplex';
+
+export type PredefinedViewDirection = 'front' | 'rear' | 'right' | 'left' | 'top' | 'iso';
+export type CameraPresetType = PredefinedViewDirection | 'side';
 
 export interface BuildingModelParams {
   facadeWidth: number;       // Ön cephe genişliği (m)
@@ -285,6 +298,7 @@ export interface BuildingModelParams {
   elevatorCount: number;     // Asansör sayısı (1, 2)
   balconyDepth: number;      // Balkon / çıkma payı (m)
   roofType: RoofType;        // Çatı tipi: Kırma, Teras, Mansart, Çatı Dubleksi
+  mansardFlatCount?: number; // Mansart çatı tek seçildiğinde ortaya çıkan bağımsız bölüm sayısı
   facadeStyle: 'modern' | 'wood_anthracite' | 'glass_minimal' | 'brick_stone';
   wallThickness: number;     // Dış duvar kalınlığı (m)
   showFurniture: boolean;    // Mobilya katmanı

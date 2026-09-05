@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Cloud, CheckCircle2, AlertCircle, ShieldCheck, FileText, Compass, LayoutGrid, Calendar, Clock, Sparkles, Layers, Box } from 'lucide-react';
-import { ProjectParams, CalculationResult, AppTheme, BuildingModelParams } from '../types';
+import { ProjectParams, CalculationResult, AppTheme, BuildingModelParams, PredefinedViewDirection } from '../types';
 import { saveReportDocumentToDrive } from '../services/drive';
 import { generateOfferHtml } from '../utils/reportExport';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
@@ -18,6 +18,114 @@ interface OfferTabProps {
   theme?: AppTheme;
 }
 
+interface DirectionMeta {
+  key: PredefinedViewDirection;
+  label: string;
+  compassName: string;
+  compassAngle: string;
+  shortTag: string;
+  description: string;
+  cutMode: 'solid' | 'cutaway' | 'xray';
+  showDimensions: boolean;
+  accentBg: string;
+  accentText: string;
+}
+
+const DIRECTION_META: Record<PredefinedViewDirection, DirectionMeta> = {
+  front: {
+    key: 'front',
+    label: 'Ön Cephe (Güney)',
+    compassName: 'Güney Cephe',
+    compassAngle: '180° G (Ön)',
+    shortTag: 'ÖN',
+    description: 'Bina ana girişi, ön cephe pencere/balkon ritmi ve kat yükseklikleri.',
+    cutMode: 'solid',
+    showDimensions: false,
+    accentBg: 'bg-blue-500/10 border-blue-500/30',
+    accentText: 'text-blue-700',
+  },
+  rear: {
+    key: 'rear',
+    label: 'Arka Cephe (Kuzey)',
+    compassName: 'Kuzey Cephe',
+    compassAngle: '0° K (Arka)',
+    shortTag: 'ARKA',
+    description: 'Arka bahçe cephesi, arka bağımsız bölümler ve bina gabarisi.',
+    cutMode: 'solid',
+    showDimensions: false,
+    accentBg: 'bg-indigo-500/10 border-indigo-500/30',
+    accentText: 'text-indigo-700',
+  },
+  right: {
+    key: 'right',
+    label: 'Sağ Yan Cephe (Doğu)',
+    compassName: 'Doğu Cephe',
+    compassAngle: '90° D (Sağ)',
+    shortTag: 'SAĞ',
+    description: 'Sağ yan bahçe mesafesi, bina derinliği ve konsol çıkıntıları.',
+    cutMode: 'solid',
+    showDimensions: false,
+    accentBg: 'bg-amber-500/10 border-amber-500/30',
+    accentText: 'text-amber-700',
+  },
+  left: {
+    key: 'left',
+    label: 'Sol Yan Cephe (Batı)',
+    compassName: 'Batı Cephe',
+    compassAngle: '270° B (Sol)',
+    shortTag: 'SOL',
+    description: 'Sol komşu parsel cephesi, merdiven kovası pencereleri ve düşey hatlar.',
+    cutMode: 'solid',
+    showDimensions: false,
+    accentBg: 'bg-orange-500/10 border-orange-500/30',
+    accentText: 'text-orange-700',
+  },
+  top: {
+    key: 'top',
+    label: 'Kuşbakışı (Kat Planı)',
+    compassName: 'Kuzey Yönlü Plan',
+    compassAngle: 'Üstten (Plan)',
+    shortTag: 'PLAN',
+    description: 'Daire ve bağımsız bölüm sınırları, oda dağılımı, asansör ve merdiven kurgusu.',
+    cutMode: 'cutaway',
+    showDimensions: true,
+    accentBg: 'bg-emerald-500/10 border-emerald-500/30',
+    accentText: 'text-emerald-700',
+  },
+  iso: {
+    key: 'iso',
+    label: '3D İzometrik Model',
+    compassName: 'Güneydoğu Perspektif',
+    compassAngle: '3D İzometrik',
+    shortTag: '3D',
+    description: 'Yapının tamamını şeffaf katmanlarla gösteren 3D perspektif aksonometrik görünüm.',
+    cutMode: 'xray',
+    showDimensions: false,
+    accentBg: 'bg-purple-500/10 border-purple-500/30',
+    accentText: 'text-purple-700',
+  },
+};
+
+const LAYOUT_PRESETS: { id: string; name: string; directions: PredefinedViewDirection[] }[] = [
+  {
+    id: 'standard',
+    name: 'Standart (Ön + Plan + 3D)',
+    directions: ['front', 'top', 'iso'],
+  },
+  {
+    id: 'four_facades',
+    name: 'Dört Cephe (Ön + Arka + Sağ + Sol)',
+    directions: ['front', 'rear', 'right', 'left'],
+  },
+  {
+    id: 'facades_iso',
+    name: 'Perspektif (Ön + Yan + 3D)',
+    directions: ['front', 'right', 'iso'],
+  },
+];
+
+const CARD_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
 export const OfferTab: React.FC<OfferTabProps> = ({
   params,
   results,
@@ -29,6 +137,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [showDrawingsInReport, setShowDrawingsInReport] = useState(true);
+  const [viewDirections, setViewDirections] = useState<PredefinedViewDirection[]>(['front', 'top', 'iso']);
   const offerDocRef = useRef<HTMLDivElement>(null);
 
   const handleExportPdf = async () => {
@@ -303,104 +412,134 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         </div>
 
-        {/* Dynamic Architectural Views Component */}
+        {/* Dynamic Architectural Views Component with Predefined Orientations */}
         <div className={`mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-200 ${!showDrawingsInReport ? 'print:hidden border-dashed border-slate-300 opacity-80' : ''}`}>
-          <h4 className="text-xs font-bold text-indigo-700 mb-4 uppercase tracking-wider flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2">
-              <Box className="w-4 h-4" />
-              <span>🏢 Dinamik Mimari 3D Canlı Bina Görünümleri (Canlı CAD Modeli)</span>
-            </span>
-            {!showDrawingsInReport && (
-              <span className="text-[10px] bg-amber-500/10 text-amber-700 border border-amber-500/25 px-2.5 py-0.5 rounded-full font-semibold print:hidden">
-                Çıktıda Gizlenecek
-              </span>
-            )}
-          </h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/60 shadow-sm text-center">
-              <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase mb-1">
-                A. Ön Cephe Görünümü (Front Elevation)
-              </span>
-              <div className="h-48 md:h-56 bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-inner group transition-transform duration-500 hover:scale-[1.02]">
-                <ThreeBuildingView 
-                  params={{
-                    ...params,
-                    floorHeight: 2.95,
-                    stairWidth: 2.6,
-                    stairDepth: 4.8,
-                    elevatorWidth: 1.8,
-                    elevatorDepth: 2.0,
-                    wallThickness: 0.2,
-                    showFurniture: true,
-                    showDimensions: false,
-                    showInteriorRooms: true,
-                    interiorCutMode: 'solid'
-                  } as BuildingModelParams} 
-                  forcedCameraPreset="front" 
-                  hideControls={true} 
-                  theme="dark"
-                />
-              </div>
-              <p className="text-[10px] text-slate-500 italic mt-1 px-2">Dış ölçüler (Yükseklik/Genişlik) ve kat seviyeleri 3D olarak hesaplanmıştır.</p>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
+            <div>
+              <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
+                <Box className="w-4 h-4 text-indigo-600" />
+                <span>🏢 Dinamik Mimari 3D Canlı Bina Görünümleri (Ön Tanımlı Cephe Yönleri)</span>
+              </h4>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Resmi teklif belgesinde sunulacak ön tanımlı pusula yönleri (Güney, Kuzey, Doğu, Batı, Kat Planı ve 3D İzometrik)
+              </p>
             </div>
-            
-            <div className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/60 shadow-sm text-center">
-              <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase mb-1">
-                B. Kuşbakışı Görünüm (Top / Plan View)
+
+            {/* Layout Presets & Status */}
+            <div className="flex items-center gap-1.5 flex-wrap print:hidden">
+              <span className="text-[11px] text-slate-500 font-medium mr-1 flex items-center gap-1">
+                <Compass className="w-3.5 h-3.5 text-slate-400" />
+                <span>Görünüm Düzeni:</span>
               </span>
-              <div className="h-48 md:h-56 bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-inner group transition-transform duration-500 hover:scale-[1.02]">
-                <ThreeBuildingView 
-                  params={{
-                    ...params,
-                    floorHeight: 2.95,
-                    stairWidth: 2.6,
-                    stairDepth: 4.8,
-                    elevatorWidth: 1.8,
-                    elevatorDepth: 2.0,
-                    wallThickness: 0.2,
-                    showFurniture: true,
-                    showDimensions: true,
-                    showInteriorRooms: true,
-                    interiorCutMode: 'cutaway'
-                  } as BuildingModelParams} 
-                  forcedCameraPreset="top" 
-                  hideControls={true} 
-                  theme="dark"
-                />
-              </div>
-              <p className="text-[10px] text-slate-500 italic mt-1 px-2">Daire ve bağımsız bölüm sınırları, asansör ve merdiven kurgusunu içerir.</p>
-            </div>
-            
-            <div className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/60 shadow-sm text-center">
-              <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase mb-1">
-                C. İzometrik Mimari Model (3D Isometric)
-              </span>
-              <div className="h-48 md:h-56 bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-inner group transition-transform duration-500 hover:scale-[1.02]">
-                <ThreeBuildingView 
-                  params={{
-                    ...params,
-                    floorHeight: 2.95,
-                    stairWidth: 2.6,
-                    stairDepth: 4.8,
-                    elevatorWidth: 1.8,
-                    elevatorDepth: 2.0,
-                    wallThickness: 0.2,
-                    showFurniture: true,
-                    showDimensions: false,
-                    showInteriorRooms: true,
-                    interiorCutMode: 'xray'
-                  } as BuildingModelParams} 
-                  forcedCameraPreset="iso" 
-                  hideControls={true} 
-                  theme="dark"
-                />
-              </div>
-              <p className="text-[10px] text-slate-500 italic mt-1 px-2">Yapının tamamını şeffaf katmanlarla gösteren 3D perspektif görünüm.</p>
+              {LAYOUT_PRESETS.map((preset) => {
+                const isActive =
+                  viewDirections.length === preset.directions.length &&
+                  viewDirections.every((d, i) => d === preset.directions[i]);
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setViewDirections(preset.directions)}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {preset.name}
+                  </button>
+                );
+              })}
+
+              {!showDrawingsInReport && (
+                <span className="text-[10px] bg-amber-500/10 text-amber-700 border border-amber-500/25 px-2.5 py-0.5 rounded-full font-semibold">
+                  Çıktıda Gizlenecek
+                </span>
+              )}
             </div>
           </div>
+          
+          <div className={`grid grid-cols-1 ${viewDirections.length === 4 ? 'sm:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3'} gap-4`}>
+            {viewDirections.map((dirKey, idx) => {
+              const meta = DIRECTION_META[dirKey] || DIRECTION_META.front;
+              const letter = CARD_LETTERS[idx] || String(idx + 1);
+              return (
+                <div key={idx} className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between">
+                  <div>
+                    {/* Header: Title & Compass Badge */}
+                    <div className="flex items-center justify-between gap-1.5 mb-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-indigo-700 tracking-wide uppercase">
+                        {letter}. {meta.label}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${meta.accentBg} ${meta.accentText}`}>
+                        <Compass className="w-3 h-3 shrink-0" />
+                        <span>{meta.compassAngle}</span>
+                      </span>
+                    </div>
+
+                    {/* Predefined Direction Switcher Pills (hidden in print) */}
+                    <div className="flex items-center gap-1 mb-2 overflow-x-auto pb-0.5 print:hidden" title="Ön tanımlı yön seçin">
+                      {(Object.keys(DIRECTION_META) as PredefinedViewDirection[]).map((key) => {
+                        const opt = DIRECTION_META[key];
+                        const isSelected = dirKey === key;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => {
+                              setViewDirections((prev) => {
+                                const next = [...prev];
+                                next[idx] = key;
+                                return next;
+                              });
+                            }}
+                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold transition-all shrink-0 cursor-pointer ${
+                              isSelected
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'bg-white/90 hover:bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                            }`}
+                            title={`${opt.label} (${opt.compassAngle})`}
+                          >
+                            {opt.shortTag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 3D Canvas Container */}
+                  <div className="h-48 md:h-52 bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-inner group transition-transform duration-300 hover:scale-[1.01]">
+                    <ThreeBuildingView 
+                      params={{
+                        ...params,
+                        floorHeight: 2.95,
+                        stairWidth: 2.6,
+                        stairDepth: 4.8,
+                        elevatorWidth: 1.8,
+                        elevatorDepth: 2.0,
+                        wallThickness: 0.2,
+                        showFurniture: true,
+                        showDimensions: meta.showDimensions,
+                        showInteriorRooms: true,
+                        interiorCutMode: meta.cutMode,
+                      } as BuildingModelParams} 
+                      forcedCameraPreset={meta.key} 
+                      hideControls={true} 
+                      theme="dark"
+                    />
+                  </div>
+
+                  {/* Description Footer */}
+                  <p className="text-[10px] text-slate-500 italic mt-1 px-1 text-center min-h-[28px] flex items-center justify-center">
+                    {meta.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
           <p className="mt-4 text-[10px] text-slate-400 font-mono border-t border-slate-200 pt-3 italic text-center">
-            * Yukarıdaki 3D mimari model görünümleri, girdiğiniz verilere ({params.floorCount} Kat, {results.baseArea.toFixed(1)}m²) göre gerçek zamanlı CAD motoru tarafından oluşturulmuştur.
+            * Yukarıdaki 3D mimari model görünümleri, girdiğiniz verilere ({params.floorCount} Kat, {results.baseArea.toFixed(1)}m²) ve seçilen ön tanımlı pusula açılarına göre CAD motoru tarafından gerçek zamanlı oluşturulmuştur.
           </p>
         </div>
 
@@ -490,7 +629,19 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 return (
                   <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-3 font-semibold text-slate-900">
-                      <div>Daire {flat.id}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>Daire {flat.id}</span>
+                        {flat.flatType === 'mansard' && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                            Mansart Çatı (Ayrı B.B.)
+                          </span>
+                        )}
+                        {flat.flatType === 'duplex' && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Çatı Dubleksi (Tek B.B.)
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-indigo-600 font-normal">
                         {floorNo}. Kat / {totalFloors} Kat
                       </div>

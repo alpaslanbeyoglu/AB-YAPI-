@@ -152,6 +152,23 @@ export default function App() {
           shopCount: params.shopCount || 1,
           shopHeight: params.shopHeight || 3.8,
           flatCount: params.flatCount,
+          hasCantilever: params.hasCantilever,
+          cantileverDepth: params.cantileverDepth,
+          cantileverDirection: params.cantileverDirection,
+          footprintInputMode: params.footprintInputMode,
+          customFacadeCount: params.customFacadeCount,
+          customFacades: params.customFacades,
+          lShapeFrontMain: params.lShapeFrontMain,
+          lShapeDepthMain: params.lShapeDepthMain,
+          lShapeRecessFront: params.lShapeRecessFront,
+          lShapeRecessDepth: params.lShapeRecessDepth,
+          polygonPoints: params.polygonPoints,
+          facadeConfigs: params.facadeConfigs,
+          mainEntranceFacadeIndex: params.mainEntranceFacadeIndex,
+          contractorShareRate: params.contractorShareRate,
+          contractorFlatIds: params.contractorFlatIds,
+          showContractorShare3D: params.showContractorShare3D,
+          projectModel: params.projectModel,
         };
       }
     } catch (e) {}
@@ -173,10 +190,27 @@ export default function App() {
       shopCount: params.shopCount || 1,
       shopHeight: params.shopHeight || 3.8,
       flatCount: params.flatCount,
+      hasCantilever: params.hasCantilever,
+      cantileverDepth: params.cantileverDepth,
+      cantileverDirection: params.cantileverDirection,
+      footprintInputMode: params.footprintInputMode,
+      customFacadeCount: params.customFacadeCount,
+      customFacades: params.customFacades,
+      lShapeFrontMain: params.lShapeFrontMain,
+      lShapeDepthMain: params.lShapeDepthMain,
+      lShapeRecessFront: params.lShapeRecessFront,
+      lShapeRecessDepth: params.lShapeRecessDepth,
+      polygonPoints: params.polygonPoints,
+      facadeConfigs: params.facadeConfigs,
+      mainEntranceFacadeIndex: params.mainEntranceFacadeIndex,
+      contractorShareRate: params.contractorShareRate,
+      contractorFlatIds: params.contractorFlatIds,
+      showContractorShare3D: params.showContractorShare3D,
+      projectModel: params.projectModel,
     };
   });
 
-  // Keep Building Model and Calculator synchronized bidirectionally - Proje Künyesi is MASTER
+  // Keep Building Model and Calculator synchronized LIVE bidirectionally
   const updateCalculatorParams = (newParams: ProjectParams) => {
     // 1. Determine activeBaseArea: Keep user's explicit manual entry if provided (> 0)
     let activeBaseArea = newParams.baseBuildArea;
@@ -189,17 +223,44 @@ export default function App() {
       ? Math.max(1, newParams.floorCount - 1)
       : newParams.floorCount;
 
-    // 2. Determine totalFlats: Keep user's explicit manual flatCount if provided (> 0)
-    const totalFlats = (newParams.flatCount && newParams.flatCount > 0)
+    const roofType = newParams.roofType || 'gable';
+    const isMansard = roofType === 'mansard';
+    const isDuplex = roofType === 'duplex';
+    const flatsPerFloor = newParams.flatsPerFloor || 1;
+    const normalFloorFlats = resFloors * flatsPerFloor;
+
+    // KURAL:
+    // 1) Mansart çatı tek seçildiğinde çatı katında ekstra bağımsız bölüm(ler) oluşur ve hesaplara dahil edilir.
+    // 2) Mansart çatı + dubleks seçilirse tek bağımsız bölüm olarak kabul edilir (ekstra daire eklenmez).
+    const extraMansardFlats = isMansard
+      ? (newParams.mansardFlatCount && newParams.mansardFlatCount > 0 ? newParams.mansardFlatCount : Math.max(1, flatsPerFloor))
+      : 0;
+
+    let totalFlats = (newParams.flatCount && newParams.flatCount > 0)
       ? newParams.flatCount
-      : Math.max(1, resFloors * (newParams.flatsPerFloor || 1));
+      : Math.max(1, normalFloorFlats + extraMansardFlats);
+
+    // Mansart seçildiğinde eğer daire sayısı sadece normal katlara eşit kalmışsa otomatik ekle
+    if (isMansard && totalFlats === normalFloorFlats) {
+      totalFlats = normalFloorFlats + extraMansardFlats;
+    }
+
+    const roofAtticArea = isDuplex
+      ? Math.round(activeBaseArea * 0.65 * 100) / 100
+      : isMansard
+      ? Math.round(activeBaseArea * 0.70 * 100) / 100
+      : 0;
 
     const synchronizedFlats = synchronizeFlats(
       newParams.flats,
       totalFlats,
       activeBaseArea,
       newParams.floorCount,
-      newParams.transformationStatus
+      newParams.transformationStatus,
+      roofType,
+      flatsPerFloor,
+      newParams.mansardFlatCount,
+      roofAtticArea
     );
 
     const sanitizedContractorIds = (newParams.contractorFlatIds || []).filter(
@@ -219,7 +280,7 @@ export default function App() {
       localStorage.setItem('ab_yapi_last_params', JSON.stringify(sanitizedParams));
     } catch (e) {}
 
-    // Live Sync from Proje Künyesi to Building Model:
+    // Live Sync from Proje Künyesi / Hesap to Building Model:
     setBuildingModelParams((prevModel) => {
       let newW = sanitizedParams.facadeWidth || prevModel.facadeWidth;
       let newD = sanitizedParams.facadeDepth || prevModel.facadeDepth;
@@ -268,14 +329,146 @@ export default function App() {
     });
   };
 
-  // Only update 3D building model parameters without silently overwriting calculator params
+  // Live Sync from Building Model to Calculator: Synchronize all shared/matching data instantly
   const updateBuildingModelParams = (updates: Partial<BuildingModelParams>) => {
-    setBuildingModelParams((prev) => {
-      const next = { ...prev, ...updates };
+    // 1. Update 3D Building Model state
+    setBuildingModelParams((prevModel) => {
+      const nextModel: BuildingModelParams = { ...prevModel, ...updates };
       try {
-        localStorage.setItem('ab_yapi_building_model', JSON.stringify(next));
+        localStorage.setItem('ab_yapi_building_model', JSON.stringify(nextModel));
       } catch (e) {}
-      return next;
+      return nextModel;
+    });
+
+    // 2. Synchronize all matching parameters live to Calculator (ProjectParams)
+    setParams((prev) => {
+      const mergedForFootprint: ProjectParams = {
+        ...prev,
+        footprintInputMode: updates.footprintInputMode !== undefined ? updates.footprintInputMode : prev.footprintInputMode,
+        facadeWidth: updates.facadeWidth !== undefined ? updates.facadeWidth : prev.facadeWidth,
+        facadeDepth: updates.facadeDepth !== undefined ? updates.facadeDepth : prev.facadeDepth,
+        customFacadeCount: updates.customFacadeCount !== undefined ? updates.customFacadeCount : prev.customFacadeCount,
+        customFacades: updates.customFacades !== undefined ? updates.customFacades : prev.customFacades,
+        lShapeFrontMain: updates.lShapeFrontMain !== undefined ? updates.lShapeFrontMain : prev.lShapeFrontMain,
+        lShapeDepthMain: updates.lShapeDepthMain !== undefined ? updates.lShapeDepthMain : prev.lShapeDepthMain,
+        lShapeRecessFront: updates.lShapeRecessFront !== undefined ? updates.lShapeRecessFront : prev.lShapeRecessFront,
+        lShapeRecessDepth: updates.lShapeRecessDepth !== undefined ? updates.lShapeRecessDepth : prev.lShapeRecessDepth,
+        polygonPoints: updates.polygonPoints !== undefined ? updates.polygonPoints : prev.polygonPoints,
+      };
+
+      let activeBaseArea = prev.baseBuildArea;
+      if (updates.baseBuildArea !== undefined && updates.baseBuildArea > 0) {
+        activeBaseArea = updates.baseBuildArea;
+      } else if (
+        updates.facadeWidth !== undefined ||
+        updates.facadeDepth !== undefined ||
+        updates.customFacades !== undefined ||
+        updates.lShapeFrontMain !== undefined ||
+        updates.lShapeDepthMain !== undefined ||
+        updates.lShapeRecessFront !== undefined ||
+        updates.lShapeRecessDepth !== undefined ||
+        updates.polygonPoints !== undefined
+      ) {
+        const footprintResult = calculateFootprint(mergedForFootprint.footprintInputMode, mergedForFootprint);
+        activeBaseArea = footprintResult.area;
+      }
+
+      const nextFloorCount = updates.floorCount !== undefined ? updates.floorCount : prev.floorCount;
+      const nextFlatsPerFloor = updates.flatsPerFloor !== undefined ? updates.flatsPerFloor : (prev.flatsPerFloor || 1);
+      const nextHasShop = updates.hasGroundFloorShop !== undefined ? updates.hasGroundFloorShop : (prev.hasGroundFloorShop || false);
+
+      const resFloors = nextHasShop ? Math.max(1, nextFloorCount - 1) : nextFloorCount;
+
+      const roofType = updates.roofType !== undefined ? updates.roofType : (prev.roofType || 'gable');
+      const isMansard = roofType === 'mansard';
+      const isDuplex = roofType === 'duplex';
+      const extraMansardFlats = isMansard
+        ? (updates.mansardFlatCount && updates.mansardFlatCount > 0
+            ? updates.mansardFlatCount
+            : prev.mansardFlatCount && prev.mansardFlatCount > 0
+            ? prev.mansardFlatCount
+            : Math.max(1, nextFlatsPerFloor))
+        : 0;
+
+      let nextFlatCount = prev.flatCount;
+      if (updates.flatCount !== undefined && updates.flatCount > 0) {
+        nextFlatCount = updates.flatCount;
+      } else if (
+        updates.floorCount !== undefined ||
+        updates.flatsPerFloor !== undefined ||
+        updates.hasGroundFloorShop !== undefined ||
+        updates.roofType !== undefined ||
+        updates.mansardFlatCount !== undefined
+      ) {
+        nextFlatCount = Math.max(1, resFloors * nextFlatsPerFloor + extraMansardFlats);
+      } else if (isMansard && nextFlatCount === resFloors * nextFlatsPerFloor) {
+        nextFlatCount = resFloors * nextFlatsPerFloor + extraMansardFlats;
+      }
+
+      const roofAtticArea = isDuplex
+        ? Math.round(activeBaseArea * 0.65 * 100) / 100
+        : isMansard
+        ? Math.round(activeBaseArea * 0.70 * 100) / 100
+        : 0;
+
+      const synchronizedFlats = synchronizeFlats(
+        prev.flats,
+        nextFlatCount,
+        activeBaseArea,
+        nextFloorCount,
+        prev.transformationStatus,
+        roofType,
+        nextFlatsPerFloor,
+        updates.mansardFlatCount || prev.mansardFlatCount,
+        roofAtticArea
+      );
+
+      const sanitizedContractorIds = (updates.contractorFlatIds ?? prev.contractorFlatIds ?? []).filter(
+        (id) => id <= nextFlatCount
+      );
+
+      const nextParams: ProjectParams = {
+        ...prev,
+        baseBuildArea: activeBaseArea,
+        floorCount: nextFloorCount,
+        flatCount: nextFlatCount,
+        flatsPerFloor: nextFlatsPerFloor,
+        flats: synchronizedFlats,
+        contractorFlatIds: sanitizedContractorIds,
+        ...(updates.footprintInputMode !== undefined && { footprintInputMode: updates.footprintInputMode }),
+        ...(updates.facadeWidth !== undefined && { facadeWidth: updates.facadeWidth }),
+        ...(updates.facadeDepth !== undefined && { facadeDepth: updates.facadeDepth }),
+        ...(updates.customFacadeCount !== undefined && { customFacadeCount: updates.customFacadeCount }),
+        ...(updates.customFacades !== undefined && { customFacades: updates.customFacades }),
+        ...(updates.lShapeFrontMain !== undefined && { lShapeFrontMain: updates.lShapeFrontMain }),
+        ...(updates.lShapeDepthMain !== undefined && { lShapeDepthMain: updates.lShapeDepthMain }),
+        ...(updates.lShapeRecessFront !== undefined && { lShapeRecessFront: updates.lShapeRecessFront }),
+        ...(updates.lShapeRecessDepth !== undefined && { lShapeRecessDepth: updates.lShapeRecessDepth }),
+        ...(updates.polygonPoints !== undefined && { polygonPoints: updates.polygonPoints }),
+        ...(updates.facadeConfigs !== undefined && { facadeConfigs: updates.facadeConfigs }),
+        ...(updates.mainEntranceFacadeIndex !== undefined && { mainEntranceFacadeIndex: updates.mainEntranceFacadeIndex }),
+        ...(updates.floorHeight !== undefined && { floorHeight: updates.floorHeight }),
+        ...(updates.basementCount !== undefined && { basementCount: updates.basementCount }),
+        ...(updates.elevatorCount !== undefined && { elevatorCount: updates.elevatorCount }),
+        ...(updates.balconyDepth !== undefined && { balconyDepth: updates.balconyDepth }),
+        ...(updates.roomType !== undefined && { roomType: updates.roomType }),
+        ...(updates.roofType !== undefined && { roofType: updates.roofType }),
+        ...(updates.facadeStyle !== undefined && { facadeStyle: updates.facadeStyle }),
+        ...(updates.hasGroundFloorShop !== undefined && { hasGroundFloorShop: updates.hasGroundFloorShop }),
+        ...(updates.shopCount !== undefined && { shopCount: updates.shopCount }),
+        ...(updates.shopHeight !== undefined && { shopHeight: updates.shopHeight }),
+        ...(updates.hasCantilever !== undefined && { hasCantilever: updates.hasCantilever }),
+        ...(updates.cantileverDepth !== undefined && { cantileverDepth: updates.cantileverDepth }),
+        ...(updates.cantileverDirection !== undefined && { cantileverDirection: updates.cantileverDirection }),
+        ...(updates.contractorShareRate !== undefined && { contractorShareRate: updates.contractorShareRate }),
+        ...(updates.showContractorShare3D !== undefined && { showContractorShare3D: updates.showContractorShare3D }),
+        ...(updates.projectModel !== undefined && { projectModel: updates.projectModel }),
+      };
+
+      try {
+        localStorage.setItem('ab_yapi_last_params', JSON.stringify(nextParams));
+      } catch (e) {}
+      return nextParams;
     });
   };
 

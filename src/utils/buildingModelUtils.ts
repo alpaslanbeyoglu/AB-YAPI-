@@ -59,7 +59,12 @@ export interface BuildingMetrics {
   totalBuiltArea: number;      // Toplam inşaat alanı (m²)
   totalGrossArea: number;      // Toplam brüt inşaat alanı (m²)
   totalHeight: number;         // Toplam bina yüksekliği (m)
-  totalFlats: number;          // Toplam daire sayısı
+  totalFlats: number;          // Toplam bağımsız bölüm sayısı
+  normalFlats: number;         // Normal katlardaki bağımsız bölüm sayısı
+  extraMansardFlats: number;   // Mansart çatı tek seçildiğinde eklenen ekstra bağımsız bölüm sayısı
+  roofAtticArea: number;       // Çatı katı / dubleks inşaat alanı (m²)
+  isMansardIndependent: boolean; // Mansart çatı tek: ayrı bağımsız bölüm
+  isDuplexUnified: boolean;     // Mansart + dubleks: son katla birleşik tek bağımsız bölüm
   coreArea: number;            // Merdiven + Asansör çekirdek alanı (m²)
   floorGrossArea: number;      // Kat brüt alanı (m²)
   flatGrossArea: number;       // Daire başına brüt alan (m²)
@@ -117,16 +122,23 @@ export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = 
 
   const upperFloorsCount = Math.max(0, fc - 1);
   const basementFloorsCount = bc;
-  const duplexAtticArea =
-    params.roofType === 'duplex'
+
+  // Çatı ve Dubleks Metrekare Hesabı:
+  // Mansart çatı tek: Bağımsız çatı katı (%70 emsal alan)
+  // Mansart + Dubleks: Son katla birleşik dubleks teras alanı (%65)
+  const isMansardIndependent = params.roofType === 'mansard';
+  const isDuplexUnified = params.roofType === 'duplex';
+
+  const roofAtticArea =
+    isDuplexUnified
       ? Math.round(upperFloorGrossArea * 0.65 * 100) / 100
-      : params.roofType === 'mansard'
-      ? Math.round(upperFloorGrossArea * 0.5 * 100) / 100
+      : isMansardIndependent
+      ? Math.round(upperFloorGrossArea * 0.70 * 100) / 100
       : 0;
 
-  // Ground floor + basement floors + upper floors (with cantilever) + duplex attic
+  // Ground floor + basement floors + upper floors (with cantilever) + roof attic area
   const totalBuiltArea = Math.round(
-    (footprintArea * (1 + basementFloorsCount) + upperFloorGrossArea * upperFloorsCount + duplexAtticArea) * 100
+    (footprintArea * (1 + basementFloorsCount) + upperFloorGrossArea * upperFloorsCount + roofAtticArea) * 100
   ) / 100;
 
   const roofHeightAdd =
@@ -144,7 +156,16 @@ export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = 
   ) / 100;
 
   const residentialFloors = hasShop ? Math.max(1, fc - 1) : fc;
-  const totalFlats = residentialFloors * flatsPerFloor;
+  const normalFlats = residentialFloors * flatsPerFloor;
+
+  // Mimari Kural:
+  // 1) Mansart Çatı TEK seçildiğinde: Çatı katında ekstra bağımsız bölüm(ler) oluşur ve hesaplara dahil edilir.
+  // 2) Mansart Çatı + Dubleks seçildiğinde: Son kat ile çatı birleştiğinden TEK bağımsız bölüm kabul edilir (ekstra daire eklenmez).
+  const extraMansardFlats = isMansardIndependent
+    ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : Math.max(1, flatsPerFloor))
+    : 0;
+
+  const totalFlats = normalFlats + extraMansardFlats;
 
   const stairTotalArea = Math.round(stairWidth * stairDepth * 100) / 100;
   const elevatorTotalArea = Math.round(elevatorWidth * elevatorDepth * elevatorCount * 100) / 100;
@@ -168,6 +189,11 @@ export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = 
     totalGrossArea: totalBuiltArea,
     totalHeight,
     totalFlats,
+    normalFlats,
+    extraMansardFlats,
+    roofAtticArea,
+    isMansardIndependent,
+    isDuplexUnified,
     coreArea,
     floorGrossArea: activeGross,
     flatGrossArea,
