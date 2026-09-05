@@ -22,14 +22,67 @@ import {
 import { BuildingModelParams } from '../types';
 import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds } from '../utils/footprintUtils';
 
+// Safe geometry constructors to completely prevent any NaN/null/zero bounding sphere errors in Three.js
+function safeBox(w: number, h: number, d: number, ws: number = 1, hs: number = 1, ds: number = 1): THREE.BoxGeometry {
+  const safeW = (typeof w === 'number' && !isNaN(w) && Number.isFinite(w) && w > 0.001) ? w : 1.0;
+  const safeH = (typeof h === 'number' && !isNaN(h) && Number.isFinite(h) && h > 0.001) ? h : 1.0;
+  const safeD = (typeof d === 'number' && !isNaN(d) && Number.isFinite(d) && d > 0.001) ? d : 1.0;
+  return new THREE.BoxGeometry(safeW, safeH, safeD, ws, hs, ds);
+}
+
+function safeCylinder(
+  radiusTop: number,
+  radiusBottom: number,
+  height: number,
+  radialSegments: number = 8,
+  heightSegments: number = 1,
+  openEnded: boolean = false
+): THREE.CylinderGeometry {
+  const rt = (typeof radiusTop === 'number' && !isNaN(radiusTop) && Number.isFinite(radiusTop) && radiusTop >= 0) ? radiusTop : 0.1;
+  const rb = (typeof radiusBottom === 'number' && !isNaN(radiusBottom) && Number.isFinite(radiusBottom) && radiusBottom >= 0) ? radiusBottom : 0.1;
+  const h = (typeof height === 'number' && !isNaN(height) && Number.isFinite(height) && height > 0.001) ? height : 1.0;
+  return new THREE.CylinderGeometry(rt, rb, h, radialSegments, heightSegments, openEnded);
+}
+
+function safeCone(
+  radius: number,
+  height: number,
+  radialSegments: number = 4,
+  heightSegments: number = 1,
+  openEnded: boolean = false
+): THREE.ConeGeometry {
+  const r = (typeof radius === 'number' && !isNaN(radius) && Number.isFinite(radius) && radius > 0.001) ? radius : 1.0;
+  const h = (typeof height === 'number' && !isNaN(height) && Number.isFinite(height) && height > 0.001) ? height : 1.0;
+  return new THREE.ConeGeometry(r, h, radialSegments, heightSegments, openEnded);
+}
+
+function safeNum(val: any, fallback: number, minVal: number = 0.001): number {
+  if (val === null || val === undefined) return fallback;
+  const num = typeof val === 'number' ? val : parseFloat(val);
+  if (!isNaN(num) && Number.isFinite(num) && num >= minVal) {
+    return num;
+  }
+  return fallback;
+}
+
 interface ThreeBuildingViewProps {
   params: BuildingModelParams;
   theme?: 'light' | 'gray' | 'dark';
+  solarMode?: boolean;
+  sunAltitude?: number;
+  sunAzimuth?: number;
+  buildingRotation?: number;
+  isSolarHeatmap?: boolean;
 }
 
 export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   params,
   theme = 'light',
+  solarMode = false,
+  sunAltitude = 45,
+  sunAzimuth = 180,
+  buildingRotation = 0,
+  isSolarHeatmap = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -38,6 +91,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const controlsRef = useRef<OrbitControls | null>(null);
   const buildingGroupRef = useRef<THREE.Group | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
+  const sunSphereMeshRef = useRef<THREE.Mesh | null>(null);
+  const compassGroupRef = useRef<THREE.Group | null>(null);
 
   // View settings
   const [explodeRatio, setExplodeRatio] = useState<number>(0);
@@ -123,28 +180,26 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     buildingGroupRef.current = buildingGroup;
 
     const colors = getStyleColors(params.facadeStyle);
-    const {
-      facadeWidth: W,
-      facadeDepth: D,
-      floorHeight: H,
-      floorCount: N,
-      basementCount: B,
-      stairWidth: sW,
-      stairDepth: sD,
-      elevatorWidth: eW,
-      elevatorDepth: eD,
-      balconyDepth: bD,
-      roofType,
-      interiorCutMode = 'solid',
-      showFurniture = true,
-      flatsPerFloor = 2,
-      hasGroundFloorShop = false,
-      shopCount = 1,
-      shopHeight = 3.8,
-      hasCantilever = false,
-      cantileverDepth = 1.2,
-      cantileverDirection = 'front_back',
-    } = params;
+    const W = safeNum(params?.facadeWidth, 14.0, 1.0);
+    const D = safeNum(params?.facadeDepth, 18.0, 1.0);
+    const H = safeNum(params?.floorHeight, 2.95, 1.5);
+    const N = Math.max(1, Math.round(safeNum(params?.floorCount, 5, 1)));
+    const B = Math.max(0, Math.round(safeNum(params?.basementCount, 1, 0)));
+    const sW = safeNum(params?.stairWidth, 2.6, 0.5);
+    const sD = safeNum(params?.stairDepth, 4.8, 0.5);
+    const eW = safeNum(params?.elevatorWidth, 1.8, 0.5);
+    const eD = safeNum(params?.elevatorDepth, 2.0, 0.5);
+    const bD = safeNum(params?.balconyDepth, 1.4, 0.2);
+    const roofType = params?.roofType || 'gable';
+    const interiorCutMode = params?.interiorCutMode || 'solid';
+    const showFurniture = params?.showFurniture ?? true;
+    const flatsPerFloor = safeNum(params?.flatsPerFloor, 2, 1);
+    const hasGroundFloorShop = params?.hasGroundFloorShop ?? false;
+    const shopCount = Math.max(1, Math.round(safeNum(params?.shopCount, 1, 1)));
+    const shopHeight = safeNum(params?.shopHeight, 3.8, 2.0);
+    const hasCantilever = params?.hasCantilever ?? false;
+    const cantileverDepth = safeNum(params?.cantileverDepth, 1.2, 0.2);
+    const cantileverDirection = params?.cantileverDirection || 'front_back';
 
     const isXRay = interiorCutMode === 'xray';
     const isCutaway = interiorCutMode === 'cutaway';
@@ -311,6 +366,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const colSize = 0.45;
     const totalFloors = N + B;
 
+    const isCustomPoly = params.footprintInputMode === 'polygonDraw' && !!params.polygonPoints && params.polygonPoints.length >= 3;
+    const activePolyPts = isCustomPoly ? params.polygonPoints : null;
+
     // Pre-calculate floor heights and base Y positions to support taller ground floor shop
     const floorHeights: number[] = [];
     const floorBaseYs: number[] = [];
@@ -367,42 +425,35 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       }
 
       // 1. FLOOR SLAB (Döşeme Betonu)
-      let slabGeo;
-      let isCustomPoly = false;
-      let activePolyPts = null;
-      if (params.footprintInputMode === 'polygonDraw' && params.polygonPoints && params.polygonPoints.length >= 3) {
-        isCustomPoly = true;
-        activePolyPts = params.polygonPoints;
-      }
-      // Note: we can also apply this for 'customFacades' if we derive polygonPoints from presets, but polygonDraw is the primary arbitrary shape mode.
-      
-      let slabMesh;
+      let slabGeo: THREE.BufferGeometry;
+      let slabMesh: THREE.Mesh;
       if (isCustomPoly && activePolyPts) {
         const shape = new THREE.Shape();
         const bounds = getPolygonBounds(activePolyPts);
         
-        // Convert to local centered coordinates
-        // HTML canvas Y goes down. In ThreeJS, we map 2D Y to 3D Z (which points towards the screen)
-        activePolyPts.forEach((p, idx) => {
+        // In 2D Shape plane: X is World X, Y is World Z
+        activePolyPts.forEach((p: any, idx: number) => {
           const px = p.x - bounds.centerX;
-          const py = -(p.y - bounds.centerY); // flip Y so it matches 3D -Z
+          const py = p.y - bounds.centerY;
           if (idx === 0) shape.moveTo(px, py);
           else shape.lineTo(px, py);
         });
         
-        // Close the shape if not closed
+        // Close the shape
         const first = activePolyPts[0];
-        shape.lineTo(first.x - bounds.centerX, -(first.y - bounds.centerY));
+        shape.lineTo(first.x - bounds.centerX, first.y - bounds.centerY);
 
         slabGeo = new THREE.ExtrudeGeometry(shape, { depth: slabThickness, bevelEnabled: false });
         slabMesh = new THREE.Mesh(slabGeo, isShopFloor ? commercialFloorMat : slabMaterial);
         
-        // ExtrudeGeometry extrudes along +Z. Rotate X by -90deg so it lays flat, and Z maps to -Y.
-        slabMesh.rotation.x = -Math.PI / 2;
-        // Shift it down by slabThickness because extruding along local Z which is now -Y
-        slabMesh.position.set(0, baseY + slabThickness, floorCenterZ);
+        // Extrude along local +Z. Rotate X by +90deg (Math.PI / 2):
+        // Local (px, py, lz) -> World (px, Y_pos - lz, py)
+        // With position.set(0, baseY + slabThickness, 0):
+        // Top of slab is exactly at baseY + slabThickness, bottom at baseY
+        slabMesh.rotation.x = Math.PI / 2;
+        slabMesh.position.set(0, baseY + slabThickness, 0);
       } else {
-        slabGeo = new THREE.BoxGeometry(floorW, slabThickness, floorD);
+        slabGeo = safeBox(floorW, slabThickness, floorD);
         slabMesh = new THREE.Mesh(slabGeo, isShopFloor ? commercialFloorMat : slabMaterial);
         slabMesh.position.set(0, baseY + slabThickness / 2, floorCenterZ);
       }
@@ -412,8 +463,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       floorGroup.add(slabMesh);
 
       // Under-slab Cantilever Soffit (Konsol Altı Kaplama) on 1st Floor
-      if (hasCantilever && floorIndex === 1) {
-        const soffitGeo = new THREE.BoxGeometry(floorW, 0.08, floorD);
+      if (hasCantilever && floorIndex === 1 && !isCustomPoly) {
+        const soffitGeo = safeBox(floorW, 0.08, floorD);
         const soffitMesh = new THREE.Mesh(soffitGeo, soffitMaterial);
         soffitMesh.position.set(0, baseY - 0.04, floorCenterZ);
         floorGroup.add(soffitMesh);
@@ -423,7 +474,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         for (let d = 0; d < dlCount; d++) {
           const dlX = -floorW / 2 + (floorW / (dlCount + 1)) * (d + 1);
           const dlMesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.12, 0.12, 0.04, 12),
+            safeCylinder(0.12, 0.12, 0.04, 12),
             downlightMat
           );
           dlMesh.position.set(dlX, baseY - 0.07, floorD / 2 - 0.4);
@@ -435,8 +486,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       if (isTopFloor && (!isCutaway || selectedFloor !== 'all')) {
         const topSlab = new THREE.Mesh(slabGeo, slabMaterial);
         if (isCustomPoly) {
-          topSlab.rotation.x = -Math.PI / 2;
-          topSlab.position.set(0, baseY + currentFloorH + slabThickness, floorCenterZ);
+          topSlab.rotation.x = Math.PI / 2;
+          topSlab.position.set(0, baseY + currentFloorH + slabThickness, 0);
         } else {
           topSlab.position.set(0, baseY + currentFloorH, floorCenterZ);
         }
@@ -448,18 +499,33 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const midY = baseY + slabThickness + roomHeight / 2;
 
       // 2. COLUMNS (Taşıyıcı Kolonlar)
-      const colGeo = new THREE.BoxGeometry(colSize, roomHeight, colSize);
-      const colXCoords = [-floorW / 2 + colSize / 2, 0, floorW / 2 - colSize / 2];
-      const colZCoords = [floorCenterZ - floorD / 2 + colSize / 2, floorCenterZ, floorCenterZ + floorD / 2 - colSize / 2];
-
-      colXCoords.forEach((cx) => {
-        colZCoords.forEach((cz) => {
+      const colGeo = safeBox(colSize, roomHeight, colSize);
+      if (isCustomPoly && activePolyPts) {
+        const bounds = getPolygonBounds(activePolyPts);
+        activePolyPts.forEach((p: any) => {
+          const px = p.x - bounds.centerX;
+          const pz = p.y - bounds.centerY;
+          const dist = Math.sqrt(px * px + pz * pz) || 1;
+          const colX = px - (px / dist) * (colSize * 0.6);
+          const colZ = pz - (pz / dist) * (colSize * 0.6);
           const colMesh = new THREE.Mesh(colGeo, columnMaterial);
-          colMesh.position.set(cx, midY, cz);
+          colMesh.position.set(colX, midY, colZ);
           colMesh.castShadow = true;
           floorGroup.add(colMesh);
         });
-      });
+      } else {
+        const colXCoords = [-floorW / 2 + colSize / 2, 0, floorW / 2 - colSize / 2];
+        const colZCoords = [floorCenterZ - floorD / 2 + colSize / 2, floorCenterZ, floorCenterZ + floorD / 2 - colSize / 2];
+
+        colXCoords.forEach((cx) => {
+          colZCoords.forEach((cz) => {
+            const colMesh = new THREE.Mesh(colGeo, columnMaterial);
+            colMesh.position.set(cx, midY, cz);
+            colMesh.castShadow = true;
+            floorGroup.add(colMesh);
+          });
+        });
+      }
 
       // 3. CORE: STAIRCASE & ELEVATOR SHAFT (Merdiven ve Asansör Çekirdeği)
       const coreZ = 0;
@@ -467,7 +533,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const elevatorX = sW / 2 + eW / 2;
 
       // Staircase shaft volume
-      const stairGeo = new THREE.BoxGeometry(sW, roomHeight, sD);
+      const stairGeo = safeBox(sW, roomHeight, sD);
       const stairMesh = new THREE.Mesh(stairGeo, stairCoreMaterial);
       stairMesh.position.set(stairX, midY, coreZ);
       stairMesh.castShadow = true;
@@ -476,7 +542,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // Add miniature stair steps inside the staircase
       const stepCount = 8;
       const stepHeight = roomHeight / stepCount;
-      const stepGeo = new THREE.BoxGeometry(sW * 0.45, stepHeight * 0.85, sD * 0.18);
+      const stepGeo = safeBox(sW * 0.45, stepHeight * 0.85, sD * 0.18);
       for (let s = 0; s < stepCount; s++) {
         const stepMesh = new THREE.Mesh(stepGeo, slabMaterial);
         const stepZ = -sD / 3 + (s / stepCount) * (sD * 0.7);
@@ -489,14 +555,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       }
 
       // Elevator shaft volume
-      const elevatorGeo = new THREE.BoxGeometry(eW, roomHeight, eD);
+      const elevatorGeo = safeBox(eW, roomHeight, eD);
       const elevatorMesh = new THREE.Mesh(elevatorGeo, elevatorCoreMaterial);
       elevatorMesh.position.set(elevatorX, midY, coreZ);
       elevatorMesh.castShadow = true;
       floorGroup.add(elevatorMesh);
 
       // Elevator cabin inside
-      const cabinGeo = new THREE.BoxGeometry(eW * 0.75, roomHeight * 0.7, eD * 0.75);
+      const cabinGeo = safeBox(eW * 0.75, roomHeight * 0.7, eD * 0.75);
       const cabinMat = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         metalness: 0.8,
@@ -509,7 +575,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // 4. INTERIOR ROOMS & PARTITION WALLS (İç Mekan & Bölmeler)
       if (isShopFloor) {
         // COMMERCIAL SHOP INTERIOR (ZEMİN KAT TİCARİ MAĞAZA / DÜKKAN İÇİ)
-        const shopFloorGeo = new THREE.BoxGeometry(floorW - 0.4, 0.02, floorD - 0.4);
+        const shopFloorGeo = safeBox(floorW - 0.4, 0.02, floorD - 0.4);
         const shopFloorMesh = new THREE.Mesh(shopFloorGeo, commercialFloorMat);
         shopFloorMesh.position.set(0, baseY + slabThickness + 0.01, floorCenterZ);
         floorGroup.add(shopFloorMesh);
@@ -517,7 +583,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         // Commercial partition if shopCount > 1
         if (shopCount > 1) {
           const divThick = 0.2;
-          const divGeo = new THREE.BoxGeometry(divThick, roomHeight, floorD - 1.2);
+          const divGeo = safeBox(divThick, roomHeight, floorD - 1.2);
           const divMesh = new THREE.Mesh(divGeo, interiorWallMat);
           divMesh.position.set(0, midY, floorCenterZ - 0.4);
           divMesh.castShadow = true;
@@ -532,34 +598,34 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const deskZ = floorCenterZ - floorD * 0.15;
 
           // Counter
-          const counterGeo = new THREE.BoxGeometry(2.4, 1.1, 0.9);
+          const counterGeo = safeBox(2.4, 1.1, 0.9);
           const counterMesh = new THREE.Mesh(counterGeo, shopCounterMat);
           counterMesh.position.set(deskX, baseY + slabThickness + 0.55, deskZ);
           counterMesh.castShadow = true;
           floorGroup.add(counterMesh);
 
           // POS display
-          const posGeo = new THREE.BoxGeometry(0.4, 0.35, 0.1);
+          const posGeo = safeBox(0.4, 0.35, 0.1);
           const posMesh = new THREE.Mesh(posGeo, frameMaterial);
           posMesh.position.set(deskX, baseY + slabThickness + 1.28, deskZ);
           floorGroup.add(posMesh);
 
           // Display Islands in Showroom
-          const islandGeo = new THREE.BoxGeometry(1.6, 0.8, 1.2);
+          const islandGeo = safeBox(1.6, 0.8, 1.2);
           const islandMesh = new THREE.Mesh(islandGeo, woodFurnitureMat);
           islandMesh.position.set(deskX, baseY + slabThickness + 0.4, floorCenterZ + floorD * 0.12);
           islandMesh.castShadow = true;
           floorGroup.add(islandMesh);
 
           // Ceiling Track Lighting
-          const trackGeo = new THREE.BoxGeometry(floorW * 0.35, 0.08, 0.08);
+          const trackGeo = safeBox(floorW * 0.35, 0.08, 0.08);
           const trackMesh = new THREE.Mesh(trackGeo, frameMaterial);
           trackMesh.position.set(deskX, baseY + currentFloorH - 0.2, floorCenterZ);
           floorGroup.add(trackMesh);
 
           for (let sp = -1; sp <= 1; sp++) {
             const spotMesh = new THREE.Mesh(
-              new THREE.CylinderGeometry(0.08, 0.12, 0.15, 8),
+              safeCylinder(0.08, 0.12, 0.15, 8),
               shopSpotlightMat
             );
             spotMesh.position.set(deskX + sp * 0.9, baseY + currentFloorH - 0.3, floorCenterZ);
@@ -582,8 +648,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         ) => {
           if (!hasDoor) {
             const wGeo = isAlongX
-              ? new THREE.BoxGeometry(length, intWallH, intWallThick)
-              : new THREE.BoxGeometry(intWallThick, intWallH, length);
+              ? safeBox(length, intWallH, intWallThick)
+              : safeBox(intWallThick, intWallH, length);
             const wMesh = new THREE.Mesh(wGeo, interiorWallMat);
             wMesh.position.set(centerX, midY, centerZ);
             wMesh.castShadow = true;
@@ -600,12 +666,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
           // Left wall chunk
           if (isAlongX) {
-            const leftGeo = new THREE.BoxGeometry(leftLen, intWallH, intWallThick);
+            const leftGeo = safeBox(leftLen, intWallH, intWallThick);
             const leftM = new THREE.Mesh(leftGeo, interiorWallMat);
             leftM.position.set(centerX - length / 2 + leftLen / 2, midY, centerZ);
             floorGroup.add(leftM);
 
-            const rightGeo = new THREE.BoxGeometry(rightLen, intWallH, intWallThick);
+            const rightGeo = safeBox(rightLen, intWallH, intWallThick);
             const rightM = new THREE.Mesh(rightGeo, interiorWallMat);
             rightM.position.set(centerX + length / 2 - rightLen / 2, midY, centerZ);
             floorGroup.add(rightM);
@@ -613,7 +679,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             // Lintel over door
             const lintelH = intWallH - doorH;
             if (lintelH > 0.05) {
-              const lintelGeo = new THREE.BoxGeometry(doorW, lintelH, intWallThick);
+              const lintelGeo = safeBox(doorW, lintelH, intWallThick);
               const lintelM = new THREE.Mesh(lintelGeo, interiorWallMat);
               lintelM.position.set(
                 centerX - length / 2 + leftLen + doorW / 2,
@@ -623,19 +689,19 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               floorGroup.add(lintelM);
             }
           } else {
-            const leftGeo = new THREE.BoxGeometry(intWallThick, intWallH, leftLen);
+            const leftGeo = safeBox(intWallThick, intWallH, leftLen);
             const leftM = new THREE.Mesh(leftGeo, interiorWallMat);
             leftM.position.set(centerX, midY, centerZ - length / 2 + leftLen / 2);
             floorGroup.add(leftM);
 
-            const rightGeo = new THREE.BoxGeometry(intWallThick, intWallH, rightLen);
+            const rightGeo = safeBox(intWallThick, intWallH, rightLen);
             const rightM = new THREE.Mesh(rightGeo, interiorWallMat);
             rightM.position.set(centerX, midY, centerZ + length / 2 - rightLen / 2);
             floorGroup.add(rightM);
 
             const lintelH = intWallH - doorH;
             if (lintelH > 0.05) {
-              const lintelGeo = new THREE.BoxGeometry(intWallThick, lintelH, doorW);
+              const lintelGeo = safeBox(intWallThick, lintelH, doorW);
               const lintelM = new THREE.Mesh(lintelGeo, interiorWallMat);
               lintelM.position.set(
                 centerX,
@@ -657,7 +723,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
           const grandSalonW = W * 0.86;
           const grandSalonD = D * 0.38;
-          const grandSalonFloor = new THREE.Mesh(new THREE.BoxGeometry(grandSalonW, 0.02, grandSalonD), salonFloorMat);
+          const grandSalonFloor = new THREE.Mesh(safeBox(grandSalonW, 0.02, grandSalonD), salonFloorMat);
           grandSalonFloor.position.set(0, floorFinishY, D * 0.28);
           grandSalonFloor.receiveShadow = true;
           floorGroup.add(grandSalonFloor);
@@ -666,7 +732,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           createWallWithDoor(W * 0.42, true, -W * 0.25, -D * 0.2, true, 0);
           createWallWithDoor(W * 0.42, true, W * 0.25, -D * 0.2, true, 0);
 
-          const bedFloorGeo = new THREE.BoxGeometry(W * 0.4, 0.02, rearRoomD * 0.85);
+          const bedFloorGeo = safeBox(W * 0.4, 0.02, rearRoomD * 0.85);
           const leftBedFloor = new THREE.Mesh(bedFloorGeo, roomFloorMat);
           leftBedFloor.position.set(-W * 0.25, floorFinishY, -D * 0.3);
           leftBedFloor.receiveShadow = true;
@@ -684,7 +750,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           createWallWithDoor(bathD, false, sW / 2 + eW + 0.1, -coreHallDistZ - bathD / 2, true, 0);
           createWallWithDoor(bathW, true, sW / 2 + eW + bathW / 2, -coreHallDistZ - bathD, false);
 
-          const bathFloorGeo = new THREE.BoxGeometry(bathW * 0.9, 0.02, bathD * 0.9);
+          const bathFloorGeo = safeBox(bathW * 0.9, 0.02, bathD * 0.9);
           const leftBathFloor = new THREE.Mesh(bathFloorGeo, bathFloorMat);
           leftBathFloor.position.set(-sW / 2 - bathW / 2, floorFinishY, -coreHallDistZ - bathD / 2);
           floorGroup.add(leftBathFloor);
@@ -694,27 +760,27 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           floorGroup.add(rightBathFloor);
 
           if (showFurniture) {
-            const sofaMain = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.55, 0.95), sofaMat);
+            const sofaMain = new THREE.Mesh(safeBox(3.0, 0.55, 0.95), sofaMat);
             sofaMain.position.set(-W * 0.18, floorFinishY + 0.28, D * 0.35);
             floorGroup.add(sofaMain);
 
-            const table = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.38, 0.8), woodFurnitureMat);
+            const table = new THREE.Mesh(safeBox(1.5, 0.38, 0.8), woodFurnitureMat);
             table.position.set(-W * 0.18, floorFinishY + 0.19, D * 0.26);
             floorGroup.add(table);
 
-            const dining = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.75, 0.95), woodFurnitureMat);
+            const dining = new THREE.Mesh(safeBox(2.0, 0.75, 0.95), woodFurnitureMat);
             dining.position.set(W * 0.22, floorFinishY + 0.38, D * 0.32);
             floorGroup.add(dining);
 
-            const islandKitchen = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.88, 0.75), kitchenCounterMat);
+            const islandKitchen = new THREE.Mesh(safeBox(2.8, 0.88, 0.75), kitchenCounterMat);
             islandKitchen.position.set(W * 0.22, floorFinishY + 0.44, D * 0.18);
             floorGroup.add(islandKitchen);
 
-            const bed1 = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.45, 2.1), bedMat);
+            const bed1 = new THREE.Mesh(safeBox(1.9, 0.45, 2.1), bedMat);
             bed1.position.set(-W * 0.28, floorFinishY + 0.23, -D * 0.32);
             floorGroup.add(bed1);
 
-            const bed2 = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.45, 2.1), bedMat);
+            const bed2 = new THREE.Mesh(safeBox(1.9, 0.45, 2.1), bedMat);
             bed2.position.set(W * 0.28, floorFinishY + 0.23, -D * 0.32);
             floorGroup.add(bed2);
           }
@@ -748,7 +814,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           createWallWithDoor(bathD, false, sW / 2 + eW + 0.1, -coreHallDistZ - bathD / 2, true, 0);
           createWallWithDoor(bathW, true, sW / 2 + eW + bathW / 2, -coreHallDistZ - bathD, false);
 
-          const salonFloorGeo = new THREE.BoxGeometry(leftSalonWidth * 0.9, 0.02, salonDepth * 0.85);
+          const salonFloorGeo = safeBox(leftSalonWidth * 0.9, 0.02, salonDepth * 0.85);
           const leftSalonFloor = new THREE.Mesh(salonFloorGeo, salonFloorMat);
           leftSalonFloor.position.set(-W * 0.24, floorFinishY, D * 0.28);
           leftSalonFloor.receiveShadow = true;
@@ -759,7 +825,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           rightSalonFloor.receiveShadow = true;
           floorGroup.add(rightSalonFloor);
 
-          const bedFloorGeo = new THREE.BoxGeometry(W * 0.38, 0.02, rearRoomDepth * 0.8);
+          const bedFloorGeo = safeBox(W * 0.38, 0.02, rearRoomDepth * 0.8);
           const leftBedFloor = new THREE.Mesh(bedFloorGeo, roomFloorMat);
           leftBedFloor.position.set(-W * 0.25, floorFinishY, -D * 0.3);
           leftBedFloor.receiveShadow = true;
@@ -771,7 +837,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           floorGroup.add(rightBedFloor);
 
           if (showFurniture) {
-            const sofaMainGeo = new THREE.BoxGeometry(2.2, 0.55, 0.85);
+            const sofaMainGeo = safeBox(2.2, 0.55, 0.85);
             const sofaLeft = new THREE.Mesh(sofaMainGeo, sofaMat);
             sofaLeft.position.set(-W * 0.26, floorFinishY + 0.28, D * 0.36);
             floorGroup.add(sofaLeft);
@@ -780,7 +846,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             sofaRight.position.set(W * 0.26, floorFinishY + 0.28, D * 0.36);
             floorGroup.add(sofaRight);
 
-            const tableGeo = new THREE.BoxGeometry(1.2, 0.38, 0.7);
+            const tableGeo = safeBox(1.2, 0.38, 0.7);
             const tableLeft = new THREE.Mesh(tableGeo, woodFurnitureMat);
             tableLeft.position.set(-W * 0.24, floorFinishY + 0.19, D * 0.26);
             floorGroup.add(tableLeft);
@@ -789,7 +855,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             tableRight.position.set(W * 0.24, floorFinishY + 0.19, D * 0.26);
             floorGroup.add(tableRight);
 
-            const bedBaseGeo = new THREE.BoxGeometry(1.8, 0.45, 2.0);
+            const bedBaseGeo = safeBox(1.8, 0.45, 2.0);
             const bedLeft = new THREE.Mesh(bedBaseGeo, bedMat);
             bedLeft.position.set(-W * 0.26, floorFinishY + 0.23, -D * 0.32);
             floorGroup.add(bedLeft);
@@ -808,34 +874,34 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
           const rearSalonW = W * 0.85;
           const rearSalonD = D * 0.35;
-          const rearFloor = new THREE.Mesh(new THREE.BoxGeometry(rearSalonW, 0.02, rearSalonD), salonFloorMat);
+          const rearFloor = new THREE.Mesh(safeBox(rearSalonW, 0.02, rearSalonD), salonFloorMat);
           rearFloor.position.set(0, floorFinishY, -D * 0.3);
           floorGroup.add(rearFloor);
 
           const fW = W * 0.42;
           const fD = D * 0.35;
-          const fFloorL = new THREE.Mesh(new THREE.BoxGeometry(fW, 0.02, fD), salonFloorMat);
+          const fFloorL = new THREE.Mesh(safeBox(fW, 0.02, fD), salonFloorMat);
           fFloorL.position.set(-W * 0.24, floorFinishY, D * 0.3);
           floorGroup.add(fFloorL);
 
-          const fFloorR = new THREE.Mesh(new THREE.BoxGeometry(fW, 0.02, fD), salonFloorMat);
+          const fFloorR = new THREE.Mesh(safeBox(fW, 0.02, fD), salonFloorMat);
           fFloorR.position.set(W * 0.24, floorFinishY, D * 0.3);
           floorGroup.add(fFloorR);
 
           if (showFurniture) {
-            const sL = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.5, 0.8), sofaMat);
+            const sL = new THREE.Mesh(safeBox(2.0, 0.5, 0.8), sofaMat);
             sL.position.set(-W * 0.24, floorFinishY + 0.25, D * 0.34);
             floorGroup.add(sL);
 
-            const sR = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.5, 0.8), sofaMat);
+            const sR = new THREE.Mesh(safeBox(2.0, 0.5, 0.8), sofaMat);
             sR.position.set(W * 0.24, floorFinishY + 0.25, D * 0.34);
             floorGroup.add(sR);
 
-            const sRear = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 0.8), sofaMat);
+            const sRear = new THREE.Mesh(safeBox(2.2, 0.5, 0.8), sofaMat);
             sRear.position.set(-W * 0.2, floorFinishY + 0.25, -D * 0.32);
             floorGroup.add(sRear);
 
-            const bedRear = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.45, 1.9), bedMat);
+            const bedRear = new THREE.Mesh(safeBox(1.8, 0.45, 1.9), bedMat);
             bedRear.position.set(W * 0.22, floorFinishY + 0.23, -D * 0.32);
             floorGroup.add(bedRear);
           }
@@ -852,36 +918,36 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const qW = W * 0.42;
           const qD = D * 0.34;
 
-          const qFL = new THREE.Mesh(new THREE.BoxGeometry(qW, 0.02, qD), salonFloorMat);
+          const qFL = new THREE.Mesh(safeBox(qW, 0.02, qD), salonFloorMat);
           qFL.position.set(-W * 0.24, floorFinishY, D * 0.3);
           floorGroup.add(qFL);
 
-          const qFR = new THREE.Mesh(new THREE.BoxGeometry(qW, 0.02, qD), salonFloorMat);
+          const qFR = new THREE.Mesh(safeBox(qW, 0.02, qD), salonFloorMat);
           qFR.position.set(W * 0.24, floorFinishY, D * 0.3);
           floorGroup.add(qFR);
 
-          const qRL = new THREE.Mesh(new THREE.BoxGeometry(qW, 0.02, qD), roomFloorMat);
+          const qRL = new THREE.Mesh(safeBox(qW, 0.02, qD), roomFloorMat);
           qRL.position.set(-W * 0.24, floorFinishY, -D * 0.3);
           floorGroup.add(qRL);
 
-          const qRR = new THREE.Mesh(new THREE.BoxGeometry(qW, 0.02, qD), roomFloorMat);
+          const qRR = new THREE.Mesh(safeBox(qW, 0.02, qD), roomFloorMat);
           qRR.position.set(W * 0.24, floorFinishY, -D * 0.3);
           floorGroup.add(qRR);
 
           if (showFurniture) {
-            const sofaFL = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.48, 0.75), sofaMat);
+            const sofaFL = new THREE.Mesh(safeBox(1.8, 0.48, 0.75), sofaMat);
             sofaFL.position.set(-W * 0.24, floorFinishY + 0.24, D * 0.33);
             floorGroup.add(sofaFL);
 
-            const sofaFR = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.48, 0.75), sofaMat);
+            const sofaFR = new THREE.Mesh(safeBox(1.8, 0.48, 0.75), sofaMat);
             sofaFR.position.set(W * 0.24, floorFinishY + 0.24, D * 0.33);
             floorGroup.add(sofaFR);
 
-            const bedRL = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 1.8), bedMat);
+            const bedRL = new THREE.Mesh(safeBox(1.6, 0.45, 1.8), bedMat);
             bedRL.position.set(-W * 0.24, floorFinishY + 0.23, -D * 0.32);
             floorGroup.add(bedRL);
 
-            const bedRR = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 1.8), bedMat);
+            const bedRR = new THREE.Mesh(safeBox(1.6, 0.45, 1.8), bedMat);
             bedRR.position.set(W * 0.24, floorFinishY + 0.23, -D * 0.32);
             floorGroup.add(bedRR);
           }
@@ -891,7 +957,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         if (isTopFloor && roofType === 'duplex') {
           const dStepCount = 10;
           const dStepH = roomHeight / dStepCount;
-          const dStepGeo = new THREE.BoxGeometry(1.1, dStepH * 0.85, 0.3);
+          const dStepGeo = safeBox(1.1, dStepH * 0.85, 0.3);
           for (let ds = 0; ds < dStepCount; ds++) {
             const dStepMesh = new THREE.Mesh(dStepGeo, woodFurnitureMat);
             dStepMesh.position.set(
@@ -909,14 +975,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         // COMMERCIAL STOREFRONT FAÇADE (VİTRİN, TABELA BANDI VE GİRİŞ MARKİZİ)
         const backWallThick = 0.25;
         // Back Wall
-        const backWallGeo = new THREE.BoxGeometry(floorW, roomHeight, backWallThick);
+        const backWallGeo = safeBox(floorW, roomHeight, backWallThick);
         const backWallMesh = new THREE.Mesh(backWallGeo, wallMaterial);
         backWallMesh.position.set(0, midY, floorCenterZ - floorD / 2 + backWallThick / 2);
         backWallMesh.castShadow = !isXRay;
         floorGroup.add(backWallMesh);
 
         // Side Walls
-        const sideWallGeo = new THREE.BoxGeometry(backWallThick, roomHeight, floorD);
+        const sideWallGeo = safeBox(backWallThick, roomHeight, floorD);
         const leftSide = new THREE.Mesh(sideWallGeo, wallMaterial);
         leftSide.position.set(-floorW / 2 + backWallThick / 2, midY, floorCenterZ);
         floorGroup.add(leftSide);
@@ -931,28 +997,28 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         const fasciaHeight = 0.75;
 
         // 1. Sleek Commercial Signage Fascia Band (Işıklı Tabela Bandı)
-        const fasciaGeo = new THREE.BoxGeometry(floorW + 0.1, fasciaHeight, 0.3);
+        const fasciaGeo = safeBox(floorW + 0.1, fasciaHeight, 0.3);
         const fasciaMesh = new THREE.Mesh(fasciaGeo, shopSignFasciaMat);
         fasciaMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ);
         fasciaMesh.castShadow = true;
         floorGroup.add(fasciaMesh);
 
         // Illuminated Signage Bar
-        const signBarGeo = new THREE.BoxGeometry(floorW * 0.7, 0.35, 0.08);
+        const signBarGeo = safeBox(floorW * 0.7, 0.35, 0.08);
         const signBarMesh = new THREE.Mesh(signBarGeo, shopSignGlowMat);
         signBarMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ + 0.16);
         floorGroup.add(signBarMesh);
 
         // 2. Modern Steel & Glass Entrance Canopy (Giriş Saçağı / Markiz)
         const canopyDepth = 1.1;
-        const canopyGeo = new THREE.BoxGeometry(floorW * 0.85, 0.1, canopyDepth);
+        const canopyGeo = safeBox(floorW * 0.85, 0.1, canopyDepth);
         const canopyMesh = new THREE.Mesh(canopyGeo, frameMaterial);
         canopyMesh.position.set(0, baseY + slabThickness + vitrineHeight + 0.05, frontZ + canopyDepth / 2);
         canopyMesh.castShadow = true;
         floorGroup.add(canopyMesh);
 
         // 3. Full Height Storefront Glass Panels (Geniş Alüminyum Vitrin Camları)
-        const glassVitrineGeo = new THREE.BoxGeometry(floorW - 0.6, vitrineHeight, 0.08);
+        const glassVitrineGeo = safeBox(floorW - 0.6, vitrineHeight, 0.08);
         const glassVitrineMesh = new THREE.Mesh(glassVitrineGeo, glassMaterial);
         glassVitrineMesh.position.set(0, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
         floorGroup.add(glassVitrineMesh);
@@ -961,7 +1027,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         const mullionCount = Math.max(4, Math.floor(floorW / 2));
         for (let m = 0; m <= mullionCount; m++) {
           const mx = -(floorW - 0.6) / 2 + ((floorW - 0.6) / mullionCount) * m;
-          const mulGeo = new THREE.BoxGeometry(0.08, vitrineHeight, 0.12);
+          const mulGeo = safeBox(0.08, vitrineHeight, 0.12);
           const mulMesh = new THREE.Mesh(mulGeo, frameMaterial);
           mulMesh.position.set(mx, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
           floorGroup.add(mulMesh);
@@ -970,13 +1036,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         // Commercial Entrance Glass Doors with Stainless Handles
         const doorW = 1.8;
         const doorH = Math.min(2.4, vitrineHeight - 0.2);
-        const doorFrameGeo = new THREE.BoxGeometry(doorW, doorH, 0.14);
+        const doorFrameGeo = safeBox(doorW, doorH, 0.14);
         const doorFrameMesh = new THREE.Mesh(doorFrameGeo, frameMaterial);
         doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, frontZ - 0.02);
         floorGroup.add(doorFrameMesh);
 
         const doorGlass = new THREE.Mesh(
-          new THREE.BoxGeometry(doorW - 0.15, doorH - 0.15, 0.06),
+          safeBox(doorW - 0.15, doorH - 0.15, 0.06),
           glassMaterial
         );
         doorGlass.position.copy(doorFrameMesh.position);
@@ -985,7 +1051,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         // Vertical steel handles
         for (const hSide of [-0.15, 0.15]) {
           const handle = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.025, 0.025, 0.9, 8),
+            safeCylinder(0.025, 0.025, 0.9, 8),
             new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
           );
           handle.position.set(hSide, baseY + slabThickness + 1.1, frontZ + 0.1);
@@ -1009,27 +1075,46 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         if (isCustomPoly && activePolyPts) {
           const bounds = getPolygonBounds(activePolyPts);
           const edges = getPolygonEdges(activePolyPts);
+
+          // Calculate signed area to know clockwise vs counter-clockwise winding
+          let signedArea = 0;
+          for (let i = 0; i < activePolyPts.length; i++) {
+            const j = (i + 1) % activePolyPts.length;
+            signedArea += (activePolyPts[i].x * activePolyPts[j].y - activePolyPts[j].x * activePolyPts[i].y);
+          }
+          const isCW = signedArea > 0;
+
           wallDefs = edges.map((edge, idx) => {
-            const p1 = { x: edge.start.x - bounds.centerX, z: -(edge.start.y - bounds.centerY) };
-            const p2 = { x: edge.end.x - bounds.centerX, z: -(edge.end.y - bounds.centerY) };
-            const dx = p2.x - p1.x;
-            const dz = p2.z - p1.z;
+            const x1 = edge.start.x - bounds.centerX;
+            const z1 = edge.start.y - bounds.centerY;
+            const x2 = edge.end.x - bounds.centerX;
+            const z2 = edge.end.y - bounds.centerY;
+
+            const dx = x2 - x1;
+            const dz = z2 - z1;
             const length = Math.sqrt(dx * dx + dz * dz);
-            
-            // Offset wall inward by wallThick/2 so it's flush with the slab edge
-            // Normal points outwards. Vector is (dx, dz). Normal is (dz, -dx) or (-dz, dx) depending on winding.
-            // HTML canvas (top-down) clock-wise: inside is to the right. 
-            // Normalized right vector: (-dz/length, dx/length).
-            // Let's assume standard winding, inward offset:
-            const cx = (p1.x + p2.x) / 2;
-            const cz = (p1.z + p2.z) / 2;
-            
+
+            // Unit outward normal
+            const normalX = isCW ? dz / length : -dz / length;
+            const normalZ = isCW ? -dx / length : dx / length;
+
+            // Midpoint of edge
+            const midX = (x1 + x2) / 2;
+            const midZ = (z1 + z2) / 2;
+
+            // Inset wall center by wallThick / 2 so outer face is exactly flush with the slab edge
+            const wallCenterX = midX - normalX * (wallThick / 2);
+            const wallCenterZ = midZ - normalZ * (wallThick / 2);
+
+            // Rotation so local +Z points along outward normal (where windows, door canopies, balconies face)
+            const rotationY = Math.atan2(normalX, normalZ);
+
             return {
               name: `Cephe ${idx + 1}`,
               length: length,
-              x: cx,
-              z: cz,
-              rotationY: Math.atan2(-dz, dx),
+              x: wallCenterX,
+              z: wallCenterZ,
+              rotationY: rotationY,
               isCustom: true
             };
           });
@@ -1069,7 +1154,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             const sidePiersW = (localW - doorW) / 2;
 
             for (const sign of [-1, 1]) {
-              const pMesh = new THREE.Mesh(new THREE.BoxGeometry(sidePiersW, roomHeight, wallThick), currentMat);
+              const pMesh = new THREE.Mesh(safeBox(sidePiersW, roomHeight, wallThick), currentMat);
               pMesh.position.set(sign * (doorW / 2 + sidePiersW / 2), midY, 0);
               pMesh.castShadow = !isXRay; pMesh.receiveShadow = true;
               wallGroup.add(pMesh);
@@ -1077,29 +1162,29 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             
             const lintelH = roomHeight - doorH;
             if (lintelH > 0.1) {
-              const lintelMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, wallThick), wallMaterial);
+              const lintelMesh = new THREE.Mesh(safeBox(doorW, lintelH, wallThick), wallMaterial);
               lintelMesh.position.set(0, baseY + slabThickness + doorH + lintelH / 2, 0);
               wallGroup.add(lintelMesh);
             }
 
-            const canopyMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW + 1.2, 0.14, 1.4), frameMaterial);
+            const canopyMesh = new THREE.Mesh(safeBox(doorW + 1.2, 0.14, 1.4), frameMaterial);
             canopyMesh.position.set(0, baseY + slabThickness + doorH + 0.1, 0.7);
             canopyMesh.castShadow = true;
             wallGroup.add(canopyMesh);
 
-            const signMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW * 0.8, 0.3, 0.08), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            const signMesh = new THREE.Mesh(safeBox(doorW * 0.8, 0.3, 0.08), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
             signMesh.position.set(0, baseY + slabThickness + doorH + 0.35, 0.12);
             wallGroup.add(signMesh);
 
-            const doorFrameMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, 0.12), frameMaterial);
+            const doorFrameMesh = new THREE.Mesh(safeBox(doorW, doorH, 0.12), frameMaterial);
             doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, 0);
             wallGroup.add(doorFrameMesh);
 
-            const doorGlass = new THREE.Mesh(new THREE.BoxGeometry(doorW - 0.2, doorH - 0.2, 0.06), glassMaterial);
+            const doorGlass = new THREE.Mesh(safeBox(doorW - 0.2, doorH - 0.2, 0.06), glassMaterial);
             doorGlass.position.copy(doorFrameMesh.position);
             wallGroup.add(doorGlass);
           } else if (winCount === 0) {
-            const solidWall = new THREE.Mesh(new THREE.BoxGeometry(localW, roomHeight, wallThick), currentMat);
+            const solidWall = new THREE.Mesh(safeBox(localW, roomHeight, wallThick), currentMat);
             solidWall.position.set(0, midY, 0);
             solidWall.castShadow = !isXRay; solidWall.receiveShadow = true;
             wallGroup.add(solidWall);
@@ -1111,7 +1196,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
             for (let p = 0; p <= winCount; p++) {
               const px = -localW / 2 + pierW / 2 + p * (pierW + winWidth);
-              const pierMesh = new THREE.Mesh(new THREE.BoxGeometry(pierW, roomHeight, wallThick), currentMat);
+              const pierMesh = new THREE.Mesh(safeBox(pierW, roomHeight, wallThick), currentMat);
               pierMesh.position.set(px, midY, 0);
               pierMesh.castShadow = !isXRay; pierMesh.receiveShadow = true;
               wallGroup.add(pierMesh);
@@ -1119,22 +1204,22 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               if (p < winCount) {
                 const wx = px + pierW / 2 + winWidth / 2;
                 
-                const sillMesh = new THREE.Mesh(new THREE.BoxGeometry(winWidth, winSill, wallThick), wallMaterial);
+                const sillMesh = new THREE.Mesh(safeBox(winWidth, winSill, wallThick), wallMaterial);
                 sillMesh.position.set(wx, baseY + slabThickness + winSill / 2, 0);
                 wallGroup.add(sillMesh);
 
                 const lintelH = roomHeight - (winSill + winHeight);
                 if (lintelH > 0.05) {
-                  const lintelMesh = new THREE.Mesh(new THREE.BoxGeometry(winWidth, lintelH, wallThick), wallMaterial);
+                  const lintelMesh = new THREE.Mesh(safeBox(winWidth, lintelH, wallThick), wallMaterial);
                   lintelMesh.position.set(wx, baseY + slabThickness + winSill + winHeight + lintelH / 2, 0);
                   wallGroup.add(lintelMesh);
                 }
 
-                const glassMesh = new THREE.Mesh(new THREE.BoxGeometry(winWidth, winHeight, 0.06), glassMaterial);
+                const glassMesh = new THREE.Mesh(safeBox(winWidth, winHeight, 0.06), glassMaterial);
                 glassMesh.position.set(wx, baseY + slabThickness + winSill + winHeight / 2, 0);
                 wallGroup.add(glassMesh);
 
-                const frameGeo = new THREE.BoxGeometry(winWidth + 0.04, winHeight + 0.04, 0.08);
+                const frameGeo = safeBox(winWidth + 0.04, winHeight + 0.04, 0.08);
                 const line = new THREE.LineSegments(
                   new THREE.EdgesGeometry(frameGeo),
                   new THREE.LineBasicMaterial({ color: isLight ? 0x64748b : 0x27272a })
@@ -1151,32 +1236,68 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             
             for (let b = 0; b < balcCount; b++) {
               const balcX = balcCount === 1 ? -localW * 0.22 : (b === 0 ? -localW * 0.25 : localW * 0.25);
-              const balcSlab = new THREE.Mesh(new THREE.BoxGeometry(balcWidth, 0.2, bD), slabMaterial);
+              const balcSlab = new THREE.Mesh(safeBox(balcWidth, 0.2, bD), slabMaterial);
               balcSlab.position.set(balcX, baseY + 0.1, balcOffsetZ);
               balcSlab.castShadow = true;
               wallGroup.add(balcSlab);
 
               const railH = 1.05;
               const railZ = balcOffsetZ + bD / 2;
-              const railMesh = new THREE.Mesh(new THREE.BoxGeometry(balcWidth, railH, 0.05), glassMaterial);
+              const railMesh = new THREE.Mesh(safeBox(balcWidth, railH, 0.05), glassMaterial);
               railMesh.position.set(balcX, baseY + 0.2 + railH / 2, railZ);
               wallGroup.add(railMesh);
 
-              const handrail = new THREE.Mesh(new THREE.BoxGeometry(balcWidth + 0.04, 0.06, 0.08), frameMaterial);
+              const handrail = new THREE.Mesh(safeBox(balcWidth + 0.04, 0.06, 0.08), frameMaterial);
               handrail.position.set(balcX, baseY + 0.2 + railH, railZ);
               wallGroup.add(handrail);
             }
           }        });
       } else {
         // Basement Retaining Wall (Perde Beton)
-        const bsWallGeo = new THREE.BoxGeometry(W, roomHeight, D);
         const bsMat = new THREE.MeshStandardMaterial({
           color: 0x52525b,
           roughness: 0.9,
+          wireframe: isWireframe,
         });
-        const bsMesh = new THREE.Mesh(bsWallGeo, bsMat);
-        bsMesh.position.set(0, midY, 0);
-        floorGroup.add(bsMesh);
+
+        if (isCustomPoly && activePolyPts) {
+          const bounds = getPolygonBounds(activePolyPts);
+          const edges = getPolygonEdges(activePolyPts);
+          let signedArea = 0;
+          for (let i = 0; i < activePolyPts.length; i++) {
+            const j = (i + 1) % activePolyPts.length;
+            signedArea += (activePolyPts[i].x * activePolyPts[j].y - activePolyPts[j].x * activePolyPts[i].y);
+          }
+          const isCW = signedArea > 0;
+
+          edges.forEach((edge) => {
+            const x1 = edge.start.x - bounds.centerX;
+            const z1 = edge.start.y - bounds.centerY;
+            const x2 = edge.end.x - bounds.centerX;
+            const z2 = edge.end.y - bounds.centerY;
+            const dx = x2 - x1;
+            const dz = z2 - z1;
+            const length = Math.sqrt(dx * dx + dz * dz);
+            const normalX = isCW ? dz / length : -dz / length;
+            const normalZ = isCW ? -dx / length : dx / length;
+            const midX = (x1 + x2) / 2;
+            const midZ = (z1 + z2) / 2;
+            const wallCenterX = midX - normalX * (0.25 / 2);
+            const wallCenterZ = midZ - normalZ * (0.25 / 2);
+            const rotationY = Math.atan2(normalX, normalZ);
+
+            const bsWall = new THREE.Mesh(safeBox(length, roomHeight, 0.25), bsMat);
+            bsWall.position.set(wallCenterX, midY, wallCenterZ);
+            bsWall.rotation.y = rotationY;
+            bsWall.castShadow = true;
+            floorGroup.add(bsWall);
+          });
+        } else {
+          const bsWallGeo = safeBox(W, roomHeight, D);
+          const bsMesh = new THREE.Mesh(bsWallGeo, bsMat);
+          bsMesh.position.set(0, midY, 0);
+          floorGroup.add(bsMesh);
+        }
       }
 
       // 7. CONTRACTOR AND OWNER FLAT OVERLAYS (Müteahhit ve Hak Sahibi Daire Bölmeleri)
@@ -1237,7 +1358,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           }
 
           // Create translucent overlay box
-          const overlayGeo = new THREE.BoxGeometry(zoneW, roomHeight * 0.92, zoneD);
+          const overlayGeo = safeBox(zoneW, roomHeight * 0.92, zoneD);
           const overlayColor = isContractor ? 0xf59e0b : 0x10b981; // Orange vs Emerald Green
           const overlayMat = new THREE.MeshBasicMaterial({
             color: overlayColor,
@@ -1277,7 +1398,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       if (roofType === 'gable') {
         // 1. Classic Turkish Gable / Kırma Çatı
         const roofHeight = 2.8;
-        const roofGeom = new THREE.ConeGeometry(Math.max(W, D) * 0.72, roofHeight, 4);
+        const roofGeom = safeCone(Math.max(W, D) * 0.72, roofHeight, 4);
         roofGeom.rotateY(Math.PI / 4);
         const roofMesh = new THREE.Mesh(
           roofGeom,
@@ -1299,7 +1420,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         const setback = 1.2;
 
         // Mansard Lower Steep Slope Mesh (Truncated Pyramid)
-        const lowerGeo = new THREE.CylinderGeometry(
+        const lowerGeo = safeCylinder(
           Math.max(W - setback * 2, 4) * 0.71,
           Math.max(W, D) * 0.71,
           mansardLowerH,
@@ -1319,7 +1440,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         roofGroup.add(lowerMesh);
 
         // Mansard Upper Flat/Low-Pitched Cap
-        const upperCapGeo = new THREE.BoxGeometry(W - setback * 2, 0.25, D - setback * 2);
+        const upperCapGeo = safeBox(W - setback * 2, 0.25, D - setback * 2);
         const upperCapMesh = new THREE.Mesh(upperCapGeo, mansardMat);
         upperCapMesh.position.set(0, topFloorY + mansardLowerH + 0.12, 0);
         upperCapMesh.castShadow = true;
@@ -1335,20 +1456,20 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const dx = -W / 2 + (W / (dormerCount + 1)) * (d + 1);
 
           // Front dormer body
-          const dBodyGeo = new THREE.BoxGeometry(dormerW, dormerH, dormerD);
+          const dBodyGeo = safeBox(dormerW, dormerH, dormerD);
           const dBody = new THREE.Mesh(dBodyGeo, wallMaterial);
           dBody.position.set(dx, topFloorY + dormerH / 2 + 0.3, D / 2 - dormerD / 2 + 0.1);
           dBody.castShadow = true;
           roofGroup.add(dBody);
 
           // Dormer glass
-          const dGlassGeo = new THREE.BoxGeometry(dormerW * 0.75, dormerH * 0.7, 0.05);
+          const dGlassGeo = safeBox(dormerW * 0.75, dormerH * 0.7, 0.05);
           const dGlass = new THREE.Mesh(dGlassGeo, glassMaterial);
           dGlass.position.set(dx, topFloorY + dormerH / 2 + 0.3, D / 2 + 0.12);
           roofGroup.add(dGlass);
 
           // Dormer mini pitched roof hood
-          const dRoofGeo = new THREE.ConeGeometry(dormerW * 0.8, 0.5, 4);
+          const dRoofGeo = safeCone(dormerW * 0.8, 0.5, 4);
           dRoofGeo.rotateY(Math.PI / 4);
           const dRoof = new THREE.Mesh(dRoofGeo, mansardMat);
           dRoof.position.set(dx, topFloorY + dormerH + 0.3 + 0.25, D / 2 - dormerD / 2 + 0.1);
@@ -1356,7 +1477,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         }
 
         // Decorative cresting line on upper roof edge
-        const crestGeo = new THREE.BoxGeometry(W - setback * 2 + 0.1, 0.08, D - setback * 2 + 0.1);
+        const crestGeo = safeBox(W - setback * 2 + 0.1, 0.08, D - setback * 2 + 0.1);
         const crestMesh = new THREE.Mesh(crestGeo, frameMaterial);
         crestMesh.position.set(0, topFloorY + mansardLowerH + 0.28, 0);
         roofGroup.add(crestMesh);
@@ -1367,20 +1488,20 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         const livingDepth = D - terraceDepth;
 
         // Duplex Enclosed Penthouse Living Suite (Back half)
-        const livingGeo = new THREE.BoxGeometry(W * 0.85, duplexFloorH, livingDepth);
+        const livingGeo = safeBox(W * 0.85, duplexFloorH, livingDepth);
         const livingMesh = new THREE.Mesh(livingGeo, wallMaterial);
         livingMesh.position.set(0, topFloorY + duplexFloorH / 2, -terraceDepth / 2);
         livingMesh.castShadow = true;
         roofGroup.add(livingMesh);
 
         // Duplex Floor-to-ceiling panoramic sliding glass doors
-        const slidingGlassGeo = new THREE.BoxGeometry(W * 0.7, duplexFloorH * 0.85, 0.06);
+        const slidingGlassGeo = safeBox(W * 0.7, duplexFloorH * 0.85, 0.06);
         const slidingGlass = new THREE.Mesh(slidingGlassGeo, glassMaterial);
         slidingGlass.position.set(0, topFloorY + duplexFloorH * 0.48, -terraceDepth / 2 + livingDepth / 2);
         roofGroup.add(slidingGlass);
 
         // Duplex Penthouse Sloped Roof Cap
-        const pRoofGeo = new THREE.BoxGeometry(W * 0.9, 0.2, livingDepth + 0.4);
+        const pRoofGeo = safeBox(W * 0.9, 0.2, livingDepth + 0.4);
         const pRoof = new THREE.Mesh(
           pRoofGeo,
           new THREE.MeshStandardMaterial({
@@ -1396,14 +1517,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         // Skylight / Çatı Güvercinlik Pencereleri on Penthouse roof
         const skyW = 1.4;
         const skyD = 1.2;
-        const skyGeo = new THREE.BoxGeometry(skyW, 0.15, skyD);
+        const skyGeo = safeBox(skyW, 0.15, skyD);
         const skyMesh = new THREE.Mesh(skyGeo, glassMaterial);
         skyMesh.position.set(W * 0.22, topFloorY + duplexFloorH + 0.25, -terraceDepth / 2);
         skyMesh.rotation.x = -0.05;
         roofGroup.add(skyMesh);
 
         // Spacious Open-Air Roof Terrace (Front half)
-        const terraceSlabGeo = new THREE.BoxGeometry(W, 0.2, terraceDepth);
+        const terraceSlabGeo = safeBox(W, 0.2, terraceDepth);
         const terraceSlab = new THREE.Mesh(
           terraceSlabGeo,
           new THREE.MeshStandardMaterial({
@@ -1416,14 +1537,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
         // Terrace Glass Balustrade (Cam Küpeşte)
         const railH = 1.1;
-        const terraceFrontRailGeo = new THREE.BoxGeometry(W, railH, 0.05);
+        const terraceFrontRailGeo = safeBox(W, railH, 0.05);
         const terraceFrontRail = new THREE.Mesh(terraceFrontRailGeo, glassMaterial);
         terraceFrontRail.position.set(0, topFloorY + 0.2 + railH / 2, D / 2);
         roofGroup.add(terraceFrontRail);
 
         // Terrace Pergola (Ahşap Pergola / Gölgelik Kirişleri)
         const pergolaBeamCount = 7;
-        const beamGeo = new THREE.BoxGeometry(0.12, 0.22, terraceDepth * 0.85);
+        const beamGeo = safeBox(0.12, 0.22, terraceDepth * 0.85);
         for (let b = 0; b < pergolaBeamCount; b++) {
           const bx = -W * 0.35 + (W * 0.7 / (pergolaBeamCount - 1)) * b;
           const beam = new THREE.Mesh(beamGeo, woodMaterial);
@@ -1433,7 +1554,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         }
 
         // Pergola support posts
-        const postGeo = new THREE.BoxGeometry(0.16, 2.5, 0.16);
+        const postGeo = safeBox(0.16, 2.5, 0.16);
         const post1 = new THREE.Mesh(postGeo, woodMaterial);
         post1.position.set(-W * 0.35, topFloorY + 1.25, D / 2 - 0.2);
         roofGroup.add(post1);
@@ -1444,21 +1565,41 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       } else {
         // 4. Flat Roof with Parapet (Teras Çatı)
         const parapetHeight = 0.9;
-        const parapetGeo = new THREE.BoxGeometry(W, parapetHeight, D);
-        const parapetEdges = new THREE.EdgesGeometry(parapetGeo);
-        const parapetLine = new THREE.LineSegments(
-          parapetEdges,
-          new THREE.LineBasicMaterial({
-            color: isLight ? 0x94a3b8 : 0x71717a,
-            linewidth: 2,
-          })
-        );
-        parapetLine.position.set(0, topFloorY + parapetHeight / 2, 0);
-        roofGroup.add(parapetLine);
+        const parapetMat = new THREE.LineBasicMaterial({
+          color: isLight ? 0x94a3b8 : 0x71717a,
+          linewidth: 2,
+        });
+
+        if (isCustomPoly && activePolyPts) {
+          const bounds = getPolygonBounds(activePolyPts);
+          const edges = getPolygonEdges(activePolyPts);
+          edges.forEach((edge) => {
+            const x1 = edge.start.x - bounds.centerX;
+            const z1 = edge.start.y - bounds.centerY;
+            const x2 = edge.end.x - bounds.centerX;
+            const z2 = edge.end.y - bounds.centerY;
+            const pPoints = [
+              new THREE.Vector3(x1, topFloorY, z1),
+              new THREE.Vector3(x2, topFloorY, z2),
+              new THREE.Vector3(x2, topFloorY + parapetHeight, z2),
+              new THREE.Vector3(x1, topFloorY + parapetHeight, z1),
+              new THREE.Vector3(x1, topFloorY, z1),
+            ];
+            const pGeom = new THREE.BufferGeometry().setFromPoints(pPoints);
+            const pLine = new THREE.Line(pGeom, parapetMat);
+            roofGroup.add(pLine);
+          });
+        } else {
+          const parapetGeo = safeBox(W, parapetHeight, D);
+          const parapetEdges = new THREE.EdgesGeometry(parapetGeo);
+          const parapetLine = new THREE.LineSegments(parapetEdges, parapetMat);
+          parapetLine.position.set(0, topFloorY + parapetHeight / 2, 0);
+          roofGroup.add(parapetLine);
+        }
 
         // Elevator Overrun / Asansör Makine Dairesi
         const overrunH = 2.2;
-        const overrunGeo = new THREE.BoxGeometry(eW + 0.8, overrunH, eD + 0.8);
+        const overrunGeo = safeBox(eW + 0.8, overrunH, eD + 0.8);
         const overrunMesh = new THREE.Mesh(overrunGeo, wallMaterial);
         overrunMesh.position.set(sW / 2 + eW / 2, topFloorY + overrunH / 2, 0);
         overrunMesh.castShadow = true;
@@ -1529,6 +1670,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       isLight ? 0xffffff : 0xd4d4d8,
       isLight ? 0.95 : 0.65
     );
+    ambientLightRef.current = ambientLight;
     scene.add(ambientLight);
 
     const sunLight = new THREE.DirectionalLight(
@@ -1547,11 +1689,23 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     sunLight.shadow.camera.top = d;
     sunLight.shadow.camera.bottom = -d;
     sunLight.shadow.bias = -0.0005;
+    sunLightRef.current = sunLight;
     scene.add(sunLight);
 
     const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.4);
     fillLight.position.set(-30, 20, -30);
     scene.add(fillLight);
+
+    // 5.1 3D Sun Sphere Mesh in the sky
+    const sunSphereGeo = new THREE.SphereGeometry(3.5, 16, 16);
+    const sunSphereMat = new THREE.MeshBasicMaterial({
+      color: 0xffdd55,
+      wireframe: false,
+    });
+    const sunSphereMesh = new THREE.Mesh(sunSphereGeo, sunSphereMat);
+    sunSphereMesh.position.set(35, 60, 45);
+    sunSphereMeshRef.current = sunSphereMesh;
+    scene.add(sunSphereMesh);
 
     // 6. Ground Grid & Shadow Plane
     const gridColor1 = isLight ? 0x94a3b8 : 0x3f3f46;
@@ -1559,6 +1713,49 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const grid = new THREE.GridHelper(90, 60, gridColor1, gridColor2);
     grid.position.y = -0.05;
     scene.add(grid);
+
+    // 6.1 3D Ground Compass Rose (Kuzey / Güney / Doğu / Batı)
+    const compassGroup = new THREE.Group();
+    compassGroup.position.y = -0.04;
+    compassGroupRef.current = compassGroup;
+
+    // Outer compass ring
+    const ringGeo = new THREE.RingGeometry(24, 24.6, 64);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: isLight ? 0x6366f1 : 0x818cf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.5,
+    });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.rotation.x = -Math.PI / 2;
+    compassGroup.add(ringMesh);
+
+    // North Pointer (Red Arrow pointing -Z)
+    const northArrowShape = new THREE.Shape();
+    northArrowShape.moveTo(0, 27);
+    northArrowShape.lineTo(2.2, 23);
+    northArrowShape.lineTo(-2.2, 23);
+    northArrowShape.closePath();
+    const northGeo = new THREE.ShapeGeometry(northArrowShape);
+    const northMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide });
+    const northMesh = new THREE.Mesh(northGeo, northMat);
+    northMesh.rotation.x = -Math.PI / 2;
+    compassGroup.add(northMesh);
+
+    // South Pointer (Blue Arrow pointing +Z)
+    const southArrowShape = new THREE.Shape();
+    southArrowShape.moveTo(0, -27);
+    southArrowShape.lineTo(2.2, -23);
+    southArrowShape.lineTo(-2.2, -23);
+    southArrowShape.closePath();
+    const southGeo = new THREE.ShapeGeometry(southArrowShape);
+    const southMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, side: THREE.DoubleSide });
+    const southMesh = new THREE.Mesh(southGeo, southMat);
+    southMesh.rotation.x = -Math.PI / 2;
+    compassGroup.add(southMesh);
+
+    scene.add(compassGroup);
 
     const planeGeo = new THREE.PlaneGeometry(200, 200);
     const planeMat = new THREE.ShadowMaterial({ opacity: isLight ? 0.25 : 0.4 });
@@ -1606,6 +1803,85 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   useEffect(() => {
     buildScene();
   }, [buildScene]);
+
+  // Synchronize Solar Light, Sun Sphere & Building Compass Orientation
+  useEffect(() => {
+    // 1. Rotate building group according to compass angle
+    if (buildingGroupRef.current) {
+      buildingGroupRef.current.rotation.y = (buildingRotation * Math.PI) / 180;
+    }
+
+    // 2. Adjust Sun Position and Lighting when in solarMode or with custom angles
+    if (solarMode && sunAltitude !== undefined && sunAzimuth !== undefined) {
+      const R = 85;
+      const altRad = (sunAltitude * Math.PI) / 180;
+      const azRad = (sunAzimuth * Math.PI) / 180;
+
+      // Azimuth: 0 = North (+Z offset in scene or -Z), 90 = East (+X), 180 = South (-Z or +Z), 270 = West (-X)
+      // In Three.js: -Z is North, +Z is South, +X is East, -X is West
+      const y = Math.max(1.5, R * Math.sin(altRad));
+      const rGround = R * Math.cos(altRad);
+      const x = rGround * Math.sin(azRad);
+      const z = -rGround * Math.cos(azRad); // -cos(azimuth) maps 0 (North) to -Z, 180 (South) to +Z
+
+      if (sunLightRef.current) {
+        sunLightRef.current.position.set(x, y, z);
+        
+        if (sunAltitude > 0) {
+          const intensity = Math.max(0.35, Math.sin(altRad) * 1.5);
+          sunLightRef.current.intensity = intensity;
+          
+          if (sunAltitude < 12) {
+            // Golden Dawn / Dusk orange
+            sunLightRef.current.color.setHex(0xff7b25);
+          } else if (sunAltitude < 30) {
+            // Warm morning / late afternoon light
+            sunLightRef.current.color.setHex(0xffdf99);
+          } else {
+            // Crisp midday sunlight
+            sunLightRef.current.color.setHex(0xfffaed);
+          }
+        } else {
+          // Night / twilight
+          sunLightRef.current.intensity = 0.08;
+          sunLightRef.current.color.setHex(0x38bdf8);
+        }
+      }
+
+      if (sunSphereMeshRef.current) {
+        sunSphereMeshRef.current.visible = sunAltitude > -2;
+        sunSphereMeshRef.current.position.set(x, y, z);
+        const mat = sunSphereMeshRef.current.material as THREE.MeshBasicMaterial;
+        if (mat) {
+          mat.color.setHex(sunAltitude < 15 ? 0xff5500 : 0xffdd55);
+        }
+      }
+
+      if (ambientLightRef.current) {
+        if (sunAltitude > 15) {
+          ambientLightRef.current.intensity = isLight ? 0.95 : 0.65;
+          ambientLightRef.current.color.setHex(isLight ? 0xffffff : 0xd4d4d8);
+        } else if (sunAltitude > 0) {
+          ambientLightRef.current.intensity = isLight ? 0.55 : 0.4;
+          ambientLightRef.current.color.setHex(0xffeedd);
+        } else {
+          ambientLightRef.current.intensity = 0.25;
+          ambientLightRef.current.color.setHex(0x64748b);
+        }
+      }
+    } else {
+      // Default non-solar lighting
+      if (sunLightRef.current) {
+        sunLightRef.current.position.set(35, 60, 45);
+        sunLightRef.current.intensity = isLight ? 1.4 : 1.3;
+        sunLightRef.current.color.setHex(isLight ? 0xfffaed : 0xffffff);
+      }
+      if (sunSphereMeshRef.current) {
+        sunSphereMeshRef.current.position.set(35, 60, 45);
+        sunSphereMeshRef.current.visible = true;
+      }
+    }
+  }, [solarMode, sunAltitude, sunAzimuth, buildingRotation, isLight]);
 
   // Camera presets
   const applyCameraPreset = (preset: 'iso' | 'front' | 'side' | 'top') => {

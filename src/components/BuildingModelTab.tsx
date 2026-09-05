@@ -23,6 +23,8 @@ import {
   PanelLeftOpen,
   Plus,
   Trash2,
+  Sun,
+  MapPin,
 } from 'lucide-react';
 import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide } from '../types';
 import {
@@ -36,9 +38,15 @@ import {
   calculatePolygonArea,
   getPolygonBounds,
 } from '../utils/footprintUtils';
+import {
+  SolarLocation,
+  TURKEY_CITIES,
+  calculateSolarPosition,
+} from '../utils/solarCalculations';
 import { ThreeBuildingView } from './ThreeBuildingView';
 import { FloorPlan2DView } from './FloorPlan2DView';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
+import { SolarAnalysisPanel } from './SolarAnalysisPanel';
 import { Logo } from './Logo';
 
 interface BuildingModelTabProps {
@@ -71,9 +79,18 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
   const modelParams = propParams || internalModelParams;
 
-  // Active subview: 3D Model vs 2D Floor Plan
-  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
+  // Active subview: 3D Model vs Solar Exposure vs 2D Floor Plan
+  const [viewMode, setViewMode] = useState<'3d' | 'solar' | '2d'>('3d');
   const [syncedFeedback, setSyncedFeedback] = useState<string | null>(null);
+
+  // Solar Exposure Simulation States
+  const [solarLocation, setSolarLocation] = useState<SolarLocation>(TURKEY_CITIES[0]);
+  const [solarSeasonId, setSolarSeasonId] = useState<string>('summer_solstice');
+  const [solarTimeHour, setSolarTimeHour] = useState<number>(13.5);
+  const [solarBuildingRotation, setSolarBuildingRotation] = useState<number>(0);
+  const [isSolarHeatmap, setIsSolarHeatmap] = useState<boolean>(false);
+
+  const solarPos = calculateSolarPosition(solarLocation.lat, solarSeasonId, solarTimeHour);
 
   // User Request: "3d model sayfasındaki ölçü girilen bölümler gizlenebilen yapıda olsun"
   // 1. Master toggle to collapse/hide the entire measurement panel for immersive 3D view
@@ -249,6 +266,19 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
             >
               <Box className="w-4 h-4" />
               <span>3D Model</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('solar')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                viewMode === 'solar'
+                  ? 'bg-amber-500 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+              title="Harita konumu ve cephe yönlerine göre güneş alma simülasyonu"
+            >
+              <Sun className="w-4 h-4" />
+              <span>Güneş Analizi</span>
             </button>
             <button
               type="button"
@@ -1407,12 +1437,44 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
           </div>
         )}
 
-        {/* RIGHT COLUMN: 3D Model Canvas OR 2D Architectural Floor Plan */}
+        {/* RIGHT COLUMN: 3D Model Canvas OR Solar Exposure Simulation OR 2D Architectural Floor Plan */}
         {/* Dynamic column span: expands to 12 when measurement panel is hidden! */}
         <div className={`${showMeasurementPanel ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-4 transition-all duration-300`}>
-          {viewMode === '3d' ? (
+          {viewMode === '3d' && (
             <ThreeBuildingView params={modelParams} theme={theme} />
-          ) : (
+          )}
+
+          {viewMode === 'solar' && (
+            <div className="space-y-4 animate-fade-in">
+              {/* Live 3D Building with Sun Light and Ground Compass */}
+              <ThreeBuildingView
+                params={modelParams}
+                theme={theme}
+                solarMode={true}
+                sunAltitude={solarPos.altitude}
+                sunAzimuth={solarPos.azimuth}
+                buildingRotation={solarBuildingRotation}
+                isSolarHeatmap={isSolarHeatmap}
+              />
+
+              {/* Interactive Solar Simulation & Map Location Control Panel */}
+              <SolarAnalysisPanel
+                location={solarLocation}
+                onChangeLocation={setSolarLocation}
+                seasonId={solarSeasonId}
+                onChangeSeason={setSolarSeasonId}
+                timeHour={solarTimeHour}
+                onChangeTimeHour={setSolarTimeHour}
+                buildingRotation={solarBuildingRotation}
+                onChangeBuildingRotation={setSolarBuildingRotation}
+                isHeatmap={isSolarHeatmap}
+                onChangeHeatmap={setIsSolarHeatmap}
+                theme={theme}
+              />
+            </div>
+          )}
+
+          {viewMode === '2d' && (
             <FloorPlan2DView params={modelParams} theme={theme} />
           )}
 

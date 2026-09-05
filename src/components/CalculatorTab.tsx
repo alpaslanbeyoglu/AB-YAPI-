@@ -21,7 +21,7 @@ import {
   Info,
   Compass,
 } from 'lucide-react';
-import { ProjectParams, CalculationResult, FlatItem, AppTheme, FootprintInputMode, CustomFacadeSide } from '../types';
+import { ProjectParams, CalculationResult, FlatItem, AppTheme, FootprintInputMode, CustomFacadeSide, BuildingModelParams } from '../types';
 import {
   calculateFootprint,
   getDefaultCustomFacades,
@@ -34,6 +34,7 @@ import {
   POLYGON_PRESETS,
 } from '../utils/footprintUtils';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
+import { ThreeBuildingView } from './ThreeBuildingView';
 
 interface CalculatorTabProps {
   params: ProjectParams;
@@ -57,6 +58,38 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   theme = 'light',
 }) => {
   const isGray = theme === 'gray';
+
+  const calcBuildingModelParams: BuildingModelParams = React.useMemo(() => {
+    const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+    const calcFlatsPerFloor = Math.max(
+      1,
+      Math.min(4, Math.round(params.flatCount / Math.max(1, resFloors)))
+    );
+
+    return {
+      facadeWidth: params.facadeWidth || 14,
+      facadeDepth: params.facadeDepth || 18,
+      floorCount: params.floorCount,
+      flatsPerFloor: params.flatsPerFloor || calcFlatsPerFloor,
+      flatArea: params.apartmentSize,
+      hasGroundFloorShop: !!params.hasGroundFloorShop,
+      shopCount: params.shopCount || 1,
+      shopHeight: params.shopHeight || 3.8,
+      footprintInputMode: params.footprintInputMode || 'polygonDraw',
+      polygonPoints: params.polygonPoints,
+      facadeConfigs: params.facadeConfigs,
+      mainEntranceFacadeIndex: params.mainEntranceFacadeIndex || 0,
+      customFacadeCount: params.customFacadeCount,
+      customFacades: params.customFacades,
+      facadeStyle: 'modern_glass',
+      roofType: params.roofType || 'gable',
+      basementCount: params.basementCount !== undefined ? params.basementCount : 1,
+      showCoreHighlight: true,
+      balconyDepth: 1.4,
+      cantileverDepth: 1.2,
+      cantileverFloors: 'all_upper',
+    };
+  }, [params]);
 
   // Request: "Kat malikleri bilgiler kısmı varsayılan gizli gelsin."
   const [isFlatsOpen, setIsFlatsOpen] = useState(false);
@@ -646,31 +679,88 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
             {/* Mode 3: Serbest Nokta ve Çizgi Çizimi (Polygon Footprint & Facade Detail) */}
             {activeFootprintMode === 'polygonDraw' && (
-              <div className="space-y-4 p-4 bg-white rounded-2xl border border-indigo-200 shadow-sm">
-                <InteractiveFootprintCanvas
-                  points={params.polygonPoints}
-                  onChangePoints={(newPoints) => {
-                    const area = calculatePolygonArea(newPoints);
-                    const bounds = getPolygonBounds(newPoints);
-                    handleFootprintUpdate({
-                      polygonPoints: newPoints,
-                      baseBuildArea: area,
-                      facadeWidth: Math.round(bounds.width * 10) / 10,
-                      facadeDepth: Math.round(bounds.depth * 10) / 10,
-                    });
-                  }}
-                  facadeConfigs={params.facadeConfigs}
-                  onChangeFacadeConfigs={(newConfigs) => {
-                    onChangeParams({ ...params, facadeConfigs: newConfigs });
-                  }}
-                  mainEntranceIndex={params.mainEntranceFacadeIndex || 0}
-                  onChangeMainEntranceIndex={(idx) => {
-                    onChangeParams({ ...params, mainEntranceFacadeIndex: idx });
-                  }}
-                  flatsPerFloor={Math.max(1, Math.round(params.flatCount / (params.floorCount || 1)))}
-                  theme={theme}
-                  compact={false}
-                />
+              <div className="space-y-4 p-4 sm:p-5 bg-gradient-to-b from-indigo-50/40 to-white rounded-3xl border border-indigo-200/90 shadow-md">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-indigo-100">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm">
+                      <Compass className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800">
+                        Nokta Çizim Modu & Eşzamanlı 3D Canlı Görünüm
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Sol tarafta köşe noktalarını ve cephe detaylarını belirleyin, sağ tarafta 3D binanın anlık değişimini izleyin.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Canlı 3D Senkronizasyon
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                  {/* Sol Bölüm: 2D Çizim ve Nokta Editörü */}
+                  <div className="lg:col-span-7 space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                        <Box className="w-3.5 h-3.5 text-indigo-600" />
+                        2D Poligon Taban & Cephe Çizim Alanı
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {params.polygonPoints?.length || 4} Köşe Noktası • {Math.round(params.baseBuildArea || 0)} m² Taban
+                      </span>
+                    </div>
+
+                    <InteractiveFootprintCanvas
+                      points={params.polygonPoints}
+                      onChangePoints={(newPoints) => {
+                        const area = calculatePolygonArea(newPoints);
+                        const bounds = getPolygonBounds(newPoints);
+                        handleFootprintUpdate({
+                          polygonPoints: newPoints,
+                          baseBuildArea: area,
+                          facadeWidth: Math.round(bounds.width * 10) / 10,
+                          facadeDepth: Math.round(bounds.depth * 10) / 10,
+                        });
+                      }}
+                      facadeConfigs={params.facadeConfigs}
+                      onChangeFacadeConfigs={(newConfigs) => {
+                        onChangeParams({ ...params, facadeConfigs: newConfigs });
+                      }}
+                      mainEntranceIndex={params.mainEntranceFacadeIndex || 0}
+                      onChangeMainEntranceIndex={(idx) => {
+                        onChangeParams({ ...params, mainEntranceFacadeIndex: idx });
+                      }}
+                      flatsPerFloor={Math.max(1, Math.round(params.flatCount / (params.floorCount || 1)))}
+                      theme={theme}
+                      compact={false}
+                    />
+                  </div>
+
+                  {/* Sağ Bölüm: 3D Canlı Bina Modeli */}
+                  <div className="lg:col-span-5 space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        Sağ Taraf: 3D Canlı Model Görünümü
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {params.floorCount} Kat • {params.roofType === 'flat' ? 'Teras Çatı' : 'Kırma Çatı'}
+                      </span>
+                    </div>
+
+                    <div className="h-[600px] rounded-2xl overflow-hidden border border-slate-300 shadow-inner bg-slate-950 relative">
+                      <ThreeBuildingView
+                        params={calcBuildingModelParams}
+                        theme={theme}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

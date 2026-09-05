@@ -68,8 +68,21 @@ export interface BuildingMetrics {
   balconyTotalArea: number;    // Balkon alanı
 }
 
-export function calculateBuildingMetrics(params: BuildingModelParams): BuildingMetrics {
-  const footprintArea = Math.round(params.facadeWidth * params.facadeDepth * 100) / 100;
+export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = {}): BuildingMetrics {
+  const fw = (params?.facadeWidth && !isNaN(params.facadeWidth) && params.facadeWidth > 0) ? params.facadeWidth : 14.0;
+  const fd = (params?.facadeDepth && !isNaN(params.facadeDepth) && params.facadeDepth > 0) ? params.facadeDepth : 18.0;
+  const fh = (params?.floorHeight && !isNaN(params.floorHeight) && params.floorHeight > 0) ? params.floorHeight : 2.95;
+  const fc = (params?.floorCount && !isNaN(params.floorCount) && params.floorCount > 0) ? params.floorCount : 5;
+  const bc = (params?.basementCount !== undefined && !isNaN(params.basementCount)) ? params.basementCount : 1;
+  const flatsPerFloor = (params?.flatsPerFloor && !isNaN(params.flatsPerFloor) && params.flatsPerFloor > 0) ? params.flatsPerFloor : 2;
+  const stairWidth = (params?.stairWidth && !isNaN(params.stairWidth) && params.stairWidth > 0) ? params.stairWidth : 2.60;
+  const stairDepth = (params?.stairDepth && !isNaN(params.stairDepth) && params.stairDepth > 0) ? params.stairDepth : 4.80;
+  const elevatorWidth = (params?.elevatorWidth && !isNaN(params.elevatorWidth) && params.elevatorWidth > 0) ? params.elevatorWidth : 1.80;
+  const elevatorDepth = (params?.elevatorDepth && !isNaN(params.elevatorDepth) && params.elevatorDepth > 0) ? params.elevatorDepth : 2.00;
+  const elevatorCount = (params?.elevatorCount && !isNaN(params.elevatorCount) && params.elevatorCount > 0) ? params.elevatorCount : 1;
+  const balconyDepth = (params?.balconyDepth && !isNaN(params.balconyDepth) && params.balconyDepth > 0) ? params.balconyDepth : 1.40;
+
+  const footprintArea = Math.round(fw * fd * 100) / 100;
   
   // Tabla / Konsol Çıkması (Cantilever)
   const hasCantilever = !!params.hasCantilever;
@@ -77,19 +90,19 @@ export function calculateBuildingMetrics(params: BuildingModelParams): BuildingM
   let upperFloorGrossArea = footprintArea;
   if (hasCantilever && cantileverDepth > 0) {
     if (params.cantileverDirection === 'all') {
-      upperFloorGrossArea = (params.facadeWidth + 2 * cantileverDepth) * (params.facadeDepth + 2 * cantileverDepth);
+      upperFloorGrossArea = (fw + 2 * cantileverDepth) * (fd + 2 * cantileverDepth);
     } else if (params.cantileverDirection === 'front') {
-      upperFloorGrossArea = params.facadeWidth * (params.facadeDepth + cantileverDepth);
+      upperFloorGrossArea = fw * (fd + cantileverDepth);
     } else {
       // front_back
-      upperFloorGrossArea = params.facadeWidth * (params.facadeDepth + 2 * cantileverDepth);
+      upperFloorGrossArea = fw * (fd + 2 * cantileverDepth);
     }
     upperFloorGrossArea = Math.round(upperFloorGrossArea * 100) / 100;
   }
   const cantileverArea = Math.round(Math.max(0, upperFloorGrossArea - footprintArea) * 100) / 100;
 
-  const upperFloorsCount = Math.max(0, params.floorCount - 1);
-  const basementFloorsCount = params.basementCount || 0;
+  const upperFloorsCount = Math.max(0, fc - 1);
+  const basementFloorsCount = bc;
   const duplexAtticArea =
     params.roofType === 'duplex'
       ? Math.round(upperFloorGrossArea * 0.65 * 100) / 100
@@ -111,17 +124,17 @@ export function calculateBuildingMetrics(params: BuildingModelParams): BuildingM
       ? 2.5
       : 0.9;
   const hasShop = !!params.hasGroundFloorShop;
-  const groundHeight = hasShop ? (params.shopHeight || 3.8) : params.floorHeight;
+  const groundHeight = hasShop ? (params.shopHeight || 3.8) : fh;
   const totalHeight = Math.round(
-    ((params.floorCount > 1 ? (params.floorCount - 1) * params.floorHeight + groundHeight : groundHeight) + roofHeightAdd) * 100
+    ((fc > 1 ? (fc - 1) * fh + groundHeight : groundHeight) + roofHeightAdd) * 100
   ) / 100;
 
-  const residentialFloors = hasShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-  const totalFlats = residentialFloors * params.flatsPerFloor;
+  const residentialFloors = hasShop ? Math.max(1, fc - 1) : fc;
+  const totalFlats = residentialFloors * flatsPerFloor;
 
-  const stairTotalArea = Math.round(params.stairWidth * params.stairDepth * 100) / 100;
-  const elevatorTotalArea = Math.round(params.elevatorWidth * params.elevatorDepth * params.elevatorCount * 100) / 100;
-  const coreHallArea = Math.round(params.stairWidth * 2.0 * 100) / 100; // Kat koridoru
+  const stairTotalArea = Math.round(stairWidth * stairDepth * 100) / 100;
+  const elevatorTotalArea = Math.round(elevatorWidth * elevatorDepth * elevatorCount * 100) / 100;
+  const coreHallArea = Math.round(stairWidth * 2.0 * 100) / 100; // Kat koridoru
   const coreArea = Math.round((stairTotalArea + elevatorTotalArea + coreHallArea) * 100) / 100;
 
   // Normal kat bazında alan
@@ -129,9 +142,9 @@ export function calculateBuildingMetrics(params: BuildingModelParams): BuildingM
   const wallLoss = Math.round(activeGross * 0.08 * 100) / 100;
   const residentialAreaOnFloor = Math.max(20, Math.round((activeGross - coreArea - wallLoss) * 100) / 100);
 
-  const flatNetArea = Math.round((residentialAreaOnFloor / params.flatsPerFloor) * 100) / 100;
-  const flatGrossArea = Math.round((activeGross / params.flatsPerFloor) * 100) / 100;
-  const balconyTotalArea = Math.round(params.balconyDepth * 3.5 * 100) / 100;
+  const flatNetArea = Math.round((residentialAreaOnFloor / flatsPerFloor) * 100) / 100;
+  const flatGrossArea = Math.round((activeGross / flatsPerFloor) * 100) / 100;
+  const balconyTotalArea = Math.round(balconyDepth * 3.5 * 100) / 100;
 
   return {
     footprintArea,
