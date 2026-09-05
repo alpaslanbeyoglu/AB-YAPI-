@@ -235,11 +235,11 @@ export function generateOfferHtml(
     <h4>📍 PROJE KÜNYESİ & GENEL BİLGİLER</h4>
     <p><strong>Proje Adresi:</strong> ${params.projectAddress}</p>
     <div style="display:grid;grid-template-columns: 1fr 1fr;gap: 8px;margin-top:10px;border-top:1px solid #ddd;padding-top:10px;">
-      <div><strong>Proje Arsa Alanı:</strong> ${Math.round(params.baseBuildArea / 0.4).toLocaleString('tr-TR')} m² <small style="color:#888;">(Tahmini)</small></div>
+      <div><strong>Proje Arsa Alanı:</strong> ${(params.landArea || Math.round(params.baseBuildArea / 0.4)).toLocaleString('tr-TR')} m²</div>
       <div><strong>Proje Kat Alanı (Oturum):</strong> ${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
       <div><strong>Toplam İnşaat Alanı:</strong> ${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
       <div><strong>Normal Kat Sayısı:</strong> ${params.floorCount} Kat</div>
-      <div><strong>Kattaki Daire Sayısı:</strong> ${params.flatsPerFloor || Math.max(1, Math.round(res.flatCount / (params.floorCount || 1)))} Adet</div>
+      <div><strong>Kattaki Daire Sayısı:</strong> ${params.flatsPerFloor || 1} Adet</div>
       <div><strong>Toplam Daire Sayısı:</strong> ${res.flatCount} Adet</div>
       <div><strong>Daire İç Yerleşimi:</strong> ${params.roomType || '3+1'} Oda</div>
       <div><strong>Fiziki Daire Brüt Alanı:</strong> ${physicalGrossArea_rep} m²</div>

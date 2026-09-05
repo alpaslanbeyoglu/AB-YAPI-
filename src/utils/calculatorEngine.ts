@@ -3,6 +3,8 @@ import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint } from './footprintUtils';
 
 export const DEFAULT_PARAMS: ProjectParams = {
   projectAddress: 'İstanbul, Fatih Kocamustafapaşa Mah. 1024 Ada 15 Parsel',
+  landArea: 250,
+  manualUnitPrice: 0,
   durationOption: 'manual',
   manualMonths: 14,
   transformationStatus: 'currentSupport',
@@ -289,7 +291,11 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const grandTotal = Math.round((subTotalCost + profitAmount) * 100) / 100;
 
   const netCostPerSqM = Math.round((subTotalCost / totalArea) * 100) / 100;
-  const grossCostPerSqM = Math.round((grandTotal / totalArea) * 100) / 100;
+  const calculatedGrossCostPerSqM = Math.round((grandTotal / totalArea) * 100) / 100;
+  const grossCostPerSqM = (params.manualUnitPrice && params.manualUnitPrice > 0) 
+    ? params.manualUnitPrice 
+    : calculatedGrossCostPerSqM;
+    
   const baseCostPerSqM =
     includeProfitOwner === 'yes' ? grossCostPerSqM : netCostPerSqM;
 

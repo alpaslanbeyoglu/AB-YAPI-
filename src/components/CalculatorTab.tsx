@@ -272,207 +272,320 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
         {/* Section 1: General Project Information */}
         {activeSection === 'project' && (
-          <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-5 animate-fade-in`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2.5">
-                <Building className="w-4 h-4 text-indigo-600" />
-                <span>Genel Proje ve Yapı Bilgileri</span>
-              </h3>
-              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>3D Model ile Senkron</span>
-              </span>
-            </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="sm:col-span-2 lg:col-span-3">
-            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-              Yapı / Proje Adresi (Ada, Parsel, İl/İlçe):
-            </label>
-            <input
-              type="text"
-              value={params.projectAddress}
-              onChange={(e) => updateParam('projectAddress', e.target.value)}
-              placeholder="Örn: İstanbul, Fatih, 1024 Ada 15 Parsel"
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            />
-          </div>
-
-          <div>
-            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-              Proje Teslim Süresi Seçeneği:
-            </label>
-            <select
-              value={params.durationOption}
-              onChange={(e) => updateParam('durationOption', e.target.value as any)}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            >
-              <option value="auto">Otomatik Hesapla (Ruhsat + Kaba + İnce + İskân)</option>
-              <option value="manual">Manuel Gir (Ay Olarak)</option>
-              <option value="hide">Teklifte Süre Gösterme (Gizle)</option>
-            </select>
-          </div>
-
-          {params.durationOption === 'manual' && (
-            <div>
-              <label className="block text-xs font-medium text-red-600 mb-1.5">
-                Manuel İnşaat Süresi (Ay):
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={params.manualMonths}
-                onChange={(e) => updateParam('manualMonths', parseFloat(e.target.value) || 1)}
-                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-medium text-indigo-700 mb-1.5">
-              Kentsel Dönüşüm Destek Modeli:
-            </label>
-            <select
-              value={params.transformationStatus}
-              onChange={(e) => {
-                const val = e.target.value as any;
-                const updatedFlats = params.flats.map((f) => ({
-                  ...f,
-                  useTransformationCredit: val !== 'none',
-                }));
-                onChangeParams({
-                  ...params,
-                  transformationStatus: val,
-                  flats: updatedFlats,
-                });
-              }}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            >
-              <option value="currentSupport">2025/2026 Mevcut Model (875 Bin TL Hibe + 875 Bin TL Kredi)</option>
-              <option value="futureSupport2027">2027 Projeksiyon Modeli (3 Milyon TL Kredi / 180 Ay Vade)</option>
-              <option value="none">Kentsel Dönüşüm Desteksiz (Öz Kaynak / Nakit Yapım)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-emerald-700 mb-1.5">
-              Yapım Modeli:
-            </label>
-            <select
-              value={params.projectModel}
-              onChange={(e) => updateParam('projectModel', e.target.value as any)}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            >
-              <option value="cash">Nakit Ödemeli / Müteahhit Yapımı</option>
-              <option value="contractorShare">Kat Karşılığı Yapım (Arsa Payı Paylaşımlı)</option>
-            </select>
-          </div>
-
-          {params.projectModel === 'contractorShare' && (
-            <div className="space-y-4 p-4 rounded-2xl bg-amber-50/50 border border-amber-200/60 col-span-1 sm:col-span-2 lg:col-span-1">
-              <div>
-                <label className="block text-xs font-semibold text-amber-900 mb-1.5">
-                  Müteahhit Daire Payı Oranı (%):
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="99"
-                  value={params.contractorShareRate}
-                  onChange={(e) => updateParam('contractorShareRate', parseFloat(e.target.value) || 50)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                />
+          <div className="animate-fade-in space-y-5">
+            <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-5`}>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2.5">
+                  <Building className="w-4 h-4 text-indigo-600" />
+                  <span>📍 PROJE KÜNYESİ VE GENEL BİLGİLER</span>
+                </h3>
+                <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>3D Canlı Senkron</span>
+                </span>
               </div>
 
-              <div>
-                <span className="block text-[11px] font-semibold text-amber-900 mb-2">
-                  Müteahhite Kalacak Daireleri Seçin:
-                </span>
-                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-4 gap-1.5">
-                  {params.flats.map((flat) => {
-                    const defaultCount = Math.round(params.flatCount * (params.contractorShareRate / 100));
-                    const isContractor = params.contractorFlatIds && params.contractorFlatIds.length > 0
-                      ? params.contractorFlatIds.includes(flat.id)
-                      : flat.id > (params.flatCount - defaultCount);
-                    return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <label className={`block text-xs font-bold ${labelColor} mb-1.5 uppercase`}>
+                    Yapı / Proje Adresi:
+                  </label>
+                  <input
+                    type="text"
+                    value={params.projectAddress}
+                    onChange={(e) => updateParam('projectAddress', e.target.value)}
+                    placeholder="Örn: İstanbul, Fatih, 1024 Ada 15 Parsel"
+                    className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all font-medium ${inputBg}`}
+                  />
+                </div>
+
+                {/* 1. Proje Arsa m2 */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase">Proje Arsa Alanı (m²):</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={params.landArea}
+                      onChange={(e) => updateParam('landArea', parseFloat(e.target.value) || 0)}
+                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border ${inputBg}`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
+                  </div>
+                </div>
+
+                {/* 2. Proje Kat m2 (Oturum) */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase">Proje Kat Alanı / Oturum (m²):</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={params.baseBuildArea}
+                      onChange={(e) => updateParam('baseBuildArea', parseFloat(e.target.value) || 0)}
+                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border ${inputBg}`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
+                  </div>
+                </div>
+
+                {/* 3. Kattaki Daire Sayısı */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-indigo-700 uppercase">Kattaki Daire Sayısı:</label>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 6].map((num) => (
                       <button
-                        key={flat.id}
+                        key={num}
                         type="button"
                         onClick={() => {
-                          const currentIds = params.contractorFlatIds && params.contractorFlatIds.length > 0
-                            ? [...params.contractorFlatIds]
-                            : params.flats
-                                .slice(params.flatCount - defaultCount)
-                                .map(f => f.id);
-                          
-                          let nextIds: number[];
-                          if (currentIds.includes(flat.id)) {
-                            nextIds = currentIds.filter(id => id !== flat.id);
-                          } else {
-                            nextIds = [...currentIds, flat.id];
-                          }
-                          
-                          const updatedFlats = params.flats.map(f => {
-                            if (f.id === flat.id) {
-                              return { ...f, isContractorShare: !currentIds.includes(flat.id) };
-                            }
-                            return f;
-                          });
-
+                          const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                          const totalFlats = normalFloors * num;
                           onChangeParams({
                             ...params,
-                            contractorFlatIds: nextIds,
-                            flats: updatedFlats,
+                            flatsPerFloor: num,
+                            flatCount: totalFlats
                           });
+                          handleFlatCountChange(totalFlats);
                         }}
-                        className={`py-1.5 text-xs font-mono font-bold rounded-lg border text-center transition-all ${
-                          isContractor
-                            ? 'bg-amber-500 border-amber-600 text-white shadow-sm'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        className={`flex-1 py-2 text-[11px] font-bold rounded-xl border transition-all ${
+                          params.flatsPerFloor === num
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200'
                         }`}
                       >
-                        D{flat.id}
+                        {num}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-                <div className="flex items-center justify-between mt-2 pt-1 border-t border-amber-100">
-                  <span className="text-[10px] text-slate-600">
-                    Müteahhit Daire Sayısı: <strong className="text-amber-800 font-mono">{(params.contractorFlatIds && params.contractorFlatIds.length > 0) ? params.contractorFlatIds.length : Math.round(params.flatCount * (params.contractorShareRate / 100))} / {params.flatCount}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
+
+                {/* 4. Daire İç Yerleşimi */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800 uppercase">Daire İç Yerleşimi (Oda):</label>
+                  <div className="flex gap-1.5">
+                    {['1+1', '2+1', '3+1', '4+1'].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => updateParam('roomType', type as any)}
+                        className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
+                          params.roomType === type
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-200'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 5. Teklif Edilecek Birim m2 Maliyet Fiyatı */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-indigo-700 uppercase">Teklif Birim m² Maliyeti (TL):</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={params.manualUnitPrice || ''}
+                      onChange={(e) => updateParam('manualUnitPrice', parseFloat(e.target.value) || 0)}
+                      placeholder={`${results.grossCostPerSqM.toFixed(0)} TL (Otomatik)`}
+                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-indigo-200 ${inputBg}`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">TL/m²</span>
+                  </div>
+                  <p className="text-[9px] text-slate-400 italic">Boş bırakılırsa motor otomatik hesaplar.</p>
+                </div>
+
+                <div>
+                  <label className={`block text-xs font-bold ${labelColor} mb-1.5 uppercase`}>
+                    Proje Teslim Süresi:
+                  </label>
+                  <select
+                    value={params.durationOption}
+                    onChange={(e) => updateParam('durationOption', e.target.value as any)}
+                    className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                  >
+                    <option value="auto">Otomatik Hesapla (Gantt)</option>
+                    <option value="manual">Manuel Gir (Ay)</option>
+                    <option value="hide">Gizle</option>
+                  </select>
+                </div>
+
+                {params.durationOption === 'manual' && (
+                  <div>
+                    <label className="block text-xs font-bold text-red-600 mb-1.5 uppercase">
+                      Manuel Süre (Ay):
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={params.manualMonths}
+                      onChange={(e) => updateParam('manualMonths', parseFloat(e.target.value) || 1)}
+                      className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                    />
+                  </div>
+                )}
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-indigo-700 mb-1.5 uppercase">
+                    Destek Modeli:
+                  </label>
+                  <select
+                    value={params.transformationStatus}
+                    onChange={(e) => {
+                      const val = e.target.value as any;
+                      const updatedFlats = params.flats.map((f) => ({
+                        ...f,
+                        useTransformationCredit: val !== 'none',
+                      }));
                       onChangeParams({
                         ...params,
-                        contractorFlatIds: [],
-                        flats: params.flats.map(f => ({ ...f, isContractorShare: undefined }))
+                        transformationStatus: val,
+                        flats: updatedFlats,
                       });
                     }}
-                    className="text-[10px] text-indigo-600 font-medium hover:underline"
+                    className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
                   >
-                    Orana Göre Sıfırla
-                  </button>
+                    <option value="currentSupport">2025/2026 Mevcut Model (Hibe + Kredi)</option>
+                    <option value="futureSupport2027">2027 Projeksiyon Modeli (180 Ay Vade)</option>
+                    <option value="none">Desteksiz (Öz Kaynak)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-emerald-700 mb-1.5 uppercase">
+                    Yapım Modeli:
+                  </label>
+                  <select
+                    value={params.projectModel}
+                    onChange={(e) => updateParam('projectModel', e.target.value as any)}
+                    className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                  >
+                    <option value="cash">Nakit Ödemeli / Müteahhit</option>
+                    <option value="contractorShare">Kat Karşılığı Paylaşımlı</option>
+                  </select>
                 </div>
               </div>
-
-              <div className="pt-2 border-t border-amber-200/50">
-                <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={params.showContractorShare3D || false}
-                    onChange={(e) => updateParam('showContractorShare3D', e.target.checked)}
-                    className="rounded-sm text-amber-600 focus:ring-amber-500"
-                  />
-                  <span className="font-medium text-slate-800">3D Modelde Müteahhit Paylarını Belirt</span>
-                </label>
-              </div>
             </div>
-          )}
 
-          {/* BİNA TABAN OTURUMU & CEPHE GİRİŞ SEÇENEKLERİ (3D MODEL CANLI ENTEGRE) */}
+            {params.projectModel === 'contractorShare' && (
+              <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-4 animate-fade-in mt-5`}>
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                  <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Müteahhit Paylaşım Ayarları</h3>
+                    <p className="text-[10px] text-slate-500">Müteahhite kalacak dairelerin seçimi ve paylaşım oranı.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-amber-900 mb-1.5 uppercase">
+                        Müteahhit Daire Payı Oranı (%):
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="99"
+                        value={params.contractorShareRate}
+                        onChange={(e) => updateParam('contractorShareRate', parseFloat(e.target.value) || 50)}
+                        className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-amber-200 ${inputBg}`}
+                      />
+                    </div>
+                    
+                    <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-amber-800 uppercase">Müteahhit Daire Sayısı</span>
+                        <span className="text-sm font-mono font-bold text-amber-900">
+                          {(params.contractorFlatIds && params.contractorFlatIds.length > 0) ? params.contractorFlatIds.length : Math.round(params.flatCount * (params.contractorShareRate / 100))} / {params.flatCount}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onChangeParams({
+                              ...params,
+                              contractorFlatIds: [],
+                              flats: params.flats.map(f => ({ ...f, isContractorShare: undefined }))
+                            });
+                          }}
+                          className="text-[10px] text-indigo-600 font-bold hover:underline underline-offset-2"
+                        >
+                          Seçimleri Sıfırla (Orana Dön)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="block text-[11px] font-bold text-slate-700 mb-2.5 uppercase">Daire Seçimi (Hangi Daireler Müteahhitin?):</span>
+                    <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
+                      {params.flats.map((flat) => {
+                        const defaultCount = Math.round(params.flatCount * (params.contractorShareRate / 100));
+                        const isContractor = params.contractorFlatIds && params.contractorFlatIds.length > 0
+                          ? params.contractorFlatIds.includes(flat.id)
+                          : flat.id > (params.flatCount - defaultCount);
+                        return (
+                          <button
+                            key={flat.id}
+                            type="button"
+                            onClick={() => {
+                              const currentIds = params.contractorFlatIds && params.contractorFlatIds.length > 0
+                                ? [...params.contractorFlatIds]
+                                : params.flats
+                                    .slice(params.flatCount - defaultCount)
+                                    .map(f => f.id);
+                              
+                              let nextIds: number[];
+                              if (currentIds.includes(flat.id)) {
+                                nextIds = currentIds.filter(id => id !== flat.id);
+                              } else {
+                                nextIds = [...currentIds, flat.id];
+                              }
+                              
+                              const updatedFlats = params.flats.map(f => {
+                                if (f.id === flat.id) {
+                                  return { ...f, isContractorShare: !currentIds.includes(flat.id) };
+                                }
+                                return f;
+                              });
+
+                              onChangeParams({
+                                ...params,
+                                contractorFlatIds: nextIds,
+                                flats: updatedFlats,
+                              });
+                            }}
+                            className={`py-2 text-[10px] font-mono font-bold rounded-lg border text-center transition-all ${
+                              isContractor
+                                ? 'bg-amber-500 border-amber-600 text-white shadow-sm'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            D{flat.id}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-amber-200/50">
+                  <label className="flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={params.showContractorShare3D || false}
+                      onChange={(e) => updateParam('showContractorShare3D', e.target.checked)}
+                      className="rounded-sm text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>3D Modelde Müteahhit Paylarını Renkli Göster</span>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
         )}
 
         {activeSection === 'footprint' && (
@@ -491,52 +604,6 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Sol Panel: Temel Veriler */}
                 <div className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-700">Tahmini Arsa Alanı (m²):</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={Math.round(params.baseBuildArea / 0.4)}
-                          readOnly
-                          className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border bg-slate-50 text-slate-500 cursor-not-allowed`}
-                        />
-                        <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 italic">Oturum alanına göre otomatik tahmin edilir.</p>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-indigo-700">Kattaki Daire Sayısı:</label>
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 6].map((num) => (
-                          <button
-                            key={num}
-                            type="button"
-                            onClick={() => {
-                              const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                              const totalFlats = normalFloors * num;
-                              onChangeParams({
-                                ...params,
-                                flatsPerFloor: num,
-                                flatCount: totalFlats
-                              });
-                              handleFlatCountChange(totalFlats);
-                            }}
-                            className={`flex-1 py-2 text-[11px] font-bold rounded-xl border transition-all ${
-                              params.flatsPerFloor === num
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200'
-                            }`}
-                          >
-                            {num}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-indigo-500 font-medium italic">Normal kat yerleşimi.</p>
-                    </div>
-                  </div>
-
                   <div className="space-y-1.5">
                     <label className="block text-xs font-bold text-slate-700">Taban Oturumu Belirleme Yöntemi:</label>
                     <select
@@ -849,6 +916,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     return (
                       <button
                         key={roof.id}
+                        type="button"
                         onClick={() => updateParam('roofType', roof.id as any)}
                         className={`flex flex-col items-center gap-2.5 p-4 rounded-2xl border transition-all duration-300 ${
                           isSelected
@@ -869,24 +937,9 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 </p>
               </div>
 
-              {/* Daire Tipi Dağılımı */}
+              {/* Daire Tipi Özeti */}
               <div className="space-y-4">
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">Daire Tipi Dağılımı (Kat Planı):</label>
-                <div className="flex gap-2">
-                  {['1+1', '2+1', '3+1', '4+1'].map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => updateParam('roomType', type as any)}
-                      className={`flex-1 py-3 text-xs font-bold rounded-xl border transition-all ${
-                        params.roomType === type
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">Proje Kapsam Özeti:</label>
                 <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -894,6 +947,9 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                   <span className="text-base font-mono font-bold text-emerald-900">{params.flatCount} Adet</span>
                 </div>
+                <p className="text-[10px] text-slate-400 italic">
+                  Not: Daire tipi ve kattaki daire sayısı "Proje Künyesi" sekmesinden düzenlenebilir.
+                </p>
               </div>
             </div>
           </div>

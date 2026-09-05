@@ -92,6 +92,8 @@ export interface FlatItem {
 
 export interface ProjectParams {
   projectAddress: string;
+  landArea?: number;           // Arsa m2
+  manualUnitPrice?: number;    // Manuel birim m2 maliyet fiyatı
   durationOption: 'auto' | 'manual' | 'hide';
   manualMonths: number;
   transformationStatus: 'currentSupport' | 'futureSupport2027' | 'none';
