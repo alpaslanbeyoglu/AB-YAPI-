@@ -43,6 +43,7 @@ export const DEFAULT_PARAMS: ProjectParams = {
   // Mimari Çatı ve Kütle Özellikleri
   roofType: 'gable',
   basementCount: 1,
+  floorHeight: 2.90,
   flatsPerFloor: 2,
   facadeStyle: 'wood_anthracite',
   balconyDepth: 1.40,

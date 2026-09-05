@@ -84,6 +84,13 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   const [viewMode, setViewMode] = useState<'3d' | 'solar' | '2d'>('3d');
   const [syncedFeedback, setSyncedFeedback] = useState<string | null>(null);
 
+  // Auto-sync when propParams change
+  React.useEffect(() => {
+    if (propParams) {
+      setInternalModelParams(prev => ({ ...prev, ...propParams }));
+    }
+  }, [propParams]);
+
   // Solar Exposure Simulation States
   const [solarLocation, setSolarLocation] = useState<SolarLocation>(TURKEY_CITIES[0]);
   const [solarSeasonId, setSolarSeasonId] = useState<string>('summer_solstice');
