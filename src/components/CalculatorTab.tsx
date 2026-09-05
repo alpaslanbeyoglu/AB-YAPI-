@@ -483,182 +483,205 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   <Ruler className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Arsa ve Bina Oturum Bilgileri</h3>
-                  <p className="text-[11px] text-slate-500">Arsa alanı, oturum şekli ve kattaki daire sayısını belirleyin.</p>
+                  <h3 className="text-sm font-bold text-slate-900">1. Arsa & Yoğunluk Verileri</h3>
+                  <p className="text-[11px] text-slate-500">Arsa alanı ve her kattaki daire sayısını belirleyerek projeye başlayın.</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Arsa Alanı */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">Tahmini Arsa Alanı (m²):</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={Math.round(params.baseBuildArea / 0.4)}
-                      readOnly
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border bg-slate-50 text-slate-500 cursor-not-allowed`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400">Not: Oturum alanına göre otomatik tahmin edilir.</p>
-                </div>
-
-                {/* Katta Daire Sayısı */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-indigo-700">Kattaki Daire Sayısı:</label>
-                  <div className="flex items-center gap-1.5">
-                    {[1, 2, 3, 4, 6].map((num) => (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => {
-                          const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                          const totalFlats = normalFloors * num;
-                          onChangeParams({
-                            ...params,
-                            flatsPerFloor: num,
-                            flatCount: totalFlats
-                          });
-                          handleFlatCountChange(totalFlats);
-                        }}
-                        className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
-                          params.flatsPerFloor === num
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-indigo-500 font-medium italic">Her normal katta planlanacak daire adedi.</p>
-                </div>
-
-                {/* Oturum Modu Seçimi */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700">Oturum Belirleme Modu:</label>
-                  <select
-                    value={activeFootprintMode}
-                    onChange={(e) => handleFootprintUpdate({ footprintInputMode: e.target.value as any })}
-                    className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                  >
-                    <option value="directArea">1. Manuel Alan Girişi (m²)</option>
-                    <option value="dimensions">2. Ön × Yan Cephe (Dikdörtgen)</option>
-                    <option value="polygonDraw">3. Serbest Çizim (Nokta Belirle)</option>
-                    <option value="customFacades">4. Çoklu Cephe Uzunlukları</option>
-                    <option value="lShape">5. L-Tipi Kütle Formu</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Dinamik Giriş Alanı */}
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
-                {activeFootprintMode === 'directArea' && (
-                  <div className="flex flex-col sm:flex-row items-end gap-4">
-                    <div className="flex-1 space-y-1.5">
-                      <label className="block text-xs font-semibold text-slate-600">Bina Taban Oturumu (Net m²):</label>
-                      <input
-                        type="number"
-                        value={params.baseBuildArea}
-                        onChange={(e) => handleFootprintUpdate({ baseBuildArea: parseFloat(e.target.value) || 0 })}
-                        className={`w-full text-sm font-mono font-bold px-3.5 py-2 rounded-xl border ${inputBg}`}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      {[150, 250, 400].map(v => (
-                        <button key={v} onClick={() => handleFootprintUpdate({ baseBuildArea: v })} className="px-3 py-2 text-[10px] font-bold bg-white border border-slate-200 rounded-lg hover:bg-indigo-50">{v} m²</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeFootprintMode === 'dimensions' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-xs font-bold text-slate-700">
-                        <span>Ön Cephe (W):</span>
-                        <span className="text-indigo-600">{params.facadeWidth}m</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Sol Panel: Temel Veriler */}
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700">Tahmini Arsa Alanı (m²):</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={Math.round(params.baseBuildArea / 0.4)}
+                          readOnly
+                          className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border bg-slate-50 text-slate-500 cursor-not-allowed`}
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
                       </div>
-                      <input type="range" min="5" max="50" step="0.5" value={params.facadeWidth} onChange={(e) => handleFootprintUpdate({ facadeWidth: parseFloat(e.target.value) })} className="w-full accent-indigo-600" />
+                      <p className="text-[10px] text-slate-400 italic">Oturum alanına göre otomatik tahmin edilir.</p>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-xs font-bold text-slate-700">
-                        <span>Yan Cephe (D):</span>
-                        <span className="text-indigo-600">{params.facadeDepth}m</span>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-indigo-700">Kattaki Daire Sayısı:</label>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 6].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => {
+                              const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                              const totalFlats = normalFloors * num;
+                              onChangeParams({
+                                ...params,
+                                flatsPerFloor: num,
+                                flatCount: totalFlats
+                              });
+                              handleFlatCountChange(totalFlats);
+                            }}
+                            className={`flex-1 py-2 text-[11px] font-bold rounded-xl border transition-all ${
+                              params.flatsPerFloor === num
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
                       </div>
-                      <input type="range" min="5" max="50" step="0.5" value={params.facadeDepth} onChange={(e) => handleFootprintUpdate({ facadeDepth: parseFloat(e.target.value) })} className="w-full accent-indigo-600" />
+                      <p className="text-[10px] text-indigo-500 font-medium italic">Normal kat yerleşimi.</p>
                     </div>
                   </div>
-                )}
 
-                {activeFootprintMode === 'polygonDraw' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] text-indigo-600 font-bold flex items-center gap-1">
-                        <Info className="w-3.5 h-3.5" />
-                        Noktaları sürükleyerek bina formunu belirleyin.
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Taban Oturumu Belirleme Yöntemi:</label>
+                    <select
+                      value={activeFootprintMode}
+                      onChange={(e) => handleFootprintUpdate({ footprintInputMode: e.target.value as any })}
+                      className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                    >
+                      <option value="directArea">A. Doğrudan Alan Girişi (m²)</option>
+                      <option value="dimensions">B. Ön × Yan Cephe (Dikdörtgen)</option>
+                      <option value="polygonDraw">C. Serbest Çizim (Köşe Noktaları)</option>
+                      <option value="customFacades">D. Çoklu Cephe Uzunlukları</option>
+                      <option value="lShape">E. L-Tipi / Kademeli Kütle</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Sağ Panel: Dinamik Giriş Alanı */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-center">
+                  {activeFootprintMode === 'directArea' && (
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-slate-600">Bina Taban Oturumu (Net m²):</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={params.baseBuildArea}
+                            onChange={(e) => handleFootprintUpdate({ baseBuildArea: parseFloat(e.target.value) || 0 })}
+                            className={`w-full text-sm font-mono font-bold px-3.5 py-3 rounded-xl border ${inputBg}`}
+                          />
+                          <span className="absolute right-4 top-3 text-xs font-bold text-slate-400">m²</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {[100, 150, 250, 400].map(v => (
+                          <button key={v} onClick={() => handleFootprintUpdate({ baseBuildArea: v })} className="flex-1 py-2 text-[10px] font-bold bg-white border border-slate-200 rounded-lg hover:bg-indigo-50 transition-colors">{v} m²</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeFootprintMode === 'dimensions' && (
+                    <div className="space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-xs font-bold text-slate-700">
+                          <span>Ön Cephe Genişliği (W):</span>
+                          <span className="text-indigo-600">{params.facadeWidth}m</span>
+                        </div>
+                        <input type="range" min="5" max="50" step="0.5" value={params.facadeWidth} onChange={(e) => handleFootprintUpdate({ facadeWidth: parseFloat(e.target.value) })} className="w-full accent-indigo-600" />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-xs font-bold text-slate-700">
+                          <span>Yan Cephe Derinliği (D):</span>
+                          <span className="text-indigo-600">{params.facadeDepth}m</span>
+                        </div>
+                        <input type="range" min="5" max="50" step="0.5" value={params.facadeDepth} onChange={(e) => handleFootprintUpdate({ facadeDepth: parseFloat(e.target.value) })} className="w-full accent-indigo-600" />
+                      </div>
+                    </div>
+                  )}
+
+                  {activeFootprintMode === 'polygonDraw' && (
+                    <div className="text-center py-4">
+                      <p className="text-[11px] text-indigo-600 font-bold mb-3 flex items-center justify-center gap-1.5">
+                        <Compass className="w-3.5 h-3.5" />
+                        Aşağıdaki editörden formu düzenleyebilirsiniz.
                       </p>
-                      <span className="text-[10px] font-mono font-bold text-slate-500">{params.baseBuildArea.toFixed(1)} m²</span>
+                      <button onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })} className="px-4 py-2 text-xs font-bold bg-indigo-600 text-white rounded-xl shadow-sm hover:bg-indigo-700">Editöre Git</button>
                     </div>
-                    <div className="h-[400px] bg-white rounded-xl border border-slate-200 overflow-hidden">
-                      <InteractiveFootprintCanvas
-                        points={params.polygonPoints}
-                        onChangePoints={(newPoints) => {
-                          const area = calculatePolygonArea(newPoints);
-                          const bounds = getPolygonBounds(newPoints);
-                          handleFootprintUpdate({
-                            polygonPoints: newPoints,
-                            baseBuildArea: area,
-                            facadeWidth: Math.round(bounds.width * 10) / 10,
-                            facadeDepth: Math.round(bounds.depth * 10) / 10,
-                          });
-                        }}
-                        facadeConfigs={params.facadeConfigs}
-                        onChangeFacadeConfigs={(newConfigs) => updateParam('facadeConfigs', newConfigs)}
-                        mainEntranceIndex={params.mainEntranceFacadeIndex || 0}
-                        onChangeMainEntranceIndex={(idx) => updateParam('mainEntranceFacadeIndex', idx)}
-                        flatsPerFloor={params.flatsPerFloor || 2}
-                        theme={theme}
-                      />
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {(activeFootprintMode === 'customFacades' || activeFootprintMode === 'lShape') && (
-                  <div className="text-center py-6 text-slate-400 italic text-xs">
-                    Bu mod için gelişmiş ayarlar panelde mevcuttur.
-                  </div>
-                )}
+                  {(activeFootprintMode === 'customFacades' || activeFootprintMode === 'lShape') && (
+                    <div className="text-center py-4 text-slate-400 italic text-xs">
+                      Seçilen mod için gelişmiş ayarlar alt kısımda aktiftir.
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {activeFootprintMode === 'polygonDraw' && (
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <div className="h-[400px] bg-white rounded-xl border border-slate-200 overflow-hidden shadow-inner relative">
+                    <InteractiveFootprintCanvas
+                      points={params.polygonPoints}
+                      onChangePoints={(newPoints) => {
+                        const area = calculatePolygonArea(newPoints);
+                        const bounds = getPolygonBounds(newPoints);
+                        handleFootprintUpdate({
+                          polygonPoints: newPoints,
+                          baseBuildArea: area,
+                          facadeWidth: Math.round(bounds.width * 10) / 10,
+                          facadeDepth: Math.round(bounds.depth * 10) / 10,
+                        });
+                      }}
+                      facadeConfigs={params.facadeConfigs}
+                      onChangeFacadeConfigs={(newConfigs) => updateParam('facadeConfigs', newConfigs)}
+                      mainEntranceIndex={params.mainEntranceFacadeIndex || 0}
+                      onChangeMainEntranceIndex={(idx) => updateParam('mainEntranceFacadeIndex', idx)}
+                      flatsPerFloor={params.flatsPerFloor || 2}
+                      theme={theme}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Özet Panel */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Taban Oturumu</span>
-                  <span className="text-sm font-mono font-bold text-slate-900">{params.baseBuildArea.toFixed(1)} m²</span>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 group hover:border-slate-300 transition-colors">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Taban Oturumu</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-base font-mono font-bold text-slate-900">{params.baseBuildArea.toFixed(1)}</span>
+                    <span className="text-[10px] font-bold text-slate-400">m²</span>
+                  </div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100">
-                  <span className="block text-[10px] font-bold text-indigo-600 uppercase">Toplam İnşaat</span>
-                  <span className="text-sm font-mono font-bold text-indigo-900">{(params.baseBuildArea * params.floorCount).toFixed(1)} m²</span>
+                <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100 group hover:border-indigo-200 transition-colors">
+                  <span className="block text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">Toplam İnşaat</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-base font-mono font-bold text-indigo-900">{(params.baseBuildArea * params.floorCount).toFixed(1)}</span>
+                    <span className="text-[10px] font-bold text-indigo-400">m²</span>
+                  </div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-100">
-                  <span className="block text-[10px] font-bold text-emerald-600 uppercase">Toplam Daire</span>
-                  <span className="text-sm font-mono font-bold text-emerald-900">{params.flatCount} Adet</span>
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-100 group hover:border-emerald-200 transition-colors">
+                  <span className="block text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Toplam Daire</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-base font-mono font-bold text-emerald-900">{params.flatCount}</span>
+                    <span className="text-[10px] font-bold text-emerald-400">Adet</span>
+                  </div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-100">
-                  <span className="block text-[10px] font-bold text-amber-600 uppercase">Daire Başı Brüt</span>
-                  <span className="text-sm font-mono font-bold text-amber-900">{(params.baseBuildArea / (params.flatsPerFloor || 1)).toFixed(1)} m²</span>
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-100 group hover:border-amber-200 transition-colors">
+                  <span className="block text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Daire Başı Brüt</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-base font-mono font-bold text-amber-900">{(params.baseBuildArea / (params.flatsPerFloor || 1)).toFixed(1)}</span>
+                    <span className="text-[10px] font-bold text-amber-400">m²</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* 3D Model Entegrasyonu */}
-            <div className="h-72 rounded-3xl overflow-hidden border border-slate-200 shadow-inner relative group">
+            <div className="h-80 rounded-3xl overflow-hidden border border-slate-200 shadow-inner relative group bg-slate-50">
               <ThreeBuildingView params={calcBuildingModelParams} theme={theme} />
               <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] font-bold text-indigo-700 shadow-sm flex items-center gap-2">
                 <Sparkles className="w-3 h-3" />
                 <span>Canlı 3D Kütle Modeli</span>
+              </div>
+              <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 text-[9px] font-bold text-slate-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                Modeli sürükleyerek inceleyebilirsiniz.
               </div>
             </div>
           </div>
@@ -672,18 +695,21 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 <Layers className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Bina Yapısal Özellikleri & Mimari Detaylar</h3>
-                <p className="text-[11px] text-slate-500">Kat sayıları, çatı tipi ve daire içi konfigürasyonları belirleyin.</p>
+                <h3 className="text-sm font-bold text-slate-900">2. Yapı Parametreleri & Mimari Form</h3>
+                <p className="text-[11px] text-slate-500">Bina yüksekliği, çatı modeli ve mimari segment ayarlarını yapın.</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Kat Sayıları Grubu */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
-                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">Kat Sayıları</h4>
-                <div className="space-y-3">
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-5">
+                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-widest border-b border-slate-200 pb-2">Hacim ve Katlar</h4>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Normal Kat Sayısı:</label>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase">Normal Katlar:</label>
+                      <span className="text-xs font-mono font-bold text-indigo-600">{params.floorCount} Kat</span>
+                    </div>
                     <div className="flex items-center gap-3">
                       <input
                         type="range"
@@ -705,11 +731,13 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         }}
                         className="flex-1 accent-indigo-600"
                       />
-                      <span className="w-10 text-center text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg py-1">{params.floorCount}</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Bodrum Kat Sayısı:</label>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase">Bodrum Katlar:</label>
+                      <span className="text-xs font-mono font-bold text-slate-500">{params.basementCount} Kat</span>
+                    </div>
                     <div className="flex items-center gap-3">
                       <input
                         type="range"
@@ -719,17 +747,16 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         onChange={(e) => updateParam('basementCount', parseInt(e.target.value))}
                         className="flex-1 accent-slate-400"
                       />
-                      <span className="w-10 text-center text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg py-1">{params.basementCount}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Zemin Kat Fonksiyonu */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-4">
-                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">Zemin Kat Fonksiyonu</h4>
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
+                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-widest border-b border-slate-200 pb-2">Zemin Fonksiyonu</h4>
+                <div className="space-y-4">
+                  <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={params.hasGroundFloorShop}
@@ -748,37 +775,37 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       }}
                       className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
                     />
-                    <div className="flex items-center gap-2">
-                      <Store className="w-4 h-4 text-indigo-600" />
-                      <span className="text-xs font-bold text-slate-700">Zemin Kat Ticari (Dükkan)</span>
+                    <div className="flex items-center gap-2.5">
+                      <Store className={`w-4 h-4 transition-colors ${params.hasGroundFloorShop ? 'text-indigo-600' : 'text-slate-400'}`} />
+                      <span className={`text-xs font-bold transition-colors ${params.hasGroundFloorShop ? 'text-slate-900' : 'text-slate-500'}`}>Zemin Kat Ticari (Dükkan)</span>
                     </div>
                   </label>
                   
                   {params.hasGroundFloorShop && (
-                    <div className="animate-slide-down space-y-2 pl-7">
+                    <div className="animate-slide-down space-y-3 pl-8">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500">Dükkan Sayısı:</label>
-                        <input type="number" value={params.shopCount} onChange={(e) => updateParam('shopCount', parseInt(e.target.value))} className={`w-full text-xs px-2 py-1.5 rounded-lg border ${inputBg}`} />
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Dükkan Sayısı:</label>
+                        <input type="number" value={params.shopCount} onChange={(e) => updateParam('shopCount', parseInt(e.target.value))} className={`w-full text-xs px-3 py-2 rounded-lg border ${inputBg}`} />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500">Tavan Yüksekliği (m):</label>
-                        <input type="number" step="0.1" value={params.shopHeight} onChange={(e) => updateParam('shopHeight', parseFloat(e.target.value))} className={`w-full text-xs px-2 py-1.5 rounded-lg border ${inputBg}`} />
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kat Yüksekliği (m):</label>
+                        <input type="number" step="0.1" value={params.shopHeight} onChange={(e) => updateParam('shopHeight', parseFloat(e.target.value))} className={`w-full text-xs px-3 py-2 rounded-lg border ${inputBg}`} />
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Mimari Standart & Stil */}
-              <div className="p-4 rounded-2xl bg-indigo-50/30 border border-indigo-100 space-y-4">
-                <h4 className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider border-b border-indigo-100 pb-2">Mimari Stil</h4>
-                <div className="space-y-3">
+              {/* Mimari Segment & Stil */}
+              <div className="p-5 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-4">
+                <h4 className="text-[11px] font-bold text-indigo-900 uppercase tracking-widest border-b border-indigo-100 pb-2">Görsel Karakter</h4>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-indigo-700 mb-1">Yapı Segmenti:</label>
+                    <label className="block text-[10px] font-bold text-indigo-700 mb-1.5 uppercase">Yapı Kalitesi:</label>
                     <select
                       value={params.buildingType}
                       onChange={(e) => updateParam('buildingType', e.target.value as any)}
-                      className={`w-full text-xs px-3 py-2 rounded-xl border border-indigo-200 bg-white`}
+                      className={`w-full text-xs px-3 py-2.5 rounded-xl border border-indigo-200 bg-white font-semibold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 outline-hidden`}
                     >
                       <option value="standard">Ekonomik / Standart Yapı</option>
                       <option value="luxury">Lüks / A+ Segment Yapı</option>
@@ -786,15 +813,15 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-indigo-700 mb-1">Dış Cephe Karakteri:</label>
+                    <label className="block text-[10px] font-bold text-indigo-700 mb-1.5 uppercase">Cephe Tasarımı:</label>
                     <select
                       value={params.facadeStyle}
                       onChange={(e) => updateParam('facadeStyle', e.target.value as any)}
-                      className={`w-full text-xs px-3 py-2 rounded-xl border border-indigo-200 bg-white`}
+                      className={`w-full text-xs px-3 py-2.5 rounded-xl border border-indigo-200 bg-white font-semibold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 outline-hidden`}
                     >
-                      <option value="modern">Modern (Beton & Boya)</option>
-                      <option value="wood_anthracite">Ahşap & Antrasit Detaylı</option>
-                      <option value="glass_minimal">Minimalist Cam Ağırlıklı</option>
+                      <option value="modern">Modern (Sıva & Boya)</option>
+                      <option value="wood_anthracite">Ahşap & Antrasit Detaylar</option>
+                      <option value="glass_minimal">Minimalist & Geniş Camlı</option>
                       <option value="brick_stone">Tuğla & Doğal Taş Kaplama</option>
                     </select>
                   </div>
@@ -805,56 +832,67 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             {/* Alt Panel: Çatı ve Daire Tipleri */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
               {/* Çatı Tipleri */}
-              <div className="space-y-3">
-                <label className="block text-xs font-bold text-slate-800">Mimari Çatı Modeli:</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">Mimari Çatı Modeli:</label>
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">Seçili: {params.roofType === 'gable' ? 'Kırma' : params.roofType === 'flat' ? 'Teraslı' : params.roofType === 'mansard' ? 'Mansart' : 'Dubleks'}</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
                     { id: 'gable', label: 'Kırma Çatı', icon: ChevronUp },
-                    { id: 'flat', label: 'Teras Çatı', icon: Layers },
+                    { id: 'flat', label: 'Teraslı Çatı', icon: Layers },
                     { id: 'mansard', label: 'Mansart Çatı', icon: Compass },
                     { id: 'duplex', label: 'Çatı Dubleksi', icon: Sparkles },
                   ].map((roof) => {
                     const Icon = roof.icon;
+                    const isSelected = params.roofType === roof.id;
                     return (
                       <button
                         key={roof.id}
                         onClick={() => updateParam('roofType', roof.id as any)}
-                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${
-                          params.roofType === roof.id
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200'
+                        className={`flex flex-col items-center gap-2.5 p-4 rounded-2xl border transition-all duration-300 ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/30 -translate-y-0.5'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30'
                         }`}
                       >
-                        <Icon className="w-4 h-4" />
-                        <span className="text-[10px] font-bold">{roof.label}</span>
+                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-indigo-500/50' : 'bg-slate-100'}`}>
+                          <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
+                        </div>
+                        <span className="text-[10px] font-bold tracking-tight">{roof.label}</span>
                       </button>
                     );
                   })}
                 </div>
-                <p className="text-[10px] text-slate-400 italic">Mansart ve Teras çatı modelleri kentsel dönüşümde ek alan kazanımı sağlayabilir.</p>
+                <p className="text-[10px] text-slate-400 italic font-medium leading-relaxed">
+                  * Mansart ve Teraslı çatı modelleri kentsel dönüşümde ek yaşam alanı kazanımı sağlayabilir.
+                </p>
               </div>
 
               {/* Daire Tipi Dağılımı */}
-              <div className="space-y-3">
-                <label className="block text-xs font-bold text-slate-800">Daire Tipi Dağılımı:</label>
+              <div className="space-y-4">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">Daire Tipi Dağılımı (Kat Planı):</label>
                 <div className="flex gap-2">
                   {['1+1', '2+1', '3+1', '4+1'].map((type) => (
                     <button
                       key={type}
                       onClick={() => updateParam('roomType', type as any)}
-                      className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
+                      className={`flex-1 py-3 text-xs font-bold rounded-xl border transition-all ${
                         params.roomType === type
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-200'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30'
                       }`}
                     >
                       {type}
                     </button>
                   ))}
                 </div>
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-emerald-800">Toplam Bağımsız Bölüm:</span>
-                  <span className="text-sm font-mono font-bold text-emerald-900">{params.flatCount} Adet</span>
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="text-[11px] font-bold text-emerald-800 uppercase">Toplam Bağımsız Bölüm</span>
+                  </div>
+                  <span className="text-base font-mono font-bold text-emerald-900">{params.flatCount} Adet</span>
                 </div>
               </div>
             </div>

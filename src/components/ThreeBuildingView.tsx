@@ -73,6 +73,8 @@ interface ThreeBuildingViewProps {
   sunAzimuth?: number;
   buildingRotation?: number;
   isSolarHeatmap?: boolean;
+  forcedCameraPreset?: 'iso' | 'front' | 'side' | 'top';
+  hideControls?: boolean;
 }
 
 export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
@@ -83,6 +85,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   sunAzimuth = 180,
   buildingRotation = 0,
   isSolarHeatmap = false,
+  forcedCameraPreset,
+  hideControls = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -101,7 +105,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [isWireframe, setIsWireframe] = useState<boolean>(false);
   const [showCoreHighlight, setShowCoreHighlight] = useState<boolean>(true);
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
-  const [cameraPreset, setCameraPreset] = useState<'iso' | 'front' | 'side' | 'top'>('iso');
+  const [cameraPreset, setCameraPreset] = useState<'iso' | 'front' | 'side' | 'top'>(forcedCameraPreset || 'iso');
   const [isExportingUSDZ, setIsExportingUSDZ] = useState<boolean>(false);
   const [isExportingGLTF, setIsExportingGLTF] = useState<boolean>(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
@@ -2075,7 +2079,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   }, [solarMode, sunAltitude, sunAzimuth, buildingRotation, isLight]);
 
   // Camera presets
-  const applyCameraPreset = (preset: 'iso' | 'front' | 'side' | 'top') => {
+  const applyCameraPreset = useCallback((preset: 'iso' | 'front' | 'side' | 'top') => {
     if (!cameraRef.current || !controlsRef.current) return;
     setCameraPreset(preset);
     const camera = cameraRef.current;
@@ -2103,7 +2107,17 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         break;
     }
     controls.update();
-  };
+  }, [params.floorHeight, params.floorCount, params.facadeWidth, params.facadeDepth]);
+
+  useEffect(() => {
+    if (forcedCameraPreset) {
+      // Use a small delay to ensure scene is built and refs are set
+      const timer = setTimeout(() => {
+        applyCameraPreset(forcedCameraPreset);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [forcedCameraPreset, applyCameraPreset]);
 
   // Download screenshot as PNG
   const handleDownloadSnapshot = () => {
@@ -2202,7 +2216,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       />
 
       {/* Export Status Toast */}
-      {exportFeedback && (
+      {exportFeedback && !hideControls && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
           <div className="px-4 py-2 rounded-2xl text-xs font-semibold shadow-xl border flex items-center gap-2 animate-fade-in bg-white text-indigo-700 border-indigo-200">
             <Sparkles className="w-4 h-4 text-indigo-500 animate-spin" />
@@ -2212,31 +2226,34 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       )}
 
       {/* Top Left Overlay: Building Status & Active Cut Mode */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none z-10">
-        <div className={`backdrop-blur-md px-3.5 py-2.5 rounded-2xl border shadow-md flex items-center gap-3 ${
-          isGray ? 'bg-white/95 text-slate-800 border-slate-300' : 'bg-white/95 text-slate-800 border-slate-200'
-        }`}>
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          <div className="text-xs">
-            <span className="font-bold tracking-wide block">
-              {params.floorCount} Kat + {params.basementCount} Bodrum ({params.roomType}) - Kat Başına {params.flatsPerFloor} Daire
-            </span>
-            <span className="text-[10px] font-mono text-slate-500">
-              Ön: {params.facadeWidth.toFixed(1)}m × Yan: {params.facadeDepth.toFixed(1)}m | Çatı:{' '}
-              {params.roofType === 'duplex'
-                ? 'Çatı Dubleksi'
-                : params.roofType === 'mansard'
-                ? 'Mansart Çatı'
-                : params.roofType === 'gable'
-                ? 'Kırma Çatı'
-                : 'Teras Çatı'}
-            </span>
+      {!hideControls && (
+        <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none z-10">
+          <div className={`backdrop-blur-md px-3.5 py-2.5 rounded-2xl border shadow-md flex items-center gap-3 ${
+            isGray ? 'bg-white/95 text-slate-800 border-slate-300' : 'bg-white/95 text-slate-800 border-slate-200'
+          }`}>
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <div className="text-xs">
+              <span className="font-bold tracking-wide block">
+                {params.floorCount} Kat + {params.basementCount} Bodrum ({params.roomType}) - Kat Başına {params.flatsPerFloor} Daire
+              </span>
+              <span className="text-[10px] font-mono text-slate-500">
+                Ön: {params.facadeWidth.toFixed(1)}m × Yan: {params.facadeDepth.toFixed(1)}m | Çatı:{' '}
+                {params.roofType === 'duplex'
+                  ? 'Çatı Dubleksi'
+                  : params.roofType === 'mansard'
+                  ? 'Mansart Çatı'
+                  : params.roofType === 'gable'
+                  ? 'Kırma Çatı'
+                  : 'Teras Çatı'}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Right Toolbar: Camera & Render & Export Controls */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-10">
+      {!hideControls && (
+        <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-10">
         {/* Camera presets */}
         <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
           isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
@@ -2364,9 +2381,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* Bottom Bar: Explode Floors Slider & Floor Isolation */}
-      <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+      {!hideControls && (
+        <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
         {/* Explode Floors Slider */}
         <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ${
           isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
@@ -2421,6 +2440,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           </select>
         </div>
       </div>
+      )}
     </div>
   );
 };

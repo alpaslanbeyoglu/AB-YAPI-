@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Cloud, CheckCircle2, AlertCircle, ShieldCheck, FileText, Compass, LayoutGrid, Calendar, Clock, Sparkles, Layers } from 'lucide-react';
-import { ProjectParams, CalculationResult, AppTheme } from '../types';
+import { Cloud, CheckCircle2, AlertCircle, ShieldCheck, FileText, Compass, LayoutGrid, Calendar, Clock, Sparkles, Layers, Box } from 'lucide-react';
+import { ProjectParams, CalculationResult, AppTheme, BuildingModelParams } from '../types';
 import { saveReportDocumentToDrive } from '../services/drive';
 import { generateOfferHtml } from '../utils/reportExport';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
@@ -8,6 +8,7 @@ import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { getRoofTypeShortTitle } from '../utils/roofUtils';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
+import { ThreeBuildingView } from './ThreeBuildingView';
 
 interface OfferTabProps {
   params: ProjectParams;
@@ -16,522 +17,6 @@ interface OfferTabProps {
   onOpenDrivePanel: () => void;
   theme?: AppTheme;
 }
-
-// Helper to render front-elevation building schematic (stale)
-const staleRenderFrontViewSvg = (floorCount: number, hasShop: boolean, roofType: string, compName: string = 'AB YAPI') => {
-  const N = floorCount || 5;
-  const floorHeight = 22;
-  const shopHeight = 32;
-  
-  const floors = [];
-  let currentY = 190; // Bottom base ground line
-  
-  for (let f = 0; f < N; f++) {
-    const isShop = f === 0 && hasShop;
-    const h = isShop ? shopHeight : floorHeight;
-    floors.push({
-      index: f,
-      isShop,
-      y: currentY - h,
-      h: h
-    });
-    currentY -= h;
-  }
-  
-  const topY = currentY;
-  
-  return (
-    <svg viewBox="0 0 220 220" className="w-full h-44 md:h-52 bg-slate-950 rounded-2xl border border-slate-800 shadow-inner">
-      <defs>
-        <pattern id="gridPattern" width="12" height="12" patternUnits="userSpaceOnUse">
-          <path d="M 12 0 L 0 0 0 12" fill="none" stroke="#1e293b" strokeWidth="0.5" />
-        </pattern>
-      </defs>
-      {/* Background and grid */}
-      <rect width="100%" height="100%" fill="#0b1329" />
-      <rect width="100%" height="100%" fill="url(#gridPattern)" />
-      
-      {/* Ground Line */}
-      <line x1="10" y1="190" x2="210" y2="190" stroke="#475569" strokeWidth="2.5" />
-      
-      {/* Building Frame */}
-      <g stroke="#38bdf8" strokeWidth="1.2" fill="#1e293b" fillOpacity="0.75">
-        {floors.map((fl) => (
-          <g key={fl.index}>
-            {/* Slab */}
-            <rect x="45" y={fl.y} width="130" height={fl.h} rx="1" />
-            
-            {fl.isShop ? (
-              // Ground floor commercial shop windows and door
-              <g stroke="#38bdf8" strokeWidth="1" fill="#0f172a" fillOpacity="0.9">
-                {/* Store 1 */}
-                <rect x="52" y={fl.y + 10} width="34" height="19" rx="1" />
-                {/* Store 2 */}
-                <rect x="92" y={fl.y + 10} width="36" height="19" rx="1" />
-                {/* Store 3 */}
-                <rect x="134" y={fl.y + 10} width="34" height="19" rx="1" />
-                {/* Divider lines inside shop windows */}
-                <line x1="69" y1={fl.y + 10} x2="69" y2={fl.y + 29} stroke="#38bdf8" strokeWidth="0.5" />
-                <line x1="110" y1={fl.y + 10} x2="110" y2={fl.y + 29} stroke="#38bdf8" strokeWidth="0.5" />
-                <line x1="151" y1={fl.y + 10} x2="151" y2={fl.y + 29} stroke="#38bdf8" strokeWidth="0.5" />
-                {/* Signboard */}
-                <rect x="48" y={fl.y + 2} width="124" height="6" fill="#38bdf8" fillOpacity="0.25" />
-                <text x="110" y={fl.y + 7} fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">{compName} TİCARET / TİCARİ MAĞAZA</text>
-              </g>
-            ) : (
-              // Residential window patterns
-              <g stroke="#38bdf8" strokeWidth="1" fill="none">
-                {/* Window Left */}
-                <rect x="54" y={fl.y + 4} width="18" height="12" rx="1" fill="#0f172a" />
-                <line x1="63" y1={fl.y + 4} x2="63" y2={fl.y + 16} stroke="#38bdf8" strokeWidth="0.5" />
-                <line x1="54" y1={fl.y + 10} x2="72" y2={fl.y + 10} stroke="#38bdf8" strokeWidth="0.5" />
-                
-                {/* Middle glass or balcony door */}
-                <rect x="100" y={fl.y + 4} width="20" height="14" rx="1" fill="#0f172a" />
-                <line x1="110" y1={fl.y + 4} x2="110" y2={fl.y + 18} stroke="#38bdf8" strokeWidth="0.5" />
-                
-                {/* Window Right */}
-                <rect x="148" y={fl.y + 4} width="18" height="12" rx="1" fill="#0f172a" />
-                <line x1="157" y1={fl.y + 4} x2="157" y2={fl.y + 16} stroke="#38bdf8" strokeWidth="0.5" />
-                <line x1="148" y1={fl.y + 10} x2="166" y2={fl.y + 10} stroke="#38bdf8" strokeWidth="0.5" />
-                
-                {/* Balcony Railing */}
-                {fl.index >= 1 && (
-                  <rect x="94" y={fl.y + 11} width="32" height="7" fill="#38bdf8" fillOpacity="0.3" rx="0.5" />
-                )}
-              </g>
-            )}
-            
-            {/* Label */}
-            <text x="20" y={fl.y + fl.h / 2 + 2} fill="#64748b" fontSize="6" stroke="none" fontWeight="semibold">
-              {fl.isShop ? "Zemin Kat" : `${fl.index}. Kat`}
-            </text>
-          </g>
-        ))}
-        
-        {/* Roof rendering based on roofType */}
-        {roofType === 'gable' && (
-          <g>
-            <polygon points={`45,${topY} 110,${topY - 24} 175,${topY}`} fill="#1e293b" fillOpacity="0.9" stroke="#38bdf8" strokeWidth="1.2" />
-            <line x1="110" y1={topY - 24} x2="110" y2={topY} stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="2,2" />
-          </g>
-        )}
-        {roofType === 'flat' && (
-          <g fill="#1e293b">
-            <rect x="45" y={topY - 4} width="130" height="4" stroke="#38bdf8" strokeWidth="1.2" />
-            <line x1="60" y1={topY - 4} x2="60" y2={topY} stroke="#38bdf8" strokeWidth="0.5" />
-            <line x1="160" y1={topY - 4} x2="160" y2={topY} stroke="#38bdf8" strokeWidth="0.5" />
-          </g>
-        )}
-        {roofType === 'mansard' && (
-          <g>
-            <polygon points={`45,${topY} 65,${topY - 18} 155,${topY - 18} 175,${topY}`} fill="#1e293b" fillOpacity="0.9" stroke="#38bdf8" strokeWidth="1.2" />
-            <line x1="65" y1={topY - 18} x2="65" y2={topY} stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="1,2" />
-            <line x1="155" y1={topY - 18} x2="155" y2={topY} stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="1,2" />
-          </g>
-        )}
-        {roofType === 'duplex' && (
-          <g>
-            <polygon points={`45,${topY} 65,${topY - 18} 155,${topY - 18} 175,${topY}`} fill="#1e293b" fillOpacity="0.9" stroke="#38bdf8" strokeWidth="1.2" />
-            {/* Dormer Window */}
-            <rect x="98" y={topY - 13} width="24" height="10" rx="1" fill="#0f172a" stroke="#38bdf8" strokeWidth="1" />
-            <line x1="110" y1={topY - 13} x2="110" y2={topY - 3} stroke="#38bdf8" strokeWidth="0.5" />
-            <text x="110" y={topY - 15} fill="#10b981" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">ÇATI DUBLEKSİ</text>
-          </g>
-        )}
-      </g>
-      
-      {/* Schematic details */}
-      <text x="110" y="210" fill="#38bdf8" fontSize="8" textAnchor="middle" stroke="none" fontWeight="bold" letterSpacing="1.5">
-        ÖN CEPHE GÖRÜNÜMÜ
-      </text>
-    </svg>
-  );
-};
-
-// Helper to render front-elevation building schematic with CAD style dimensions
-const renderFrontViewSvg = (
-  floorCount: number,
-  hasShop: boolean,
-  roofType: string,
-  baseBuildArea: number = 120,
-  compName: string = 'AB YAPI'
-) => {
-  const N = floorCount || 5;
-  const floorHeight = 22;
-  const shopHeight = 32;
-  const estW = Math.sqrt(baseBuildArea / 1.2);
-  
-  const floors = [];
-  let currentY = 190; // Bottom base ground line
-  
-  for (let f = 0; f < N; f++) {
-    const isShop = f === 0 && hasShop;
-    const h = isShop ? shopHeight : floorHeight;
-    floors.push({
-      index: f,
-      isShop,
-      y: currentY - h,
-      h: h
-    });
-    currentY -= h;
-  }
-  
-  const topY = currentY;
-  const totalHeightM = (N * 3.0 + (hasShop ? 1.5 : 0)).toFixed(2);
-
-  return (
-    <svg viewBox="0 0 220 220" className="w-full h-44 md:h-52 bg-slate-950 rounded-2xl border border-slate-800 shadow-inner">
-      <defs>
-        <pattern id="gridPattern" width="12" height="12" patternUnits="userSpaceOnUse">
-          <path d="M 12 0 L 0 0 0 12" fill="none" stroke="#1e293b" strokeWidth="0.5" />
-        </pattern>
-      </defs>
-      {/* Background and grid */}
-      <rect width="100%" height="100%" fill="#0b1329" />
-      <rect width="100%" height="100%" fill="url(#gridPattern)" />
-      
-      {/* Ground Line */}
-      <line x1="10" y1="190" x2="210" y2="190" stroke="#475569" strokeWidth="2.5" />
-      
-      {/* Building Frame */}
-      <g stroke="#38bdf8" strokeWidth="1.2" fill="#1e293b" fillOpacity="0.75">
-        {floors.map((fl) => (
-          <g key={fl.index}>
-            {/* Slab */}
-            <rect x="45" y={fl.y} width="130" height={fl.h} rx="1" />
-            
-            {fl.isShop ? (
-              // Ground floor commercial shop windows and door
-              <g stroke="#38bdf8" strokeWidth="1" fill="#0f172a" fillOpacity="0.9">
-                {/* Store 1 */}
-                <rect x="52" y={fl.y + 10} width="34" height="19" rx="1" />
-                {/* Store 2 */}
-                <rect x="92" y={fl.y + 10} width="36" height="19" rx="1" />
-                {/* Store 3 */}
-                <rect x="134" y={fl.y + 10} width="34" height="19" rx="1" />
-                {/* Divider lines inside shop windows */}
-                <line x1="69" y1={fl.y + 10} x2="69" y2={fl.y + 29} stroke="#38bdf8" strokeWidth="0.5" />
-                <line x1="110" y1={fl.y + 10} x2="110" y2={fl.y + 29} stroke="#38bdf8" strokeWidth="0.5" />
-                <line x1="151" y1={fl.y + 10} x2="151" y2={fl.y + 29} stroke="#38bdf8" strokeWidth="0.5" />
-                {/* Signboard */}
-                <rect x="48" y={fl.y + 2} width="124" height="6" fill="#38bdf8" fillOpacity="0.25" />
-                <text x="110" y={fl.y + 7} fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">{compName} TİCARET / TİCARİ MAĞAZA</text>
-              </g>
-            ) : (
-              // Residential window patterns
-              <g stroke="#38bdf8" strokeWidth="1" fill="none">
-                {/* Window Left */}
-                <rect x="54" y={fl.y + 4} width="18" height="12" rx="1" fill="#0f172a" />
-                <line x1="63" y1={fl.y + 4} x2="63" y2={fl.y + 16} stroke="#38bdf8" strokeWidth="0.5" />
-                <line x1="54" y1={fl.y + 10} x2="72" y2={fl.y + 10} stroke="#38bdf8" strokeWidth="0.5" />
-                
-                {/* Middle glass or balcony door */}
-                <rect x="100" y={fl.y + 4} width="20" height="14" rx="1" fill="#0f172a" />
-                <line x1="110" y1={fl.y + 4} x2="110" y2={fl.y + 18} stroke="#38bdf8" strokeWidth="0.5" />
-                
-                {/* Window Right */}
-                <rect x="148" y={fl.y + 4} width="18" height="12" rx="1" fill="#0f172a" />
-                <line x1="157" y1={fl.y + 4} x2="157" y2={fl.y + 16} stroke="#38bdf8" strokeWidth="0.5" />
-                <line x1="148" y1={fl.y + 10} x2="166" y2={fl.y + 10} stroke="#38bdf8" strokeWidth="0.5" />
-                
-                {/* Balcony Railing */}
-                {fl.index >= 1 && (
-                  <rect x="94" y={fl.y + 11} width="32" height="7" fill="#38bdf8" fillOpacity="0.3" rx="0.5" />
-                )}
-              </g>
-            )}
-            
-            {/* Label */}
-            <text x="20" y={fl.y + fl.h / 2 + 2} fill="#64748b" fontSize="6" stroke="none" fontWeight="semibold">
-              {fl.isShop ? "Zemin Kat" : `${fl.index}. Kat`}
-            </text>
-          </g>
-        ))}
-        
-        {/* Roof rendering based on roofType */}
-        {roofType === 'gable' && (
-          <g>
-            <polygon points={`45,${topY} 110,${topY - 24} 175,${topY}`} fill="#1e293b" fillOpacity="0.9" stroke="#38bdf8" strokeWidth="1.2" />
-            <line x1="110" y1={topY - 24} x2="110" y2={topY} stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="2,2" />
-          </g>
-        )}
-        {roofType === 'flat' && (
-          <g fill="#1e293b">
-            <rect x="45" y={topY - 4} width="130" height="4" stroke="#38bdf8" strokeWidth="1.2" />
-            <line x1="60" y1={topY - 4} x2="60" y2={topY} stroke="#38bdf8" strokeWidth="0.5" />
-            <line x1="160" y1={topY - 4} x2="160" y2={topY} stroke="#38bdf8" strokeWidth="0.5" />
-          </g>
-        )}
-        {roofType === 'mansard' && (
-          <g>
-            <polygon points={`45,${topY} 65,${topY - 18} 155,${topY - 18} 175,${topY}`} fill="#1e293b" fillOpacity="0.9" stroke="#38bdf8" strokeWidth="1.2" />
-            <line x1="65" y1={topY - 18} x2="65" y2={topY} stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="1,2" />
-            <line x1="155" y1={topY - 18} x2="155" y2={topY} stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="1,2" />
-          </g>
-        )}
-        {roofType === 'duplex' && (
-          <g>
-            <polygon points={`45,${topY} 65,${topY - 18} 155,${topY - 18} 175,${topY}`} fill="#1e293b" fillOpacity="0.9" stroke="#38bdf8" strokeWidth="1.2" />
-            {/* Dormer Window */}
-            <rect x="98" y={topY - 13} width="24" height="10" rx="1" fill="#0f172a" stroke="#38bdf8" strokeWidth="1" />
-            <line x1="110" y1={topY - 13} x2="110" y2={topY - 3} stroke="#38bdf8" strokeWidth="0.5" />
-            <text x="110" y={topY - 15} fill="#10b981" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">ÇATI DUBLEKSİ</text>
-          </g>
-        )}
-      </g>
-
-      {/* CAD DIMENSION LINES (DIŞ ÖLÇÜLER) */}
-      <g stroke="#10b981" strokeWidth="0.8" fill="none">
-        {/* Horizontal Width Dimension at Bottom */}
-        <line x1="45" y1="205" x2="175" y2="205" />
-        <line x1="45" y1="190" x2="45" y2="210" stroke="#475569" strokeWidth="0.5" />
-        <line x1="175" y1="190" x2="175" y2="210" stroke="#475569" strokeWidth="0.5" />
-        {/* Tick Slashes */}
-        <line x1="42" y1="208" x2="48" y2="202" />
-        <line x1="172" y1="208" x2="178" y2="202" />
-        <text x="110" y="215" fill="#10b981" fontSize="6.5" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace">GENİŞLİK: {estW.toFixed(2)} m</text>
-
-        {/* Vertical Height Dimension at Right */}
-        <line x1="195" y1={topY} x2="195" y2="190" />
-        <line x1="175" y1={topY} x2="200" y2={topY} stroke="#475569" strokeWidth="0.5" />
-        <line x1="175" y1="190" x2="200" y2="190" stroke="#475569" strokeWidth="0.5" />
-        {/* Tick Slashes */}
-        <line x1="192" y1={topY + 3} x2="198" y2={topY - 3} />
-        <line x1="192" y1="193" x2="198" y2="187" />
-        <text x="204" y={(topY + 190) / 2} fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace" transform={`rotate(90, 204, ${(topY + 190) / 2})`}>YÜKSEKLİK: {totalHeightM} m</text>
-      </g>
-      
-      {/* Schematic details */}
-      <text x="110" y="12" fill="#38bdf8" fontSize="8" textAnchor="middle" stroke="none" fontWeight="bold" letterSpacing="1.5">
-        ÖN CEPHE GÖRÜNÜMÜ (ELEVATION)
-      </text>
-    </svg>
-  );
-};
-
-// Helper to render CAD style Ground Floor Plan
-const renderGroundFloorPlanSvg = (hasShop: boolean, roomType = '3+1', grossArea = 120, netArea = 96, baseBuildArea = 120) => {
-  const estW = Math.sqrt(baseBuildArea / 1.2);
-  const estD = estW * 1.2;
-  const shopGross = Math.round(((baseBuildArea * 0.85) / 2) * 10) / 10;
-  const shopNet = Math.round((shopGross * 0.8) * 10) / 10;
-
-  return (
-    <svg viewBox="0 0 220 220" className="w-full h-44 md:h-52 bg-[#090f1d] rounded-2xl border border-slate-800 shadow-inner">
-      <defs>
-        <pattern id="gridPatternCADGround" width="10" height="10" patternUnits="userSpaceOnUse">
-          <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#111c30" strokeWidth="0.5" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="#060a13" />
-      <rect width="100%" height="100%" fill="url(#gridPatternCADGround)" />
-
-      {/* Building Outer Bounds (CAD Line Style) */}
-      <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" strokeWidth="1.5" />
-      <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="1,2" />
-
-      {/* Elevator Shaft (CAD style with diagonal lines) */}
-      <g stroke="#f43f5e" strokeWidth="1" fill="none">
-        <rect x="98" y="70" width="24" height="24" strokeWidth="1.2" />
-        <line x1="98" y1="70" x2="122" y2="94" strokeWidth="0.6" />
-        <line x1="122" y1="70" x2="98" y2="94" strokeWidth="0.6" />
-        <text x="110" y="84" fill="#f43f5e" fontSize="5" textAnchor="middle" stroke="none" fontWeight="bold">ASANSÖR</text>
-      </g>
-
-      {/* Staircase (CAD style with steps and direction line) */}
-      <g stroke="#38bdf8" strokeWidth="1" fill="none">
-        <rect x="98" y="94" width="24" height="36" strokeWidth="1.2" />
-        {/* Split line in the middle */}
-        <line x1="110" y1="94" x2="110" y2="130" strokeWidth="0.8" />
-        {/* Steps */}
-        <line x1="98" y1="100" x2="110" y2="100" />
-        <line x1="98" y1="106" x2="110" y2="106" />
-        <line x1="98" y1="112" x2="110" y2="112" />
-        <line x1="98" y1="118" x2="110" y2="118" />
-        <line x1="98" y1="124" x2="110" y2="124" />
-
-        <line x1="110" y1="100" x2="122" y2="100" />
-        <line x1="110" y1="106" x2="122" y2="106" />
-        <line x1="110" y1="112" x2="122" y2="112" />
-        <line x1="110" y1="118" x2="122" y2="118" />
-        <line x1="110" y1="124" x2="122" y2="124" />
-        
-        {/* Direction Arrow */}
-        <path d="M 104,126 L 104,98 L 116,98 L 116,115" stroke="#10b981" strokeWidth="0.8" fill="none" />
-        <polygon points="114,113 116,117 118,113" fill="#10b981" stroke="none" />
-        <text x="110" y="136" fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">MERDİVEN</text>
-      </g>
-
-      {/* Independent Unit Boundaries & Labels */}
-      {hasShop ? (
-        <g stroke="#34d399" strokeWidth="1.2" fill="none">
-          {/* Shop 1 boundary on left */}
-          <line x1="98" y1="45" x2="98" y2="175" strokeDasharray="3,3" />
-          <text x="71" y="105" fill="#34d399" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold">DÜKKAN 01</text>
-          <text x="71" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~{shopGross} m²</text>
-          <text x="71" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~{shopNet} m²</text>
-
-          {/* Shop 2 boundary on right */}
-          <line x1="122" y1="45" x2="122" y2="175" strokeDasharray="3,3" />
-          <text x="148" y="105" fill="#34d399" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold">DÜKKAN 02</text>
-          <text x="148" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~{shopGross} m²</text>
-          <text x="148" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~{shopNet} m²</text>
-          
-          <text x="110" y="58" fill="#10b981" fontSize="5" textAnchor="middle" stroke="none" fontWeight="bold">ORTAK HOL</text>
-        </g>
-      ) : (
-        <g stroke="#a78bfa" strokeWidth="1.2" fill="none">
-          {/* Flat 1 on left */}
-          <line x1="98" y1="45" x2="98" y2="175" strokeDasharray="3,3" />
-          <text x="71" y="105" fill="#a78bfa" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold">DAİRE 01</text>
-          <text x="71" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~{grossArea} m²</text>
-          <text x="71" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~{netArea} m²</text>
-          <text x="71" y="130" fill="#a78bfa" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">{roomType}</text>
-
-          {/* Flat 2 on right */}
-          <line x1="122" y1="45" x2="122" y2="175" strokeDasharray="3,3" />
-          <text x="148" y="105" fill="#a78bfa" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold">DAİRE 02</text>
-          <text x="148" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~{grossArea} m²</text>
-          <text x="148" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~{netArea} m²</text>
-          <text x="148" y="130" fill="#a78bfa" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">{roomType}</text>
-          
-          <text x="110" y="58" fill="#10b981" fontSize="5" textAnchor="middle" stroke="none" fontWeight="bold">ORTAK HOL</text>
-        </g>
-      )}
-
-      {/* CAD DIMENSION LINES (DIŞ ÖLÇÜLER) */}
-      <g stroke="#e2e8f0" strokeWidth="0.6" fill="none" opacity="0.8">
-        {/* Horizontal dimension line at top */}
-        <line x1="45" y1="23" x2="175" y2="23" stroke="#10b981" strokeWidth="0.8" />
-        {/* Extension lines */}
-        <line x1="45" y1="45" x2="45" y2="18" stroke="#475569" strokeWidth="0.5" />
-        <line x1="175" y1="45" x2="175" y2="18" stroke="#475569" strokeWidth="0.5" />
-        {/* Tick marks */}
-        <line x1="42" y1="26" x2="48" y2="20" stroke="#10b981" strokeWidth="0.8" />
-        <line x1="172" y1="26" x2="178" y2="20" stroke="#10b981" strokeWidth="0.8" />
-        {/* Dimension Text */}
-        <text x="110" y="16" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace">{estW.toFixed(2)} m</text>
-
-        {/* Vertical dimension line on left */}
-        <line x1="20" y1="45" x2="20" y2="175" stroke="#10b981" strokeWidth="0.8" />
-        {/* Extension lines */}
-        <line x1="45" y1="45" x2="15" y2="45" stroke="#475569" strokeWidth="0.5" />
-        <line x1="45" y1="175" x2="15" y2="175" stroke="#475569" strokeWidth="0.5" />
-        {/* Tick marks */}
-        <line x1="17" y1="48" x2="23" y2="42" stroke="#10b981" strokeWidth="0.8" />
-        <line x1="17" y1="178" x2="23" y2="172" stroke="#10b981" strokeWidth="0.8" />
-        {/* Dimension Text */}
-        <text x="12" y="113" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace" transform="rotate(-90, 12, 113)">{estD.toFixed(2)} m</text>
-      </g>
-
-      <text x="110" y="202" fill="#38bdf8" fontSize="8" textAnchor="middle" stroke="none" fontWeight="bold" letterSpacing="1">
-        ZEMİN KAT PLANI
-      </text>
-    </svg>
-  );
-};
-
-// Helper to render CAD style Normal Floor Plan
-const renderNormalFloorPlanSvg = (roomType = '3+1', grossArea = 120, netArea = 96, baseBuildArea = 120) => {
-  const estW = Math.sqrt(baseBuildArea / 1.2);
-  const estD = estW * 1.2;
-
-  return (
-    <svg viewBox="0 0 220 220" className="w-full h-44 md:h-52 bg-[#090f1d] rounded-2xl border border-slate-800 shadow-inner">
-      <defs>
-        <pattern id="gridPatternCADNormal" width="10" height="10" patternUnits="userSpaceOnUse">
-          <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#111c30" strokeWidth="0.5" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="#060a13" />
-      <rect width="100%" height="100%" fill="url(#gridPatternCADNormal)" />
-
-      {/* Building Outer Bounds (CAD Line Style) */}
-      <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" strokeWidth="1.5" />
-      <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="1,2" />
-
-      {/* Elevator Shaft (CAD style with diagonal lines) */}
-      <g stroke="#f43f5e" strokeWidth="1" fill="none">
-        <rect x="98" y="70" width="24" height="24" strokeWidth="1.2" />
-        <line x1="98" y1="70" x2="122" y2="94" strokeWidth="0.6" />
-        <line x1="122" y1="70" x2="98" y2="94" strokeWidth="0.6" />
-        <text x="110" y="84" fill="#f43f5e" fontSize="5" textAnchor="middle" stroke="none" fontWeight="bold">ASANSÖR</text>
-      </g>
-
-      {/* Staircase (CAD style) */}
-      <g stroke="#38bdf8" strokeWidth="1" fill="none">
-        <rect x="98" y="94" width="24" height="36" strokeWidth="1.2" />
-        <line x1="110" y1="94" x2="110" y2="130" strokeWidth="0.8" />
-        {/* Steps */}
-        <line x1="98" y1="100" x2="110" y2="100" />
-        <line x1="98" y1="106" x2="110" y2="106" />
-        <line x1="98" y1="112" x2="110" y2="112" />
-        <line x1="98" y1="118" x2="110" y2="118" />
-        <line x1="98" y1="124" x2="110" y2="124" />
-
-        <line x1="110" y1="100" x2="122" y2="100" />
-        <line x1="110" y1="106" x2="122" y2="106" />
-        <line x1="110" y1="112" x2="122" y2="112" />
-        <line x1="110" y1="118" x2="122" y2="118" />
-        <line x1="110" y1="124" x2="122" y2="124" />
-        
-        {/* Direction Arrow */}
-        <path d="M 104,126 L 104,98 L 116,98 L 116,115" stroke="#10b981" strokeWidth="0.8" fill="none" />
-        <polygon points="114,113 116,117 118,113" fill="#10b981" stroke="none" />
-        <text x="110" y="136" fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">MERDİVEN</text>
-      </g>
-
-      {/* Independent Unit Boundaries & Labels (konut katı) */}
-      <g stroke="#a78bfa" strokeWidth="1.2" fill="none">
-        {/* Flat A on left */}
-        <line x1="98" y1="45" x2="98" y2="175" strokeDasharray="3,3" />
-        <text x="71" y="105" fill="#a78bfa" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold">DAİRE A (SOL)</text>
-        <text x="71" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~{grossArea} m²</text>
-        <text x="71" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~{netArea} m²</text>
-        <text x="71" y="130" fill="#a78bfa" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">{roomType}</text>
-
-        {/* Flat B on right */}
-        <line x1="122" y1="45" x2="122" y2="175" strokeDasharray="3,3" />
-        <text x="148" y="105" fill="#a78bfa" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold">DAİRE B (SAĞ)</text>
-        <text x="148" y="115" fill="#64748b" fontSize="4.5" textAnchor="middle" stroke="none">BRÜT: ~{grossArea} m²</text>
-        <text x="148" y="122" fill="#64748b" fontSize="4" textAnchor="middle" stroke="none">NET: ~{netArea} m²</text>
-        <text x="148" y="130" fill="#a78bfa" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">{roomType}</text>
-        
-        <text x="110" y="58" fill="#10b981" fontSize="5" textAnchor="middle" stroke="none" fontWeight="bold">KAT HOLÜ</text>
-      </g>
-
-      {/* CAD DIMENSION LINES (DIŞ ÖLÇÜLER) */}
-      <g stroke="#e2e8f0" strokeWidth="0.6" fill="none" opacity="0.8">
-        {/* Horizontal dimension line at top */}
-        <line x1="45" y1="23" x2="175" y2="23" stroke="#10b981" strokeWidth="0.8" />
-        {/* Extension lines */}
-        <line x1="45" y1="45" x2="45" y2="18" stroke="#475569" strokeWidth="0.5" />
-        <line x1="175" y1="45" x2="175" y2="18" stroke="#475569" strokeWidth="0.5" />
-        {/* Tick marks */}
-        <line x1="42" y1="26" x2="48" y2="20" stroke="#10b981" strokeWidth="0.8" />
-        <line x1="172" y1="26" x2="178" y2="20" stroke="#10b981" strokeWidth="0.8" />
-        {/* Dimension Text */}
-        <text x="110" y="16" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace">{estW.toFixed(2)} m</text>
-
-        {/* Vertical dimension line on left */}
-        <line x1="20" y1="45" x2="20" y2="175" stroke="#10b981" strokeWidth="0.8" />
-        {/* Extension lines */}
-        <line x1="45" y1="45" x2="15" y2="45" stroke="#475569" strokeWidth="0.5" />
-        <line x1="45" y1="175" x2="15" y2="175" stroke="#475569" strokeWidth="0.5" />
-        {/* Tick marks */}
-        <line x1="17" y1="48" x2="23" y2="42" stroke="#10b981" strokeWidth="0.8" />
-        <line x1="17" y1="178" x2="23" y2="172" stroke="#10b981" strokeWidth="0.8" />
-        {/* Dimension Text */}
-        <text x="12" y="113" fill="#10b981" fontSize="6" textAnchor="middle" stroke="none" fontWeight="bold" fontFamily="monospace" transform="rotate(-90, 12, 113)">{estD.toFixed(2)} m</text>
-      </g>
-
-      <text x="110" y="202" fill="#38bdf8" fontSize="8" textAnchor="middle" stroke="none" fontWeight="bold" letterSpacing="1">
-        NORMAL KAT PLANI
-      </text>
-    </svg>
-  );
-};
 
 export const OfferTab: React.FC<OfferTabProps> = ({
   params,
@@ -663,7 +148,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
             />
             <label htmlFor="toggle-drawings-checkbox" className="text-xs font-medium text-slate-600 cursor-pointer select-none">
-              Şematik CAD Çizimlerini Çıktıda ve Raporlarda Göster
+              3D Bina Modeli Görünümlerini Çıktıda ve Raporlarda Göster
             </label>
           </div>
         </div>
@@ -824,8 +309,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         <div className={`mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-200 ${!showDrawingsInReport ? 'print:hidden border-dashed border-slate-300 opacity-80' : ''}`}>
           <h4 className="text-xs font-bold text-indigo-700 mb-4 uppercase tracking-wider flex items-center justify-between gap-2">
             <span className="flex items-center gap-2">
-              <Compass className="w-4 h-4" />
-              <span>📐 Dinamik Mimari Kütle Tasarımı & Şematik CAD Çizimleri</span>
+              <Box className="w-4 h-4" />
+              <span>🏢 Dinamik Mimari 3D Canlı Bina Görünümleri (Canlı CAD Modeli)</span>
             </span>
             {!showDrawingsInReport && (
               <span className="text-[10px] bg-amber-500/10 text-amber-700 border border-amber-500/25 px-2.5 py-0.5 rounded-full font-semibold print:hidden">
@@ -835,33 +320,89 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </h4>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/60 shadow-sm">
-              <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase text-center mb-1">
-                A. Ön Cephe Görünümü (Elevation)
+            <div className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/60 shadow-sm text-center">
+              <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase mb-1">
+                A. Ön Cephe Görünümü (Front Elevation)
               </span>
-              {renderFrontViewSvg(params.floorCount || 5, !!params.hasGroundFloorShop, params.roofType || 'gable', params.baseBuildArea, profile.companyName)}
-              <p className="text-[10px] text-slate-500 text-center italic mt-1">Dış ölçüler (Yükseklik/Genişlik) ve kat seviyeleri gösterilmiştir.</p>
+              <div className="h-48 md:h-56 bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-inner group transition-transform duration-500 hover:scale-[1.02]">
+                <ThreeBuildingView 
+                  params={{
+                    ...params,
+                    floorHeight: 2.95,
+                    stairWidth: 2.6,
+                    stairDepth: 4.8,
+                    elevatorWidth: 1.8,
+                    elevatorDepth: 2.0,
+                    wallThickness: 0.2,
+                    showFurniture: true,
+                    showDimensions: false,
+                    showInteriorRooms: true,
+                    interiorCutMode: 'solid'
+                  } as BuildingModelParams} 
+                  forcedCameraPreset="front" 
+                  hideControls={true} 
+                  theme="dark"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500 italic mt-1 px-2">Dış ölçüler (Yükseklik/Genişlik) ve kat seviyeleri 3D olarak hesaplanmıştır.</p>
             </div>
             
-            <div className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/60 shadow-sm">
-              <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase text-center mb-1">
-                B. Zemin Kat Planı (Ground Floor)
+            <div className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/60 shadow-sm text-center">
+              <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase mb-1">
+                B. Kuşbakışı Görünüm (Top / Plan View)
               </span>
-              {renderGroundFloorPlanSvg(!!params.hasGroundFloorShop, `${params.roomType || '3+1'} ODA`, physicalGrossArea, physicalNetArea, params.baseBuildArea)}
-              <p className="text-[10px] text-slate-500 text-center italic mt-1">Daire ve bağımsız bölüm sınırları, asansör, merdiven ve dış ölçüleri içerir.</p>
+              <div className="h-48 md:h-56 bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-inner group transition-transform duration-500 hover:scale-[1.02]">
+                <ThreeBuildingView 
+                  params={{
+                    ...params,
+                    floorHeight: 2.95,
+                    stairWidth: 2.6,
+                    stairDepth: 4.8,
+                    elevatorWidth: 1.8,
+                    elevatorDepth: 2.0,
+                    wallThickness: 0.2,
+                    showFurniture: true,
+                    showDimensions: true,
+                    showInteriorRooms: true,
+                    interiorCutMode: 'cutaway'
+                  } as BuildingModelParams} 
+                  forcedCameraPreset="top" 
+                  hideControls={true} 
+                  theme="dark"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500 italic mt-1 px-2">Daire ve bağımsız bölüm sınırları, asansör ve merdiven kurgusunu içerir.</p>
             </div>
             
-            <div className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/60 shadow-sm">
-              <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase text-center mb-1">
-                C. Normal Kat Planı (Normal Floor)
+            <div className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/60 shadow-sm text-center">
+              <span className="block text-xs font-bold text-indigo-700 tracking-wide uppercase mb-1">
+                C. İzometrik Mimari Model (3D Isometric)
               </span>
-              {renderNormalFloorPlanSvg(`${params.roomType || '3+1'} ODA`, physicalGrossArea, physicalNetArea, params.baseBuildArea)}
-              <p className="text-[10px] text-slate-500 text-center italic mt-1">Normal kat bağımsız bölüm sınırları, merdiven, asansör ve kat holünü gösterir.</p>
+              <div className="h-48 md:h-56 bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-inner group transition-transform duration-500 hover:scale-[1.02]">
+                <ThreeBuildingView 
+                  params={{
+                    ...params,
+                    floorHeight: 2.95,
+                    stairWidth: 2.6,
+                    stairDepth: 4.8,
+                    elevatorWidth: 1.8,
+                    elevatorDepth: 2.0,
+                    wallThickness: 0.2,
+                    showFurniture: true,
+                    showDimensions: false,
+                    showInteriorRooms: true,
+                    interiorCutMode: 'xray'
+                  } as BuildingModelParams} 
+                  forcedCameraPreset="iso" 
+                  hideControls={true} 
+                  theme="dark"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500 italic mt-1 px-2">Yapının tamamını şeffaf katmanlarla gösteren 3D perspektif görünüm.</p>
             </div>
           </div>
-          
-          <p className="text-[10px] text-slate-500 mt-4 text-center italic">
-            * Yukarıdaki şematik CAD çizimleri, girdiğiniz kat adedi ({params.floorCount} Kat), zemin ticari alan durumu ({params.hasGroundFloorShop ? "Var" : "Yok"}) ve çatı tipi ({getRoofTypeShortTitle(params.roofType)}) özelliklerine göre dinamik olarak şematize edilmiştir.
+          <p className="mt-4 text-[10px] text-slate-400 font-mono border-t border-slate-200 pt-3 italic text-center">
+            * Yukarıdaki 3D mimari model görünümleri, girdiğiniz verilere ({params.floorCount} Kat, {results.baseArea.toFixed(1)}m²) göre gerçek zamanlı CAD motoru tarafından oluşturulmuştur.
           </p>
         </div>
 

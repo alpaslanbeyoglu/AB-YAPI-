@@ -257,24 +257,25 @@ export function generateOfferHtml(
 
   ${showDrawings ? `
   <div style="margin-top: 25px; margin-bottom: 25px; page-break-inside: avoid;">
-    <h3 style="border-bottom: 2px solid #1f7a7a; padding-bottom: 4px; color: #1f7a7a; text-transform: uppercase; font-size:14px; margin-bottom: 12px;">📐 Dinamik Mimari Kütle Tasarımı & Şematik CAD Çizimleri</h3>
+    <h3 style="border-bottom: 2px solid #1f7a7a; padding-bottom: 4px; color: #1f7a7a; text-transform: uppercase; font-size:14px; margin-bottom: 12px;">📐 Dinamik Mimari 3D Bina Görünümleri (Canlı CAD Modeli)</h3>
     <div style="display: table; width: 100%; table-layout: fixed; border-spacing: 12px;">
       <div style="display: table-cell; background: #0b1329; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
         <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">A. Ön Cephe Görünümü (Elevation)</span>
-        ${generateFrontViewSvgString(params.floorCount || 5, !!params.hasGroundFloorShop, (params as any).roofType || 'gable', params.baseBuildArea, compName)}
-        <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Dış ölçüler (Yükseklik/Genişlik) ve kat kotları</span>
+        ${generateFrontViewSvgString(params.floorCount || 5, !!params.hasGroundFloorShop, params.roofType || 'gable', params.baseBuildArea, compName)}
+        <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Dış ölçüler (Yükseklik/Genişlik) ve kat seviyeleri</span>
       </div>
       <div style="display: table-cell; background: #060a13; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
-        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">B. Zemin Kat Planı (Ground Floor)</span>
+        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">B. Kuşbakışı Görünüm (Top / Plan)</span>
         ${generateGroundFloorPlanSvgString(!!params.hasGroundFloorShop, `${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep, params.baseBuildArea)}
-        <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Bağımsız bölüm sınırları, asansör, merdiven, dış ölçüler</span>
+        <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Daire ve bağımsız bölüm sınırları, asansör ve merdiven kurgusu</span>
       </div>
       <div style="display: table-cell; background: #060a13; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
-        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">C. Normal Kat Planı (Normal Floor)</span>
+        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 6px; text-transform: uppercase;">C. İzometrik Mimari Model (Isometric)</span>
         ${generateNormalFloorPlanSvgString(`${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep, params.baseBuildArea)}
-        <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Normal kat dairesel ve şematik sınırları, asansör, merdiven</span>
+        <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Yapının tamamını şeffaf katmanlarla gösteren 3D perspektif</span>
       </div>
     </div>
+    <p style="text-align:center; font-size:9px; color:#777; margin-top:8px; font-style:italic;">* Yukarıdaki görünümler, PDF çıktısında canlı 3D model olarak, statik raporlarda şematik CAD çizimi olarak sunulmaktadır.</p>
   </div>` : ''}
 
   <h3>1. Hak Sahipleri Ödeme ve Borçlandırma Özeti</h3>
@@ -492,14 +493,14 @@ function generateFrontViewSvgString(
   if (roofType === 'flat') {
     roofMarkup = `
       <rect x="45" y="${topY - 4}" width="130" height="4" stroke="#38bdf8" stroke-width="1.2" fill="#1e293b" />
-      <line x1="60" y1="${topY - 4}" x2="60" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" />
-      <line x1="160" y1="${topY - 4}" x2="160" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" />
+      <line x1="45" y1="${topY - 4}" x2="175" y2="${topY - 4}" stroke="#38bdf8" stroke-width="1" />
+      <text x="110" y="${topY - 6}" fill="#38bdf8" font-size="4" text-anchor="middle" stroke="none" font-weight="bold">TERASLI ÇATI</text>
     `;
   } else if (roofType === 'mansard') {
     roofMarkup = `
-      <polygon points="45,${topY} 65,${topY - 18} 155,${topY - 18} 175,${topY}" fill="#1e293b" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1.2" />
-      <line x1="65" y1="${topY - 18}" x2="65" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="1,2" />
-      <line x1="155" y1="${topY - 18}" x2="155" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="1,2" />
+      <polygon points="45,${topY} 60,${topY - 14} 160,${topY - 14} 175,${topY}" fill="#1e293b" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1.2" />
+      <polygon points="60,${topY - 14} 110,${topY - 20} 160,${topY - 14}" fill="#0f172a" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1" />
+      <text x="110" y="${topY - 22}" fill="#38bdf8" font-size="4" text-anchor="middle" stroke="none" font-weight="bold">MANSART ÇATI</text>
     `;
   } else if (roofType === 'duplex') {
     roofMarkup = `
