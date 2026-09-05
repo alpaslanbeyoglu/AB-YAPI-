@@ -145,6 +145,7 @@ export interface ProjectParams {
   balconyDepth?: number;
   facadeStyle?: 'modern' | 'wood_anthracite' | 'glass_minimal' | 'brick_stone';
   elevatorCount?: number;
+  showDebugOverlay3D?: boolean; // Geometrik sınır kutusu ve kesişim noktaları hata ayıklama katmanı
 
   // Cost items
   costNotaryContract: number;
