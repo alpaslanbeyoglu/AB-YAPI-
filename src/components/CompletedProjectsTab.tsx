@@ -10,6 +10,7 @@ interface ProjectItem {
   lat: string;
   lng: string;
   isOffice?: boolean;
+  status?: 'completed' | 'ongoing'; // 'completed': Tamamlandı, 'ongoing': Yapılmakta Olan / Devam Eden
 }
 
 const INITIAL_PROJECTS: ProjectItem[] = [
@@ -63,12 +64,14 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
   });
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'ongoing'>('all');
 
   // Add form fields
   const [newTitle, setNewTitle] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newDistrict, setNewDistrict] = useState('Fatih / İstanbul');
   const [newCoords, setNewCoords] = useState('');
+  const [newStatus, setNewStatus] = useState<'completed' | 'ongoing'>('completed');
 
   useEffect(() => {
     try {
@@ -110,7 +113,8 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
       district: newDistrict.trim(),
       lat,
       lng,
-      isOffice: false
+      isOffice: false,
+      status: newStatus
     };
 
     const updated = [...projects, item];
@@ -121,6 +125,7 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
     setNewTitle('');
     setNewAddress('');
     setNewCoords('');
+    setNewStatus('completed');
   };
 
   const handleDeleteProject = (id: number) => {
@@ -133,11 +138,18 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
 
   const filteredProjects = projects.filter(p => {
     const term = searchQuery.toLowerCase();
-    return (
+    const matchesSearch =
       p.title.toLowerCase().includes(term) ||
       p.address.toLowerCase().includes(term) ||
-      p.district.toLowerCase().includes(term)
-    );
+      p.district.toLowerCase().includes(term);
+
+    const status = p.status || 'completed';
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'completed' && status === 'completed') ||
+      (statusFilter === 'ongoing' && status === 'ongoing');
+
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -183,14 +195,14 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
         </div>
       </div>
 
-      {/* FORM: ADD NEW COMPLETED PROJECT (no-print) */}
+      {/* FORM: ADD NEW PROJECT (no-print) */}
       <div className={`${cardBg} rounded-3xl border p-5 shadow-sm space-y-4 print:hidden`}>
         <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
           <span className="text-base">🏗️</span>
-          <h4 className="text-xs font-extrabold text-slate-800">Yeni Tamamlanan Proje Ekle</h4>
+          <h4 className="text-xs font-extrabold text-slate-800">Yeni Proje Ekle</h4>
         </div>
         <form onSubmit={handleAddProject} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Proje Başlığı / Apartman Adı</label>
               <input
@@ -234,11 +246,40 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
                 className={`w-full text-xs px-3.5 py-2.5 rounded-xl border outline-none transition-all ${inputBg}`}
               />
             </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Proje Durumu</label>
+              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setNewStatus('completed')}
+                  className={`flex-1 text-[11px] py-1.5 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                    newStatus === 'completed'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Tamamlandı</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewStatus('ongoing')}
+                  className={`flex-1 text-[11px] py-1.5 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                    newStatus === 'ongoing'
+                      ? 'bg-amber-500 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Building2 className="w-3 h-3" />
+                  <span>Yapılmakta</span>
+                </button>
+              </div>
+            </div>
           </div>
           <div className="flex justify-end">
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-indigo-600/15"
+              className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-indigo-600/15 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Projeyi Listeye Ekle</span>
@@ -247,8 +288,8 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
         </form>
       </div>
 
-      {/* SEARCH AND COUNT BADGE (no-print) */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 print:hidden">
+      {/* SEARCH AND FILTER STATUS TABS (no-print) */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 print:hidden">
         <div className="relative flex-1 max-w-md">
           <input
             type="text"
@@ -259,21 +300,71 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl text-xs font-bold self-start sm:self-auto">
-          <span className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse shrink-0"></span>
-          <span>{filteredProjects.length} Kayıt Gösteriliyor</span>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Status Filter Buttons */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                statusFilter === 'all'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Tümü ({projects.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('completed')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                statusFilter === 'completed'
+                  ? 'bg-emerald-600 text-white shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Tamamlananlar ({projects.filter(p => (p.status || 'completed') === 'completed').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ongoing')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                statusFilter === 'ongoing'
+                  ? 'bg-amber-500 text-white shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              Yapılmakta Olanlar ({projects.filter(p => p.status === 'ongoing').length})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-xl text-xs font-bold shrink-0">
+            <span className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse shrink-0"></span>
+            <span>{filteredProjects.length} Kayıt</span>
+          </div>
         </div>
       </div>
 
-      {/* LIST OF COMPLETED PROJECTS */}
+      {/* LIST OF PROJECTS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 print:grid-cols-2 print:gap-4">
         {filteredProjects.length > 0 ? (
           filteredProjects.map((p) => {
             const isOffice = p.isOffice;
-            const badgeStyle = isOffice
-              ? 'bg-blue-50 text-blue-700 border-blue-200'
-              : 'bg-emerald-50 text-emerald-700 border-emerald-200';
-            const badgeLabel = isOffice ? '📍 Merkez Ofis' : '✓ Tamamlandı';
+            const status = p.status || 'completed';
+
+            let badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            let badgeLabel = '✓ Tamamlandı';
+
+            if (isOffice) {
+              badgeStyle = 'bg-blue-50 text-blue-700 border-blue-200';
+              badgeLabel = '📍 Merkez Ofis';
+            } else if (status === 'ongoing') {
+              badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
+              badgeLabel = '🚧 Yapılmakta Olan';
+            }
 
             return (
               <div

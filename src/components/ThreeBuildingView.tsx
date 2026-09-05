@@ -180,8 +180,18 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     buildingGroupRef.current = buildingGroup;
 
     const colors = getStyleColors(params.facadeStyle);
-    const W = safeNum(params?.facadeWidth, 14.0, 1.0);
-    const D = safeNum(params?.facadeDepth, 18.0, 1.0);
+    let W = safeNum(params?.facadeWidth, 14.0, 1.0);
+    let D = safeNum(params?.facadeDepth, 18.0, 1.0);
+
+    const isCustomPoly = params.footprintInputMode === 'polygonDraw' && !!params.polygonPoints && params.polygonPoints.length >= 3;
+    const activePolyPts = isCustomPoly ? params.polygonPoints : null;
+
+    if (isCustomPoly && activePolyPts) {
+      const bounds = getPolygonBounds(activePolyPts);
+      W = bounds.width;
+      D = bounds.depth;
+    }
+
     const H = safeNum(params?.floorHeight, 2.95, 1.5);
     const N = Math.max(1, Math.round(safeNum(params?.floorCount, 5, 1)));
     const B = Math.max(0, Math.round(safeNum(params?.basementCount, 1, 0)));
@@ -365,9 +375,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const slabThickness = 0.25;
     const colSize = 0.45;
     const totalFloors = N + B;
-
-    const isCustomPoly = params.footprintInputMode === 'polygonDraw' && !!params.polygonPoints && params.polygonPoints.length >= 3;
-    const activePolyPts = isCustomPoly ? params.polygonPoints : null;
 
     // Pre-calculate floor heights and base Y positions to support taller ground floor shop
     const floorHeights: number[] = [];
@@ -1299,6 +1306,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               }
               balconyOpeningIndices.add(closestIdx);
             });
+
+            // Fallback: Ensure at least one door if balcony exists
+            if (hasBalc && winCount > 0 && balconyOpeningIndices.size === 0) {
+              balconyOpeningIndices.add(0);
+            }
 
             for (let p = 0; p <= winCount; p++) {
               const px = -localW / 2 + pierW / 2 + p * (pierW + winWidth);

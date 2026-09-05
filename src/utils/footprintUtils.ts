@@ -3,6 +3,7 @@ import {
   FootprintInputMode,
   PolygonPoint,
   FacadeDetailConfig,
+  GeometricValidationResult,
 } from '../types';
 
 export const DEFAULT_CUSTOM_FACADES_4: CustomFacadeSide[] = [

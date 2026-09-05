@@ -210,6 +210,21 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   const totalLabor = roughLabor + fineLabor + systemsLabor + officialLabor;
   const totalMaterial = roughMaterial + fineMaterial + systemsMaterial + officialMaterial;
 
+  // Calculate blind vs open facade ratio for PVC and paint/plaster takeoff adjustments
+  let activeOpenFacadeRatio = 1.0;
+  if (params.facadeConfigs && params.facadeConfigs.length > 0) {
+    const totalCount = params.facadeConfigs.length;
+    const openCount = params.facadeConfigs.filter((c) => (c.windowCountPerFloor ?? 1) > 0).length;
+    activeOpenFacadeRatio = totalCount > 0 ? openCount / totalCount : 1.0;
+  } else if (params.customFacades && params.customFacades.length > 0) {
+    const totalCount = params.customFacades.length;
+    const openCount = params.customFacades.filter((c) => (c.windowCountPerFloor ?? 1) > 0).length;
+    activeOpenFacadeRatio = totalCount > 0 ? openCount / totalCount : 1.0;
+  }
+
+  const pvcAreaFactor = 0.18 * activeOpenFacadeRatio;
+  const paintPlasterAreaFactor = 2.8 + 0.18 * (1 - activeOpenFacadeRatio);
+
   // 2. Generate Detailed Take-off (Metraj) Items from calculation inputs
   const materialItems: MaterialTakeoffItem[] = [
     // Kaba İnşaat
@@ -310,9 +325,9 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
       category: 'ince',
       name: 'Isıcamlı PVC Doğrama Pencere Sistemleri',
       unit: 'm²',
-      quantity: Math.round(totalArea * 0.18 * 10) / 10,
+      quantity: Math.round(totalArea * pvcAreaFactor * 10) / 10,
       unitPrice: params.pricePvc,
-      total: totalArea * 0.18 * params.pricePvc * (params.costMultiplier || 1),
+      total: totalArea * pvcAreaFactor * params.pricePvc * (params.costMultiplier || 1),
       laborShare: 25,
     },
     {
@@ -350,9 +365,9 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
       category: 'ince',
       name: 'Alçı Sıva & Saten İç/Dış Boya İşleri',
       unit: 'm²',
-      quantity: Math.round(totalArea * 2.8 * 10) / 10,
+      quantity: Math.round(totalArea * paintPlasterAreaFactor * 10) / 10,
       unitPrice: params.pricePaintPlaster,
-      total: totalArea * 2.8 * params.pricePaintPlaster * (params.costMultiplier || 1),
+      total: totalArea * paintPlasterAreaFactor * params.pricePaintPlaster * (params.costMultiplier || 1),
       laborShare: 70,
     },
     // Resmi İşlemler & İdari Giderler

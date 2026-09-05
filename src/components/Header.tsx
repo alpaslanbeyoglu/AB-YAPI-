@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cloud, Save, HardDrive, Sun, Palette, Building2 } from 'lucide-react';
+import { Cloud, Save, HardDrive, Sun, Palette, Printer, FileDown } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Logo } from './Logo';
 import { AppTheme } from '../types';
@@ -85,7 +85,22 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <Save className="w-3.5 h-3.5" />
             )}
-            <span className="hidden sm:inline">Drive'a Kaydet</span>
+            <span className="hidden sm:inline">Kaydet</span>
+          </button>
+
+          {/* New: Global Print/Export Button */}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+              isGray
+                ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-sm'
+            }`}
+            title="Tüm Raporu Yazdır / PDF Al"
+          >
+            <Printer className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Yazdır</span>
           </button>
 
           {/* Google Drive Status Pill */}

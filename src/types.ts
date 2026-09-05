@@ -291,6 +291,7 @@ export interface BuildingModelParams {
 
   // Taban Oturumu ve Çoklu Cephe Parametreleri
   footprintInputMode?: FootprintInputMode;
+  baseBuildArea?: number;
   customFacadeCount?: number;
   customFacades?: CustomFacadeSide[];
   lShapeFrontMain?: number;

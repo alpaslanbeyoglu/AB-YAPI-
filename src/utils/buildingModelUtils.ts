@@ -1,5 +1,5 @@
 import { BuildingModelParams, RoomType } from '../types';
-import { DEFAULT_CUSTOM_FACADES_4 } from './footprintUtils';
+import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint } from './footprintUtils';
 
 export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   facadeWidth: 14.0,       // Ön cephe 14 metre
@@ -57,6 +57,7 @@ export interface BuildingMetrics {
   upperFloorGrossArea: number; // Çıkmalı kat brüt alanı (m²)
   cantileverArea: number;      // Çıkma ile kazanılan fark (m²)
   totalBuiltArea: number;      // Toplam inşaat alanı (m²)
+  totalGrossArea: number;      // Toplam brüt inşaat alanı (m²)
   totalHeight: number;         // Toplam bina yüksekliği (m)
   totalFlats: number;          // Toplam daire sayısı
   coreArea: number;            // Merdiven + Asansör çekirdek alanı (m²)
@@ -69,8 +70,23 @@ export interface BuildingMetrics {
 }
 
 export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = {}): BuildingMetrics {
-  const fw = (params?.facadeWidth && !isNaN(params.facadeWidth) && params.facadeWidth > 0) ? params.facadeWidth : 14.0;
-  const fd = (params?.facadeDepth && !isNaN(params.facadeDepth) && params.facadeDepth > 0) ? params.facadeDepth : 18.0;
+  const footprintCalc = calculateFootprint(params.footprintInputMode, {
+    baseBuildArea: params.baseBuildArea,
+    facadeWidth: params.facadeWidth,
+    facadeDepth: params.facadeDepth,
+    customFacadeCount: params.customFacadeCount,
+    customFacades: params.customFacades,
+    lShapeFrontMain: params.lShapeFrontMain,
+    lShapeDepthMain: params.lShapeDepthMain,
+    lShapeRecessFront: params.lShapeRecessFront,
+    lShapeRecessDepth: params.lShapeRecessDepth,
+    polygonPoints: params.polygonPoints,
+  });
+
+  const footprintArea = footprintCalc.area;
+  const fw = footprintCalc.effectiveWidth;
+  const fd = footprintCalc.effectiveDepth;
+
   const fh = (params?.floorHeight && !isNaN(params.floorHeight) && params.floorHeight > 0) ? params.floorHeight : 2.95;
   const fc = (params?.floorCount && !isNaN(params.floorCount) && params.floorCount > 0) ? params.floorCount : 5;
   const bc = (params?.basementCount !== undefined && !isNaN(params.basementCount)) ? params.basementCount : 1;
@@ -81,8 +97,6 @@ export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = 
   const elevatorDepth = (params?.elevatorDepth && !isNaN(params.elevatorDepth) && params.elevatorDepth > 0) ? params.elevatorDepth : 2.00;
   const elevatorCount = (params?.elevatorCount && !isNaN(params.elevatorCount) && params.elevatorCount > 0) ? params.elevatorCount : 1;
   const balconyDepth = (params?.balconyDepth && !isNaN(params.balconyDepth) && params.balconyDepth > 0) ? params.balconyDepth : 1.40;
-
-  const footprintArea = Math.round(fw * fd * 100) / 100;
   
   // Tabla / Konsol Çıkması (Cantilever)
   const hasCantilever = !!params.hasCantilever;
@@ -151,6 +165,7 @@ export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = 
     upperFloorGrossArea,
     cantileverArea,
     totalBuiltArea,
+    totalGrossArea: totalBuiltArea,
     totalHeight,
     totalFlats,
     coreArea,

@@ -20,6 +20,7 @@ import {
   Sliders,
   Info,
   Compass,
+  BarChart3,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, FlatItem, AppTheme, FootprintInputMode, CustomFacadeSide, BuildingModelParams } from '../types';
 import {
@@ -93,6 +94,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
   // Request: "Kat malikleri bilgiler kısmı varsayılan gizli gelsin."
   const [isFlatsOpen, setIsFlatsOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<'project' | 'footprint' | 'structure' | 'financial'>('project');
   const [activeCostTab, setActiveCostTab] = useState<'sozlesme' | 'kaba' | 'ince' | 'malik' | 'gelir'>('sozlesme');
   const [bulkDownPayment, setBulkDownPayment] = useState<number>(0);
 
@@ -210,36 +212,77 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   const isStageValid = Math.abs(stageTotal - 100) < 0.01;
 
   return (
-    <div className="space-y-6">
-      {/* Validation alert if stages do not total 100% */}
-      {!isStageValid && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center justify-between font-medium">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              Aşama hakediş oranlarının toplamı %100 olmalıdır! (Şu anki Toplam: %{stageTotal.toFixed(1)})
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Sidebar Navigation for Calculator Sections */}
+      <div className="lg:w-72 shrink-0 space-y-2 print:hidden">
+        {[
+          { id: 'project', label: '1. Proje Künyesi', icon: Building },
+          { id: 'footprint', label: '2. Arsa & Oturum', icon: Ruler },
+          { id: 'structure', label: '3. Yapı Parametreleri', icon: Layers },
+          { id: 'financial', label: '4. Finansal Model', icon: BarChart3 },
+        ].map((sec) => {
+          const Icon = sec.icon;
+          const isActive = activeSection === sec.id;
+          return (
+            <button
+              key={sec.id}
+              onClick={() => setActiveSection(sec.id as any)}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all border ${
+                isActive
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-indigo-600'}`} />
+              <span>{sec.label}</span>
+              {isActive && <ArrowRight className="w-3.5 h-3.5 ml-auto text-indigo-200" />}
+            </button>
+          );
+        })}
+
+        <div className="mt-8 p-5 rounded-3xl bg-indigo-50 border border-indigo-100 hidden lg:block">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-4 h-4 text-indigo-600" />
+            <span className="text-[10px] font-bold text-indigo-900 uppercase tracking-widest">Tasarım İpucu</span>
+          </div>
+          <p className="text-[11px] text-indigo-700 leading-relaxed font-medium">
+            Oturum ölçülerini değiştirdiğinizde 3D model ve maliyetler anlık olarak güncellenir.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-6">
+        {/* Validation alert if stages do not total 100% */}
+        {!isStageValid && (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center justify-between font-medium">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Aşama hakediş oranlarının toplamı %100 olmalıdır! (Şu anki Toplam: %{stageTotal.toFixed(1)})
+              </span>
+            </div>
+            <span className="font-mono">
+              {stageTotal < 100
+                ? `Kalan: %${(100 - stageTotal).toFixed(1)}`
+                : `Fazlalık: %${(stageTotal - 100).toFixed(1)}`}
             </span>
           </div>
-          <span className="font-mono">
-            {stageTotal < 100
-              ? `Kalan: %${(100 - stageTotal).toFixed(1)}`
-              : `Fazlalık: %${(stageTotal - 100).toFixed(1)}`}
-          </span>
-        </div>
-      )}
+        )}
 
-      {/* Main Card: General Project Inputs */}
-      <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-5`}>
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-          <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2.5">
-            <Building className="w-4 h-4 text-indigo-600" />
-            <span>Genel Proje ve Yapı Bilgileri</span>
-          </h3>
-          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>3D Model ile Senkron</span>
-          </span>
-        </div>
+        {/* Section 1: General Project Information */}
+        {activeSection === 'project' && (
+          <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-5 animate-fade-in`}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2.5">
+                <Building className="w-4 h-4 text-indigo-600" />
+                <span>Genel Proje ve Yapı Bilgileri</span>
+              </h3>
+              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>3D Model ile Senkron</span>
+              </span>
+            </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="sm:col-span-2 lg:col-span-3">
@@ -428,7 +471,13 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
           )}
 
           {/* BİNA TABAN OTURUMU & CEPHE GİRİŞ SEÇENEKLERİ (3D MODEL CANLI ENTEGRE) */}
-          <div className="sm:col-span-2 lg:col-span-3 p-4 sm:p-5 rounded-3xl border bg-slate-50/90 border-slate-200/90 shadow-sm space-y-4">
+          </div>
+        </div>
+        )}
+
+        {activeSection === 'footprint' && (
+          <div className="animate-fade-in space-y-6">
+          <div className="p-4 sm:p-5 rounded-3xl border bg-slate-50/90 border-slate-200/90 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
@@ -981,283 +1030,373 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               </div>
             </div>
           </div>
+        </div>
+        )}
 
-          <div>
-            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-              Toplam Kat Sayısı:
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={params.floorCount}
-              onChange={(e) => {
-                const floors = parseInt(e.target.value, 10) || 1;
-                const total = params.baseBuildArea * floors;
-                const avg = parseFloat((total / params.flatCount).toFixed(1));
-                const updatedFlats = params.flats.map((f) => ({ ...f, area: avg }));
-                onChangeParams({
-                  ...params,
-                  floorCount: floors,
-                  flats: updatedFlats,
-                });
-              }}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            />
-          </div>
-
-          <div>
-            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-              Toplam Daire Sayısı:
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={params.flatCount}
-              onChange={(e) => handleFlatCountChange(parseInt(e.target.value, 10) || 1)}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            />
-          </div>
-
-          {/* Dükkan / Ticari Seçeneği */}
-          <div className="p-3.5 bg-indigo-50/60 rounded-2xl border border-indigo-200 space-y-2">
-            <label className="block text-xs font-semibold text-indigo-900 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Store className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Normal Kat Harici Zemin Dükkan:</span>
-              </span>
-              {params.hasGroundFloorShop ? (
-                <span className="text-[10px] font-bold bg-indigo-600 text-white px-2 py-0.5 rounded-full">
-                  Dükkan Var
-                </span>
-              ) : (
-                <span className="text-[10px] font-medium bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full">
-                  Dükkansız
-                </span>
-              )}
-            </label>
-            <select
-              value={params.hasGroundFloorShop ? 'shop' : 'no_shop'}
-              onChange={(e) => {
-                const hasShop = e.target.value === 'shop';
-                onChangeParams({
-                  ...params,
-                  hasGroundFloorShop: hasShop,
-                  shopCount: params.shopCount || 1,
-                  shopHeight: params.shopHeight || 3.8,
-                });
-              }}
-              className={`w-full text-xs px-3 py-2 rounded-xl border transition-all ${inputBg}`}
-            >
-              <option value="no_shop">Dükkansız (Sadece Normal Katlar)</option>
-              <option value="shop">Zemin Katta Dükkan / Ticari Var</option>
-            </select>
-          </div>
-
-          {params.hasGroundFloorShop && (
-            <>
-              <div>
-                <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-                  Zemin Dükkan Sayısı (Adet):
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={params.shopCount || 1}
-                  onChange={(e) => updateParam('shopCount', Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                />
+        {/* Section 3: Structure Parameters */}
+        {activeSection === 'structure' && (
+          <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-6 animate-fade-in`}>
+             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2.5">
+                <Layers className="w-4 h-4 text-indigo-600" />
+                <span>Yapısal Parametreler</span>
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-3">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Normal Kat Sayısı</label>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => updateParam('floorCount', Math.max(1, params.floorCount - 1))} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronDown className="w-4 h-4" /></button>
+                  <span className="flex-1 text-center text-xl font-bold font-mono">{params.floorCount}</span>
+                  <button onClick={() => updateParam('floorCount', params.floorCount + 1)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronUp className="w-4 h-4" /></button>
+                </div>
               </div>
 
-              <div>
-                <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-                  Dükkan Tavan Yüksekliği (m):
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="3.0"
-                  max="6.0"
-                  value={params.shopHeight || 3.8}
-                  onChange={(e) => updateParam('shopHeight', parseFloat(e.target.value) || 3.8)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                />
+              <div className="space-y-3">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bodrum Kat</label>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => updateParam('basementCount', Math.max(0, params.basementCount - 1))} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronDown className="w-4 h-4" /></button>
+                  <span className="flex-1 text-center text-xl font-bold font-mono">{params.basementCount}</span>
+                  <button onClick={() => updateParam('basementCount', params.basementCount + 1)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronUp className="w-4 h-4" /></button>
+                </div>
               </div>
-            </>
-          )}
 
-          {/* İnşaat / Yapı Tipi */}
-          <div>
-            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-              İnşaat / Yapı Tipi:
-            </label>
-            <select
-              value={params.buildingType}
-              onChange={(e) => updateParam('buildingType', e.target.value as any)}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            >
-              <option value="standard">Standart Konut (Orta Segment)</option>
-              <option value="luxury">Lüks / Akıllı Yapı (İnce İşçilik +%35)</option>
-              <option value="commercial">Karma Yapı (Dükkan+Konut / Kaba +%15)</option>
-            </select>
-          </div>
+              <div className="space-y-3">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Zemin Dükkan</label>
+                <button
+                  onClick={() => updateParam('hasGroundFloorShop', !params.hasGroundFloorShop)}
+                  className={`w-full py-3 rounded-xl border font-bold text-xs transition-all ${
+                    params.hasGroundFloorShop ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-400 border-slate-200'
+                  }`}
+                >
+                  {params.hasGroundFloorShop ? 'VAR' : 'YOK'}
+                </button>
+              </div>
 
-          {/* Çatı Tipi & Dubleks Seçeneği */}
-          <div>
-            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-              Mimari Çatı Konstrüksiyonu:
-            </label>
-            <select
-              value={params.roofType || 'gable'}
-              onChange={(e) => updateParam('roofType', e.target.value as any)}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            >
-              <option value="gable">🏠 Kırma Çatı (Klasik 4 Eğimli / Kiremit Çatı)</option>
-              <option value="flat">🏙️ Düz Teras Çatı (Modern Parapetli Teras)</option>
-              <option value="mansard">🏛️ Mansart Çatı (Pencereli Çatı Arası Kat)</option>
-              <option value="duplex">🌟 Çatı Dubleksi (Dubleks Daire & Çatı Terası)</option>
-            </select>
-          </div>
+              <div className="space-y-3">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Daire Sayısı</label>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => handleFlatCountChange(params.flatCount - 1)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronDown className="w-4 h-4" /></button>
+                  <span className="flex-1 text-center text-xl font-bold font-mono">{params.flatCount}</span>
+                  <button onClick={() => handleFlatCountChange(params.flatCount + 1)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronUp className="w-4 h-4" /></button>
+                </div>
+              </div>
+            </div>
 
-          {/* Bodrum Kat Sayısı */}
-          <div>
-            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-              Bodrum Kat Sayısı (Otopark & Sığınak):
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="5"
-              value={params.basementCount !== undefined ? params.basementCount : 1}
-              onChange={(e) => updateParam('basementCount', parseInt(e.target.value, 10) || 0)}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            />
+            {params.hasGroundFloorShop && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                <div>
+                  <label className="block text-xs font-bold text-indigo-900 mb-2">Zemin Dükkan Sayısı (Adet):</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={params.shopCount || 1}
+                    onChange={(e) => updateParam('shopCount', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className={`w-full text-xs px-3.5 py-3 rounded-xl border transition-all ${inputBg}`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-indigo-900 mb-2">Dükkan Tavan Yüksekliği (m):</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="3.0"
+                    max="6.0"
+                    value={params.shopHeight || 3.8}
+                    onChange={(e) => updateParam('shopHeight', parseFloat(e.target.value) || 3.8)}
+                    className={`w-full text-xs px-3.5 py-3 rounded-xl border transition-all ${inputBg}`}
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-6 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-3">Çatı Konstrüksiyonu:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'gable', label: 'Kırma Çatı' },
+                    { id: 'flat', label: 'Teras Çatı' },
+                    { id: 'mansard', label: 'Mansart' },
+                    { id: 'duplex', label: 'Dubleks' },
+                  ].map(type => (
+                    <button
+                      key={type.id}
+                      onClick={() => updateParam('roofType', type.id as any)}
+                      className={`py-3 rounded-xl border text-xs font-bold transition-all ${
+                        params.roofType === type.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-3">Daire Tipi (Genel):</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['1+1', '2+1', '3+1', '4+1'].map(type => (
+                    <button
+                      key={type}
+                      onClick={() => updateParam('roomType', type as any)}
+                      className={`py-3 rounded-xl border text-xs font-bold transition-all ${
+                        params.roomType === type ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
+        )}
 
-          <div>
-            <label className="block text-xs font-medium text-emerald-700 mb-1.5">
-              Güncel Dolar Kuru (1 USD = TL):
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={params.usdRate}
-              onChange={(e) => updateParam('usdRate', parseFloat(e.target.value) || 1)}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            />
-          </div>
+        {/* Section 4: Financial Model & Owners */}
+        {activeSection === 'financial' && (
+          <div className="animate-fade-in space-y-6">
+            <div className={`${cardBg} rounded-3xl border shadow-sm overflow-hidden`}>
+              <div className="p-6 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Kat Malikleri & Daire Listesi</h3>
+                      <p className="text-[11px] text-slate-500">Mülk sahiplerinin hakediş ve ödeme detayları</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-          <div>
-            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-              Özel Maliyet Çarpanı (Bölge/Enflasyon):
-            </label>
-            <input
-              type="number"
-              step="0.05"
-              value={params.costMultiplier}
-              onChange={(e) => updateParam('costMultiplier', parseFloat(e.target.value) || 1)}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            />
-          </div>
+              <div className="p-6 space-y-4 max-h-[600px] overflow-y-auto no-scrollbar">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {params.flats.map((flat, i) => (
+                    <div key={flat.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-indigo-300 hover:shadow-sm transition-all group relative">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-[10px] font-bold text-indigo-600 border border-indigo-100">D{flat.id}</span>
+                        {flat.isContractorShare && (
+                          <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">MÜTEAHHİT</span>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={flat.name}
+                          onChange={(e) => handleFlatChange(i, 'name', e.target.value)}
+                          className={`w-full text-[11px] font-bold px-3 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                          placeholder="Malik Adı / Soyadı"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={flat.area}
+                              onChange={(e) => handleFlatChange(i, 'area', parseFloat(e.target.value) || 0)}
+                              className={`w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                            />
+                            <span className="absolute right-2 top-2.5 text-[9px] font-bold text-slate-400">m²</span>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={flat.downPayment}
+                              onChange={(e) => handleFlatChange(i, 'downPayment', parseFloat(e.target.value) || 0)}
+                              className={`w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                            />
+                            <span className="absolute right-2 top-2.5 text-[9px] font-bold text-slate-400">₺ Peşin</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-          <div>
-            <label className={`block text-xs font-medium ${labelColor} mb-1.5`}>
-              Müteahhit Kâr Oranı (%):
-            </label>
-            <input
-              type="number"
-              value={params.profitRate}
-              onChange={(e) => updateParam('profitRate', parseFloat(e.target.value) || 0)}
-              className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-            />
-          </div>
-        </div>
+            <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-6`}>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2.5">
+                  <Calculator className="w-4 h-4 text-indigo-600" />
+                  <span>Maliyet ve Finansman Parametreleri</span>
+                </h3>
+              </div>
 
-        {/* User Request: "Hesaplama tuşu Genel proje ve yapı bilgileri girişlerinin altında olsun." */}
-        <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-slate-600">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Ölçüler 3D Model ve 2D Kat Planı ile eşzamanlı güncellenir.</span>
-          </div>
-          <button
-            id="btn-calculate-general-inputs"
-            type="button"
-            onClick={onCalculate}
-            className="flex items-center justify-center gap-2.5 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 text-xs sm:text-sm transition-all shrink-0 cursor-pointer"
-          >
-            <Calculator className="w-4 h-4" />
-            <span>PROJEYİ HESAPLA & TÜM TABLOLARI GÜNCELLE</span>
-          </button>
-        </div>
-      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-4">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest">Dönüşüm Destek Modeli</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { id: 'currentSupport', label: '2025/26 Mevcut Hibe & Kredi' },
+                      { id: 'futureSupport2027', label: '2027 Projeksiyon Kredisi' },
+                      { id: 'none', label: 'Desteksiz / Öz Kaynak' },
+                    ].map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => updateParam('transformationStatus', opt.id as any)}
+                        className={`w-full text-left px-4 py-3 rounded-2xl border text-[11px] font-bold transition-all ${
+                          params.transformationStatus === opt.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-      {/* Calculation Overview Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Bento Card 1: Birim Satış Maliyeti */}
-        <div className={`${cardBg} border border-amber-300 rounded-3xl p-5 shadow-sm relative overflow-hidden`}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-mono font-semibold text-amber-800 uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300">
-              Birim Satış Maliyeti
-            </span>
-          </div>
-          <p className="text-2xl font-bold text-slate-900 tracking-tight font-mono">
-            {results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
-            <span className="text-xs font-normal text-slate-600">TL / m²</span>
-          </p>
-          <p className="text-xs font-semibold text-amber-700 mt-1 font-mono">
-            ${results.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD / m²
-          </p>
-        </div>
+                <div className="space-y-4">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest">Yapım Modeli</label>
+                  <div className="flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+                    <button
+                      onClick={() => updateParam('projectModel', 'cash')}
+                      className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${
+                        params.projectModel === 'cash' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      Nakit Ödeme
+                    </button>
+                    <button
+                      onClick={() => updateParam('projectModel', 'contractorShare')}
+                      className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${
+                        params.projectModel === 'contractorShare' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      Kat Karşılığı
+                    </button>
+                  </div>
+                  
+                  {params.projectModel === 'contractorShare' && (
+                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-bold text-amber-900 uppercase">Müteahhit Payı:</span>
+                        <span className="text-sm font-mono font-bold text-amber-600">%{params.contractorShareRate}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="20"
+                        max="75"
+                        value={params.contractorShareRate}
+                        onChange={(e) => updateParam('contractorShareRate', parseFloat(e.target.value))}
+                        className="w-full accent-amber-500"
+                      />
+                    </div>
+                  )}
+                </div>
 
-        {/* Bento Card 2: Net İnşaat Maliyeti */}
-        <div className={`${cardBg} border border-blue-300 rounded-3xl p-5 shadow-sm relative overflow-hidden`}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-mono font-semibold text-blue-800 uppercase tracking-wider px-2.5 py-1 rounded-full bg-blue-100 border border-blue-300">
-              Net İnşaat Maliyeti
-            </span>
-          </div>
-          <p className="text-2xl font-bold text-slate-900 tracking-tight font-mono">
-            {results.netCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
-            <span className="text-xs font-normal text-slate-600">TL / m²</span>
-          </p>
-          <p className="text-xs font-semibold text-blue-700 mt-1 font-mono">
-            ${results.netUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD / m²
-          </p>
-        </div>
+                <div className="space-y-4">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest">Ekonomi & Kâr</label>
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <span className="absolute left-3 top-3.5 text-xs font-bold text-slate-400">USD Kuru:</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={params.usdRate}
+                        onChange={(e) => updateParam('usdRate', parseFloat(e.target.value) || 1)}
+                        className={`w-full text-xs font-mono font-bold pl-20 pr-4 py-3 rounded-2xl border transition-all ${inputBg}`}
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-3.5 text-xs font-bold text-slate-400">Kâr Oranı:</span>
+                      <input
+                        type="number"
+                        value={params.profitRate}
+                        onChange={(e) => updateParam('profitRate', parseFloat(e.target.value) || 0)}
+                        className={`w-full text-xs font-mono font-bold pl-20 pr-4 py-3 rounded-2xl border transition-all ${inputBg}`}
+                      />
+                      <span className="absolute right-3 top-3.5 text-xs font-bold text-slate-400">%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-        {/* Bento Card 3: Genel Proje Hedef Bedeli */}
-        <div className={`${cardBg} border border-emerald-300 rounded-3xl p-5 shadow-sm relative overflow-hidden`}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-mono font-semibold text-emerald-800 uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-300">
-              Genel Proje Hedef Bedeli
-            </span>
+              <div className="pt-6 border-t border-slate-100 flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={onCalculate}
+                  className="flex items-center gap-3 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-600/20 transition-all active:scale-95 group"
+                >
+                  <Calculator className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                  <span>MALİYETLERİ HESAPLA VE RAPORLARI GÜNCELLE</span>
+                </button>
+              </div>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-slate-900 tracking-tight font-mono">
-            {results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
-            <span className="text-xs font-normal text-slate-600">TL</span>
-          </p>
-          <p className="text-xs font-semibold text-emerald-700 mt-1 font-mono">
-            Kâr: {results.profitAmount.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL (%{params.profitRate})
-          </p>
-        </div>
-
-        {/* Bento Card 4: Tahmini Teslim Süresi */}
-        <div className={`${cardBg} border border-indigo-300 rounded-3xl p-5 shadow-sm relative overflow-hidden`}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-mono font-semibold text-indigo-800 uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-100 border border-indigo-300">
-              Tahmini Teslim Süresi
-            </span>
-          </div>
-          <p className="text-2xl font-bold text-slate-900 tracking-tight font-mono">
-            {params.durationOption === 'hide' ? 'Gizlendi' : `${results.finalMonths} Ay`}
-          </p>
-          <p className="text-xs text-slate-600 mt-1 truncate">
-            {params.durationOption === 'auto'
-              ? `Ruhsat: 3 Ay | Kaba: ${(results.kabaDaysTotal / 30).toFixed(1)} Ay | İnce: ${(results.inceDaysTotal / 30).toFixed(1)} Ay`
-              : 'Sözleşme hedef takvimi'}
-          </p>
-        </div>
+        )}
       </div>
     </div>
-  );
+
+    {/* Calculation Overview Metric Cards */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pb-8">
+      {/* Bento Card 1: Birim Satış Maliyeti */}
+      <div className={`${cardBg} border border-amber-300 rounded-3xl p-5 shadow-sm relative overflow-hidden`}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-mono font-semibold text-amber-800 uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300">
+            Birim Satış Maliyeti
+          </span>
+        </div>
+        <p className="text-2xl font-bold text-slate-900 tracking-tight font-mono">
+          {results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
+          <span className="text-xs font-normal text-slate-600">TL / m²</span>
+        </p>
+        <p className="text-xs font-semibold text-amber-700 mt-1 font-mono">
+          ${results.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD / m²
+        </p>
+      </div>
+
+      {/* Bento Card 2: Net İnşaat Maliyeti */}
+      <div className={`${cardBg} border border-blue-300 rounded-3xl p-5 shadow-sm relative overflow-hidden`}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-mono font-semibold text-blue-800 uppercase tracking-wider px-2.5 py-1 rounded-full bg-blue-100 border border-blue-300">
+            Net İnşaat Maliyeti
+          </span>
+        </div>
+        <p className="text-2xl font-bold text-slate-900 tracking-tight font-mono">
+          {results.netCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
+          <span className="text-xs font-normal text-slate-600">TL / m²</span>
+        </p>
+        <p className="text-xs font-semibold text-blue-700 mt-1 font-mono">
+          ${results.netUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD / m²
+        </p>
+      </div>
+
+      {/* Bento Card 3: Genel Proje Hedef Bedeli */}
+      <div className={`${cardBg} border border-emerald-300 rounded-3xl p-5 shadow-sm relative overflow-hidden`}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-mono font-semibold text-emerald-800 uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-300">
+            Genel Proje Hedef Bedeli
+          </span>
+        </div>
+        <p className="text-2xl font-bold text-slate-900 tracking-tight font-mono">
+          {results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
+          <span className="text-xs font-normal text-slate-600">TL</span>
+        </p>
+        <p className="text-xs font-semibold text-emerald-700 mt-1 font-mono">
+          Kâr: {results.profitAmount.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL (%{params.profitRate})
+        </p>
+      </div>
+
+      {/* Bento Card 4: Tahmini Teslim Süresi */}
+      <div className={`${cardBg} border border-indigo-300 rounded-3xl p-5 shadow-sm relative overflow-hidden`}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-mono font-semibold text-indigo-800 uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-100 border border-indigo-300">
+            Tahmini Teslim Süresi
+          </span>
+        </div>
+        <p className="text-2xl font-bold text-slate-900 tracking-tight font-mono">
+          {params.durationOption === 'hide' ? 'Gizlendi' : `${results.finalMonths} Ay`}
+        </p>
+        <p className="text-xs text-slate-600 mt-1 truncate">
+          {params.durationOption === 'auto'
+            ? `Ruhsat: 3 Ay | Kaba: ${(results.kabaDaysTotal / 30).toFixed(1)} Ay | İnce: ${(results.inceDaysTotal / 30).toFixed(1)} Ay`
+            : 'Sözleşme hedef takvimi'}
+        </p>
+      </div>
+    </div>
+  </div>
+);
 };

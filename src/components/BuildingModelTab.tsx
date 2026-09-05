@@ -47,6 +47,7 @@ import { ThreeBuildingView } from './ThreeBuildingView';
 import { FloorPlan2DView } from './FloorPlan2DView';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 import { SolarAnalysisPanel } from './SolarAnalysisPanel';
+import { ZoningAuditPanel } from './ZoningAuditPanel';
 import { Logo } from './Logo';
 
 interface BuildingModelTabProps {
@@ -1477,6 +1478,9 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
           {viewMode === '2d' && (
             <FloorPlan2DView params={modelParams} theme={theme} />
           )}
+
+          {/* İmar & Yangın Mevzuatı Otomatik Denetim Paneli */}
+          <ZoningAuditPanel params={modelParams} theme={theme} />
 
           {/* Informational Technical Note */}
           <div className="border border-indigo-200/70 rounded-2xl p-4 text-xs flex items-start gap-3 bg-indigo-50/50 text-slate-700">

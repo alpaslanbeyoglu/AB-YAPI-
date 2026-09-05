@@ -1,5 +1,5 @@
 import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem } from '../types';
-import { DEFAULT_CUSTOM_FACADES_4 } from './footprintUtils';
+import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint } from './footprintUtils';
 
 export const DEFAULT_PARAMS: ProjectParams = {
   projectAddress: 'İstanbul, Fatih Kocamustafapaşa Mah. 1024 Ada 15 Parsel',
@@ -162,13 +162,16 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     cantileverDirection = 'front_back',
   } = params;
 
+  // Dynamically calculate active footprint area and dimensions using active footprint mode (Direct, Dimensions, Polygon, Custom Facades, L-Shape)
+  const footprintCalc = calculateFootprint(params.footprintInputMode, params);
+  const activeBaseArea = footprintCalc.area;
+  const estW = footprintCalc.effectiveWidth;
+  const estD = footprintCalc.effectiveDepth;
+
   // Calculate upper floor area if cantilever (tabla çıkması) is present
   const upperFloorsCount = Math.max(0, floorCount - 1);
-  let upperFloorArea = baseBuildArea;
+  let upperFloorArea = activeBaseArea;
   if (hasCantilever && cantileverDepth > 0) {
-    // Estimate facade width and depth based on typical aspect ratio
-    const estW = Math.sqrt(baseBuildArea / 1.2);
-    const estD = estW * 1.2;
     if (cantileverDirection === 'all') {
       upperFloorArea = (estW + 2 * cantileverDepth) * (estD + 2 * cantileverDepth);
     } else if (cantileverDirection === 'front') {
@@ -180,7 +183,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     upperFloorArea = Math.round(upperFloorArea * 100) / 100;
   }
 
-  const rawTotalArea = baseBuildArea + upperFloorsCount * upperFloorArea;
+  const rawTotalArea = activeBaseArea + upperFloorsCount * upperFloorArea;
   const totalArea = Math.round(Math.max(1, rawTotalArea) * 100) / 100;
 
   let kabaDaysPerFloor = 22;
@@ -250,15 +253,30 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       costMultiplier * 100
     ) / 100;
 
+  // Compute blind vs open facade ratio for PVC and paint/plaster takeoff adjustments
+  let activeOpenFacadeRatio = 1.0;
+  if (params.facadeConfigs && params.facadeConfigs.length > 0) {
+    const totalCount = params.facadeConfigs.length;
+    const openCount = params.facadeConfigs.filter((c) => (c.windowCountPerFloor ?? 1) > 0).length;
+    activeOpenFacadeRatio = totalCount > 0 ? openCount / totalCount : 1.0;
+  } else if (params.customFacades && params.customFacades.length > 0) {
+    const totalCount = params.customFacades.length;
+    const openCount = params.customFacades.filter((c) => (c.windowCountPerFloor ?? 1) > 0).length;
+    activeOpenFacadeRatio = totalCount > 0 ? openCount / totalCount : 1.0;
+  }
+
+  const pvcAreaFactor = 0.18 * activeOpenFacadeRatio;
+  const paintPlasterAreaFactor = 2.8 + 0.18 * (1 - activeOpenFacadeRatio);
+
   const finishingTotalCost =
     Math.round(
       (flatCount * params.pricePlumbing +
         flatCount * params.priceElectric +
-        totalArea * 0.18 * params.pricePvc +
+        totalArea * pvcAreaFactor * params.pricePvc +
         totalArea * params.priceTiles +
         flatCount * params.priceKitchen +
         flatCount * params.priceDoors +
-        totalArea * 2.8 * params.pricePaintPlaster) *
+        totalArea * paintPlasterAreaFactor * params.pricePaintPlaster) *
       inceTypeMult *
       costMultiplier * 100
     ) / 100;

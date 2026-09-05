@@ -37,7 +37,7 @@ import { OwnersTab } from './components/OwnersTab';
 import { CompletedProjectsTab } from './components/CompletedProjectsTab';
 import { TabNavigation } from './components/TabNavigation';
 import { MenuSettingsModal } from './components/MenuSettingsModal';
-import { DEFAULT_TABS, TabConfig, TabId } from './config/tabs';
+import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
 
 
 import { DEFAULT_PARAMS, calculateProject, synchronizeFlats } from './utils/calculatorEngine';
@@ -140,9 +140,38 @@ export default function App() {
 
   // Keep Building Model and Calculator synchronized bidirectionally
   const updateCalculatorParams = (newParams: ProjectParams) => {
-    setParams(newParams);
+    const footprintResult = calculateFootprint(newParams.footprintInputMode, newParams);
+    const activeBaseArea = footprintResult.area;
+    const resFloors = newParams.hasGroundFloorShop
+      ? Math.max(1, newParams.floorCount - 1)
+      : newParams.floorCount;
+    const totalFlats = newParams.flatsPerFloor
+      ? resFloors * newParams.flatsPerFloor
+      : newParams.flatCount;
+
+    const synchronizedFlats = synchronizeFlats(
+      newParams.flats,
+      totalFlats,
+      activeBaseArea,
+      newParams.floorCount,
+      newParams.transformationStatus
+    );
+
+    const sanitizedContractorIds = (newParams.contractorFlatIds || []).filter(
+      (id) => id <= totalFlats
+    );
+
+    const sanitizedParams: ProjectParams = {
+      ...newParams,
+      baseBuildArea: activeBaseArea,
+      flatCount: totalFlats,
+      flats: synchronizedFlats,
+      contractorFlatIds: sanitizedContractorIds,
+    };
+
+    setParams(sanitizedParams);
     try {
-      localStorage.setItem('ab_yapi_last_params', JSON.stringify(newParams));
+      localStorage.setItem('ab_yapi_last_params', JSON.stringify(sanitizedParams));
     } catch (e) {}
 
     // Live Sync to Building Model:
@@ -441,6 +470,12 @@ export default function App() {
     showNotification('success', 'Seçilen proje kaydı başarıyla silindi.');
   };
 
+  // Group tabs by category
+  const categorizedTabs = TAB_CATEGORIES.map(cat => ({
+    ...cat,
+    tabs: tabsConfig.filter(t => t.category === cat.id && t.visible).sort((a, b) => a.order - b.order)
+  }));
+
   return (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 ${
@@ -460,52 +495,63 @@ export default function App() {
         />
       </div>
 
-      {/* Top Menu Bar (Sticky) */}
+      {/* Top Menu Bar (Categorized & Sticky) */}
       <div className={`sticky top-[64px] z-20 border-b shadow-sm transition-colors print:hidden ${
         isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'
       }`}>
-        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          {tabsConfig.filter(t => t.visible).sort((a, b) => a.order - b.order).map(tab => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                title={tab.label}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-                  activeTab === tab.id
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                    : isGray
-                    ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${activeTab === tab.id ? 'text-white' : ''}`} />
-                <span>{tab.shortLabel}</span>
-                {tab.id === 'gecmis' && (
-                  <span className={`ml-1 text-[9px] px-1.5 rounded-full font-bold ${
-                    activeTab === tab.id ? 'bg-indigo-500 text-white' : 'bg-pink-100 text-pink-800'
-                  }`}>
-                    {historyList.length}
-                  </span>
-                )}
-              </button>
-            )
-          })}
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-4 overflow-x-auto no-scrollbar">
+          {categorizedTabs.map((cat, catIdx) => (
+            <div key={cat.id} className="flex items-center gap-1 shrink-0">
+              {catIdx > 0 && <div className="w-[1px] h-4 bg-slate-300 mx-1" />}
+              <div className={`flex flex-col gap-0.5 ${catIdx === 0 ? '' : 'ml-1'}`}>
+                <span className="text-[8px] uppercase tracking-tighter font-bold text-slate-400 px-1">{cat.label}</span>
+                <div className="flex items-center gap-1.5">
+                  {cat.tabs.map(tab => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveTab(tab.id)}
+                        title={tab.label}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap shrink-0 ${
+                          isActive
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]'
+                            : isGray
+                            ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : ''}`} />
+                        <span>{tab.shortLabel}</span>
+                        {tab.id === 'gecmis' && (
+                          <span className={`ml-0.5 text-[9px] px-1.5 rounded-full font-bold ${
+                            isActive ? 'bg-indigo-500 text-white' : 'bg-pink-100 text-pink-800'
+                          }`}>
+                            {historyList.length}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
           
           <button
             type="button"
             onClick={() => setIsMenuSettingsOpen(true)}
             title="Menü Ayarları"
-            className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
+            className={`ml-auto self-end mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
               isGray
                 ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-slate-300'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
             }`}
           >
             <Settings2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Ayarlar</span>
+            <span className="hidden lg:inline">Menü</span>
           </button>
         </div>
       </div>
