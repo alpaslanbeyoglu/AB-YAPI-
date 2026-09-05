@@ -1611,6 +1611,15 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
     // Center building at origin
     buildingGroup.position.set(0, 0, 0);
+
+    // Explicitly enable shadows for all meshes in the building group
+    buildingGroup.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = !isXRay;
+        child.receiveShadow = true;
+      }
+    });
+
     scene.add(buildingGroup);
 
     // Adjust camera to frame the building properly
@@ -1668,14 +1677,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     // 5. Lighting
     const ambientLight = new THREE.AmbientLight(
       isLight ? 0xffffff : 0xd4d4d8,
-      isLight ? 0.95 : 0.65
+      isLight ? 0.5 : 0.4
     );
     ambientLightRef.current = ambientLight;
     scene.add(ambientLight);
 
     const sunLight = new THREE.DirectionalLight(
       isLight ? 0xfffaed : 0xffffff,
-      isLight ? 1.4 : 1.3
+      isLight ? 1.8 : 1.5
     );
     sunLight.position.set(35, 60, 45);
     sunLight.castShadow = true;
@@ -1859,21 +1868,25 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
       if (ambientLightRef.current) {
         if (sunAltitude > 15) {
-          ambientLightRef.current.intensity = isLight ? 0.95 : 0.65;
+          ambientLightRef.current.intensity = isLight ? 0.5 : 0.4;
           ambientLightRef.current.color.setHex(isLight ? 0xffffff : 0xd4d4d8);
         } else if (sunAltitude > 0) {
-          ambientLightRef.current.intensity = isLight ? 0.55 : 0.4;
+          ambientLightRef.current.intensity = isLight ? 0.35 : 0.3;
           ambientLightRef.current.color.setHex(0xffeedd);
         } else {
-          ambientLightRef.current.intensity = 0.25;
+          ambientLightRef.current.intensity = 0.15;
           ambientLightRef.current.color.setHex(0x64748b);
         }
       }
     } else {
       // Default non-solar lighting
+      if (ambientLightRef.current) {
+        ambientLightRef.current.intensity = isLight ? 0.5 : 0.4;
+        ambientLightRef.current.color.setHex(isLight ? 0xffffff : 0xd4d4d8);
+      }
       if (sunLightRef.current) {
         sunLightRef.current.position.set(35, 60, 45);
-        sunLightRef.current.intensity = isLight ? 1.4 : 1.3;
+        sunLightRef.current.intensity = isLight ? 1.8 : 1.5;
         sunLightRef.current.color.setHex(isLight ? 0xfffaed : 0xffffff);
       }
       if (sunSphereMeshRef.current) {
