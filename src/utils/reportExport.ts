@@ -105,9 +105,77 @@ export function generateOfferHtml(
       <strong>🤝 Kat Karşılığı Finansman Beyanı:</strong>
       <p style="margin:4px 0 0 0;">Kat Karşılığı Yapım Modelinde, tüm imalat ve yapım maliyetleri müteahhite devredilen paylar ile finanse edildiğinden, arsa maliklerinin herhangi bir nakit borçlanması veya inşaat fiziki ilerlemesine bağlı hakediş takvimi bulunmamaktadır.</p>
     </div>`;
+  } else if (params.paymentPlanType === 'installments') {
+    table2OrStatement = `
+    <h3>2. Aylık Eşit Taksitli Ödeme Takvimi (${params.installmentCount || 12} Ay Vadeli)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Daire No / Hak Sahibi</th>
+          <th style="text-align:right;">Daire Payı Bedeli</th>
+          <th style="text-align:right;">Ödenen Peşinat</th>
+          <th style="text-align:right;">Dönüşüm Desteği</th>
+          <th style="text-align:right;">Kalan Net Borç</th>
+          <th style="text-align:center;">Vade</th>
+          <th style="text-align:right;background:#ecfdf5;color:#065f46;">Aylık Taksit Tutarı</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${res.flatResults.map(f => `
+        <tr>
+          <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id} (${f.name})</td>
+          <td style="padding:8px;border:1px solid #ddd;text-align:right;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#4f46e5;">-${f.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#047857;">${f.usedCredit > 0 ? `-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '-'}</td>
+          <td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:8px;border:1px solid #ddd;text-align:center;">${f.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-'}</td>
+          <td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;">${f.netRemainingDebt > 0 ? `${f.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}</td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:#f8fafc;font-weight:bold;border-top:2px solid #cbd5e1;">
+          <td colspan="4" style="padding:10px;border:1px solid #ddd;">PROJE TOPLAM AYLIK ŞANTİYE KASA GİRİŞİ:</td>
+          <td style="padding:10px;border:1px solid #ddd;text-align:right;">${res.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:10px;border:1px solid #ddd;text-align:center;">${params.installmentCount || 12} Ay</td>
+          <td style="padding:10px;border:1px solid #ddd;text-align:right;color:#065f46;background:#d1fae5;font-size:14px;">${(res.totalMonthlyInstallments || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay</td>
+        </tr>
+      </tfoot>
+    </table>`;
+  } else if (params.paymentPlanType === 'hybrid') {
+    table2OrStatement = `
+    <h3>2. Karma Ödeme Takvimi (Peşinat + Ara Ödemeler + ${params.installmentCount || 12} Ay Taksit)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Daire No / Hak Sahibi</th>
+          <th style="text-align:right;">Kalan Net Borç</th>
+          <th style="text-align:right;color:#4338ca;">1. Ara Ödeme (%25 Kaba)</th>
+          <th style="text-align:right;color:#7e22ce;">2. Ara Ödeme (%15 İskân)</th>
+          <th style="text-align:right;">Taksitlendirilen (%60)</th>
+          <th style="text-align:right;background:#ecfdf5;color:#065f46;">Aylık Taksit (${params.installmentCount || 12} Ay)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${res.flatResults.map(f => {
+          const interim1 = Math.round(f.netRemainingDebt * 0.25);
+          const interim2 = Math.round(f.netRemainingDebt * 0.15);
+          const rem = Math.max(0, f.netRemainingDebt - interim1 - interim2);
+          const monthly = Math.round(rem / Math.max(1, params.installmentCount || 12));
+          return `
+          <tr>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id} (${f.name})</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#4338ca;">${interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#7e22ce;">${interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${rem.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;">${f.netRemainingDebt > 0 ? `${monthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
   } else {
     table2OrStatement = `
-    <h3>2. Fiziki İlerleme Hakediş Takvimi (TL)</h3>
+    <h3>2. Fiziki İlerleme Hakediş Takvimi (5 Aşamalı TL)</h3>
     <table>
       <thead>
         <tr>
@@ -304,6 +372,18 @@ export function generateContractHtml(
   <h3>BÖLÜM II: MALİ HÜKÜMLER VE HAKEDİŞLER</h3>
   <h4>MADDE 3: PROJE İMALAT BEDELİ</h4>
   <p>Birim imalat fiyatı <strong>${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>, toplam bedel <strong>${res.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong> olarak belirlenmiştir.</p>
+  ${params.paymentPlanType === 'installments' ? `
+  <h4>MADDE 4: AYLIK EŞİT TAKSİTLİ ÖDEME PLANI VE VADE ESASLARI</h4>
+  <p>Maliklerin peşinat ve kentsel dönüşüm destekleri düşüldükten sonra kalan net borç tutarları toplam <strong>${params.installmentCount || 12} eşit aylık taksite</strong> bölünmüştür. Taksitler her ayın ilk 5 iş günü içerisinde yüklenici firma banka hesabına ödenecektir.</p>
+  ` : params.paymentPlanType === 'hybrid' ? `
+  <h4>MADDE 4: KARMA (HİBRİT) ÖDEME PLANI VE HAKEDİŞ ESASLARI</h4>
+  <ul>
+    <li>1. Peşinat: Sözleşme imzasında kararlaştırılan tutar.</li>
+    <li>2. Kaba İnşaat Ara Ödemesi (%25): Kaba inşaat ve tuğla duvarların tamamlanmasında.</li>
+    <li>3. İskân Ara Ödemesi (%15): İskân ve anahtar teslim aşamasında.</li>
+    <li>4. Aylık Taksitler (%60): Kalan bakiye ${params.installmentCount || 12} eşit aylık taksite bölünerek tahsil edilir.</li>
+  </ul>
+  ` : `
   <h4>MADDE 4: DİNAMİK FİZİKİ İLERLEME HAKEDİŞ ORANLARI</h4>
   <ul>
     <li>1. Hakediş (%${params.stage1Pay}): Sözleşme imzası ve ruhsat projelerinin hazırlanması.</li>
@@ -312,6 +392,7 @@ export function generateContractHtml(
     <li>4. Hakediş (%${params.stage4Pay}): İnce inşaat, tesisatlar ve cephe mantolama (Varsa kentsel dönüşüm kredi/hibe aktarımı bu aşamada gerçekleşir).</li>
     <li>5. Hakediş (%${params.stage5Pay}): İskân belgesinin alınması ve anahtar teslimi.</li>
   </ul>
+  `}
   <h3>BÖLÜM III: SÜRE VE İŞ GÜVENLİĞİ</h3>
   <p>Proje ve inşaat süresi <strong>${res.finalMonths} Ay</strong> olarak kararlaştırılmıştır. Mücbir sebepler ve kurum onay gecikmeleri süreye ilave edilir.</p>
   <h3>BÖLÜM IV: GARANTİ SÜRELERİ (TBK m. 478)</h3>

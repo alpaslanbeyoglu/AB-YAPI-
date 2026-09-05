@@ -15,6 +15,10 @@ import {
   Building,
   CheckCircle2,
   Trash2,
+  Calendar,
+  Layers,
+  Sparkles,
+  Clock,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, FlatItem, AppTheme, FlatCalcResult } from '../types';
 
@@ -249,7 +253,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         )}
       </div>
 
-      {/* 3. ÖDEME PLANLARI VE HAKEDİŞ ORANLARI (% AŞAMA) */}
+      {/* 3. ÖDEME PLANLARI VE HAKEDİŞ ORANLARI / TAKSİTLİ ÖDEME SEÇENEĞİ */}
       <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
         <button
           type="button"
@@ -259,7 +263,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
           <div className="flex items-center gap-2.5">
             <Sliders className="w-4 h-4 text-emerald-600" />
             <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              2. Hakediş Oranları & 5 Aşamalı Ödeme Planı Şablonu
+              2. Ödeme Planı Şablonu (Fiziki Hakediş / Aylık Taksitli Ödeme Seçenekleri)
             </span>
           </div>
           <span>{isStagesOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</span>
@@ -267,122 +271,427 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
         {isStagesOpen && (
           <div className="p-6 space-y-6">
-            {/* Live Percentage Validation Bar */}
-            <div
-              className={`p-4 rounded-2xl text-xs flex items-center justify-between font-semibold border ${
-                isStageValid
-                  ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-                  : 'bg-rose-50 text-rose-900 border-rose-300'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${isStageValid ? 'bg-emerald-500' : 'bg-rose-500 animate-ping'}`} />
-                <span>
-                  {isStageValid
-                    ? '✔ Ödeme aşaması dağılımı mükemmel dengelendi (%100)'
-                    : `⚠️ Hatalı Dağılım! Toplam yüzde %100 olmalıdır. (Şu an: %${stageTotal.toFixed(1)})`}
-                </span>
-              </div>
-              <span className="font-mono bg-white/60 px-3 py-1 rounded-lg border border-slate-200/40">
-                {params.stage1Pay} + {params.stage2Pay} + {params.stage3Pay} + {params.stage4Pay} + {params.stage5Pay} = %{stageTotal.toFixed(1)}
-              </span>
-            </div>
+            {/* Ödeme Modeli Seçici (Aşamalı vs Taksitli vs Hibrit) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Ödeme ve Hakediş Tahsilat Modeli:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => updateParam('paymentPlanType', 'stages')}
+                  className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    (params.paymentPlanType || 'stages') === 'stages'
+                      ? 'bg-indigo-50 border-indigo-500 text-indigo-950 ring-2 ring-indigo-500/20 shadow-sm'
+                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-indigo-600" />
+                      5 Kademeli Fiziki Hakediş
+                    </span>
+                    {(params.paymentPlanType || 'stages') === 'stages' && (
+                      <span className="w-2 h-2 rounded-full bg-indigo-600" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-tight">
+                    Sözleşme, temel, kaba, ince ve iskân fiziki inşaat ilerleme yüzdelerine göre 5 kademeli tahsilat.
+                  </p>
+                </button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  1. Aşama % (Sözleşme / Peşinat):
-                </label>
-                <input
-                  type="number"
-                  value={params.stage1Pay}
-                  onChange={(e) => updateParam('stage1Pay', parseFloat(e.target.value) || 0)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  2. Aşama % (Subasman / Temel):
-                </label>
-                <input
-                  type="number"
-                  value={params.stage2Pay}
-                  onChange={(e) => updateParam('stage2Pay', parseFloat(e.target.value) || 0)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  3. Aşama % (Kaba İnşaat Bitimi):
-                </label>
-                <input
-                  type="number"
-                  value={params.stage3Pay}
-                  onChange={(e) => updateParam('stage3Pay', parseFloat(e.target.value) || 0)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  4. Aşama % (İnce İnşaat & Tesisat):
-                </label>
-                <input
-                  type="number"
-                  value={params.stage4Pay}
-                  onChange={(e) => updateParam('stage4Pay', parseFloat(e.target.value) || 0)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  5. Aşama % (İskân & Teslim):
-                </label>
-                <input
-                  type="number"
-                  value={params.stage5Pay}
-                  onChange={(e) => updateParam('stage5Pay', parseFloat(e.target.value) || 0)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
-                />
+                <button
+                  type="button"
+                  onClick={() => updateParam('paymentPlanType', 'installments')}
+                  className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    params.paymentPlanType === 'installments'
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20 shadow-sm'
+                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-emerald-600" />
+                      Aylık Eşit Taksitli Ödeme
+                    </span>
+                    {params.paymentPlanType === 'installments' && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-tight">
+                    Kalan borcun {params.installmentCount || 12} aya bölünerek eşit vadelerle tahsil edilmesi.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => updateParam('paymentPlanType', 'hybrid')}
+                  className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    params.paymentPlanType === 'hybrid'
+                      ? 'bg-purple-50 border-purple-500 text-purple-950 ring-2 ring-purple-500/20 shadow-sm'
+                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                      Karma (Ara Ödemeli + Taksit)
+                    </span>
+                    {params.paymentPlanType === 'hybrid' && (
+                      <span className="w-2 h-2 rounded-full bg-purple-600" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-tight">
+                    Peşinat + Kaba/İskân Ara Ödemesi + Kalan tutarın aylık eşit taksitlere yayılması.
+                  </p>
+                </button>
               </div>
             </div>
 
-            {/* Cash Flow Projections Table */}
-            <div className="overflow-x-auto border border-slate-200/60 rounded-2xl">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
-                    <th className="p-3">İnşaat Ödeme Aşaması</th>
-                    <th className="p-3 text-right">Oran</th>
-                    <th className="p-3 text-right text-indigo-700">M Malik Geliri</th>
-                    <th className="p-3 text-right text-rose-700">Tahmini Gider</th>
-                    <th className="p-3 text-right">Dönem Dengesi</th>
-                    <th className="p-3 text-right">Kümülatif Kasa</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {results.cashFlowRows?.map((row) => (
-                    <tr key={row.stageNumber} className="hover:bg-slate-50/50">
-                      <td className="p-3 font-semibold text-slate-800">{row.name}</td>
-                      <td className="p-3 text-right font-mono text-slate-600">
-                        %{row.stageNumber === 1 ? params.stage1Pay : row.stageNumber === 2 ? params.stage2Pay : row.stageNumber === 3 ? params.stage3Pay : row.stageNumber === 4 ? params.stage4Pay : params.stage5Pay}
-                      </td>
-                      <td className="p-3 text-right font-mono text-indigo-700">
-                        {row.income.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                      <td className="p-3 text-right font-mono text-rose-700">
-                        {row.expense.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                      <td className={`p-3 text-right font-mono ${row.periodBalance >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                        {row.periodBalance >= 0 ? '+' : ''}{row.periodBalance.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                      <td className={`p-3 text-right font-mono font-bold ${row.cumulativeBalance >= 0 ? 'text-indigo-700' : 'text-rose-700'}`}>
-                        {row.cumulativeBalance.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {/* SEÇENEK 1: 5 KADEMELİ FİZİKİ HAKEDİŞ AYARLARI */}
+            {(params.paymentPlanType || 'stages') === 'stages' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Live Percentage Validation Bar */}
+                <div
+                  className={`p-4 rounded-2xl text-xs flex items-center justify-between font-semibold border ${
+                    isStageValid
+                      ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                      : 'bg-rose-50 text-rose-900 border-rose-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${isStageValid ? 'bg-emerald-500' : 'bg-rose-500 animate-ping'}`} />
+                    <span>
+                      {isStageValid
+                        ? '✔ Ödeme aşaması dağılımı mükemmel dengelendi (%100)'
+                        : `⚠️ Hatalı Dağılım! Toplam yüzde %100 olmalıdır. (Şu an: %${stageTotal.toFixed(1)})`}
+                    </span>
+                  </div>
+                  <span className="font-mono bg-white/60 px-3 py-1 rounded-lg border border-slate-200/40">
+                    {params.stage1Pay} + {params.stage2Pay} + {params.stage3Pay} + {params.stage4Pay} + {params.stage5Pay} = %{stageTotal.toFixed(1)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                      1. Aşama % (Sözleşme / Peşinat):
+                    </label>
+                    <input
+                      type="number"
+                      value={params.stage1Pay}
+                      onChange={(e) => updateParam('stage1Pay', parseFloat(e.target.value) || 0)}
+                      className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                      2. Aşama % (Subasman / Temel):
+                    </label>
+                    <input
+                      type="number"
+                      value={params.stage2Pay}
+                      onChange={(e) => updateParam('stage2Pay', parseFloat(e.target.value) || 0)}
+                      className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                      3. Aşama % (Kaba İnşaat Bitimi):
+                    </label>
+                    <input
+                      type="number"
+                      value={params.stage3Pay}
+                      onChange={(e) => updateParam('stage3Pay', parseFloat(e.target.value) || 0)}
+                      className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                      4. Aşama % (İnce İnşaat & Tesisat):
+                    </label>
+                    <input
+                      type="number"
+                      value={params.stage4Pay}
+                      onChange={(e) => updateParam('stage4Pay', parseFloat(e.target.value) || 0)}
+                      className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                      5. Aşama % (İskân & Teslim):
+                    </label>
+                    <input
+                      type="number"
+                      value={params.stage5Pay}
+                      onChange={(e) => updateParam('stage5Pay', parseFloat(e.target.value) || 0)}
+                      className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono ${inputBg}`}
+                    />
+                  </div>
+                </div>
+
+                {/* Cash Flow Projections Table */}
+                <div className="overflow-x-auto border border-slate-200/60 rounded-2xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
+                        <th className="p-3">İnşaat Ödeme Aşaması</th>
+                        <th className="p-3 text-right">Oran</th>
+                        <th className="p-3 text-right text-indigo-700">Malik Geliri</th>
+                        <th className="p-3 text-right text-rose-700">Tahmini Gider</th>
+                        <th className="p-3 text-right">Dönem Dengesi</th>
+                        <th className="p-3 text-right">Kümülatif Kasa</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {results.cashFlowRows?.map((row) => (
+                        <tr key={row.stageNumber} className="hover:bg-slate-50/50">
+                          <td className="p-3 font-semibold text-slate-800">{row.name}</td>
+                          <td className="p-3 text-right font-mono text-slate-600">
+                            %{row.stageNumber === 1 ? params.stage1Pay : row.stageNumber === 2 ? params.stage2Pay : row.stageNumber === 3 ? params.stage3Pay : row.stageNumber === 4 ? params.stage4Pay : params.stage5Pay}
+                          </td>
+                          <td className="p-3 text-right font-mono text-indigo-700">
+                            {row.income.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </td>
+                          <td className="p-3 text-right font-mono text-rose-700">
+                            {row.expense.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </td>
+                          <td className={`p-3 text-right font-mono ${row.periodBalance >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                            {row.periodBalance >= 0 ? '+' : ''}{row.periodBalance.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </td>
+                          <td className={`p-3 text-right font-mono font-bold ${row.cumulativeBalance >= 0 ? 'text-indigo-700' : 'text-rose-700'}`}>
+                            {row.cumulativeBalance.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* SEÇENEK 2: AYLIK EŞİT TAKSİTLİ ÖDEME AYARLARI */}
+            {params.paymentPlanType === 'installments' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Vade & Taksit Sayısı Seçim Çubuğu */}
+                <div className={`p-5 rounded-2xl border ${innerCardBg} space-y-4`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-emerald-600" />
+                        Taksit Vadesi & Süresi Seçimi
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Kat maliklerinin net kalan borçları seçilen vade boyunca eşit aylık taksitlere bölünür.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-600">Özel Vade (Ay):</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={params.installmentCount || 12}
+                        onChange={(e) => updateParam('installmentCount', Math.max(1, parseInt(e.target.value) || 1))}
+                        className={`w-20 text-xs px-3 py-1.5 rounded-xl border font-mono font-bold text-center ${inputBg}`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Hızlı Vade Butonları */}
+                  <div className="flex flex-wrap gap-2">
+                    {[6, 12, 18, 24, 36, 48].map((months) => (
+                      <button
+                        key={months}
+                        type="button"
+                        onClick={() => updateParam('installmentCount', months)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          (params.installmentCount || 12) === months
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {months} Ay Taksit
+                      </button>
+                    ))}
+                    {results.finalMonths && (
+                      <button
+                        type="button"
+                        onClick={() => updateParam('installmentCount', results.finalMonths)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          (params.installmentCount || 12) === results.finalMonths
+                            ? 'bg-emerald-700 text-white shadow-sm'
+                            : 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                        }`}
+                      >
+                        Proje Süresi Boyunca ({results.finalMonths} Ay)
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Taksit Finansal Gösterge Kartları */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Toplam Taksitlenecek Borç</span>
+                    <span className="block text-lg font-extrabold font-mono text-slate-900">
+                      {totalRemainingDebt.toLocaleString('tr-TR')} <span className="text-xs">TL</span>
+                    </span>
+                    <span className="block text-[10px] text-slate-500">
+                      {ownerFlats.length} Hak Sahibi Dairesi
+                    </span>
+                  </div>
+
+                  <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Aylık Toplam Şantiye Geliri</span>
+                    <span className="block text-lg font-extrabold font-mono text-emerald-700">
+                      {(results.totalMonthlyInstallments || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} <span className="text-xs">TL/Ay</span>
+                    </span>
+                    <span className="block text-[10px] text-slate-500">
+                      Her ay kasaya girecek toplam taksit
+                    </span>
+                  </div>
+
+                  <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Daire Başı Ortalama Taksit</span>
+                    <span className="block text-lg font-extrabold font-mono text-indigo-700">
+                      {(ownerFlats.length > 0 && results.totalMonthlyInstallments
+                        ? results.totalMonthlyInstallments / ownerFlats.length
+                        : 0
+                      ).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
+                      <span className="text-xs">TL/Ay</span>
+                    </span>
+                    <span className="block text-[10px] text-slate-500">
+                      Ortalama 1 bağımsız bölüm yükü
+                    </span>
+                  </div>
+
+                  <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Vade & Taksit Süresi</span>
+                    <span className="block text-lg font-extrabold font-mono text-purple-700">
+                      {params.installmentCount || 12} <span className="text-xs">Ay Vadeli</span>
+                    </span>
+                    <span className="block text-[10px] text-slate-500">
+                      Her ayın 1-5'i arası tahsilat
+                    </span>
+                  </div>
+                </div>
+
+                {/* Daire Bazlı Aylık Taksit Tablosu */}
+                <div className="overflow-x-auto border border-slate-200/60 rounded-2xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
+                        <th className="p-3">Daire No / Hak Sahibi</th>
+                        <th className="p-3 text-right">Daire Payı Bedeli</th>
+                        <th className="p-3 text-right text-indigo-700">Peşinat</th>
+                        <th className="p-3 text-right text-emerald-700">Dönüşüm Desteği</th>
+                        <th className="p-3 text-right">Net Kalan Borç</th>
+                        <th className="p-3 text-center">Vade</th>
+                        <th className="p-3 text-right text-emerald-800 font-bold bg-emerald-50/50">Aylık Taksit Tutarı</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {results.flatResults.map((flat) => (
+                        <tr
+                          key={flat.id}
+                          className={`hover:bg-slate-50 transition-colors ${
+                            flat.isContractorShare ? 'bg-amber-50/20 text-slate-500' : ''
+                          }`}
+                        >
+                          <td className="p-3 font-semibold text-slate-900">
+                            Daire {flat.id} ({flat.name})
+                          </td>
+                          <td className="p-3 text-right font-mono text-slate-700">
+                            {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </td>
+                          <td className="p-3 text-right font-mono text-indigo-700">
+                            {flat.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </td>
+                          <td className="p-3 text-right font-mono text-emerald-700 font-semibold">
+                            {flat.usedCredit > 0 ? `${flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '-'}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-slate-900">
+                            {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </td>
+                          <td className="p-3 text-center font-mono text-slate-600">
+                            {flat.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-'}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-emerald-800 bg-emerald-50/50">
+                            {flat.netRemainingDebt > 0
+                              ? `${flat.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay`
+                              : '0 TL'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* SEÇENEK 3: KARMA / HİBRİT PLAN (PEŞİNAT + ARA ÖDEMELER + AYLIK TAKSİT) */}
+            {params.paymentPlanType === 'hybrid' && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="bg-purple-50/60 border border-purple-200 rounded-2xl p-4 text-xs text-purple-900 leading-relaxed">
+                  <h5 className="font-bold text-purple-900 mb-1 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-purple-600" />
+                    Karma / Hibrit Ödeme Modeli Açıklaması:
+                  </h5>
+                  <p>
+                    Bu modelde kat malikleri başlangıçta peşinatlarını öder; inşaatın kritik dönemlerinde 2 adet ara ödeme (%25 Kaba İnşaat Bitiminde + %15 İskân Aşamasında) gerçekleştirir. Kalan bakiye ise {params.installmentCount || 12} eşit aylık taksite bölünerek hafifletilmiş vadelerle tahsil edilir.
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto border border-slate-200/60 rounded-2xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
+                        <th className="p-3">Daire / Malik</th>
+                        <th className="p-3 text-right">Kalan Net Borç</th>
+                        <th className="p-3 text-right text-indigo-700">1. Ara Ödeme (%25 Kaba)</th>
+                        <th className="p-3 text-right text-purple-700">2. Ara Ödeme (%15 İskân)</th>
+                        <th className="p-3 text-right text-slate-700">Taksitlendirilen Bakiye (%60)</th>
+                        <th className="p-3 text-right text-emerald-800 font-bold bg-emerald-50/50">
+                          Aylık Taksit ({params.installmentCount || 12} Ay)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {results.flatResults.map((flat) => {
+                        const interim1 = Math.round(flat.netRemainingDebt * 0.25);
+                        const interim2 = Math.round(flat.netRemainingDebt * 0.15);
+                        const remainingToInstallments = Math.max(0, flat.netRemainingDebt - interim1 - interim2);
+                        const hybridMonthly = Math.round(remainingToInstallments / Math.max(1, params.installmentCount || 12));
+
+                        return (
+                          <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3 font-semibold text-slate-900">
+                              Daire {flat.id} ({flat.name})
+                            </td>
+                            <td className="p-3 text-right font-mono text-slate-900 font-bold">
+                              {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </td>
+                            <td className="p-3 text-right font-mono text-indigo-700">
+                              {interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </td>
+                            <td className="p-3 text-right font-mono text-purple-700">
+                              {interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </td>
+                            <td className="p-3 text-right font-mono text-slate-700 font-semibold">
+                              {remainingToInstallments.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold text-emerald-800 bg-emerald-50/50">
+                              {flat.netRemainingDebt > 0 ? `${hybridMonthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -682,41 +991,100 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
                 {selectedFlatResult.netRemainingDebt > 0 ? (
                   <div className="pt-2.5 space-y-2">
-                    <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      5 Aşamalı Taksit Takvimi (%{params.stage1Pay} / %{params.stage2Pay} / %{params.stage3Pay} / %{params.stage4Pay} / %{params.stage5Pay})
-                    </span>
-                    <div className="space-y-1.5 font-mono text-[11px]">
-                      <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                        <span>Aşama 1 (Sözleşme):</span>
-                        <strong className="text-slate-900">
-                          {selectedFlatResult.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </strong>
+                    {params.paymentPlanType === 'installments' ? (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="block text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                            Aylık Eşit Taksit Takvimi ({params.installmentCount || 12} Ay)
+                          </span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold">
+                            {selectedFlatResult.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay
+                          </span>
+                        </div>
+                        <div className="space-y-1.5 font-mono text-[11px] max-h-48 overflow-y-auto pr-1">
+                          {Array.from({ length: Math.min(12, params.installmentCount || 12) }).map((_, idx) => (
+                            <div key={idx} className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
+                              <span>{idx + 1}. Ay Taksiti:</span>
+                              <strong className="text-emerald-800">
+                                {selectedFlatResult.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                              </strong>
+                            </div>
+                          ))}
+                          {(params.installmentCount || 12) > 12 && (
+                            <div className="p-2 text-center text-[10px] text-slate-400 bg-slate-100 rounded">
+                              ... ve devam eden {(params.installmentCount || 12) - 12} ay boyunca aynı tutar.
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                        <span>Aşama 2 (Temel):</span>
-                        <strong className="text-slate-900">
-                          {selectedFlatResult.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </strong>
+                    ) : params.paymentPlanType === 'hybrid' ? (
+                      <div>
+                        <span className="block text-[10px] font-bold text-purple-800 uppercase tracking-wider mb-2">
+                          Karma Ödeme Takvimi (Ara Ödemeli + Taksit)
+                        </span>
+                        <div className="space-y-1.5 font-mono text-[11px]">
+                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
+                            <span>1. Ara Ödeme (%25 Kaba):</span>
+                            <strong className="text-indigo-900">
+                              {Math.round(selectedFlatResult.netRemainingDebt * 0.25).toLocaleString('tr-TR')} TL
+                            </strong>
+                          </div>
+                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
+                            <span>2. Ara Ödeme (%15 İskân):</span>
+                            <strong className="text-purple-900">
+                              {Math.round(selectedFlatResult.netRemainingDebt * 0.15).toLocaleString('tr-TR')} TL
+                            </strong>
+                          </div>
+                          <div className="flex justify-between p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold">
+                            <span>Aylık Taksit ({params.installmentCount || 12} Ay):</span>
+                            <span>
+                              {Math.round(
+                                (selectedFlatResult.netRemainingDebt * 0.6) / Math.max(1, params.installmentCount || 12)
+                              ).toLocaleString('tr-TR')}{' '}
+                              TL / Ay
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                        <span>Aşama 3 (Kaba):</span>
-                        <strong className="text-slate-900">
-                          {selectedFlatResult.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </strong>
+                    ) : (
+                      <div>
+                        <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                          5 Aşamalı Taksit Takvimi (%{params.stage1Pay} / %{params.stage2Pay} / %{params.stage3Pay} / %{params.stage4Pay} / %{params.stage5Pay})
+                        </span>
+                        <div className="space-y-1.5 font-mono text-[11px]">
+                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
+                            <span>Aşama 1 (Sözleşme):</span>
+                            <strong className="text-slate-900">
+                              {selectedFlatResult.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </strong>
+                          </div>
+                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
+                            <span>Aşama 2 (Temel):</span>
+                            <strong className="text-slate-900">
+                              {selectedFlatResult.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </strong>
+                          </div>
+                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
+                            <span>Aşama 3 (Kaba):</span>
+                            <strong className="text-slate-900">
+                              {selectedFlatResult.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </strong>
+                          </div>
+                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
+                            <span>Aşama 4 (İnce):</span>
+                            <strong className="text-slate-900">
+                              {selectedFlatResult.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </strong>
+                          </div>
+                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
+                            <span>Aşama 5 (Anahtar):</span>
+                            <strong className="text-slate-900">
+                              {selectedFlatResult.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </strong>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                        <span>Aşama 4 (İnce):</span>
-                        <strong className="text-slate-900">
-                          {selectedFlatResult.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </strong>
-                      </div>
-                      <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                        <span>Aşama 5 (Anahtar):</span>
-                        <strong className="text-slate-900">
-                          {selectedFlatResult.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </strong>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center text-xs text-emerald-800 font-semibold">

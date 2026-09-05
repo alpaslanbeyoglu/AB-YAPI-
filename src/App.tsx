@@ -121,10 +121,11 @@ export default function App() {
 
     // Live Sync to Building Model:
     setBuildingModelParams((prevModel) => {
-      let newW = prevModel.facadeWidth;
-      let newD = prevModel.facadeDepth;
-      if (newParams.baseBuildArea && newParams.baseBuildArea > 0) {
-        // preserve aspect ratio if valid
+      let newW = newParams.facadeWidth || prevModel.facadeWidth;
+      let newD = newParams.facadeDepth || prevModel.facadeDepth;
+      
+      // If directArea mode and no explicit facadeWidth given, derive proportional W and D
+      if (newParams.footprintInputMode === 'directArea' && newParams.baseBuildArea && newParams.baseBuildArea > 0) {
         const ratio = prevModel.facadeWidth / (prevModel.facadeDepth || 1);
         const validRatio = ratio > 0.3 && ratio < 3.0 ? ratio : 14 / 18;
         newD = Math.round(Math.sqrt(newParams.baseBuildArea / validRatio) * 10) / 10;
@@ -141,8 +142,15 @@ export default function App() {
 
       const nextModel: BuildingModelParams = {
         ...prevModel,
+        footprintInputMode: newParams.footprintInputMode || prevModel.footprintInputMode,
         facadeWidth: newParams.facadeWidth || newW,
         facadeDepth: newParams.facadeDepth || newD,
+        customFacadeCount: newParams.customFacadeCount || prevModel.customFacadeCount,
+        customFacades: newParams.customFacades || prevModel.customFacades,
+        lShapeFrontMain: newParams.lShapeFrontMain || prevModel.lShapeFrontMain,
+        lShapeDepthMain: newParams.lShapeDepthMain || prevModel.lShapeDepthMain,
+        lShapeRecessFront: newParams.lShapeRecessFront || prevModel.lShapeRecessFront,
+        lShapeRecessDepth: newParams.lShapeRecessDepth || prevModel.lShapeRecessDepth,
         floorCount: newParams.floorCount,
         flatsPerFloor: newParams.flatsPerFloor || calcFlatsPerFloor,
         hasGroundFloorShop: !!newParams.hasGroundFloorShop,
@@ -201,6 +209,7 @@ export default function App() {
         const nextCalc: ProjectParams = {
           ...prevCalc,
           baseBuildArea: area,
+          footprintInputMode: next.footprintInputMode || prevCalc.footprintInputMode,
           floorCount: next.floorCount,
           flatCount: totalFlats,
           flats: synchronizedFlats,
@@ -219,6 +228,12 @@ export default function App() {
           basementCount: next.basementCount,
           facadeWidth: next.facadeWidth,
           facadeDepth: next.facadeDepth,
+          customFacadeCount: next.customFacadeCount || prevCalc.customFacadeCount,
+          customFacades: next.customFacades || prevCalc.customFacades,
+          lShapeFrontMain: next.lShapeFrontMain || prevCalc.lShapeFrontMain,
+          lShapeDepthMain: next.lShapeDepthMain || prevCalc.lShapeDepthMain,
+          lShapeRecessFront: next.lShapeRecessFront || prevCalc.lShapeRecessFront,
+          lShapeRecessDepth: next.lShapeRecessDepth || prevCalc.lShapeRecessDepth,
           flatsPerFloor: next.flatsPerFloor,
           facadeStyle: next.facadeStyle,
           balconyDepth: next.balconyDepth,

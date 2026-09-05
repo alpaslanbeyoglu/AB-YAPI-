@@ -20,6 +20,14 @@ export interface CompanyProfile {
   logoBase64?: string;          // Yüklenen özel firma logosu (Base64 dataURL formatında)
 }
 
+export type FootprintInputMode = 'directArea' | 'dimensions' | 'customFacades' | 'lShape';
+
+export interface CustomFacadeSide {
+  id: number;
+  name: string;        // Örn: "1. Ön Cephe (Yol)", "2. Sağ Yan Cephe (Komşu)", "3. Arka Cephe (Bahçe)", "4. Sol Yan Cephe"
+  length: number;      // Uzunluk (metre)
+}
+
 export interface FlatItem {
   id: number;
   name: string;
@@ -48,6 +56,17 @@ export interface ProjectParams {
   costMultiplier: number;
   profitRate: number;
 
+  // Taban Oturumu ve Cephe Ölçü Giriş Seçenekleri
+  footprintInputMode?: FootprintInputMode; // 'directArea': Doğrudan m², 'dimensions': Ön x Yan Cephe, 'customFacades': Çoklu Cepheler, 'lShape': L-Tipi Kademeli
+  facadeWidth?: number;       // Ön Cephe Genişliği (m)
+  facadeDepth?: number;       // Yan Cephe Derinliği (m)
+  customFacadeCount?: number; // Cephe adedi (4, 5, 6, 8 vb.)
+  customFacades?: CustomFacadeSide[]; // Cephe uzunlukları listesi
+  lShapeFrontMain?: number;   // L-Tipi Ana Ön Cephe (m)
+  lShapeDepthMain?: number;   // L-Tipi Ana Yan Derinlik (m)
+  lShapeRecessFront?: number; // L-Tipi Girinti Eni (m)
+  lShapeRecessDepth?: number; // L-Tipi Girinti Derinliği (m)
+
   // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
   hasGroundFloorShop?: boolean;
   shopCount?: number;
@@ -61,8 +80,6 @@ export interface ProjectParams {
   // Mimari Çatı ve Kütle Özellikleri
   roofType?: RoofType;
   basementCount?: number;
-  facadeWidth?: number;
-  facadeDepth?: number;
   flatsPerFloor?: number;
   balconyDepth?: number;
   facadeStyle?: 'modern' | 'wood_anthracite' | 'glass_minimal' | 'brick_stone';
@@ -94,8 +111,11 @@ export interface ProjectParams {
   priceDoors: number;
   pricePaintPlaster: number;
 
-  // Policies & stages
+  // Policies, payment plan & stages
   includeProfitOwner: 'yes' | 'no';
+  paymentPlanType?: 'stages' | 'installments' | 'hybrid'; // 'stages': 5 Aşamalı Fiziki Hakediş, 'installments': Aylık Eşit Taksit, 'hybrid': Peşinat + Ara Ödeme + Taksit
+  installmentCount?: number; // Taksit sayısı (Örn: 6, 12, 18, 24, 36 ay)
+  installmentIntervalMonths?: number; // Taksit aralığı (ay)
   stage1Pay: number;
   stage2Pay: number;
   stage3Pay: number;
@@ -126,6 +146,7 @@ export interface FlatCalcResult {
   netRemainingDebt: number;
   isContractorShare?: boolean;
   stagePayments: [number, number, number, number, number];
+  monthlyInstallment: number; // Aylık taksit tutarı (TL)
 }
 
 export interface CalculationResult {
@@ -137,6 +158,9 @@ export interface CalculationResult {
   totalDays: number;
   kabaDaysTotal: number;
   inceDaysTotal: number;
+  paymentPlanType?: 'stages' | 'installments' | 'hybrid';
+  installmentCount?: number;
+  totalMonthlyInstallments?: number;
   
   // Costs
   officialCost: number;
@@ -209,6 +233,16 @@ export interface BuildingModelParams {
   showDimensions: boolean;   // Ölçülendirme çizgileri
   showInteriorRooms: boolean;// 3D modelde odaların ve bölmelerin görünmesi
   interiorCutMode: 'solid' | 'xray' | 'cutaway'; // 'solid': dolu cephe, 'xray': şeffaf dış duvar, 'cutaway': açık kat kesiti
+
+  // Taban Oturumu ve Çoklu Cephe Parametreleri
+  footprintInputMode?: FootprintInputMode;
+  customFacadeCount?: number;
+  customFacades?: CustomFacadeSide[];
+  lShapeFrontMain?: number;
+  lShapeDepthMain?: number;
+  lShapeRecessFront?: number;
+  lShapeRecessDepth?: number;
+
   // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
   hasGroundFloorShop?: boolean;
   shopCount?: number;

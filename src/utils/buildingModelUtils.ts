@@ -1,8 +1,16 @@
 import { BuildingModelParams, RoomType } from '../types';
+import { DEFAULT_CUSTOM_FACADES_4 } from './footprintUtils';
 
 export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   facadeWidth: 14.0,       // Ön cephe 14 metre
   facadeDepth: 18.0,       // Yan cephe derinlik 18 metre
+  footprintInputMode: 'directArea',
+  customFacadeCount: 4,
+  customFacades: DEFAULT_CUSTOM_FACADES_4,
+  lShapeFrontMain: 16.0,
+  lShapeDepthMain: 20.0,
+  lShapeRecessFront: 6.0,
+  lShapeRecessDepth: 8.0,
   floorHeight: 2.95,       // Kat yüksekliği 2.95 metre
   floorCount: 5,           // 5 Normal kat
   basementCount: 1,        // 1 Bodrum kat

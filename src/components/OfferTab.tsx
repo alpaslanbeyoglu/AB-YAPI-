@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Cloud, CheckCircle2, AlertCircle, ShieldCheck, FileText, Compass, LayoutGrid } from 'lucide-react';
+import { Cloud, CheckCircle2, AlertCircle, ShieldCheck, FileText, Compass, LayoutGrid, Calendar, Clock, Sparkles, Layers } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { saveReportDocumentToDrive } from '../services/drive';
 import { generateOfferHtml } from '../utils/reportExport';
@@ -1001,10 +1001,33 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </table>
         </div>
 
-        {/* Table 2: Hakediş Takvimi */}
-        <h4 className="text-xs font-bold text-indigo-700 border-b border-slate-200 pb-2 mb-3 uppercase tracking-wider flex items-center gap-2">
-          <LayoutGrid className="w-4 h-4" />
-          <span>2. Fiziki İlerleme Hakediş Takvimi</span>
+        {/* Table 2: Hakediş ve Ödeme Takvimi */}
+        <h4 className="text-xs font-bold text-indigo-700 border-b border-slate-200 pb-2 mb-3 uppercase tracking-wider flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {params.paymentPlanType === 'installments' ? (
+              <Calendar className="w-4 h-4 text-emerald-600" />
+            ) : params.paymentPlanType === 'hybrid' ? (
+              <Sparkles className="w-4 h-4 text-purple-600" />
+            ) : (
+              <LayoutGrid className="w-4 h-4 text-indigo-600" />
+            )}
+            <span>
+              2.{' '}
+              {params.paymentPlanType === 'installments'
+                ? `Aylık Eşit Taksitli Ödeme Takvimi (${params.installmentCount || 12} Ay Vadeli)`
+                : params.paymentPlanType === 'hybrid'
+                ? `Karma Ödeme Takvimi (Peşinat + Ara Ödemeler + ${params.installmentCount || 12} Ay Taksit)`
+                : `Fiziki İlerleme Hakediş Takvimi (5 Kademeli Aşama)`}
+            </span>
+          </div>
+          <span className="text-[10px] font-normal text-slate-500 font-mono">
+            Model:{' '}
+            {params.paymentPlanType === 'installments'
+              ? 'Taksitli Ödeme'
+              : params.paymentPlanType === 'hybrid'
+              ? 'Karma (Hibrit)'
+              : 'Fiziki Hakediş'}
+          </span>
         </h4>
         
         {isContractorShareModel ? (
@@ -1016,7 +1039,124 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               Kat Karşılığı Yapım Modelinde, tüm yapı tasarım, ruhsat, malzeme ve yapım bedelleri müteahhite devredilen paylardan ({results.flatResults.filter(f => f.isContractorShare).length} adet Müteahhit Dairesi) finanse edilir. Bu nedenle arsa maliklerinin herhangi bir nakit borçlanma yükümlülüğü veya inşaat fiziki ilerlemesine bağlı hakediş ödeme takvimi bulunmamaktadır. Tüm yapım riski ve finansal yönetim AB YAPI tarafından üstlenilmiştir.
             </p>
           </div>
+        ) : params.paymentPlanType === 'installments' ? (
+          /* SEÇENEK A: SADECE AYLIK TAKSİT TABLOSU GÖSTERİLİR */
+          <div className="overflow-x-auto mb-6 rounded-2xl border border-slate-200">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-100 text-slate-700">
+                <tr>
+                  <th className="p-3 border-b border-slate-200 font-semibold">Daire / Malik</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right">Daire Payı Bedeli</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-indigo-700">Ödenen Peşinat</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-emerald-700">Devlet Desteği</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right">Kalan Net Borç</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-center">Vade</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-emerald-800 bg-emerald-50/50">
+                    Aylık Taksit Tutarı
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {results.flatResults.map((flat) => (
+                  <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-3 font-semibold text-slate-900">
+                      Daire {flat.id} ({flat.name})
+                    </td>
+                    <td className="p-3 text-right font-mono text-slate-700">
+                      {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                    </td>
+                    <td className="p-3 text-right font-mono text-indigo-700">
+                      -{flat.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                    </td>
+                    <td className="p-3 text-right font-mono text-emerald-700 font-semibold">
+                      {flat.usedCredit > 0 ? `-${flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '-'}
+                    </td>
+                    <td className="p-3 text-right font-bold text-slate-900 font-mono">
+                      {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                    </td>
+                    <td className="p-3 text-center font-mono text-slate-600">
+                      {flat.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-'}
+                    </td>
+                    <td className="p-3 text-right font-bold text-emerald-800 font-mono bg-emerald-50/50">
+                      {flat.netRemainingDebt > 0
+                        ? `${flat.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay`
+                        : '0 TL'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50 border-t border-slate-200 font-bold">
+                <tr>
+                  <td colSpan={4} className="p-3 text-slate-800">
+                    PROJE AYLIK TOPLAM ŞANTİYE KASA GİRİŞİ:
+                  </td>
+                  <td className="p-3 text-right font-mono text-slate-900">
+                    {results.flatResults
+                      .reduce((sum, f) => sum + f.netRemainingDebt, 0)
+                      .toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
+                    TL
+                  </td>
+                  <td className="p-3 text-center font-mono text-slate-700">
+                    {params.installmentCount || 12} Ay
+                  </td>
+                  <td className="p-3 text-right font-mono text-emerald-800 text-sm bg-emerald-100/60">
+                    {(results.totalMonthlyInstallments || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ) : params.paymentPlanType === 'hybrid' ? (
+          /* SEÇENEK B: SADECE KARMA / HİBRİT TABLOSU GÖSTERİLİR */
+          <div className="overflow-x-auto mb-6 rounded-2xl border border-slate-200">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-100 text-slate-700">
+                <tr>
+                  <th className="p-3 border-b border-slate-200 font-semibold">Daire / Malik</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right">Net Kalan Borç</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-indigo-700">1. Ara Ödeme (%25 Kaba)</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-purple-700">2. Ara Ödeme (%15 İskân)</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right">Taksitlendirilen Tutar (%60)</th>
+                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-emerald-800 bg-emerald-50/50">
+                    Aylık Taksit ({params.installmentCount || 12} Ay)
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {results.flatResults.map((flat) => {
+                  const interim1 = Math.round(flat.netRemainingDebt * 0.25);
+                  const interim2 = Math.round(flat.netRemainingDebt * 0.15);
+                  const remainingToInstallments = Math.max(0, flat.netRemainingDebt - interim1 - interim2);
+                  const hybridMonthly = Math.round(remainingToInstallments / Math.max(1, params.installmentCount || 12));
+
+                  return (
+                    <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3 font-semibold text-slate-900">
+                        Daire {flat.id} ({flat.name})
+                      </td>
+                      <td className="p-3 text-right font-bold text-slate-900 font-mono">
+                        {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-right text-indigo-700 font-mono">
+                        {interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-right text-purple-700 font-mono">
+                        {interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-right font-mono text-slate-700 font-semibold">
+                        {remainingToInstallments.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-right font-bold text-emerald-800 font-mono bg-emerald-50/50">
+                        {flat.netRemainingDebt > 0 ? `${hybridMonthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         ) : (
+          /* SEÇENEK C: SADECE 5 KADEMELİ FİZİKİ HAKEDİŞ TABLOSU GÖSTERİLİR */
           <div className="overflow-x-auto mb-6 rounded-2xl border border-slate-200">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-100 text-slate-700">

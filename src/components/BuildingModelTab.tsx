@@ -21,12 +21,18 @@ import {
   Store,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
+  Trash2,
 } from 'lucide-react';
-import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme } from '../types';
+import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide } from '../types';
 import {
   DEFAULT_BUILDING_PARAMS,
   calculateBuildingMetrics,
 } from '../utils/buildingModelUtils';
+import {
+  calculateFootprint,
+  getDefaultCustomFacades,
+} from '../utils/footprintUtils';
 import { ThreeBuildingView } from './ThreeBuildingView';
 import { FloorPlan2DView } from './FloorPlan2DView';
 import { Logo } from './Logo';
@@ -398,73 +404,311 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  <span className="font-mono">{modelParams.facadeWidth}m × {modelParams.facadeDepth}m</span>
+                  <span className="font-mono">
+                    {modelParams.facadeWidth}m × {modelParams.facadeDepth}m ({(modelParams.facadeWidth * modelParams.facadeDepth).toFixed(1)} m²)
+                  </span>
                   {collapsedSections.dimensions ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                 </div>
               </button>
 
               {!collapsedSections.dimensions && (
                 <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
-                  {/* Facade Width */}
-                  <div className="space-y-1.5 pt-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <label className={`font-semibold ${textTitle}`}>Ön Cephe (Genişlik):</label>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="6"
-                          max="60"
-                          value={modelParams.facadeWidth}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val) && val > 0) updateParams({ facadeWidth: val });
-                          }}
-                          className={`w-20 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
-                        />
-                        <span className={`text-xs font-medium ${textMuted}`}>m</span>
-                      </div>
+                  {/* Footprint Input Mode Switcher */}
+                  <div className="pt-3 space-y-2">
+                    <label className={`block text-[11px] font-bold uppercase tracking-wider ${textTitle}`}>
+                      Taban Oturumu & Cephe Modu:
+                    </label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => updateParams({ footprintInputMode: 'dimensions' })}
+                        className={`py-1.5 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
+                          (modelParams.footprintInputMode || 'dimensions') === 'dimensions' || modelParams.footprintInputMode === 'directArea'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        📏 Ön × Yan
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateParams({ footprintInputMode: 'customFacades' })}
+                        className={`py-1.5 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
+                          modelParams.footprintInputMode === 'customFacades'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        🧱 Çoklu Cephe
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateParams({ footprintInputMode: 'lShape' })}
+                        className={`py-1.5 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
+                          modelParams.footprintInputMode === 'lShape'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        🔲 L-Tipi Kütle
+                      </button>
                     </div>
-                    <input
-                      type="range"
-                      min="8"
-                      max="40"
-                      step="0.5"
-                      value={modelParams.facadeWidth}
-                      onChange={(e) => updateParams({ facadeWidth: parseFloat(e.target.value) })}
-                      className="w-full accent-indigo-600 cursor-pointer"
-                    />
                   </div>
 
-                  {/* Facade Depth */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <label className={`font-semibold ${textTitle}`}>Yan Cephe (Derinlik):</label>
-                      <div className="flex items-center gap-1">
+                  {/* Mode 1 & Default: Dimensions (Ön × Yan) */}
+                  {(modelParams.footprintInputMode === 'dimensions' || modelParams.footprintInputMode === 'directArea' || !modelParams.footprintInputMode) && (
+                    <div className="space-y-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
+                      {/* Facade Width */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <label className={`font-semibold ${textTitle}`}>Ön Cephe (Genişlik):</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="6"
+                              max="60"
+                              value={modelParams.facadeWidth}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val) && val > 0) updateParams({ facadeWidth: val });
+                              }}
+                              className={`w-20 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                            />
+                            <span className={`text-xs font-medium ${textMuted}`}>m</span>
+                          </div>
+                        </div>
                         <input
-                          type="number"
-                          step="0.1"
-                          min="6"
-                          max="60"
-                          value={modelParams.facadeDepth}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val) && val > 0) updateParams({ facadeDepth: val });
-                          }}
-                          className={`w-20 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                          type="range"
+                          min="8"
+                          max="40"
+                          step="0.5"
+                          value={modelParams.facadeWidth}
+                          onChange={(e) => updateParams({ facadeWidth: parseFloat(e.target.value) })}
+                          className="w-full accent-indigo-600 cursor-pointer"
                         />
-                        <span className={`text-xs font-medium ${textMuted}`}>m</span>
+                      </div>
+
+                      {/* Facade Depth */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <label className={`font-semibold ${textTitle}`}>Yan Cephe (Derinlik):</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="6"
+                              max="60"
+                              value={modelParams.facadeDepth}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val) && val > 0) updateParams({ facadeDepth: val });
+                              }}
+                              className={`w-20 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                            />
+                            <span className={`text-xs font-medium ${textMuted}`}>m</span>
+                          </div>
+                        </div>
+                        <input
+                          type="range"
+                          min="8"
+                          max="40"
+                          step="0.5"
+                          value={modelParams.facadeDepth}
+                          onChange={(e) => updateParams({ facadeDepth: parseFloat(e.target.value) })}
+                          className="w-full accent-indigo-600 cursor-pointer"
+                        />
                       </div>
                     </div>
-                    <input
-                      type="range"
-                      min="8"
-                      max="40"
-                      step="0.5"
-                      value={modelParams.facadeDepth}
-                      onChange={(e) => updateParams({ facadeDepth: parseFloat(e.target.value) })}
-                      className="w-full accent-indigo-600 cursor-pointer"
-                    />
+                  )}
+
+                  {/* Mode 2: Custom Facades (Çoklu Cephe) */}
+                  {modelParams.footprintInputMode === 'customFacades' && (
+                    <div className="space-y-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
+                      <div className="flex items-center justify-between gap-1 flex-wrap pb-2 border-b border-slate-200">
+                        <span className="text-[11px] font-bold text-slate-800">Cephe Sayısı:</span>
+                        <div className="flex items-center gap-1">
+                          {[4, 5, 6, 8].map((cnt) => (
+                            <button
+                              key={cnt}
+                              type="button"
+                              onClick={() => {
+                                const newSides = getDefaultCustomFacades(cnt, modelParams.facadeWidth, modelParams.facadeDepth);
+                                const calc = calculateFootprint('customFacades', {
+                                  customFacadeCount: cnt,
+                                  customFacades: newSides,
+                                });
+                                updateParams({
+                                  customFacadeCount: cnt,
+                                  customFacades: newSides,
+                                  facadeWidth: calc.effectiveWidth,
+                                  facadeDepth: calc.effectiveDepth,
+                                });
+                              }}
+                              className={`px-2 py-0.5 text-[11px] font-bold rounded-lg border transition-all ${
+                                (modelParams.customFacadeCount || (modelParams.customFacades || []).length || 4) === cnt
+                                  ? 'bg-indigo-600 text-white border-indigo-600'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {cnt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {(modelParams.customFacades && modelParams.customFacades.length >= 3
+                          ? modelParams.customFacades
+                          : getDefaultCustomFacades(modelParams.customFacadeCount || 4, modelParams.facadeWidth, modelParams.facadeDepth)
+                        ).map((side, sIdx, allSides) => (
+                          <div key={side.id || sIdx} className="flex items-center justify-between gap-2 p-1.5 bg-white rounded-xl border border-slate-200">
+                            <input
+                              type="text"
+                              value={side.name}
+                              onChange={(e) => {
+                                const updated = [...allSides];
+                                updated[sIdx] = { ...updated[sIdx], name: e.target.value };
+                                updateParams({ customFacades: updated });
+                              }}
+                              className="text-[11px] font-medium text-slate-700 bg-transparent border-none p-0 focus:ring-0 w-28 truncate"
+                            />
+                            <div className="flex items-center gap-1 font-mono font-bold text-xs text-indigo-700">
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="1"
+                                max="80"
+                                value={side.length}
+                                onChange={(e) => {
+                                  const updated = [...allSides];
+                                  updated[sIdx] = { ...updated[sIdx], length: parseFloat(e.target.value) || 0 };
+                                  const calc = calculateFootprint('customFacades', {
+                                    customFacadeCount: updated.length,
+                                    customFacades: updated,
+                                  });
+                                  updateParams({
+                                    customFacades: updated,
+                                    facadeWidth: calc.effectiveWidth,
+                                    facadeDepth: calc.effectiveDepth,
+                                  });
+                                }}
+                                className={`w-16 px-1.5 py-0.5 text-right rounded-lg border ${inputBg}`}
+                              />
+                              <span className="text-[10px] text-slate-500 font-normal">m</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mode 3: L-Shape / Kademeli */}
+                  {modelParams.footprintInputMode === 'lShape' && (
+                    <div className="space-y-2.5 p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-700">Ana Ön Eni (m):</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={modelParams.lShapeFrontMain || 16.0}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 16.0;
+                              const calc = calculateFootprint('lShape', {
+                                lShapeFrontMain: val,
+                                lShapeDepthMain: modelParams.lShapeDepthMain || 20.0,
+                                lShapeRecessFront: modelParams.lShapeRecessFront || 6.0,
+                                lShapeRecessDepth: modelParams.lShapeRecessDepth || 8.0,
+                              });
+                              updateParams({
+                                lShapeFrontMain: val,
+                                facadeWidth: calc.effectiveWidth,
+                                facadeDepth: calc.effectiveDepth,
+                              });
+                            }}
+                            className={`w-full px-2 py-1 text-xs rounded-lg border font-mono font-bold ${inputBg}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-700">Ana Derinlik (m):</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={modelParams.lShapeDepthMain || 20.0}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 20.0;
+                              const calc = calculateFootprint('lShape', {
+                                lShapeFrontMain: modelParams.lShapeFrontMain || 16.0,
+                                lShapeDepthMain: val,
+                                lShapeRecessFront: modelParams.lShapeRecessFront || 6.0,
+                                lShapeRecessDepth: modelParams.lShapeRecessDepth || 8.0,
+                              });
+                              updateParams({
+                                lShapeDepthMain: val,
+                                facadeWidth: calc.effectiveWidth,
+                                facadeDepth: calc.effectiveDepth,
+                              });
+                            }}
+                            className={`w-full px-2 py-1 text-xs rounded-lg border font-mono font-bold ${inputBg}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-700">Girinti Önü (m):</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={modelParams.lShapeRecessFront || 6.0}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 6.0;
+                              const calc = calculateFootprint('lShape', {
+                                lShapeFrontMain: modelParams.lShapeFrontMain || 16.0,
+                                lShapeDepthMain: modelParams.lShapeDepthMain || 20.0,
+                                lShapeRecessFront: val,
+                                lShapeRecessDepth: modelParams.lShapeRecessDepth || 8.0,
+                              });
+                              updateParams({
+                                lShapeRecessFront: val,
+                                facadeWidth: calc.effectiveWidth,
+                                facadeDepth: calc.effectiveDepth,
+                              });
+                            }}
+                            className={`w-full px-2 py-1 text-xs rounded-lg border font-mono font-bold ${inputBg}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-700">Girinti Derinlik (m):</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={modelParams.lShapeRecessDepth || 8.0}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 8.0;
+                              const calc = calculateFootprint('lShape', {
+                                lShapeFrontMain: modelParams.lShapeFrontMain || 16.0,
+                                lShapeDepthMain: modelParams.lShapeDepthMain || 20.0,
+                                lShapeRecessFront: modelParams.lShapeRecessFront || 6.0,
+                                lShapeRecessDepth: val,
+                              });
+                              updateParams({
+                                lShapeRecessDepth: val,
+                                facadeWidth: calc.effectiveWidth,
+                                facadeDepth: calc.effectiveDepth,
+                              });
+                            }}
+                            className={`w-full px-2 py-1 text-xs rounded-lg border font-mono font-bold ${inputBg}`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Calculated Area Live Badge */}
+                  <div className="p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-xl flex items-center justify-between text-xs">
+                    <span className="font-semibold text-indigo-900">Hesaplanan Taban Alanı:</span>
+                    <span className="font-mono font-bold text-indigo-700">
+                      {(modelParams.facadeWidth * modelParams.facadeDepth).toFixed(1)} m²
+                    </span>
                   </div>
 
                   {/* Floor Height */}

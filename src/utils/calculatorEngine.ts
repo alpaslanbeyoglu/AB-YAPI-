@@ -1,4 +1,5 @@
 import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem } from '../types';
+import { DEFAULT_CUSTOM_FACADES_4 } from './footprintUtils';
 
 export const DEFAULT_PARAMS: ProjectParams = {
   projectAddress: 'İstanbul, Fatih Kocamustafapaşa Mah. 1024 Ada 15 Parsel',
@@ -16,6 +17,17 @@ export const DEFAULT_PARAMS: ProjectParams = {
   costMultiplier: 2.5,
   profitRate: 25,
 
+  // Taban Oturumu ve Çoklu Cephe Seçenekleri
+  footprintInputMode: 'directArea',
+  facadeWidth: 14.0,
+  facadeDepth: 18.0,
+  customFacadeCount: 4,
+  customFacades: DEFAULT_CUSTOM_FACADES_4,
+  lShapeFrontMain: 16.0,
+  lShapeDepthMain: 20.0,
+  lShapeRecessFront: 6.0,
+  lShapeRecessDepth: 8.0,
+
   // Dükkan / Ticari Seçeneği
   hasGroundFloorShop: false,
   shopCount: 1,
@@ -30,8 +42,6 @@ export const DEFAULT_PARAMS: ProjectParams = {
   roofType: 'gable',
   basementCount: 1,
   flatsPerFloor: 2,
-  facadeWidth: 14.0,
-  facadeDepth: 18.0,
   facadeStyle: 'wood_anthracite',
   balconyDepth: 1.40,
   elevatorCount: 1,
@@ -63,6 +73,9 @@ export const DEFAULT_PARAMS: ProjectParams = {
   pricePaintPlaster: 520,
 
   includeProfitOwner: 'yes',
+  paymentPlanType: 'stages',
+  installmentCount: 12,
+  installmentIntervalMonths: 1,
   stage1Pay: 10,
   stage2Pay: 25,
   stage3Pay: 30,
@@ -142,6 +155,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     stage3Pay,
     stage4Pay,
     stage5Pay,
+    paymentPlanType = 'stages',
+    installmentCount = 12,
     hasCantilever,
     cantileverDepth = 1.2,
     cantileverDirection = 'front_back',
@@ -322,6 +337,9 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     const p4 = Math.round(netRemainingDebt * s4 * 100) / 100;
     const p5 = Math.round(netRemainingDebt * s5 * 100) / 100;
 
+    const effectiveInstallmentCount = Math.max(1, installmentCount || 12);
+    const monthlyInstallment = Math.round((netRemainingDebt / effectiveInstallmentCount) * 100) / 100;
+
     totalStageIncomes[0] += p1 + paid / 5;
     totalStageIncomes[1] += p2;
     totalStageIncomes[2] += p3;
@@ -341,8 +359,13 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       netRemainingDebt: Math.round(netRemainingDebt * 100) / 100,
       isContractorShare: isContractor,
       stagePayments: [p1, p2, p3, p4, p5],
+      monthlyInstallment,
     });
   });
+
+  const totalMonthlyInstallments = flatResults
+    .filter((f) => !f.isContractorShare)
+    .reduce((sum, f) => sum + f.monthlyInstallment, 0);
 
   const totalMaterialCost =
     (concreteM3 * params.priceConcrete + steelTon * params.priceSteel) *
@@ -385,6 +408,9 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     totalDays,
     kabaDaysTotal,
     inceDaysTotal,
+    paymentPlanType,
+    installmentCount: Math.max(1, installmentCount || 12),
+    totalMonthlyInstallments: Math.round(totalMonthlyInstallments * 100) / 100,
     officialCost,
     sgkSalesCost,
     kabaTotalCost,

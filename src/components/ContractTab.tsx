@@ -197,25 +197,68 @@ export const ContractTab: React.FC<ContractTabProps> = ({
           </div>
 
           <div>
-            <h4 className="font-semibold text-slate-900 text-xs mb-1.5">MADDE 5: DİNAMİK FİZİKİ İLERLEME HAKEDİŞ ORANLARI</h4>
-            <p className="text-slate-700">Müteahhite yapılacak hakediş ödemeleri aşağıdaki 5 fiziki aşama takvimine göre gerçekleştirilir:</p>
-            <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
-              <li>
-                <strong className="text-slate-900">1. Hakediş (%{params.stage1Pay}):</strong> Sözleşmenin karşılıklı olarak imzalanması, ruhsat ve imar projelerinin hazırlanması aşamasında.
-              </li>
-              <li>
-                <strong className="text-slate-900">2. Hakediş (%{params.stage2Pay}):</strong> Binanın hafriyatının tamamlanıp radye temel ve subasman seviyesinin betonarme vizesinin alınması anında.
-              </li>
-              <li>
-                <strong className="text-slate-900">3. Hakediş (%{params.stage3Pay}):</strong> Betonarme karkas, kat tabliyeleri ve tuğla duvar örümünün (Kaba İnşaat) eksiksiz tamamlanmasında.
-              </li>
-              <li>
-                <strong className="text-slate-900">4. Hakediş (%{params.stage4Pay}):</strong> Çatı izolasyonları, cephe mantolama, elektrik/su/gaz tesisatları ile sıva ve doğrama aşamasında (Varsa banka kredi/hibe aktarımı bu aşamada gerçekleşir).
-              </li>
-              <li>
-                <strong className="text-slate-900">5. Hakediş (%{params.stage5Pay}):</strong> Yapı Kullanım İzin Belgesi'nin (İskân) belediyeden alınması ve bağımsız bölümlerin anahtar teslim kabulünde.
-              </li>
-            </ul>
+            {params.paymentPlanType === 'installments' ? (
+              <>
+                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">MADDE 5: AYLIK EŞİT TAKSİTLİ ÖDEME PLANI VE VADE ESASLARI</h4>
+                <p className="text-slate-700">
+                  Müteahhite yapılacak ödemeler, kat maliklerinin peşinat ve kentsel dönüşüm destekleri mahsup edildikten sonra kalan net borç tutarları üzerinden toplam <strong className="text-indigo-700 font-mono">{params.installmentCount || 12} eşit aylık taksite</strong> bölünerek tahsil edilecektir:
+                </p>
+                <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
+                  <li>
+                    <strong className="text-slate-900">Peşinat ve Başlangıç:</strong> Sözleşme imza ve ruhsat aşamasında kararlaştırılan peşinat tutarları peşinen tahsil edilir.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">Aylık Vade Günü:</strong> Taksitler her takvim ayının ilk 5 (beş) iş günü içerisinde Yüklenici'nin bildireceği resmi banka hesabına yatırılacaktır.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">Gecikme Hali:</strong> Mücbir sebep olmaksızın vadesinde ödenmeyen taksitlere yasal temerrüt faizi ve enflasyon farkı yansıtılır. Üst üste 2 (iki) taksit ödenmemesi halinde kalan tüm bakiye muaccel hale gelir.
+                  </li>
+                </ul>
+              </>
+            ) : params.paymentPlanType === 'hybrid' ? (
+              <>
+                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">MADDE 5: KARMA (HİBRİT) ÖDEME PLANI VE HAKEDİŞ ESASLARI</h4>
+                <p className="text-slate-700">
+                  Müteahhite yapılacak ödemeler peşinat, inşaat ilerleme ara ödemeleri ve aylık taksitlerin kombinasyonu ile gerçekleştirilir:
+                </p>
+                <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
+                  <li>
+                    <strong className="text-slate-900">1. Peşinat:</strong> Sözleşme imzasında belirlenen tutar.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">2. Kaba İnşaat Ara Ödemesi (%25):</strong> Taşıyıcı betonarme sistem ve duvarların tamamlanmasında.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">3. İskân Ara Ödemesi (%15):</strong> İskân ruhsatının alınması ve teslim aşamasında.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">4. Aylık Taksitler (%60):</strong> Kalan bakiye toplam <strong className="text-indigo-700 font-mono">{params.installmentCount || 12} eşit aylık taksite</strong> bölünerek tahsil edilir.
+                  </li>
+                </ul>
+              </>
+            ) : (
+              <>
+                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">MADDE 5: DİNAMİK FİZİKİ İLERLEME HAKEDİŞ ORANLARI</h4>
+                <p className="text-slate-700">Müteahhite yapılacak hakediş ödemeleri aşağıdaki 5 fiziki aşama takvimine göre gerçekleştirilir:</p>
+                <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
+                  <li>
+                    <strong className="text-slate-900">1. Hakediş (%{params.stage1Pay}):</strong> Sözleşmenin karşılıklı olarak imzalanması, ruhsat ve imar projelerinin hazırlanması aşamasında.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">2. Hakediş (%{params.stage2Pay}):</strong> Binanın hafriyatının tamamlanıp radye temel ve subasman seviyesinin betonarme vizesinin alınması anında.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">3. Hakediş (%{params.stage3Pay}):</strong> Betonarme karkas, kat tabliyeleri ve tuğla duvar örümünün (Kaba İnşaat) eksiksiz tamamlanmasında.
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">4. Hakediş (%{params.stage4Pay}):</strong> Çatı izolasyonları, cephe mantolama, elektrik/su/gaz tesisatları ile sıva ve doğrama aşamasında (Varsa banka kredi/hibe aktarımı bu aşamada gerçekleşir).
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">5. Hakediş (%{params.stage5Pay}):</strong> Yapı Kullanım İzin Belgesi'nin (İskân) belediyeden alınması ve bağımsız bölümlerin anahtar teslim kabulünde.
+                  </li>
+                </ul>
+              </>
+            )}
           </div>
 
           <h3 className="font-semibold text-indigo-700 border-b border-slate-200 pb-2 text-xs uppercase pt-2">
