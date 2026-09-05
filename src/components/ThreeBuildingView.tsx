@@ -20,6 +20,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { BuildingModelParams } from '../types';
+import { generateFacadeConfigs, getPolygonEdges } from '../utils/footprintUtils';
 
 interface ThreeBuildingViewProps {
   params: BuildingModelParams;
@@ -950,109 +951,265 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         }
       } else if (!isBasement) {
         const wallThick = 0.22;
-        const winWidth = 1.8;
-        const winHeight = 1.6;
-        const winSill = 0.85;
-
-        // Front Wall (Z = D/2)
-        const frontWallZ = floorCenterZ + floorD / 2 - wallThick / 2;
         const currentMat = f % 2 === 0 ? woodMaterial : wallMaterial;
+        const isGroundFloor = floorIndex === 0;
 
-        // Front piers / wall panels
-        const panelWidth = (floorW - 3 * winWidth) / 4;
-        for (let p = 0; p < 4; p++) {
-          const pGeo = new THREE.BoxGeometry(panelWidth, roomHeight, wallThick);
-          const pMesh = new THREE.Mesh(pGeo, currentMat);
-          const px = -floorW / 2 + panelWidth / 2 + p * (panelWidth + winWidth);
-          pMesh.position.set(px, midY, frontWallZ);
-          pMesh.castShadow = !isXRay;
-          pMesh.receiveShadow = true;
-          floorGroup.add(pMesh);
+        // Resolve active facade configurations
+        const activeFacadeConfigs = generateFacadeConfigs(
+          params.polygonPoints && params.polygonPoints.length >= 3
+            ? params.polygonPoints
+            : (params.customFacades || 4),
+          params.facadeConfigs,
+          params.mainEntranceFacadeIndex || 0
+        );
 
-          // Place Window next to pier
-          if (p < 3) {
-            const wx = px + panelWidth / 2 + winWidth / 2;
-            // Sill wall under window
-            const sillGeo = new THREE.BoxGeometry(winWidth, winSill, wallThick);
-            const sillMesh = new THREE.Mesh(sillGeo, wallMaterial);
-            sillMesh.position.set(wx, baseY + slabThickness + winSill / 2, frontWallZ);
-            floorGroup.add(sillMesh);
+        // Standard 4-facade definitions: [Front, Right, Back, Left]
+        const defaultWallDefs = [
+          { name: 'Ön Cephe', length: floorW, normal: [0, 1], z: floorCenterZ + floorD / 2 - wallThick / 2, isHorizontal: true },
+          { name: 'Sağ Cephe', length: floorD, normal: [1, 0], x: floorW / 2 - wallThick / 2, isHorizontal: false },
+          { name: 'Arka Cephe', length: floorW, normal: [0, -1], z: floorCenterZ - floorD / 2 + wallThick / 2, isHorizontal: true },
+          { name: 'Sol Cephe', length: floorD, normal: [-1, 0], x: -floorW / 2 + wallThick / 2, isHorizontal: false },
+        ];
 
-            // Lintel above window
-            const lintelH = roomHeight - (winSill + winHeight);
-            if (lintelH > 0.05) {
-              const lintelGeo = new THREE.BoxGeometry(winWidth, lintelH, wallThick);
-              const lintelMesh = new THREE.Mesh(lintelGeo, wallMaterial);
-              lintelMesh.position.set(
-                wx,
-                baseY + slabThickness + winSill + winHeight + lintelH / 2,
-                frontWallZ
+        defaultWallDefs.forEach((wDef, wIdx) => {
+          const cfg = activeFacadeConfigs[wIdx] || {
+            windowCountPerFloor: wIdx === 0 ? 3 : 2,
+            hasBalcony: wIdx === 0,
+            balconyCountPerFloor: wIdx === 0 ? 1 : 0,
+            balconyType: 'standard',
+            isEntrance: wIdx === (params.mainEntranceFacadeIndex || 0),
+          };
+
+          const isEntranceFacade = cfg.isEntrance || wIdx === (params.mainEntranceFacadeIndex || 0);
+          const winCount = typeof cfg.windowCountPerFloor === 'number' ? cfg.windowCountPerFloor : (wIdx === 0 ? 3 : 2);
+          const hasBalc = cfg.hasBalcony && floorIndex > 0;
+          const balcCount = cfg.balconyCountPerFloor || 1;
+
+          if (wDef.isHorizontal) {
+            const zPos = wDef.z!;
+            const isFront = wIdx === 0;
+
+            // Ground floor main entrance portal on this facade
+            if (isGroundFloor && isEntranceFacade) {
+              const doorW = 2.4;
+              const doorH = Math.min(2.4, roomHeight - 0.2);
+              const sidePiersW = (floorW - doorW) / 2;
+
+              // Left & Right entrance piers
+              for (const sign of [-1, 1]) {
+                const pMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(sidePiersW, roomHeight, wallThick),
+                  currentMat
+                );
+                pMesh.position.set(sign * (doorW / 2 + sidePiersW / 2), midY, zPos);
+                pMesh.castShadow = !isXRay;
+                pMesh.receiveShadow = true;
+                floorGroup.add(pMesh);
+              }
+
+              // Top lintel above door
+              const lintelH = roomHeight - doorH;
+              if (lintelH > 0.1) {
+                const lintelMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(doorW, lintelH, wallThick),
+                  wallMaterial
+                );
+                lintelMesh.position.set(0, baseY + slabThickness + doorH + lintelH / 2, zPos);
+                floorGroup.add(lintelMesh);
+              }
+
+              // Grand Entrance Canopy (Giriş Saçağı / Markiz)
+              const canopyMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(doorW + 1.2, 0.14, 1.4),
+                frameMaterial
               );
-              floorGroup.add(lintelMesh);
+              canopyMesh.position.set(0, baseY + slabThickness + doorH + 0.1, isFront ? zPos + 0.7 : zPos - 0.7);
+              canopyMesh.castShadow = true;
+              floorGroup.add(canopyMesh);
+
+              // Entrance LED Sign Bar
+              const signMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(doorW * 0.8, 0.3, 0.08),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+              );
+              signMesh.position.set(0, baseY + slabThickness + doorH + 0.35, isFront ? zPos + 0.12 : zPos - 0.12);
+              floorGroup.add(signMesh);
+
+              // Entrance Double Door Frame & Glass
+              const doorFrameMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(doorW, doorH, 0.12),
+                frameMaterial
+              );
+              doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, zPos);
+              floorGroup.add(doorFrameMesh);
+
+              const doorGlass = new THREE.Mesh(
+                new THREE.BoxGeometry(doorW - 0.2, doorH - 0.2, 0.06),
+                glassMaterial
+              );
+              doorGlass.position.copy(doorFrameMesh.position);
+              floorGroup.add(doorGlass);
+            } else if (winCount === 0) {
+              // Solid blank wall
+              const solidWall = new THREE.Mesh(
+                new THREE.BoxGeometry(floorW, roomHeight, wallThick),
+                currentMat
+              );
+              solidWall.position.set(0, midY, zPos);
+              solidWall.castShadow = !isXRay;
+              solidWall.receiveShadow = true;
+              floorGroup.add(solidWall);
+            } else {
+              // Wall with configured window count
+              const winWidth = Math.min(1.8, (floorW - 1) / (winCount + 1));
+              const winHeight = 1.5;
+              const winSill = 0.9;
+              const pierW = (floorW - winCount * winWidth) / (winCount + 1);
+
+              for (let p = 0; p <= winCount; p++) {
+                const px = -floorW / 2 + pierW / 2 + p * (pierW + winWidth);
+                const pierMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(pierW, roomHeight, wallThick),
+                  currentMat
+                );
+                pierMesh.position.set(px, midY, zPos);
+                pierMesh.castShadow = !isXRay;
+                pierMesh.receiveShadow = true;
+                floorGroup.add(pierMesh);
+
+                if (p < winCount) {
+                  const wx = px + pierW / 2 + winWidth / 2;
+                  // Sill
+                  const sillMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(winWidth, winSill, wallThick),
+                    wallMaterial
+                  );
+                  sillMesh.position.set(wx, baseY + slabThickness + winSill / 2, zPos);
+                  floorGroup.add(sillMesh);
+
+                  // Lintel
+                  const lintelH = roomHeight - (winSill + winHeight);
+                  if (lintelH > 0.05) {
+                    const lintelMesh = new THREE.Mesh(
+                      new THREE.BoxGeometry(winWidth, lintelH, wallThick),
+                      wallMaterial
+                    );
+                    lintelMesh.position.set(wx, baseY + slabThickness + winSill + winHeight + lintelH / 2, zPos);
+                    floorGroup.add(lintelMesh);
+                  }
+
+                  // Glass
+                  const glassMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(winWidth, winHeight, 0.06),
+                    glassMaterial
+                  );
+                  glassMesh.position.set(wx, baseY + slabThickness + winSill + winHeight / 2, zPos);
+                  floorGroup.add(glassMesh);
+
+                  // Frame
+                  const frameGeo = new THREE.BoxGeometry(winWidth + 0.04, winHeight + 0.04, 0.08);
+                  const line = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(frameGeo),
+                    new THREE.LineBasicMaterial({ color: isLight ? 0x64748b : 0x27272a })
+                  );
+                  line.position.copy(glassMesh.position);
+                  floorGroup.add(line);
+                }
+              }
             }
 
-            // Glass pane
-            const glassGeo = new THREE.BoxGeometry(winWidth, winHeight, 0.06);
-            const glassMesh = new THREE.Mesh(glassGeo, glassMaterial);
-            glassMesh.position.set(wx, baseY + slabThickness + winSill + winHeight / 2, frontWallZ);
-            floorGroup.add(glassMesh);
+            // Balcony on Horizontal Facade
+            if (hasBalc && bD > 0.3) {
+              const balcWidth = Math.min(floorW * 0.4, 4.5);
+              const balcOffsetZ = isFront ? (floorCenterZ + floorD / 2 + bD / 2) : (floorCenterZ - floorD / 2 - bD / 2);
 
-            // Window frame
-            const frameGeo = new THREE.BoxGeometry(winWidth + 0.05, winHeight + 0.05, 0.08);
-            const frameEdges = new THREE.EdgesGeometry(frameGeo);
-            const line = new THREE.LineSegments(
-              frameEdges,
-              new THREE.LineBasicMaterial({
-                color: isLight ? 0x64748b : 0x27272a,
-              })
-            );
-            line.position.copy(glassMesh.position);
-            floorGroup.add(line);
+              for (let b = 0; b < balcCount; b++) {
+                const balcX = balcCount === 1 ? -floorW * 0.22 : (b === 0 ? -floorW * 0.25 : floorW * 0.25);
+                const balcSlab = new THREE.Mesh(
+                  new THREE.BoxGeometry(balcWidth, 0.2, bD),
+                  slabMaterial
+                );
+                balcSlab.position.set(balcX, baseY + 0.1, balcOffsetZ);
+                balcSlab.castShadow = true;
+                floorGroup.add(balcSlab);
+
+                // Railing
+                const railH = 1.05;
+                const railZ = isFront ? (floorCenterZ + floorD / 2 + bD) : (floorCenterZ - floorD / 2 - bD);
+                const railMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(balcWidth, railH, 0.05),
+                  glassMaterial
+                );
+                railMesh.position.set(balcX, baseY + 0.2 + railH / 2, railZ);
+                floorGroup.add(railMesh);
+
+                const handrail = new THREE.Mesh(
+                  new THREE.BoxGeometry(balcWidth + 0.04, 0.06, 0.08),
+                  frameMaterial
+                );
+                handrail.position.set(balcX, baseY + 0.2 + railH, railZ);
+                floorGroup.add(handrail);
+              }
+            }
+          } else {
+            // Side Vertical Walls (Left / Right)
+            const xPos = wDef.x!;
+            if (winCount === 0) {
+              const solidWall = new THREE.Mesh(
+                new THREE.BoxGeometry(wallThick, roomHeight, floorD),
+                wallMaterial
+              );
+              solidWall.position.set(xPos, midY, floorCenterZ);
+              solidWall.castShadow = !isXRay;
+              solidWall.receiveShadow = true;
+              floorGroup.add(solidWall);
+            } else {
+              const winWidth = Math.min(1.8, (floorD - 1) / (winCount + 1));
+              const winHeight = 1.5;
+              const winSill = 0.9;
+              const pierD = (floorD - winCount * winWidth) / (winCount + 1);
+
+              for (let p = 0; p <= winCount; p++) {
+                const pz = floorCenterZ - floorD / 2 + pierD / 2 + p * (pierD + winWidth);
+                const pierMesh = new THREE.Mesh(
+                  new THREE.BoxGeometry(wallThick, roomHeight, pierD),
+                  wallMaterial
+                );
+                pierMesh.position.set(xPos, midY, pz);
+                pierMesh.castShadow = !isXRay;
+                pierMesh.receiveShadow = true;
+                floorGroup.add(pierMesh);
+
+                if (p < winCount) {
+                  const wz = pz + pierD / 2 + winWidth / 2;
+                  const sillMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(wallThick, winSill, winWidth),
+                    wallMaterial
+                  );
+                  sillMesh.position.set(xPos, baseY + slabThickness + winSill / 2, wz);
+                  floorGroup.add(sillMesh);
+
+                  const lintelH = roomHeight - (winSill + winHeight);
+                  if (lintelH > 0.05) {
+                    const lintelMesh = new THREE.Mesh(
+                      new THREE.BoxGeometry(wallThick, lintelH, winWidth),
+                      wallMaterial
+                    );
+                    lintelMesh.position.set(xPos, baseY + slabThickness + winSill + winHeight + lintelH / 2, wz);
+                    floorGroup.add(lintelMesh);
+                  }
+
+                  const glassMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.06, winHeight, winWidth),
+                    glassMaterial
+                  );
+                  glassMesh.position.set(xPos, baseY + slabThickness + winSill + winHeight / 2, wz);
+                  floorGroup.add(glassMesh);
+                }
+              }
+            }
           }
-        }
-
-        // Back Wall (Z = -D/2)
-        const backWallZ = floorCenterZ - floorD / 2 + wallThick / 2;
-        const backWallGeo = new THREE.BoxGeometry(floorW, roomHeight, wallThick);
-        const backWallMesh = new THREE.Mesh(backWallGeo, wallMaterial);
-        backWallMesh.position.set(0, midY, backWallZ);
-        backWallMesh.castShadow = !isXRay;
-        floorGroup.add(backWallMesh);
-
-        // Side Walls (Left X = -floorW/2, Right X = floorW/2)
-        const sideWallGeo = new THREE.BoxGeometry(wallThick, roomHeight, floorD);
-        const leftSide = new THREE.Mesh(sideWallGeo, wallMaterial);
-        leftSide.position.set(-floorW / 2 + wallThick / 2, midY, floorCenterZ);
-        leftSide.castShadow = !isXRay;
-        floorGroup.add(leftSide);
-
-        const rightSide = new THREE.Mesh(sideWallGeo, wallMaterial);
-        rightSide.position.set(floorW / 2 - wallThick / 2, midY, floorCenterZ);
-        rightSide.castShadow = !isXRay;
-        floorGroup.add(rightSide);
-
-        // 7. BALCONY (Balkon Çıkması) on normal floors
-        if (bD > 0.3 && floorIndex > 0) {
-          const balcWidth = floorW * 0.38;
-          const balcSlabGeo = new THREE.BoxGeometry(balcWidth, 0.2, bD);
-          const balcSlab = new THREE.Mesh(balcSlabGeo, slabMaterial);
-          balcSlab.position.set(-floorW / 4, baseY + 0.1, floorCenterZ + floorD / 2 + bD / 2);
-          balcSlab.castShadow = true;
-          floorGroup.add(balcSlab);
-
-          // Balcony railing (Korkuluk)
-          const railHeight = 1.05;
-          const glassRailGeo = new THREE.BoxGeometry(balcWidth, railHeight, 0.05);
-          const glassRail = new THREE.Mesh(glassRailGeo, glassMaterial);
-          glassRail.position.set(-floorW / 4, baseY + 0.2 + railHeight / 2, floorCenterZ + floorD / 2 + bD);
-          floorGroup.add(glassRail);
-
-          // Top railing handrail
-          const handrailGeo = new THREE.BoxGeometry(balcWidth + 0.04, 0.06, 0.08);
-          const handrail = new THREE.Mesh(handrailGeo, frameMaterial);
-          handrail.position.set(-floorW / 4, baseY + 0.2 + railHeight, floorCenterZ + floorD / 2 + bD);
-          floorGroup.add(handrail);
-        }
+        });
       } else {
         // Basement Retaining Wall (Perde Beton)
         const bsWallGeo = new THREE.BoxGeometry(W, roomHeight, D);

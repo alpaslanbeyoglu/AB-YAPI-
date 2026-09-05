@@ -32,9 +32,13 @@ import {
 import {
   calculateFootprint,
   getDefaultCustomFacades,
+  POLYGON_PRESETS,
+  calculatePolygonArea,
+  getPolygonBounds,
 } from '../utils/footprintUtils';
 import { ThreeBuildingView } from './ThreeBuildingView';
 import { FloorPlan2DView } from './FloorPlan2DView';
+import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 import { Logo } from './Logo';
 
 interface BuildingModelTabProps {
@@ -418,11 +422,11 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                     <label className={`block text-[11px] font-bold uppercase tracking-wider ${textTitle}`}>
                       Taban Oturumu & Cephe Modu:
                     </label>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                       <button
                         type="button"
                         onClick={() => updateParams({ footprintInputMode: 'dimensions' })}
-                        className={`py-1.5 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
+                        className={`py-1.5 px-1.5 text-center rounded-xl text-[11px] font-semibold border transition-all ${
                           (modelParams.footprintInputMode || 'dimensions') === 'dimensions' || modelParams.footprintInputMode === 'directArea'
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                             : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
@@ -432,8 +436,19 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       </button>
                       <button
                         type="button"
+                        onClick={() => updateParams({ footprintInputMode: 'polygonDraw' })}
+                        className={`py-1.5 px-1.5 text-center rounded-xl text-[11px] font-semibold border transition-all ${
+                          modelParams.footprintInputMode === 'polygonDraw'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-400'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        ✏️ Nokta Çizim
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => updateParams({ footprintInputMode: 'customFacades' })}
-                        className={`py-1.5 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
+                        className={`py-1.5 px-1.5 text-center rounded-xl text-[11px] font-semibold border transition-all ${
                           modelParams.footprintInputMode === 'customFacades'
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                             : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
@@ -444,13 +459,13 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       <button
                         type="button"
                         onClick={() => updateParams({ footprintInputMode: 'lShape' })}
-                        className={`py-1.5 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
+                        className={`py-1.5 px-1.5 text-center rounded-xl text-[11px] font-semibold border transition-all ${
                           modelParams.footprintInputMode === 'lShape'
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                             : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        🔲 L-Tipi Kütle
+                        🔲 L-Tipi
                       </button>
                     </div>
                   </div>
@@ -519,6 +534,35 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                           className="w-full accent-indigo-600 cursor-pointer"
                         />
                       </div>
+                    </div>
+                  )}
+
+                  {/* Mode: Freehand Polygon Point Drawing (Nokta & Çizgi Çizimi) */}
+                  {modelParams.footprintInputMode === 'polygonDraw' && (
+                    <div className="space-y-3 p-3 bg-slate-50/80 rounded-2xl border border-indigo-200 shadow-sm">
+                      <InteractiveFootprintCanvas
+                        points={modelParams.polygonPoints}
+                        onChangePoints={(newPoints) => {
+                          const area = calculatePolygonArea(newPoints);
+                          const bounds = getPolygonBounds(newPoints);
+                          updateParams({
+                            polygonPoints: newPoints,
+                            facadeWidth: Math.round(bounds.width * 10) / 10,
+                            facadeDepth: Math.round(bounds.depth * 10) / 10,
+                          });
+                        }}
+                        facadeConfigs={modelParams.facadeConfigs}
+                        onChangeFacadeConfigs={(newConfigs) => {
+                          updateParams({ facadeConfigs: newConfigs });
+                        }}
+                        mainEntranceIndex={modelParams.mainEntranceFacadeIndex || 0}
+                        onChangeMainEntranceIndex={(idx) => {
+                          updateParams({ mainEntranceFacadeIndex: idx });
+                        }}
+                        flatsPerFloor={modelParams.flatsPerFloor || 2}
+                        theme={theme}
+                        compact
+                      />
                     </div>
                   )}
 

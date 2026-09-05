@@ -29,7 +29,11 @@ import {
   DEFAULT_CUSTOM_FACADES_5,
   DEFAULT_CUSTOM_FACADES_6,
   DEFAULT_CUSTOM_FACADES_8,
+  calculatePolygonArea,
+  getPolygonBounds,
+  POLYGON_PRESETS,
 } from '../utils/footprintUtils';
+import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 
 interface CalculatorTabProps {
   params: ProjectParams;
@@ -425,17 +429,17 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             </div>
 
             {/* Mode Switcher Tabs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <button
                 type="button"
                 onClick={() => handleFootprintUpdate({ footprintInputMode: 'directArea' })}
-                className={`py-2 px-2.5 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
+                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
                   activeFootprintMode === 'directArea'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                <span className="text-[11px] font-bold">1. Doğrudan m² Girişi</span>
+                <span className="text-[11px] font-bold">1. Doğrudan m²</span>
                 <span className={`text-[10px] ${activeFootprintMode === 'directArea' ? 'text-indigo-100' : 'text-slate-400'}`}>
                   {params.baseBuildArea} m²
                 </span>
@@ -444,13 +448,13 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               <button
                 type="button"
                 onClick={() => handleFootprintUpdate({ footprintInputMode: 'dimensions' })}
-                className={`py-2 px-2.5 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
+                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
                   activeFootprintMode === 'dimensions'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                <span className="text-[11px] font-bold">2. Ön × Yan Cephe</span>
+                <span className="text-[11px] font-bold">2. Ön × Yan</span>
                 <span className={`text-[10px] ${activeFootprintMode === 'dimensions' ? 'text-indigo-100' : 'text-slate-400'}`}>
                   {params.facadeWidth || 14}m × {params.facadeDepth || 18}m
                 </span>
@@ -458,14 +462,29 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
               <button
                 type="button"
+                onClick={() => handleFootprintUpdate({ footprintInputMode: 'polygonDraw' })}
+                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
+                  activeFootprintMode === 'polygonDraw'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-1 ring-indigo-400'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <span className="text-[11px] font-bold">3. ✏️ Nokta Çizim</span>
+                <span className={`text-[10px] ${activeFootprintMode === 'polygonDraw' ? 'text-indigo-100' : 'text-slate-400'}`}>
+                  Serbest Parsel & Çizgi
+                </span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => handleFootprintUpdate({ footprintInputMode: 'customFacades' })}
-                className={`py-2 px-2.5 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
+                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
                   activeFootprintMode === 'customFacades'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                <span className="text-[11px] font-bold">3. Cephe Adet & Uzunluk</span>
+                <span className="text-[11px] font-bold">4. Çoklu Cephe</span>
                 <span className={`text-[10px] ${activeFootprintMode === 'customFacades' ? 'text-indigo-100' : 'text-slate-400'}`}>
                   {params.customFacadeCount || customFacadesList.length} Cepheli Parsel
                 </span>
@@ -474,15 +493,15 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               <button
                 type="button"
                 onClick={() => handleFootprintUpdate({ footprintInputMode: 'lShape' })}
-                className={`py-2 px-2.5 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
+                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 col-span-2 sm:col-span-1 ${
                   activeFootprintMode === 'lShape'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                <span className="text-[11px] font-bold">4. L-Tipi / Kademeli</span>
+                <span className="text-[11px] font-bold">5. L-Tipi Kütle</span>
                 <span className={`text-[10px] ${activeFootprintMode === 'lShape' ? 'text-indigo-100' : 'text-slate-400'}`}>
-                  6 Cepheli Kütle
+                  Kademeli Form
                 </span>
               </button>
             </div>
@@ -625,7 +644,37 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               </div>
             )}
 
-            {/* Mode 3: Çoklu Cephe Adetleri & Uzunlukları */}
+            {/* Mode 3: Serbest Nokta ve Çizgi Çizimi (Polygon Footprint & Facade Detail) */}
+            {activeFootprintMode === 'polygonDraw' && (
+              <div className="space-y-4 p-4 bg-white rounded-2xl border border-indigo-200 shadow-sm">
+                <InteractiveFootprintCanvas
+                  points={params.polygonPoints}
+                  onChangePoints={(newPoints) => {
+                    const area = calculatePolygonArea(newPoints);
+                    const bounds = getPolygonBounds(newPoints);
+                    handleFootprintUpdate({
+                      polygonPoints: newPoints,
+                      baseBuildArea: area,
+                      facadeWidth: Math.round(bounds.width * 10) / 10,
+                      facadeDepth: Math.round(bounds.depth * 10) / 10,
+                    });
+                  }}
+                  facadeConfigs={params.facadeConfigs}
+                  onChangeFacadeConfigs={(newConfigs) => {
+                    onChangeParams({ ...params, facadeConfigs: newConfigs });
+                  }}
+                  mainEntranceIndex={params.mainEntranceFacadeIndex || 0}
+                  onChangeMainEntranceIndex={(idx) => {
+                    onChangeParams({ ...params, mainEntranceFacadeIndex: idx });
+                  }}
+                  flatsPerFloor={Math.max(1, Math.round(params.flatCount / (params.floorCount || 1)))}
+                  theme={theme}
+                  compact={false}
+                />
+              </div>
+            )}
+
+            {/* Mode 4: Çoklu Cephe Adetleri & Uzunlukları */}
             {activeFootprintMode === 'customFacades' && (
               <div className="space-y-4 p-3.5 bg-white rounded-2xl border border-slate-200">
                 {/* Facade Count selector */}

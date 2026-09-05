@@ -169,6 +169,9 @@ export default function App() {
         basementCount: newParams.basementCount !== undefined ? newParams.basementCount : prevModel.basementCount,
         facadeStyle: newParams.facadeStyle || prevModel.facadeStyle,
         balconyDepth: newParams.balconyDepth !== undefined ? newParams.balconyDepth : prevModel.balconyDepth,
+        polygonPoints: newParams.polygonPoints || prevModel.polygonPoints,
+        facadeConfigs: newParams.facadeConfigs || prevModel.facadeConfigs,
+        mainEntranceFacadeIndex: newParams.mainEntranceFacadeIndex !== undefined ? newParams.mainEntranceFacadeIndex : prevModel.mainEntranceFacadeIndex,
       };
 
       try {
@@ -237,6 +240,9 @@ export default function App() {
           flatsPerFloor: next.flatsPerFloor,
           facadeStyle: next.facadeStyle,
           balconyDepth: next.balconyDepth,
+          polygonPoints: next.polygonPoints !== undefined ? next.polygonPoints : prevCalc.polygonPoints,
+          facadeConfigs: next.facadeConfigs !== undefined ? next.facadeConfigs : prevCalc.facadeConfigs,
+          mainEntranceFacadeIndex: next.mainEntranceFacadeIndex !== undefined ? next.mainEntranceFacadeIndex : prevCalc.mainEntranceFacadeIndex,
         };
 
         try {

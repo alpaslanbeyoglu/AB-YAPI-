@@ -20,12 +20,34 @@ export interface CompanyProfile {
   logoBase64?: string;          // Yüklenen özel firma logosu (Base64 dataURL formatında)
 }
 
-export type FootprintInputMode = 'directArea' | 'dimensions' | 'customFacades' | 'lShape';
+export type FootprintInputMode = 'directArea' | 'dimensions' | 'customFacades' | 'lShape' | 'polygonDraw';
+
+export interface PolygonPoint {
+  id: string;
+  x: number; // Metre cinsinden X koordinatı
+  y: number; // Metre cinsinden Y (veya Z derinlik) koordinatı
+}
+
+export interface FacadeDetailConfig {
+  id: number;
+  name: string;               // Örn: "1. Ön Cephe (Yol / Ana Giriş)", "2. Sağ Yan Cephe", vb.
+  length: number;             // Metre cinsinden cephe uzunluğu
+  windowCountPerFloor: number;// Katta bu cephedeki pencere adedi (0, 1, 2, 3, 4, 5)
+  hasBalcony: boolean;        // Bu cephede balkon var mı?
+  balconyCountPerFloor: number;// Katta bu cephedeki balkon adedi (0, 1, 2, 3)
+  balconyType?: 'standard' | 'french' | 'recessed'; // Standart Çıkma, Fransız Balkon, Gömme Balkon
+  isEntrance?: boolean;       // Bina ana giriş kapısı bu cephede mi?
+}
 
 export interface CustomFacadeSide {
   id: number;
   name: string;        // Örn: "1. Ön Cephe (Yol)", "2. Sağ Yan Cephe (Komşu)", "3. Arka Cephe (Bahçe)", "4. Sol Yan Cephe"
   length: number;      // Uzunluk (metre)
+  windowCountPerFloor?: number;
+  hasBalcony?: boolean;
+  balconyCountPerFloor?: number;
+  balconyType?: 'standard' | 'french' | 'recessed';
+  isEntrance?: boolean;
 }
 
 export interface FlatItem {
@@ -57,7 +79,7 @@ export interface ProjectParams {
   profitRate: number;
 
   // Taban Oturumu ve Cephe Ölçü Giriş Seçenekleri
-  footprintInputMode?: FootprintInputMode; // 'directArea': Doğrudan m², 'dimensions': Ön x Yan Cephe, 'customFacades': Çoklu Cepheler, 'lShape': L-Tipi Kademeli
+  footprintInputMode?: FootprintInputMode; // 'directArea': Doğrudan m², 'dimensions': Ön x Yan Cephe, 'customFacades': Çoklu Cepheler, 'lShape': L-Tipi Kademeli, 'polygonDraw': Serbest Çizim
   facadeWidth?: number;       // Ön Cephe Genişliği (m)
   facadeDepth?: number;       // Yan Cephe Derinliği (m)
   customFacadeCount?: number; // Cephe adedi (4, 5, 6, 8 vb.)
@@ -66,6 +88,9 @@ export interface ProjectParams {
   lShapeDepthMain?: number;   // L-Tipi Ana Yan Derinlik (m)
   lShapeRecessFront?: number; // L-Tipi Girinti Eni (m)
   lShapeRecessDepth?: number; // L-Tipi Girinti Derinliği (m)
+  polygonPoints?: PolygonPoint[]; // Serbest çizilen köşe noktaları (m)
+  facadeConfigs?: FacadeDetailConfig[]; // Her cephe için pencere, balkon ve giriş konfigürasyonları
+  mainEntranceFacadeIndex?: number; // Ana bina giriş kapısının bulunduğu cephe indeksi (0, 1, 2, ... N)
 
   // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
   hasGroundFloorShop?: boolean;
@@ -242,6 +267,9 @@ export interface BuildingModelParams {
   lShapeDepthMain?: number;
   lShapeRecessFront?: number;
   lShapeRecessDepth?: number;
+  polygonPoints?: PolygonPoint[];
+  facadeConfigs?: FacadeDetailConfig[];
+  mainEntranceFacadeIndex?: number;
 
   // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
   hasGroundFloorShop?: boolean;
