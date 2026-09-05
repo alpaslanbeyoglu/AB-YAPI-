@@ -20,7 +20,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { BuildingModelParams } from '../types';
-import { generateFacadeConfigs, getPolygonEdges } from '../utils/footprintUtils';
+import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds } from '../utils/footprintUtils';
 
 interface ThreeBuildingViewProps {
   params: BuildingModelParams;
@@ -367,9 +367,46 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       }
 
       // 1. FLOOR SLAB (Döşeme Betonu)
-      const slabGeo = new THREE.BoxGeometry(floorW, slabThickness, floorD);
-      const slabMesh = new THREE.Mesh(slabGeo, isShopFloor ? commercialFloorMat : slabMaterial);
-      slabMesh.position.set(0, baseY + slabThickness / 2, floorCenterZ);
+      let slabGeo;
+      let isCustomPoly = false;
+      let activePolyPts = null;
+      if (params.footprintInputMode === 'polygonDraw' && params.polygonPoints && params.polygonPoints.length >= 3) {
+        isCustomPoly = true;
+        activePolyPts = params.polygonPoints;
+      }
+      // Note: we can also apply this for 'customFacades' if we derive polygonPoints from presets, but polygonDraw is the primary arbitrary shape mode.
+      
+      let slabMesh;
+      if (isCustomPoly && activePolyPts) {
+        const shape = new THREE.Shape();
+        const bounds = getPolygonBounds(activePolyPts);
+        
+        // Convert to local centered coordinates
+        // HTML canvas Y goes down. In ThreeJS, we map 2D Y to 3D Z (which points towards the screen)
+        activePolyPts.forEach((p, idx) => {
+          const px = p.x - bounds.centerX;
+          const py = -(p.y - bounds.centerY); // flip Y so it matches 3D -Z
+          if (idx === 0) shape.moveTo(px, py);
+          else shape.lineTo(px, py);
+        });
+        
+        // Close the shape if not closed
+        const first = activePolyPts[0];
+        shape.lineTo(first.x - bounds.centerX, -(first.y - bounds.centerY));
+
+        slabGeo = new THREE.ExtrudeGeometry(shape, { depth: slabThickness, bevelEnabled: false });
+        slabMesh = new THREE.Mesh(slabGeo, isShopFloor ? commercialFloorMat : slabMaterial);
+        
+        // ExtrudeGeometry extrudes along +Z. Rotate X by -90deg so it lays flat, and Z maps to -Y.
+        slabMesh.rotation.x = -Math.PI / 2;
+        // Shift it down by slabThickness because extruding along local Z which is now -Y
+        slabMesh.position.set(0, baseY + slabThickness, floorCenterZ);
+      } else {
+        slabGeo = new THREE.BoxGeometry(floorW, slabThickness, floorD);
+        slabMesh = new THREE.Mesh(slabGeo, isShopFloor ? commercialFloorMat : slabMaterial);
+        slabMesh.position.set(0, baseY + slabThickness / 2, floorCenterZ);
+      }
+      
       slabMesh.castShadow = true;
       slabMesh.receiveShadow = true;
       floorGroup.add(slabMesh);
@@ -397,7 +434,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // Ceiling slab if top floor (Hidden in cutaway mode so inside is visible!)
       if (isTopFloor && (!isCutaway || selectedFloor !== 'all')) {
         const topSlab = new THREE.Mesh(slabGeo, slabMaterial);
-        topSlab.position.set(0, baseY + currentFloorH, floorCenterZ);
+        if (isCustomPoly) {
+          topSlab.rotation.x = -Math.PI / 2;
+          topSlab.position.set(0, baseY + currentFloorH + slabThickness, floorCenterZ);
+        } else {
+          topSlab.position.set(0, baseY + currentFloorH, floorCenterZ);
+        }
         topSlab.castShadow = true;
         floorGroup.add(topSlab);
       }
@@ -963,15 +1005,44 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           params.mainEntranceFacadeIndex || 0
         );
 
-        // Standard 4-facade definitions: [Front, Right, Back, Left]
-        const defaultWallDefs = [
-          { name: 'Ön Cephe', length: floorW, normal: [0, 1], z: floorCenterZ + floorD / 2 - wallThick / 2, isHorizontal: true },
-          { name: 'Sağ Cephe', length: floorD, normal: [1, 0], x: floorW / 2 - wallThick / 2, isHorizontal: false },
-          { name: 'Arka Cephe', length: floorW, normal: [0, -1], z: floorCenterZ - floorD / 2 + wallThick / 2, isHorizontal: true },
-          { name: 'Sol Cephe', length: floorD, normal: [-1, 0], x: -floorW / 2 + wallThick / 2, isHorizontal: false },
-        ];
+        let wallDefs: Array<{ name: string; length: number; x: number; z: number; rotationY: number; isCustom: boolean }> = [];
+        if (isCustomPoly && activePolyPts) {
+          const bounds = getPolygonBounds(activePolyPts);
+          const edges = getPolygonEdges(activePolyPts);
+          wallDefs = edges.map((edge, idx) => {
+            const p1 = { x: edge.start.x - bounds.centerX, z: -(edge.start.y - bounds.centerY) };
+            const p2 = { x: edge.end.x - bounds.centerX, z: -(edge.end.y - bounds.centerY) };
+            const dx = p2.x - p1.x;
+            const dz = p2.z - p1.z;
+            const length = Math.sqrt(dx * dx + dz * dz);
+            
+            // Offset wall inward by wallThick/2 so it's flush with the slab edge
+            // Normal points outwards. Vector is (dx, dz). Normal is (dz, -dx) or (-dz, dx) depending on winding.
+            // HTML canvas (top-down) clock-wise: inside is to the right. 
+            // Normalized right vector: (-dz/length, dx/length).
+            // Let's assume standard winding, inward offset:
+            const cx = (p1.x + p2.x) / 2;
+            const cz = (p1.z + p2.z) / 2;
+            
+            return {
+              name: `Cephe ${idx + 1}`,
+              length: length,
+              x: cx,
+              z: cz,
+              rotationY: Math.atan2(-dz, dx),
+              isCustom: true
+            };
+          });
+        } else {
+          wallDefs = [
+            { name: 'Ön Cephe', length: floorW, x: 0, z: floorCenterZ + floorD / 2 - wallThick / 2, rotationY: 0, isCustom: false },
+            { name: 'Sağ Cephe', length: floorD, x: floorW / 2 - wallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, isCustom: false },
+            { name: 'Arka Cephe', length: floorW, x: 0, z: floorCenterZ - floorD / 2 + wallThick / 2, rotationY: Math.PI, isCustom: false },
+            { name: 'Sol Cephe', length: floorD, x: -floorW / 2 + wallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, isCustom: false },
+          ];
+        }
 
-        defaultWallDefs.forEach((wDef, wIdx) => {
+        wallDefs.forEach((wDef, wIdx) => {
           const cfg = activeFacadeConfigs[wIdx] || {
             windowCountPerFloor: wIdx === 0 ? 3 : 2,
             hasBalcony: wIdx === 0,
@@ -985,231 +1056,117 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const hasBalc = cfg.hasBalcony && floorIndex > 0;
           const balcCount = cfg.balconyCountPerFloor || 1;
 
-          if (wDef.isHorizontal) {
-            const zPos = wDef.z!;
-            const isFront = wIdx === 0;
+          const wallGroup = new THREE.Group();
+          wallGroup.position.set(wDef.x, 0, wDef.z);
+          wallGroup.rotation.y = wDef.rotationY;
+          floorGroup.add(wallGroup);
 
-            // Ground floor main entrance portal on this facade
-            if (isGroundFloor && isEntranceFacade) {
-              const doorW = 2.4;
-              const doorH = Math.min(2.4, roomHeight - 0.2);
-              const sidePiersW = (floorW - doorW) / 2;
+          const localW = wDef.length;
+          
+          if (isGroundFloor && isEntranceFacade) {
+            const doorW = 2.4;
+            const doorH = Math.min(2.4, roomHeight - 0.2);
+            const sidePiersW = (localW - doorW) / 2;
 
-              // Left & Right entrance piers
-              for (const sign of [-1, 1]) {
-                const pMesh = new THREE.Mesh(
-                  new THREE.BoxGeometry(sidePiersW, roomHeight, wallThick),
-                  currentMat
-                );
-                pMesh.position.set(sign * (doorW / 2 + sidePiersW / 2), midY, zPos);
-                pMesh.castShadow = !isXRay;
-                pMesh.receiveShadow = true;
-                floorGroup.add(pMesh);
-              }
-
-              // Top lintel above door
-              const lintelH = roomHeight - doorH;
-              if (lintelH > 0.1) {
-                const lintelMesh = new THREE.Mesh(
-                  new THREE.BoxGeometry(doorW, lintelH, wallThick),
-                  wallMaterial
-                );
-                lintelMesh.position.set(0, baseY + slabThickness + doorH + lintelH / 2, zPos);
-                floorGroup.add(lintelMesh);
-              }
-
-              // Grand Entrance Canopy (Giriş Saçağı / Markiz)
-              const canopyMesh = new THREE.Mesh(
-                new THREE.BoxGeometry(doorW + 1.2, 0.14, 1.4),
-                frameMaterial
-              );
-              canopyMesh.position.set(0, baseY + slabThickness + doorH + 0.1, isFront ? zPos + 0.7 : zPos - 0.7);
-              canopyMesh.castShadow = true;
-              floorGroup.add(canopyMesh);
-
-              // Entrance LED Sign Bar
-              const signMesh = new THREE.Mesh(
-                new THREE.BoxGeometry(doorW * 0.8, 0.3, 0.08),
-                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
-              );
-              signMesh.position.set(0, baseY + slabThickness + doorH + 0.35, isFront ? zPos + 0.12 : zPos - 0.12);
-              floorGroup.add(signMesh);
-
-              // Entrance Double Door Frame & Glass
-              const doorFrameMesh = new THREE.Mesh(
-                new THREE.BoxGeometry(doorW, doorH, 0.12),
-                frameMaterial
-              );
-              doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, zPos);
-              floorGroup.add(doorFrameMesh);
-
-              const doorGlass = new THREE.Mesh(
-                new THREE.BoxGeometry(doorW - 0.2, doorH - 0.2, 0.06),
-                glassMaterial
-              );
-              doorGlass.position.copy(doorFrameMesh.position);
-              floorGroup.add(doorGlass);
-            } else if (winCount === 0) {
-              // Solid blank wall
-              const solidWall = new THREE.Mesh(
-                new THREE.BoxGeometry(floorW, roomHeight, wallThick),
-                currentMat
-              );
-              solidWall.position.set(0, midY, zPos);
-              solidWall.castShadow = !isXRay;
-              solidWall.receiveShadow = true;
-              floorGroup.add(solidWall);
-            } else {
-              // Wall with configured window count
-              const winWidth = Math.min(1.8, (floorW - 1) / (winCount + 1));
-              const winHeight = 1.5;
-              const winSill = 0.9;
-              const pierW = (floorW - winCount * winWidth) / (winCount + 1);
-
-              for (let p = 0; p <= winCount; p++) {
-                const px = -floorW / 2 + pierW / 2 + p * (pierW + winWidth);
-                const pierMesh = new THREE.Mesh(
-                  new THREE.BoxGeometry(pierW, roomHeight, wallThick),
-                  currentMat
-                );
-                pierMesh.position.set(px, midY, zPos);
-                pierMesh.castShadow = !isXRay;
-                pierMesh.receiveShadow = true;
-                floorGroup.add(pierMesh);
-
-                if (p < winCount) {
-                  const wx = px + pierW / 2 + winWidth / 2;
-                  // Sill
-                  const sillMesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(winWidth, winSill, wallThick),
-                    wallMaterial
-                  );
-                  sillMesh.position.set(wx, baseY + slabThickness + winSill / 2, zPos);
-                  floorGroup.add(sillMesh);
-
-                  // Lintel
-                  const lintelH = roomHeight - (winSill + winHeight);
-                  if (lintelH > 0.05) {
-                    const lintelMesh = new THREE.Mesh(
-                      new THREE.BoxGeometry(winWidth, lintelH, wallThick),
-                      wallMaterial
-                    );
-                    lintelMesh.position.set(wx, baseY + slabThickness + winSill + winHeight + lintelH / 2, zPos);
-                    floorGroup.add(lintelMesh);
-                  }
-
-                  // Glass
-                  const glassMesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(winWidth, winHeight, 0.06),
-                    glassMaterial
-                  );
-                  glassMesh.position.set(wx, baseY + slabThickness + winSill + winHeight / 2, zPos);
-                  floorGroup.add(glassMesh);
-
-                  // Frame
-                  const frameGeo = new THREE.BoxGeometry(winWidth + 0.04, winHeight + 0.04, 0.08);
-                  const line = new THREE.LineSegments(
-                    new THREE.EdgesGeometry(frameGeo),
-                    new THREE.LineBasicMaterial({ color: isLight ? 0x64748b : 0x27272a })
-                  );
-                  line.position.copy(glassMesh.position);
-                  floorGroup.add(line);
-                }
-              }
+            for (const sign of [-1, 1]) {
+              const pMesh = new THREE.Mesh(new THREE.BoxGeometry(sidePiersW, roomHeight, wallThick), currentMat);
+              pMesh.position.set(sign * (doorW / 2 + sidePiersW / 2), midY, 0);
+              pMesh.castShadow = !isXRay; pMesh.receiveShadow = true;
+              wallGroup.add(pMesh);
+            }
+            
+            const lintelH = roomHeight - doorH;
+            if (lintelH > 0.1) {
+              const lintelMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, wallThick), wallMaterial);
+              lintelMesh.position.set(0, baseY + slabThickness + doorH + lintelH / 2, 0);
+              wallGroup.add(lintelMesh);
             }
 
-            // Balcony on Horizontal Facade
-            if (hasBalc && bD > 0.3) {
-              const balcWidth = Math.min(floorW * 0.4, 4.5);
-              const balcOffsetZ = isFront ? (floorCenterZ + floorD / 2 + bD / 2) : (floorCenterZ - floorD / 2 - bD / 2);
+            const canopyMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW + 1.2, 0.14, 1.4), frameMaterial);
+            canopyMesh.position.set(0, baseY + slabThickness + doorH + 0.1, 0.7);
+            canopyMesh.castShadow = true;
+            wallGroup.add(canopyMesh);
 
-              for (let b = 0; b < balcCount; b++) {
-                const balcX = balcCount === 1 ? -floorW * 0.22 : (b === 0 ? -floorW * 0.25 : floorW * 0.25);
-                const balcSlab = new THREE.Mesh(
-                  new THREE.BoxGeometry(balcWidth, 0.2, bD),
-                  slabMaterial
-                );
-                balcSlab.position.set(balcX, baseY + 0.1, balcOffsetZ);
-                balcSlab.castShadow = true;
-                floorGroup.add(balcSlab);
+            const signMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW * 0.8, 0.3, 0.08), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            signMesh.position.set(0, baseY + slabThickness + doorH + 0.35, 0.12);
+            wallGroup.add(signMesh);
 
-                // Railing
-                const railH = 1.05;
-                const railZ = isFront ? (floorCenterZ + floorD / 2 + bD) : (floorCenterZ - floorD / 2 - bD);
-                const railMesh = new THREE.Mesh(
-                  new THREE.BoxGeometry(balcWidth, railH, 0.05),
-                  glassMaterial
-                );
-                railMesh.position.set(balcX, baseY + 0.2 + railH / 2, railZ);
-                floorGroup.add(railMesh);
+            const doorFrameMesh = new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, 0.12), frameMaterial);
+            doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, 0);
+            wallGroup.add(doorFrameMesh);
 
-                const handrail = new THREE.Mesh(
-                  new THREE.BoxGeometry(balcWidth + 0.04, 0.06, 0.08),
-                  frameMaterial
-                );
-                handrail.position.set(balcX, baseY + 0.2 + railH, railZ);
-                floorGroup.add(handrail);
-              }
-            }
+            const doorGlass = new THREE.Mesh(new THREE.BoxGeometry(doorW - 0.2, doorH - 0.2, 0.06), glassMaterial);
+            doorGlass.position.copy(doorFrameMesh.position);
+            wallGroup.add(doorGlass);
+          } else if (winCount === 0) {
+            const solidWall = new THREE.Mesh(new THREE.BoxGeometry(localW, roomHeight, wallThick), currentMat);
+            solidWall.position.set(0, midY, 0);
+            solidWall.castShadow = !isXRay; solidWall.receiveShadow = true;
+            wallGroup.add(solidWall);
           } else {
-            // Side Vertical Walls (Left / Right)
-            const xPos = wDef.x!;
-            if (winCount === 0) {
-              const solidWall = new THREE.Mesh(
-                new THREE.BoxGeometry(wallThick, roomHeight, floorD),
-                wallMaterial
-              );
-              solidWall.position.set(xPos, midY, floorCenterZ);
-              solidWall.castShadow = !isXRay;
-              solidWall.receiveShadow = true;
-              floorGroup.add(solidWall);
-            } else {
-              const winWidth = Math.min(1.8, (floorD - 1) / (winCount + 1));
-              const winHeight = 1.5;
-              const winSill = 0.9;
-              const pierD = (floorD - winCount * winWidth) / (winCount + 1);
+            const winWidth = Math.min(1.8, (localW - 1) / (winCount + 1));
+            const winHeight = 1.5;
+            const winSill = 0.9;
+            const pierW = (localW - winCount * winWidth) / (winCount + 1);
 
-              for (let p = 0; p <= winCount; p++) {
-                const pz = floorCenterZ - floorD / 2 + pierD / 2 + p * (pierD + winWidth);
-                const pierMesh = new THREE.Mesh(
-                  new THREE.BoxGeometry(wallThick, roomHeight, pierD),
-                  wallMaterial
-                );
-                pierMesh.position.set(xPos, midY, pz);
-                pierMesh.castShadow = !isXRay;
-                pierMesh.receiveShadow = true;
-                floorGroup.add(pierMesh);
+            for (let p = 0; p <= winCount; p++) {
+              const px = -localW / 2 + pierW / 2 + p * (pierW + winWidth);
+              const pierMesh = new THREE.Mesh(new THREE.BoxGeometry(pierW, roomHeight, wallThick), currentMat);
+              pierMesh.position.set(px, midY, 0);
+              pierMesh.castShadow = !isXRay; pierMesh.receiveShadow = true;
+              wallGroup.add(pierMesh);
 
-                if (p < winCount) {
-                  const wz = pz + pierD / 2 + winWidth / 2;
-                  const sillMesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(wallThick, winSill, winWidth),
-                    wallMaterial
-                  );
-                  sillMesh.position.set(xPos, baseY + slabThickness + winSill / 2, wz);
-                  floorGroup.add(sillMesh);
+              if (p < winCount) {
+                const wx = px + pierW / 2 + winWidth / 2;
+                
+                const sillMesh = new THREE.Mesh(new THREE.BoxGeometry(winWidth, winSill, wallThick), wallMaterial);
+                sillMesh.position.set(wx, baseY + slabThickness + winSill / 2, 0);
+                wallGroup.add(sillMesh);
 
-                  const lintelH = roomHeight - (winSill + winHeight);
-                  if (lintelH > 0.05) {
-                    const lintelMesh = new THREE.Mesh(
-                      new THREE.BoxGeometry(wallThick, lintelH, winWidth),
-                      wallMaterial
-                    );
-                    lintelMesh.position.set(xPos, baseY + slabThickness + winSill + winHeight + lintelH / 2, wz);
-                    floorGroup.add(lintelMesh);
-                  }
-
-                  const glassMesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.06, winHeight, winWidth),
-                    glassMaterial
-                  );
-                  glassMesh.position.set(xPos, baseY + slabThickness + winSill + winHeight / 2, wz);
-                  floorGroup.add(glassMesh);
+                const lintelH = roomHeight - (winSill + winHeight);
+                if (lintelH > 0.05) {
+                  const lintelMesh = new THREE.Mesh(new THREE.BoxGeometry(winWidth, lintelH, wallThick), wallMaterial);
+                  lintelMesh.position.set(wx, baseY + slabThickness + winSill + winHeight + lintelH / 2, 0);
+                  wallGroup.add(lintelMesh);
                 }
+
+                const glassMesh = new THREE.Mesh(new THREE.BoxGeometry(winWidth, winHeight, 0.06), glassMaterial);
+                glassMesh.position.set(wx, baseY + slabThickness + winSill + winHeight / 2, 0);
+                wallGroup.add(glassMesh);
+
+                const frameGeo = new THREE.BoxGeometry(winWidth + 0.04, winHeight + 0.04, 0.08);
+                const line = new THREE.LineSegments(
+                  new THREE.EdgesGeometry(frameGeo),
+                  new THREE.LineBasicMaterial({ color: isLight ? 0x64748b : 0x27272a })
+                );
+                line.position.copy(glassMesh.position);
+                wallGroup.add(line);
               }
             }
           }
-        });
+
+          if (hasBalc && bD > 0.3) {
+            const balcWidth = Math.min(localW * 0.4, 4.5);
+            const balcOffsetZ = bD / 2 + wallThick / 2; // offset outside wall
+            
+            for (let b = 0; b < balcCount; b++) {
+              const balcX = balcCount === 1 ? -localW * 0.22 : (b === 0 ? -localW * 0.25 : localW * 0.25);
+              const balcSlab = new THREE.Mesh(new THREE.BoxGeometry(balcWidth, 0.2, bD), slabMaterial);
+              balcSlab.position.set(balcX, baseY + 0.1, balcOffsetZ);
+              balcSlab.castShadow = true;
+              wallGroup.add(balcSlab);
+
+              const railH = 1.05;
+              const railZ = balcOffsetZ + bD / 2;
+              const railMesh = new THREE.Mesh(new THREE.BoxGeometry(balcWidth, railH, 0.05), glassMaterial);
+              railMesh.position.set(balcX, baseY + 0.2 + railH / 2, railZ);
+              wallGroup.add(railMesh);
+
+              const handrail = new THREE.Mesh(new THREE.BoxGeometry(balcWidth + 0.04, 0.06, 0.08), frameMaterial);
+              handrail.position.set(balcX, baseY + 0.2 + railH, railZ);
+              wallGroup.add(handrail);
+            }
+          }        });
       } else {
         // Basement Retaining Wall (Perde Beton)
         const bsWallGeo = new THREE.BoxGeometry(W, roomHeight, D);
