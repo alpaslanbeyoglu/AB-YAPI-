@@ -447,7 +447,7 @@ export default function App() {
         isGray ? 'bg-slate-200/80 text-slate-900' : 'bg-slate-50 text-slate-900'
       }`}
     >
-      <div className="print:hidden">
+      <div className="sticky top-0 z-30 print:hidden">
         <Header
           user={user}
           hasToken={hasToken}
