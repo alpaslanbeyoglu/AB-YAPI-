@@ -221,24 +221,23 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         </div>
 
-        {/* Project Meta Box */}
+        {/* Project Meta Box (Proje Künyesi) */}
         <div className="bg-slate-50 border-l-4 border-indigo-600 p-5 rounded-2xl mb-6 text-xs text-slate-700 leading-relaxed space-y-1.5 print:bg-slate-50 print:border-teal-800 print:text-slate-700">
-          <h4 className="font-semibold text-slate-900 text-sm mb-2">📍 Yapı & Proje Genel Bilgileri</h4>
+          <h4 className="font-semibold text-slate-900 text-sm mb-2">📍 PROJE KÜNYESİ & GENEL BİLGİLER</h4>
           <p>
-            <strong className="text-slate-700">Yapı Adresi:</strong>{' '}
+            <strong className="text-slate-700">Proje Adresi:</strong>{' '}
             <span className="text-indigo-700 font-bold">{params.projectAddress}</span>
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-1 gap-x-4 border-t border-slate-200/60 pt-2 mt-2">
             <p>
-              <strong className="text-slate-700">Toplam Kat Sayısı:</strong>{' '}
-              <span className="font-semibold text-slate-900">{params.floorCount} Kat</span>
+              <strong className="text-slate-700">Proje Arsa Alanı:</strong>{' '}
+              <span className="font-semibold text-slate-900 font-mono">
+                {Math.round(params.baseBuildArea / 0.4).toLocaleString('tr-TR')} m²
+              </span>
+              <span className="text-[9px] text-slate-400 font-normal ml-1">(Tahmini)</span>
             </p>
             <p>
-              <strong className="text-slate-700">Toplam Daire Sayısı:</strong>{' '}
-              <span className="font-semibold text-slate-900">{results.flatCount} Adet</span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Bina Oturumu (Taban):</strong>{' '}
+              <strong className="text-slate-700">Proje Kat Alanı (Oturum):</strong>{' '}
               <span className="font-semibold text-slate-900 font-mono">
                 {results.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²
               </span>
@@ -247,6 +246,24 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               <strong className="text-slate-700">Toplam İnşaat Alanı:</strong>{' '}
               <span className="font-semibold text-slate-900 font-mono">
                 {results.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²
+              </span>
+            </p>
+            <p>
+              <strong className="text-slate-700">Normal Kat Sayısı:</strong>{' '}
+              <span className="font-semibold text-slate-900">{params.floorCount} Kat</span>
+            </p>
+            <p>
+              <strong className="text-slate-700">Kattaki Daire Sayısı:</strong>{' '}
+              <span className="font-semibold text-slate-900">{params.flatsPerFloor || Math.max(1, Math.round(results.flatCount / (params.floorCount || 1)))} Adet</span>
+            </p>
+            <p>
+              <strong className="text-slate-700">Toplam Daire Sayısı:</strong>{' '}
+              <span className="font-semibold text-slate-900">{results.flatCount} Adet</span>
+            </p>
+            <p>
+              <strong className="text-slate-700">Daire İç Yerleşimi:</strong>{' '}
+              <span className="font-semibold text-indigo-600 font-mono">
+                {params.roomType || '3+1'} Oda
               </span>
             </p>
             <p>
@@ -262,42 +279,23 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               </span>
             </p>
             <p>
-              <strong className="text-slate-700">Daire Tipi (Oda+Salon):</strong>{' '}
-              <span className="font-semibold text-indigo-600 font-mono">
-                {params.roomType || '3+1'}
-              </span>
-            </p>
-            <p>
-              <strong className="text-slate-700">İnşaat Hakediş Payı (Daire Başı):</strong>{' '}
-              <span className="font-semibold text-slate-600 font-mono text-xs">
-                {results.flatResults.length > 0 ? (results.flatResults[0].area) : 0} m² <span className="text-[9px] text-slate-400 font-normal">(Bodrum, Ortak Alan, Dükkan payları dahil)</span>
-              </span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Birim İmalat Fiyatı:</strong>{' '}
-              <span className="font-mono font-semibold text-slate-900">
+              <strong className="text-slate-700">Birim m² Maliyet Bedeli:</strong>{' '}
+              <span className="font-mono font-bold text-indigo-700">
                 {results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²
               </span>
             </p>
             <p>
-              <strong className="text-slate-700">Dolar Kuru Eşdeğeri:</strong>{' '}
+              <strong className="text-slate-700">Dolar Kuru Karşılığı:</strong>{' '}
               <span className="font-mono font-semibold text-slate-500">
                 {results.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²
               </span>
             </p>
+            <p>
+              <strong className="text-slate-700">Tahmini Teslim Süresi:</strong>{' '}
+              <span className="font-semibold text-slate-900">{results.finalMonths} Ay</span>
+            </p>
           </div>
           <div className="border-t border-slate-200/60 pt-2 mt-2">
-            {params.durationOption !== 'hide' && (
-              <p>
-                <strong className="text-slate-700">Tahmini Proje ve Teslim Süresi:</strong>{' '}
-                <span className="font-semibold text-slate-900">{results.finalMonths} Ay</span>{' '}
-                <em className="text-slate-500">
-                  {params.durationOption === 'auto'
-                    ? '(Proje Çizimi, Ruhsat ve İskân Süreçleri Dahil)'
-                    : '(Sözleşmede Kararlaştırılan Süre)'}
-                </em>
-              </p>
-            )}
             <p>
               <strong className="text-slate-700">Kentsel Dönüşüm Destek Modeli:</strong>{' '}
               <span className="font-semibold text-amber-700">{supportText}</span>

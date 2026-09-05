@@ -232,25 +232,23 @@ export function generateOfferHtml(
     </div>
   </div>
   <div class="box">
-    <h4>📍 Yapı & Proje Genel Bilgileri</h4>
-    <p><strong>Yapı Adresi:</strong> ${params.projectAddress}</p>
+    <h4>📍 PROJE KÜNYESİ & GENEL BİLGİLER</h4>
+    <p><strong>Proje Adresi:</strong> ${params.projectAddress}</p>
     <div style="display:grid;grid-template-columns: 1fr 1fr;gap: 8px;margin-top:10px;border-top:1px solid #ddd;padding-top:10px;">
-      <div><strong>Toplam Kat Sayısı:</strong> ${params.floorCount} Kat</div>
-      <div><strong>Toplam Daire Sayısı:</strong> ${res.flatCount} Adet</div>
-      <div><strong>Bina Oturumu (Taban):</strong> ${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
+      <div><strong>Proje Arsa Alanı:</strong> ${Math.round(params.baseBuildArea / 0.4).toLocaleString('tr-TR')} m² <small style="color:#888;">(Tahmini)</small></div>
+      <div><strong>Proje Kat Alanı (Oturum):</strong> ${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
       <div><strong>Toplam İnşaat Alanı:</strong> ${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
+      <div><strong>Normal Kat Sayısı:</strong> ${params.floorCount} Kat</div>
+      <div><strong>Kattaki Daire Sayısı:</strong> ${params.flatsPerFloor || Math.max(1, Math.round(res.flatCount / (params.floorCount || 1)))} Adet</div>
+      <div><strong>Toplam Daire Sayısı:</strong> ${res.flatCount} Adet</div>
+      <div><strong>Daire İç Yerleşimi:</strong> ${params.roomType || '3+1'} Oda</div>
       <div><strong>Fiziki Daire Brüt Alanı:</strong> ${physicalGrossArea_rep} m²</div>
       <div><strong>Daire Net Alanı (~%80):</strong> ${physicalNetArea_rep} m²</div>
-      <div><strong>Daire Tipi (Oda+Salon):</strong> ${params.roomType || '3+1'}</div>
-      <div><strong>İnşaat Hakediş Payı (Daire Başı):</strong> ${res.flatResults.length > 0 ? res.flatResults[0].area : 0} m² <span style="font-size:8px;color:#888;">(Ortak alanlar dahil)</span></div>
-      <div><strong>Birim İmalat Fiyatı:</strong> ${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m² (${res.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²)</div>
+      <div><strong>Birim m² Maliyet Bedeli:</strong> <strong style="color:#1f7a7a;">${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong></div>
+      <div><strong>Dolar Kuru Karşılığı:</strong> ${res.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²</div>
+      <div><strong>Tahmini Teslim Süresi:</strong> ${res.finalMonths} Ay</div>
     </div>
     <div style="margin-top:10px;border-top:1px solid #ddd;padding-top:10px;">
-      ${
-        params.durationOption !== 'hide'
-          ? `<p style="margin: 2px 0;"><strong>Tahmini Proje ve Teslim Süresi:</strong> ${res.finalMonths} Ay <em style="color:#666;">${params.durationOption === 'auto' ? '(Proje Çizimi, Ruhsat ve İskân Süreçleri Dahil)' : '(Sözleşmede Kararlaştırılan Süre)'}</em></p>`
-          : ''
-      }
       <p style="margin: 2px 0;"><strong>Kentsel Dönüşüm Destek Modeli:</strong> ${supportText}</p>
     </div>
   </div>
