@@ -23,7 +23,7 @@ export interface CompanyProfile {
 export type FootprintInputMode = 'directArea' | 'dimensions' | 'customFacades' | 'lShape' | 'polygonDraw';
 
 export interface PolygonPoint {
-  id: string;
+  id?: string;
   x: number; // Metre cinsinden X koordinatı
   y: number; // Metre cinsinden Y (veya Z derinlik) koordinatı
 }

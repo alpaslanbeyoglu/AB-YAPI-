@@ -26,6 +26,7 @@ export const ZoningAuditPanel: React.FC<ZoningAuditPanelProps> = ({
   params,
   theme = 'light',
 }) => {
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState<boolean>(false);
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
   const metrics = calculateBuildingMetrics(params);
 
@@ -190,11 +191,15 @@ export const ZoningAuditPanel: React.FC<ZoningAuditPanelProps> = ({
   ];
 
   return (
-    <div className={`border rounded-3xl p-5 sm:p-6 space-y-5 shadow-xs ${cardBg}`}>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 border-slate-200">
+    <div className={`border rounded-3xl p-5 sm:p-6 shadow-xs ${cardBg} ${isPanelCollapsed ? '' : 'space-y-5'}`}>
+      {/* Header (Clickable to expand/collapse whole panel) */}
+      <button
+        type="button"
+        onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+        className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left cursor-pointer group"
+      >
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600">
+          <div className="p-2.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 group-hover:bg-indigo-100 transition-colors">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
@@ -219,83 +224,91 @@ export const ZoningAuditPanel: React.FC<ZoningAuditPanelProps> = ({
               %{score}
             </span>
           </div>
+          <div className="p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 group-hover:bg-slate-200 transition-colors">
+            {isPanelCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+          </div>
         </div>
-      </div>
+      </button>
 
-      {/* Accordion List */}
-      <div className="space-y-3">
-        {sections.map((sec) => {
-          const isOpen = expandedSection === sec.id;
-          return (
-            <div
-              key={sec.id}
-              className="border border-slate-200 rounded-2xl overflow-hidden transition-all bg-slate-50/50 hover:bg-slate-50"
-            >
-              <button
-                type="button"
-                onClick={() => setExpandedSection(isOpen ? null : sec.id)}
-                className="w-full p-4 flex items-center justify-between gap-3 text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  {sec.status === 'PASS' ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                  ) : (
-                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
-                  )}
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                      {sec.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      {sec.summary}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      sec.status === 'PASS'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
+      {/* Collapsible Body */}
+      {!isPanelCollapsed && (
+        <div className="space-y-5 pt-3 border-t border-slate-200 animate-fade-in">
+          {/* Accordion List */}
+          <div className="space-y-3">
+            {sections.map((sec) => {
+              const isOpen = expandedSection === sec.id;
+              return (
+                <div
+                  key={sec.id}
+                  className="border border-slate-200 rounded-2xl overflow-hidden transition-all bg-slate-50/50 hover:bg-slate-50"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setExpandedSection(isOpen ? null : sec.id)}
+                    className="w-full p-4 flex items-center justify-between gap-3 text-left cursor-pointer"
                   >
-                    {sec.status === 'PASS' ? 'UYUMLU' : 'İNCELEME GEREKİR'}
-                  </span>
-                  {isOpen ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                    <div className="flex items-center gap-3">
+                      {sec.status === 'PASS' ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                      )}
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                          {sec.title}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {sec.summary}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          sec.status === 'PASS'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {sec.status === 'PASS' ? 'UYUMLU' : 'İNCELEME GEREKİR'}
+                      </span>
+                      {isOpen ? (
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {isOpen && (
+                    <div className="p-4 bg-white border-t border-slate-200 space-y-2.5 animate-fade-in text-xs">
+                      {sec.content.map((item, idx) => (
+                        <div key={idx} className="flex flex-col sm:flex-row sm:items-start justify-between gap-1 py-1.5 border-b border-slate-100 last:border-none">
+                          <span className="font-semibold text-slate-700 sm:w-1/3 shrink-0">
+                            {item.label}:
+                          </span>
+                          <span className="text-slate-600 sm:w-2/3">
+                            {item.val}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-              </button>
+              );
+            })}
+          </div>
 
-              {isOpen && (
-                <div className="p-4 bg-white border-t border-slate-200 space-y-2.5 animate-fade-in text-xs">
-                  {sec.content.map((item, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row sm:items-start justify-between gap-1 py-1.5 border-b border-slate-100 last:border-none">
-                      <span className="font-semibold text-slate-700 sm:w-1/3 shrink-0">
-                        {item.label}:
-                      </span>
-                      <span className="text-slate-600 sm:w-2/3">
-                        {item.val}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Footer Info Box */}
-      <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-start gap-3 text-xs text-indigo-900">
-        <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
-          <strong>Mimari Not:</strong> Bu denetim raporu; İstanbul Büyükşehir Belediyesi (İBB) İmar Yönetmeliği, TS 9111 (Engelliler İçin Erişilebilirlik) ve Binaların Yangından Korunması Hakkında Yönetmelik hükümlerine tam uyumlu parametrik algoritmalarla hesaplanmıştır.
-        </p>
-      </div>
+          {/* Footer Info Box */}
+          <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-start gap-3 text-xs text-indigo-900">
+            <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              <strong>Mimari Not:</strong> Bu denetim raporu; İstanbul Büyükşehir Belediyesi (İBB) İmar Yönetmeliği, TS 9111 (Engelliler İçin Erişilebilirlik) ve Binaların Yangından Korunması Hakkında Yönetmelik hükümlerine tam uyumlu parametrik algoritmalarla hesaplanmıştır.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

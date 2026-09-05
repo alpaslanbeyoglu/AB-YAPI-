@@ -65,6 +65,230 @@ function safeNum(val: any, fallback: number, minVal: number = 0.001): number {
   return fallback;
 }
 
+function createShapeFromPolygon(pts: Array<{ x: number; y: number }>, centerX: number, centerY: number): THREE.Shape {
+  const shape = new THREE.Shape();
+  const n = pts.length;
+  if (n < 3) return shape;
+
+  // Calculate signed area to check winding direction
+  let signedArea = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const x1 = pts[i].x - centerX;
+    const y1 = pts[i].y - centerY;
+    const x2 = pts[j].x - centerX;
+    const y2 = pts[j].y - centerY;
+    signedArea += (x1 * y2 - x2 * y1);
+  }
+
+  // Three.js ExtrudeGeometry expects COUNTER-CLOCKWISE winding for outer path shape.
+  // In 2D plane with Y going UP, signedArea > 0 means CLOCKWISE, so reverse.
+  const pointsToUse = signedArea > 0 ? [...pts].reverse() : pts;
+
+  pointsToUse.forEach((p, idx) => {
+    const px = p.x - centerX;
+    const py = p.y - centerY;
+    if (idx === 0) shape.moveTo(px, py);
+    else shape.lineTo(px, py);
+  });
+
+  const first = pointsToUse[0];
+  shape.lineTo(first.x - centerX, first.y - centerY);
+
+  return shape;
+}
+
+function createRectangularHipRoofGeometry(
+  W: number,
+  D: number,
+  roofHeight: number,
+  eavesOverhang: number = 0.35
+): THREE.BufferGeometry {
+  const geom = new THREE.BufferGeometry();
+
+  const halfW = W / 2 + eavesOverhang;
+  const halfD = D / 2 + eavesOverhang;
+
+  // Eaves vertices at Y = 0
+  const eFL = { x: -halfW, z: halfD };  // Front Left
+  const eFR = { x: halfW, z: halfD };   // Front Right
+  const eRL = { x: -halfW, z: -halfD }; // Rear Left
+  const eRR = { x: halfW, z: -halfD };  // Rear Right
+
+  // Ridge line endpoints at Y = roofHeight
+  let r1: { x: number; z: number };
+  let r2: { x: number; z: number };
+
+  if (W >= D) {
+    const ridgeHalfLen = Math.max(0.1, (W - D) / 2);
+    r1 = { x: -ridgeHalfLen, z: 0 };
+    r2 = { x: ridgeHalfLen, z: 0 };
+  } else {
+    const ridgeHalfLen = Math.max(0.1, (D - W) / 2);
+    r1 = { x: 0, z: -ridgeHalfLen };
+    r2 = { x: 0, z: ridgeHalfLen };
+  }
+
+  const positions: number[] = [];
+
+  if (W >= D) {
+    // Front face (trapezoid: eFL, eFR, r2, r1)
+    positions.push(eFL.x, 0, eFL.z, eFR.x, 0, eFR.z, r2.x, roofHeight, r2.z);
+    positions.push(eFL.x, 0, eFL.z, r2.x, roofHeight, r2.z, r1.x, roofHeight, r1.z);
+
+    // Rear face (trapezoid: eRR, eRL, r1, r2)
+    positions.push(eRR.x, 0, eRR.z, eRL.x, 0, eRL.z, r1.x, roofHeight, r1.z);
+    positions.push(eRR.x, 0, eRR.z, r1.x, roofHeight, r1.z, r2.x, roofHeight, r2.z);
+
+    // Left face (triangle: eRL, eFL, r1)
+    positions.push(eRL.x, 0, eRL.z, eFL.x, 0, eFL.z, r1.x, roofHeight, r1.z);
+
+    // Right face (triangle: eFR, eRR, r2)
+    positions.push(eFR.x, 0, eFR.z, eRR.x, 0, eRR.z, r2.x, roofHeight, r2.z);
+  } else {
+    // Front face (triangle: eFL, eFR, r2)
+    positions.push(eFL.x, 0, eFL.z, eFR.x, 0, eFR.z, r2.x, roofHeight, r2.z);
+
+    // Rear face (triangle: eRR, eRL, r1)
+    positions.push(eRR.x, 0, eRR.z, eRL.x, 0, eRL.z, r1.x, roofHeight, r1.z);
+
+    // Left face (trapezoid: eRL, eFL, r2, r1)
+    positions.push(eRL.x, 0, eRL.z, eFL.x, 0, eFL.z, r2.x, roofHeight, r2.z);
+    positions.push(eRL.x, 0, eRL.z, r2.x, roofHeight, r2.z, r1.x, roofHeight, r1.z);
+
+    // Right face (trapezoid: eFR, eRR, r1, r2)
+    positions.push(eFR.x, 0, eFR.z, eRR.x, 0, eRR.z, r1.x, roofHeight, r1.z);
+    positions.push(eFR.x, 0, eFR.z, r1.x, roofHeight, r1.z, r2.x, roofHeight, r2.z);
+  }
+
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.computeVertexNormals();
+
+  return geom;
+}
+
+function createPolygonHipRoofGeometry(
+  pts: Array<{ x: number; y: number }>,
+  centerX: number,
+  centerY: number,
+  roofHeight: number,
+  eavesOverhang: number = 0.35,
+  ridgeInsetRatio: number = 0.25
+): THREE.BufferGeometry {
+  const geom = new THREE.BufferGeometry();
+  const n = pts.length;
+  if (n < 3) return geom;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  pts.forEach(p => {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  });
+  const minSpan = Math.max(2, Math.min(maxX - minX, maxY - minY));
+
+  let signedArea = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    signedArea += (pts[i].x * pts[j].y - pts[j].x * pts[i].y);
+  }
+  const isCW = signedArea > 0;
+
+  const eavesPts = pts.map((p, i) => {
+    const prev = pts[(i - 1 + n) % n];
+    const next = pts[(i + 1) % n];
+
+    const dx1 = p.x - prev.x, dy1 = p.y - prev.y;
+    const l1 = Math.sqrt(dx1 * dx1 + dy1 * dy1) || 1;
+    const outN1X = isCW ? -dy1 / l1 : dy1 / l1;
+    const outN1Y = isCW ? dx1 / l1 : -dx1 / l1;
+
+    const dx2 = next.x - p.x, dy2 = next.y - p.y;
+    const l2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1;
+    const outN2X = isCW ? -dy2 / l2 : dy2 / l2;
+    const outN2Y = isCW ? dx2 / l2 : -dx2 / l2;
+
+    let bisectX = (outN1X + outN2X) / 2;
+    let bisectY = (outN1Y + outN2Y) / 2;
+    const bLen = Math.sqrt(bisectX * bisectX + bisectY * bisectY) || 1;
+
+    return {
+      x: (p.x - centerX) + (bisectX / bLen) * eavesOverhang,
+      y: (p.y - centerY) + (bisectY / bLen) * eavesOverhang,
+    };
+  });
+
+  const insetDist = minSpan * ridgeInsetRatio;
+  const peakPts = pts.map((p, i) => {
+    const prev = pts[(i - 1 + n) % n];
+    const next = pts[(i + 1) % n];
+
+    const dx1 = p.x - prev.x, dy1 = p.y - prev.y;
+    const l1 = Math.sqrt(dx1 * dx1 + dy1 * dy1) || 1;
+    const inN1X = isCW ? dy1 / l1 : -dy1 / l1;
+    const inN1Y = isCW ? -dx1 / l1 : dx1 / l1;
+
+    const dx2 = next.x - p.x, dy2 = next.y - p.y;
+    const l2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1;
+    const inN2X = isCW ? dy2 / l2 : -dy2 / l2;
+    const inN2Y = isCW ? -dx2 / l2 : dx2 / l2;
+
+    let bisectX = (inN1X + inN2X) / 2;
+    let bisectY = (inN1Y + inN2Y) / 2;
+    const bLen = Math.sqrt(bisectX * bisectX + bisectY * bisectY) || 1;
+
+    const dot = inN1X * inN2X + inN1Y * inN2Y;
+    const sinHalf = Math.sqrt(Math.max(0.2, (1 + dot) / 2));
+    const finalDist = Math.min(insetDist / sinHalf, minSpan * 0.42);
+
+    return {
+      x: (p.x - centerX) + (bisectX / bLen) * finalDist,
+      y: (p.y - centerY) + (bisectY / bLen) * finalDist,
+    };
+  });
+
+  const positions: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const next = (i + 1) % n;
+
+    const e1 = eavesPts[i];
+    const e2 = eavesPts[next];
+    const p1 = peakPts[i];
+    const p2 = peakPts[next];
+
+    positions.push(e1.x, 0, e1.y);
+    positions.push(e2.x, 0, e2.y);
+    positions.push(p2.x, roofHeight, p2.y);
+
+    positions.push(e1.x, 0, e1.y);
+    positions.push(p2.x, roofHeight, p2.y);
+    positions.push(p1.x, roofHeight, p1.y);
+  }
+
+  for (let i = 1; i < n - 1; i++) {
+    const p0 = peakPts[0];
+    const p1 = peakPts[i];
+    const p2 = peakPts[i + 1];
+
+    if (isCW) {
+      positions.push(p0.x, roofHeight, p0.y);
+      positions.push(p2.x, roofHeight, p2.y);
+      positions.push(p1.x, roofHeight, p1.y);
+    } else {
+      positions.push(p0.x, roofHeight, p0.y);
+      positions.push(p1.x, roofHeight, p1.y);
+      positions.push(p2.x, roofHeight, p2.y);
+    }
+  }
+
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.computeVertexNormals();
+
+  return geom;
+}
+
 interface ThreeBuildingViewProps {
   params: BuildingModelParams;
   theme?: 'light' | 'gray' | 'dark';
@@ -187,8 +411,29 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     let W = safeNum(params?.facadeWidth, 14.0, 1.0);
     let D = safeNum(params?.facadeDepth, 18.0, 1.0);
 
-    const isCustomPoly = params.footprintInputMode === 'polygonDraw' && !!params.polygonPoints && params.polygonPoints.length >= 3;
-    const activePolyPts = isCustomPoly ? params.polygonPoints : null;
+    const isPolygonDraw = params.footprintInputMode === 'polygonDraw' && !!params.polygonPoints && params.polygonPoints.length >= 3;
+    const isLShapeMode = params.footprintInputMode === 'lShape';
+
+    let activePolyPts: Array<{ id?: string; x: number; y: number }> | null = null;
+    if (isPolygonDraw) {
+      activePolyPts = params.polygonPoints!;
+    } else if (isLShapeMode) {
+      const front = safeNum(params?.lShapeFrontMain, 16.0, 2.0);
+      const depth = safeNum(params?.lShapeDepthMain, 20.0, 2.0);
+      const recFront = safeNum(params?.lShapeRecessFront, 6.0, 1.0);
+      const recDepth = safeNum(params?.lShapeRecessDepth, 8.0, 1.0);
+
+      activePolyPts = [
+        { id: 'l1', x: -front / 2, y: -depth / 2 },
+        { id: 'l2', x: front / 2, y: -depth / 2 },
+        { id: 'l3', x: front / 2, y: depth / 2 - recDepth },
+        { id: 'l4', x: front / 2 - recFront, y: depth / 2 - recDepth },
+        { id: 'l5', x: front / 2 - recFront, y: depth / 2 },
+        { id: 'l6', x: -front / 2, y: depth / 2 },
+      ];
+    }
+
+    const isCustomPoly = !!activePolyPts && activePolyPts.length >= 3;
 
     if (isCustomPoly && activePolyPts) {
       const bounds = getPolygonBounds(activePolyPts);
@@ -224,6 +469,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       roughness: 0.8,
       metalness: 0.1,
       wireframe: isWireframe,
+      side: THREE.DoubleSide,
     });
 
     // Exterior Wall Material (Transparent in X-Ray mode so rooms are visible!)
@@ -439,28 +685,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       let slabGeo: THREE.BufferGeometry;
       let slabMesh: THREE.Mesh;
       if (isCustomPoly && activePolyPts) {
-        const shape = new THREE.Shape();
         const bounds = getPolygonBounds(activePolyPts);
-        
-        // In 2D Shape plane: X is World X, Y is World Z
-        activePolyPts.forEach((p: any, idx: number) => {
-          const px = p.x - bounds.centerX;
-          const py = p.y - bounds.centerY;
-          if (idx === 0) shape.moveTo(px, py);
-          else shape.lineTo(px, py);
-        });
-        
-        // Close the shape
-        const first = activePolyPts[0];
-        shape.lineTo(first.x - bounds.centerX, first.y - bounds.centerY);
+        const shape = createShapeFromPolygon(activePolyPts, bounds.centerX, bounds.centerY);
 
         slabGeo = new THREE.ExtrudeGeometry(shape, { depth: slabThickness, bevelEnabled: false });
         slabMesh = new THREE.Mesh(slabGeo, isShopFloor ? commercialFloorMat : slabMaterial);
         
-        // Extrude along local +Z. Rotate X by +90deg (Math.PI / 2):
-        // Local (px, py, lz) -> World (px, Y_pos - lz, py)
-        // With position.set(0, baseY + slabThickness, 0):
-        // Top of slab is exactly at baseY + slabThickness, bottom at baseY
         slabMesh.rotation.x = Math.PI / 2;
         slabMesh.position.set(0, baseY + slabThickness, 0);
       } else {
@@ -493,8 +723,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         }
       }
 
-      // Ceiling slab if top floor (Hidden in cutaway mode so inside is visible!)
-      if (isTopFloor && (!isCutaway || selectedFloor !== 'all')) {
+      // Ceiling slab (Kat Tablası) if top floor or when floor is isolated
+      const shouldRenderTopSlab = isTopFloor || (selectedFloor !== 'all' && !isCutaway);
+      if (shouldRenderTopSlab) {
         const topSlab = new THREE.Mesh(slabGeo, slabMaterial);
         if (isCustomPoly) {
           topSlab.rotation.x = Math.PI / 2;
@@ -664,13 +895,15 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // 4. INTERIOR ROOMS & PARTITION WALLS (İç Mekan & Bölmeler)
       if (isShopFloor) {
         // COMMERCIAL SHOP INTERIOR (ZEMİN KAT TİCARİ MAĞAZA / DÜKKAN İÇİ)
-        const shopFloorGeo = safeBox(floorW - 0.4, 0.02, floorD - 0.4);
-        const shopFloorMesh = new THREE.Mesh(shopFloorGeo, commercialFloorMat);
-        shopFloorMesh.position.set(0, baseY + slabThickness + 0.01, floorCenterZ);
-        floorGroup.add(shopFloorMesh);
+        if (!isCustomPoly) {
+          const shopFloorGeo = safeBox(floorW - 0.4, 0.02, floorD - 0.4);
+          const shopFloorMesh = new THREE.Mesh(shopFloorGeo, commercialFloorMat);
+          shopFloorMesh.position.set(0, baseY + slabThickness + 0.01, floorCenterZ);
+          floorGroup.add(shopFloorMesh);
+        }
 
         // Commercial partition if shopCount > 1
-        if (shopCount > 1) {
+        if (shopCount > 1 && !isCustomPoly) {
           const divThick = 0.2;
           const divGeo = safeBox(divThick, roomHeight, floorD - 1.2);
           const divMesh = new THREE.Mesh(divGeo, interiorWallMat);
@@ -685,6 +918,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const sSign = activeShops === 1 ? 0 : s === 0 ? -1 : 1;
           const deskX = sSign * (floorW * 0.28);
           const deskZ = floorCenterZ - floorD * 0.15;
+
+          if (isCustomPoly && activePolyPts) {
+            const bounds = getPolygonBounds(activePolyPts);
+            if (!isPointInPolygon(deskX + bounds.centerX, deskZ + bounds.centerY, activePolyPts)) {
+              continue;
+            }
+          }
 
           // Counter
           const counterGeo = safeBox(2.4, 1.1, 0.9);
@@ -726,6 +966,17 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         const intWallH = roomHeight;
         const floorFinishY = baseY + slabThickness + 0.02;
 
+        if (isCustomPoly && activePolyPts) {
+          const bounds = getPolygonBounds(activePolyPts);
+          const shape = createShapeFromPolygon(activePolyPts, bounds.centerX, bounds.centerY);
+          const finishGeo = new THREE.ExtrudeGeometry(shape, { depth: 0.02, bevelEnabled: false });
+          const finishMesh = new THREE.Mesh(finishGeo, salonFloorMat);
+          finishMesh.rotation.x = Math.PI / 2;
+          finishMesh.position.set(0, floorFinishY + 0.01, 0);
+          finishMesh.receiveShadow = true;
+          floorGroup.add(finishMesh);
+        }
+
         // Function to create a wall segment with an optional door opening
         const createWallWithDoor = (
           length: number,
@@ -735,6 +986,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           hasDoor: boolean = false,
           doorOffset: number = 0
         ) => {
+          if (isCustomPoly && activePolyPts) {
+            const bounds = getPolygonBounds(activePolyPts);
+            if (!isPointInPolygon(centerX + bounds.centerX, centerZ + bounds.centerY, activePolyPts)) {
+              return;
+            }
+          }
+
           if (!hasDoor) {
             const wGeo = isAlongX
               ? safeBox(length, intWallH, intWallThick)
@@ -1062,89 +1320,208 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // 6. EXTERIOR FAÇADE WALLS & WINDOWS
       if (isShopFloor) {
         // COMMERCIAL STOREFRONT FAÇADE (VİTRİN, TABELA BANDI VE GİRİŞ MARKİZİ)
-        const backWallThick = 0.25;
-        // Back Wall
-        const backWallGeo = safeBox(floorW, roomHeight, backWallThick);
-        const backWallMesh = new THREE.Mesh(backWallGeo, wallMaterial);
-        backWallMesh.position.set(0, midY, floorCenterZ - floorD / 2 + backWallThick / 2);
-        backWallMesh.castShadow = !isXRay;
-        floorGroup.add(backWallMesh);
-
-        // Side Walls
-        const sideWallGeo = safeBox(backWallThick, roomHeight, floorD);
-        const leftSide = new THREE.Mesh(sideWallGeo, wallMaterial);
-        leftSide.position.set(-floorW / 2 + backWallThick / 2, midY, floorCenterZ);
-        floorGroup.add(leftSide);
-
-        const rightSide = new THREE.Mesh(sideWallGeo, wallMaterial);
-        rightSide.position.set(floorW / 2 - backWallThick / 2, midY, floorCenterZ);
-        floorGroup.add(rightSide);
-
-        // FRONT STOREFRONT (VİTRİN VE TABELA BANDI)
-        const frontZ = floorCenterZ + floorD / 2;
-        const vitrineHeight = roomHeight - 0.75;
-        const fasciaHeight = 0.75;
-
-        // 1. Sleek Commercial Signage Fascia Band (Işıklı Tabela Bandı)
-        const fasciaGeo = safeBox(floorW + 0.1, fasciaHeight, 0.3);
-        const fasciaMesh = new THREE.Mesh(fasciaGeo, shopSignFasciaMat);
-        fasciaMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ);
-        fasciaMesh.castShadow = true;
-        floorGroup.add(fasciaMesh);
-
-        // Illuminated Signage Bar
-        const signBarGeo = safeBox(floorW * 0.7, 0.35, 0.08);
-        const signBarMesh = new THREE.Mesh(signBarGeo, shopSignGlowMat);
-        signBarMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ + 0.16);
-        floorGroup.add(signBarMesh);
-
-        // 2. Modern Steel & Glass Entrance Canopy (Giriş Saçağı / Markiz)
-        const canopyDepth = 1.1;
-        const canopyGeo = safeBox(floorW * 0.85, 0.1, canopyDepth);
-        const canopyMesh = new THREE.Mesh(canopyGeo, frameMaterial);
-        canopyMesh.position.set(0, baseY + slabThickness + vitrineHeight + 0.05, frontZ + canopyDepth / 2);
-        canopyMesh.castShadow = true;
-        floorGroup.add(canopyMesh);
-
-        // 3. Full Height Storefront Glass Panels (Geniş Alüminyum Vitrin Camları)
-        const glassVitrineGeo = safeBox(floorW - 0.6, vitrineHeight, 0.08);
-        const glassVitrineMesh = new THREE.Mesh(glassVitrineGeo, glassMaterial);
-        glassVitrineMesh.position.set(0, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
-        floorGroup.add(glassVitrineMesh);
-
-        // Storefront Vertical Aluminum Mullions
-        const mullionCount = Math.max(4, Math.floor(floorW / 2));
-        for (let m = 0; m <= mullionCount; m++) {
-          const mx = -(floorW - 0.6) / 2 + ((floorW - 0.6) / mullionCount) * m;
-          const mulGeo = safeBox(0.08, vitrineHeight, 0.12);
-          const mulMesh = new THREE.Mesh(mulGeo, frameMaterial);
-          mulMesh.position.set(mx, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
-          floorGroup.add(mulMesh);
-        }
-
-        // Commercial Entrance Glass Doors with Stainless Handles
-        const doorW = 1.8;
-        const doorH = Math.min(2.4, vitrineHeight - 0.2);
-        const doorFrameGeo = safeBox(doorW, doorH, 0.14);
-        const doorFrameMesh = new THREE.Mesh(doorFrameGeo, frameMaterial);
-        doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, frontZ - 0.02);
-        floorGroup.add(doorFrameMesh);
-
-        const doorGlass = new THREE.Mesh(
-          safeBox(doorW - 0.15, doorH - 0.15, 0.06),
-          glassMaterial
-        );
-        doorGlass.position.copy(doorFrameMesh.position);
-        floorGroup.add(doorGlass);
-
-        // Vertical steel handles
-        for (const hSide of [-0.15, 0.15]) {
-          const handle = new THREE.Mesh(
-            safeCylinder(0.025, 0.025, 0.9, 8),
-            new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
+        if (isCustomPoly && activePolyPts) {
+          const bounds = getPolygonBounds(activePolyPts);
+          const edges = getPolygonEdges(activePolyPts);
+          const activeFacadeConfigs = generateFacadeConfigs(
+            activePolyPts.length,
+            params.facadeConfigs,
+            params.mainEntranceFacadeIndex || 0
           );
-          handle.position.set(hSide, baseY + slabThickness + 1.1, frontZ + 0.1);
-          floorGroup.add(handle);
+
+          let signedArea = 0;
+          for (let i = 0; i < activePolyPts.length; i++) {
+            const j = (i + 1) % activePolyPts.length;
+            signedArea += (activePolyPts[i].x * activePolyPts[j].y - activePolyPts[j].x * activePolyPts[i].y);
+          }
+          const isCW = signedArea > 0;
+
+          edges.forEach((edge, idx) => {
+            const x1 = edge.start.x - bounds.centerX;
+            const z1 = edge.start.y - bounds.centerY;
+            const x2 = edge.end.x - bounds.centerX;
+            const z2 = edge.end.y - bounds.centerY;
+
+            const dx = x2 - x1;
+            const dz = z2 - z1;
+            const length = Math.sqrt(dx * dx + dz * dz);
+
+            const normalX = isCW ? dz / length : -dz / length;
+            const normalZ = isCW ? -dx / length : dx / length;
+
+            const midX = (x1 + x2) / 2;
+            const midZ = (z1 + z2) / 2;
+
+            const wallThick = 0.25;
+            const wallCenterX = midX - normalX * (wallThick / 2);
+            const wallCenterZ = midZ - normalZ * (wallThick / 2);
+            const rotationY = Math.atan2(normalX, normalZ);
+
+            const cfg = activeFacadeConfigs[idx] || {
+              isEntrance: idx === (params.mainEntranceFacadeIndex || 0),
+            };
+            const isEntrance = cfg.isEntrance || idx === (params.mainEntranceFacadeIndex || 0);
+
+            const wallGroup = new THREE.Group();
+            wallGroup.position.set(wallCenterX, 0, wallCenterZ);
+            wallGroup.rotation.y = rotationY;
+            floorGroup.add(wallGroup);
+
+            if (isEntrance) {
+              const vitrineHeight = roomHeight - 0.75;
+              const fasciaHeight = 0.75;
+
+              // Illuminated Signage Fascia Band
+              const fasciaGeo = safeBox(length + 0.1, fasciaHeight, 0.3);
+              const fasciaMesh = new THREE.Mesh(fasciaGeo, shopSignFasciaMat);
+              fasciaMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, 0);
+              fasciaMesh.castShadow = true;
+              wallGroup.add(fasciaMesh);
+
+              const signBarGeo = safeBox(Math.min(length * 0.7, 4.0), 0.35, 0.08);
+              const signBarMesh = new THREE.Mesh(signBarGeo, shopSignGlowMat);
+              signBarMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, 0.16);
+              wallGroup.add(signBarMesh);
+
+              // Glass Canopy over entrance
+              const canopyDepth = 1.1;
+              const canopyGeo = safeBox(Math.min(length * 0.8, 3.2), 0.1, canopyDepth);
+              const canopyMesh = new THREE.Mesh(canopyGeo, frameMaterial);
+              canopyMesh.position.set(0, baseY + slabThickness + vitrineHeight + 0.05, canopyDepth / 2);
+              canopyMesh.castShadow = true;
+              wallGroup.add(canopyMesh);
+
+              // Full Height Storefront Glass Panels
+              const glassVitrineGeo = safeBox(length - 0.2, vitrineHeight, 0.08);
+              const glassVitrineMesh = new THREE.Mesh(glassVitrineGeo, glassMaterial);
+              glassVitrineMesh.position.set(0, baseY + slabThickness + vitrineHeight / 2, 0);
+              wallGroup.add(glassVitrineMesh);
+
+              // Storefront Mullions
+              const mullionCount = Math.max(2, Math.floor(length / 2));
+              for (let m = 0; m <= mullionCount; m++) {
+                const mx = -(length - 0.2) / 2 + ((length - 0.2) / mullionCount) * m;
+                const mulGeo = safeBox(0.08, vitrineHeight, 0.12);
+                const mulMesh = new THREE.Mesh(mulGeo, frameMaterial);
+                mulMesh.position.set(mx, baseY + slabThickness + vitrineHeight / 2, 0);
+                wallGroup.add(mulMesh);
+              }
+
+              // Commercial Entrance Glass Doors
+              const doorW = Math.min(1.8, length * 0.5);
+              const doorH = Math.min(2.4, vitrineHeight - 0.2);
+              const doorFrameMesh = new THREE.Mesh(safeBox(doorW, doorH, 0.14), frameMaterial);
+              doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, 0.02);
+              wallGroup.add(doorFrameMesh);
+
+              const doorGlass = new THREE.Mesh(safeBox(doorW - 0.15, doorH - 0.15, 0.06), glassMaterial);
+              doorGlass.position.copy(doorFrameMesh.position);
+              wallGroup.add(doorGlass);
+            } else {
+              // Side / Rear Commercial Shop Wall
+              if (length > 3.0) {
+                const vitrineH = roomHeight - 0.8;
+                const sideGlass = new THREE.Mesh(safeBox(length - 0.6, vitrineH, 0.08), glassMaterial);
+                sideGlass.position.set(0, baseY + slabThickness + vitrineH / 2 + 0.3, 0);
+                wallGroup.add(sideGlass);
+
+                const wallFrame = new THREE.Mesh(safeBox(length, roomHeight, wallThick), wallMaterial);
+                wallFrame.position.set(0, midY, 0);
+                wallFrame.castShadow = !isXRay;
+                wallGroup.add(wallFrame);
+              } else {
+                const solidShopWall = new THREE.Mesh(safeBox(length, roomHeight, wallThick), wallMaterial);
+                solidShopWall.position.set(0, midY, 0);
+                solidShopWall.castShadow = !isXRay;
+                wallGroup.add(solidShopWall);
+              }
+            }
+          });
+        } else {
+          // Standard Rectangular Shop
+          const backWallThick = 0.25;
+          const backWallGeo = safeBox(floorW, roomHeight, backWallThick);
+          const backWallMesh = new THREE.Mesh(backWallGeo, wallMaterial);
+          backWallMesh.position.set(0, midY, floorCenterZ - floorD / 2 + backWallThick / 2);
+          backWallMesh.castShadow = !isXRay;
+          floorGroup.add(backWallMesh);
+
+          // Side Walls
+          const sideWallGeo = safeBox(backWallThick, roomHeight, floorD);
+          const leftSide = new THREE.Mesh(sideWallGeo, wallMaterial);
+          leftSide.position.set(-floorW / 2 + backWallThick / 2, midY, floorCenterZ);
+          floorGroup.add(leftSide);
+
+          const rightSide = new THREE.Mesh(sideWallGeo, wallMaterial);
+          rightSide.position.set(floorW / 2 - backWallThick / 2, midY, floorCenterZ);
+          floorGroup.add(rightSide);
+
+          // FRONT STOREFRONT (VİTRİN VE TABELA BANDI)
+          const frontZ = floorCenterZ + floorD / 2;
+          const vitrineHeight = roomHeight - 0.75;
+          const fasciaHeight = 0.75;
+
+          // 1. Sleek Commercial Signage Fascia Band (Işıklı Tabela Bandı)
+          const fasciaGeo = safeBox(floorW + 0.1, fasciaHeight, 0.3);
+          const fasciaMesh = new THREE.Mesh(fasciaGeo, shopSignFasciaMat);
+          fasciaMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ);
+          fasciaMesh.castShadow = true;
+          floorGroup.add(fasciaMesh);
+
+          // Illuminated Signage Bar
+          const signBarGeo = safeBox(floorW * 0.7, 0.35, 0.08);
+          const signBarMesh = new THREE.Mesh(signBarGeo, shopSignGlowMat);
+          signBarMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ + 0.16);
+          floorGroup.add(signBarMesh);
+
+          // 2. Modern Steel & Glass Entrance Canopy (Giriş Saçağı / Markiz)
+          const canopyDepth = 1.1;
+          const canopyGeo = safeBox(floorW * 0.85, 0.1, canopyDepth);
+          const canopyMesh = new THREE.Mesh(canopyGeo, frameMaterial);
+          canopyMesh.position.set(0, baseY + slabThickness + vitrineHeight + 0.05, frontZ + canopyDepth / 2);
+          canopyMesh.castShadow = true;
+          floorGroup.add(canopyMesh);
+
+          // 3. Full Height Storefront Glass Panels (Geniş Alüminyum Vitrin Camları)
+          const glassVitrineGeo = safeBox(floorW - 0.6, vitrineHeight, 0.08);
+          const glassVitrineMesh = new THREE.Mesh(glassVitrineGeo, glassMaterial);
+          glassVitrineMesh.position.set(0, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
+          floorGroup.add(glassVitrineMesh);
+
+          // Storefront Vertical Aluminum Mullions
+          const mullionCount = Math.max(4, Math.floor(floorW / 2));
+          for (let m = 0; m <= mullionCount; m++) {
+            const mx = -(floorW - 0.6) / 2 + ((floorW - 0.6) / mullionCount) * m;
+            const mulGeo = safeBox(0.08, vitrineHeight, 0.12);
+            const mulMesh = new THREE.Mesh(mulGeo, frameMaterial);
+            mulMesh.position.set(mx, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
+            floorGroup.add(mulMesh);
+          }
+
+          // Commercial Entrance Glass Doors with Stainless Handles
+          const doorW = 1.8;
+          const doorH = Math.min(2.4, vitrineHeight - 0.2);
+          const doorFrameGeo = safeBox(doorW, doorH, 0.14);
+          const doorFrameMesh = new THREE.Mesh(doorFrameGeo, frameMaterial);
+          doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, frontZ - 0.02);
+          floorGroup.add(doorFrameMesh);
+
+          const doorGlass = new THREE.Mesh(
+            safeBox(doorW - 0.15, doorH - 0.15, 0.06),
+            glassMaterial
+          );
+          doorGlass.position.copy(doorFrameMesh.position);
+          floorGroup.add(doorGlass);
+
+          // Vertical steel handles
+          for (const hSide of [-0.15, 0.15]) {
+            const handle = new THREE.Mesh(
+              safeCylinder(0.025, 0.025, 0.9, 8),
+              new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
+            );
+            handle.position.set(hSide, baseY + slabThickness + 1.1, frontZ + 0.1);
+            floorGroup.add(handle);
+          }
         }
       } else if (!isBasement) {
         const wallThick = 0.22;
@@ -1489,58 +1866,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         const totalFlats = resFloors * flatsPerFloor;
         const defaultCount = Math.round(totalFlats * (params.contractorShareRate || 50) / 100);
 
-        for (let flatSeq = 0; flatSeq < flatsPerFloor; flatSeq++) {
-          const flatId = resFloorSeq * flatsPerFloor + flatSeq + 1;
-          const isContractor = params.contractorFlatIds && params.contractorFlatIds.length > 0
-            ? params.contractorFlatIds.includes(flatId)
-            : flatId > (totalFlats - defaultCount);
-
-          // Get dimensions and center offsets for this specific apartment zone
-          let zoneW = floorW * 0.95;
-          let zoneD = floorD * 0.95;
-          let zoneX = 0;
-          let zoneZ = floorCenterZ;
-
-          if (flatsPerFloor === 2) {
-            zoneW = floorW * 0.44;
-            zoneX = (flatSeq === 0) ? -floorW / 4 : floorW / 4;
-          } else if (flatsPerFloor === 3) {
-            if (flatSeq === 0) { // Left Front
-              zoneW = floorW * 0.42;
-              zoneD = floorD * 0.44;
-              zoneX = -floorW * 0.24;
-              zoneZ = floorCenterZ + floorD / 4;
-            } else if (flatSeq === 1) { // Right Front
-              zoneW = floorW * 0.42;
-              zoneD = floorD * 0.44;
-              zoneX = floorW * 0.24;
-              zoneZ = floorCenterZ + floorD / 4;
-            } else { // Rear
-              zoneW = floorW * 0.85;
-              zoneD = floorD * 0.44;
-              zoneX = 0;
-              zoneZ = floorCenterZ - floorD / 4;
-            }
-          } else if (flatsPerFloor === 4) {
-            zoneW = floorW * 0.44;
-            zoneD = floorD * 0.44;
-            if (flatSeq === 0) { // Front Left
-              zoneX = -floorW / 4;
-              zoneZ = floorCenterZ + floorD / 4;
-            } else if (flatSeq === 1) { // Front Right
-              zoneX = floorW / 4;
-              zoneZ = floorCenterZ + floorD / 4;
-            } else if (flatSeq === 2) { // Rear Left
-              zoneX = -floorW / 4;
-              zoneZ = floorCenterZ - floorD / 4;
-            } else { // Rear Right
-              zoneX = floorW / 4;
-              zoneZ = floorCenterZ - floorD / 4;
-            }
-          }
-
-          // Create translucent overlay box
-          const overlayGeo = safeBox(zoneW, roomHeight * 0.92, zoneD);
+        if (isCustomPoly && activePolyPts) {
+          const bounds = getPolygonBounds(activePolyPts);
+          const shape = createShapeFromPolygon(activePolyPts, bounds.centerX, bounds.centerY);
+          const overlayGeo = new THREE.ExtrudeGeometry(shape, { depth: roomHeight * 0.92, bevelEnabled: false });
+          const isContractor = resFloorSeq >= Math.floor(resFloors / 2);
           const overlayColor = isContractor ? 0xf59e0b : 0x10b981; // Orange vs Emerald Green
           const overlayMat = new THREE.MeshBasicMaterial({
             color: overlayColor,
@@ -1550,20 +1880,86 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             depthWrite: false,
           });
           const overlayMesh = new THREE.Mesh(overlayGeo, overlayMat);
-          overlayMesh.position.set(zoneX, midY, zoneZ);
+          overlayMesh.rotation.x = Math.PI / 2;
+          overlayMesh.position.set(0, baseY + slabThickness + roomHeight * 0.92, 0);
           floorGroup.add(overlayMesh);
+        } else {
+          for (let flatSeq = 0; flatSeq < flatsPerFloor; flatSeq++) {
+            const flatId = resFloorSeq * flatsPerFloor + flatSeq + 1;
+            const isContractor = params.contractorFlatIds && params.contractorFlatIds.length > 0
+              ? params.contractorFlatIds.includes(flatId)
+              : flatId > (totalFlats - defaultCount);
 
-          // Technical wireframe around the box to make it look premium
-          const edgesGeo = new THREE.EdgesGeometry(overlayGeo);
-          const edgesMat = new THREE.LineBasicMaterial({
-            color: overlayColor,
-            linewidth: 1.5,
-            transparent: true,
-            opacity: 0.8,
-          });
-          const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
-          wireframe.position.set(zoneX, midY, zoneZ);
-          floorGroup.add(wireframe);
+            // Get dimensions and center offsets for this specific apartment zone
+            let zoneW = floorW * 0.95;
+            let zoneD = floorD * 0.95;
+            let zoneX = 0;
+            let zoneZ = floorCenterZ;
+
+            if (flatsPerFloor === 2) {
+              zoneW = floorW * 0.44;
+              zoneX = (flatSeq === 0) ? -floorW / 4 : floorW / 4;
+            } else if (flatsPerFloor === 3) {
+              if (flatSeq === 0) { // Left Front
+                zoneW = floorW * 0.42;
+                zoneD = floorD * 0.44;
+                zoneX = -floorW * 0.24;
+                zoneZ = floorCenterZ + floorD / 4;
+              } else if (flatSeq === 1) { // Right Front
+                zoneW = floorW * 0.42;
+                zoneD = floorD * 0.44;
+                zoneX = floorW * 0.24;
+                zoneZ = floorCenterZ + floorD / 4;
+              } else { // Rear
+                zoneW = floorW * 0.85;
+                zoneD = floorD * 0.44;
+                zoneX = 0;
+                zoneZ = floorCenterZ - floorD / 4;
+              }
+            } else if (flatsPerFloor === 4) {
+              zoneW = floorW * 0.44;
+              zoneD = floorD * 0.44;
+              if (flatSeq === 0) { // Front Left
+                zoneX = -floorW / 4;
+                zoneZ = floorCenterZ + floorD / 4;
+              } else if (flatSeq === 1) { // Front Right
+                zoneX = floorW / 4;
+                zoneZ = floorCenterZ + floorD / 4;
+              } else if (flatSeq === 2) { // Rear Left
+                zoneX = -floorW / 4;
+                zoneZ = floorCenterZ - floorD / 4;
+              } else { // Rear Right
+                zoneX = floorW / 4;
+                zoneZ = floorCenterZ - floorD / 4;
+              }
+            }
+
+            // Create translucent overlay box
+            const overlayGeo = safeBox(zoneW, roomHeight * 0.92, zoneD);
+            const overlayColor = isContractor ? 0xf59e0b : 0x10b981; // Orange vs Emerald Green
+            const overlayMat = new THREE.MeshBasicMaterial({
+              color: overlayColor,
+              transparent: true,
+              opacity: isContractor ? 0.35 : 0.15,
+              side: THREE.DoubleSide,
+              depthWrite: false,
+            });
+            const overlayMesh = new THREE.Mesh(overlayGeo, overlayMat);
+            overlayMesh.position.set(zoneX, midY, zoneZ);
+            floorGroup.add(overlayMesh);
+
+            // Technical wireframe around the box to make it look premium
+            const edgesGeo = new THREE.EdgesGeometry(overlayGeo);
+            const edgesMat = new THREE.LineBasicMaterial({
+              color: overlayColor,
+              linewidth: 1.5,
+              transparent: true,
+              opacity: 0.8,
+            });
+            const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
+            wireframe.position.set(zoneX, midY, zoneZ);
+            floorGroup.add(wireframe);
+          }
         }
       }
 
@@ -1577,201 +1973,311 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const topFloorY = floorBaseYs[totalFloors - 1] + floorHeights[totalFloors - 1];
       const roofGroup = new THREE.Group();
 
+      const minSpan = isCustomPoly && activePolyPts
+        ? Math.min(getPolygonBounds(activePolyPts).width, getPolygonBounds(activePolyPts).depth)
+        : Math.min(W, D);
+
       if (roofType === 'gable') {
         // 1. Classic Turkish Gable / Kırma Çatı
-        const roofHeight = 2.8;
-        const roofGeom = safeCone(Math.max(W, D) * 0.72, roofHeight, 4);
-        roofGeom.rotateY(Math.PI / 4);
-        const roofMesh = new THREE.Mesh(
-          roofGeom,
-          new THREE.MeshStandardMaterial({
-            color: colors.roof,
-            roughness: 0.5,
-            metalness: 0.1,
-            wireframe: isWireframe,
-          })
-        );
-        roofMesh.position.set(0, topFloorY + roofHeight / 2, 0);
-        roofMesh.scale.set(W / Math.max(W, D), 1, D / Math.max(W, D));
-        roofMesh.castShadow = true;
-        roofGroup.add(roofMesh);
+        const roofHeight = Math.max(1.8, Math.min(4.2, minSpan * 0.28 + 0.8));
+        if (isCustomPoly && activePolyPts) {
+          const bounds = getPolygonBounds(activePolyPts);
+          const roofGeo = createPolygonHipRoofGeometry(activePolyPts, bounds.centerX, bounds.centerY, roofHeight, 0.35, 0.25);
+          const roofMesh = new THREE.Mesh(
+            roofGeo,
+            new THREE.MeshStandardMaterial({
+              color: colors.roof,
+              roughness: 0.5,
+              metalness: 0.1,
+              wireframe: isWireframe,
+              side: THREE.DoubleSide,
+            })
+          );
+          roofMesh.position.set(0, topFloorY, 0);
+          roofMesh.castShadow = true;
+          roofGroup.add(roofMesh);
+        } else {
+          const roofGeom = createRectangularHipRoofGeometry(W, D, roofHeight, 0.35);
+          const roofMesh = new THREE.Mesh(
+            roofGeom,
+            new THREE.MeshStandardMaterial({
+              color: colors.roof,
+              roughness: 0.5,
+              metalness: 0.1,
+              wireframe: isWireframe,
+              side: THREE.DoubleSide,
+            })
+          );
+          roofMesh.position.set(0, topFloorY, 0);
+          roofMesh.castShadow = true;
+          roofGroup.add(roofMesh);
+        }
       } else if (roofType === 'mansard') {
         // 2. MANSARD ROOF (Fransız Mansart Çatı - Dik Alt Eğimler + Güvercinlik Pencereleri)
-        const mansardLowerH = 2.2;
-        const mansardUpperH = 1.0;
-        const setback = 1.2;
-
-        // Mansard Lower Steep Slope Mesh (Truncated Pyramid)
-        const lowerGeo = safeCylinder(
-          Math.max(W - setback * 2, 4) * 0.71,
-          Math.max(W, D) * 0.71,
-          mansardLowerH,
-          4
-        );
-        lowerGeo.rotateY(Math.PI / 4);
+        const mansardLowerH = Math.max(2.0, Math.min(3.5, minSpan * 0.22 + 0.8));
         const mansardMat = new THREE.MeshStandardMaterial({
           color: 0x1e293b, // Dark zinc charcoal
           roughness: 0.4,
           metalness: 0.2,
           wireframe: isWireframe,
+          side: THREE.DoubleSide,
         });
-        const lowerMesh = new THREE.Mesh(lowerGeo, mansardMat);
-        lowerMesh.position.set(0, topFloorY + mansardLowerH / 2, 0);
-        lowerMesh.scale.set(W / Math.max(W, D), 1, D / Math.max(W, D));
-        lowerMesh.castShadow = true;
-        roofGroup.add(lowerMesh);
 
-        // Mansard Upper Flat/Low-Pitched Cap
-        const upperCapGeo = safeBox(W - setback * 2, 0.25, D - setback * 2);
-        const upperCapMesh = new THREE.Mesh(upperCapGeo, mansardMat);
-        upperCapMesh.position.set(0, topFloorY + mansardLowerH + 0.12, 0);
-        upperCapMesh.castShadow = true;
-        roofGroup.add(upperCapMesh);
+        if (isCustomPoly && activePolyPts) {
+          const bounds = getPolygonBounds(activePolyPts);
+          const lowerGeo = createPolygonHipRoofGeometry(activePolyPts, bounds.centerX, bounds.centerY, mansardLowerH, 0.2, 0.2);
+          const lowerMesh = new THREE.Mesh(lowerGeo, mansardMat);
+          lowerMesh.position.set(0, topFloorY, 0);
+          lowerMesh.castShadow = true;
+          roofGroup.add(lowerMesh);
 
-        // Dormer Windows (Mansart Çatı Pencereleri / Güvercinlik Pencereleri)
-        const dormerCount = Math.max(2, Math.floor(W / 4));
-        const dormerW = 1.2;
-        const dormerH = 1.4;
-        const dormerD = 1.1;
+          // Dormers along front polygon edge
+          const edges = getPolygonEdges(activePolyPts);
+          const mainEntranceIdx = params.mainEntranceFacadeIndex || 0;
+          const mainEdge = edges[mainEntranceIdx] || edges[0];
+          if (mainEdge) {
+            const edgeLen = mainEdge.length;
+            const dormerCount = Math.max(1, Math.floor(edgeLen / 4));
+            const dormerW = 1.2;
+            const dormerH = 1.4;
+            const dormerD = 1.1;
 
-        for (let d = 0; d < dormerCount; d++) {
-          const dx = -W / 2 + (W / (dormerCount + 1)) * (d + 1);
+            for (let d = 0; d < dormerCount; d++) {
+              const t = (d + 1) / (dormerCount + 1);
+              const dx = (mainEdge.start.x + t * (mainEdge.end.x - mainEdge.start.x)) - bounds.centerX;
+              const dz = (mainEdge.start.y + t * (mainEdge.end.y - mainEdge.start.y)) - bounds.centerY;
 
-          // Front dormer body
-          const dBodyGeo = safeBox(dormerW, dormerH, dormerD);
-          const dBody = new THREE.Mesh(dBodyGeo, wallMaterial);
-          dBody.position.set(dx, topFloorY + dormerH / 2 + 0.3, D / 2 - dormerD / 2 + 0.1);
-          dBody.castShadow = true;
-          roofGroup.add(dBody);
+              const dBody = new THREE.Mesh(safeBox(dormerW, dormerH, dormerD), wallMaterial);
+              dBody.position.set(dx, topFloorY + dormerH / 2 + 0.3, dz);
+              dBody.castShadow = true;
+              roofGroup.add(dBody);
 
-          // Dormer glass
-          const dGlassGeo = safeBox(dormerW * 0.75, dormerH * 0.7, 0.05);
-          const dGlass = new THREE.Mesh(dGlassGeo, glassMaterial);
-          dGlass.position.set(dx, topFloorY + dormerH / 2 + 0.3, D / 2 + 0.12);
-          roofGroup.add(dGlass);
+              const dGlass = new THREE.Mesh(safeBox(dormerW * 0.75, dormerH * 0.7, 0.05), glassMaterial);
+              dGlass.position.set(dx, topFloorY + dormerH / 2 + 0.3, dz + 0.12);
+              roofGroup.add(dGlass);
+            }
+          }
+        } else {
+          const lowerGeo = createRectangularHipRoofGeometry(W, D, mansardLowerH, 0.2);
+          const lowerMesh = new THREE.Mesh(lowerGeo, mansardMat);
+          lowerMesh.position.set(0, topFloorY, 0);
+          lowerMesh.castShadow = true;
+          roofGroup.add(lowerMesh);
 
-          // Dormer mini pitched roof hood
-          const dRoofGeo = safeCone(dormerW * 0.8, 0.5, 4);
-          dRoofGeo.rotateY(Math.PI / 4);
-          const dRoof = new THREE.Mesh(dRoofGeo, mansardMat);
-          dRoof.position.set(dx, topFloorY + dormerH + 0.3 + 0.25, D / 2 - dormerD / 2 + 0.1);
-          roofGroup.add(dRoof);
+          const setback = 0.8;
+          const upperCapGeo = safeBox(Math.max(1, W - setback * 2), 0.15, Math.max(1, D - setback * 2));
+          const upperCapMesh = new THREE.Mesh(upperCapGeo, mansardMat);
+          upperCapMesh.position.set(0, topFloorY + mansardLowerH + 0.08, 0);
+          upperCapMesh.castShadow = true;
+          roofGroup.add(upperCapMesh);
+
+          const dormerCount = Math.max(2, Math.floor(W / 4));
+          const dormerW = 1.2;
+          const dormerH = 1.4;
+          const dormerD = 1.1;
+
+          for (let d = 0; d < dormerCount; d++) {
+            const dx = -W / 2 + (W / (dormerCount + 1)) * (d + 1);
+
+            const dBodyGeo = safeBox(dormerW, dormerH, dormerD);
+            const dBody = new THREE.Mesh(dBodyGeo, wallMaterial);
+            dBody.position.set(dx, topFloorY + dormerH / 2 + 0.3, D / 2 - dormerD / 2 + 0.1);
+            dBody.castShadow = true;
+            roofGroup.add(dBody);
+
+            const dGlassGeo = safeBox(dormerW * 0.75, dormerH * 0.7, 0.05);
+            const dGlass = new THREE.Mesh(dGlassGeo, glassMaterial);
+            dGlass.position.set(dx, topFloorY + dormerH / 2 + 0.3, D / 2 + 0.12);
+            roofGroup.add(dGlass);
+
+            const dRoofGeo = safeCone(dormerW * 0.8, 0.5, 4);
+            dRoofGeo.rotateY(Math.PI / 4);
+            const dRoof = new THREE.Mesh(dRoofGeo, mansardMat);
+            dRoof.position.set(dx, topFloorY + dormerH + 0.3 + 0.25, D / 2 - dormerD / 2 + 0.1);
+            roofGroup.add(dRoof);
+          }
+
+          const crestGeo = safeBox(Math.max(1, W - setback * 2 + 0.1), 0.08, Math.max(1, D - setback * 2 + 0.1));
+          const crestMesh = new THREE.Mesh(crestGeo, frameMaterial);
+          crestMesh.position.set(0, topFloorY + mansardLowerH + 0.2, 0);
+          roofGroup.add(crestMesh);
         }
-
-        // Decorative cresting line on upper roof edge
-        const crestGeo = safeBox(W - setback * 2 + 0.1, 0.08, D - setback * 2 + 0.1);
-        const crestMesh = new THREE.Mesh(crestGeo, frameMaterial);
-        crestMesh.position.set(0, topFloorY + mansardLowerH + 0.28, 0);
-        roofGroup.add(crestMesh);
       } else if (roofType === 'duplex') {
         // 3. DUPLEX PENTHOUSE ROOF (Çatı Dubleksi - Teras, Pergola, Çatı Katı Dairesi)
         const duplexFloorH = 2.7;
         const terraceDepth = D * 0.45;
         const livingDepth = D - terraceDepth;
 
-        // Duplex Enclosed Penthouse Living Suite (Back half)
-        const livingGeo = safeBox(W * 0.85, duplexFloorH, livingDepth);
-        const livingMesh = new THREE.Mesh(livingGeo, wallMaterial);
-        livingMesh.position.set(0, topFloorY + duplexFloorH / 2, -terraceDepth / 2);
-        livingMesh.castShadow = true;
-        roofGroup.add(livingMesh);
-
-        // Duplex Floor-to-ceiling panoramic sliding glass doors
-        const slidingGlassGeo = safeBox(W * 0.7, duplexFloorH * 0.85, 0.06);
-        const slidingGlass = new THREE.Mesh(slidingGlassGeo, glassMaterial);
-        slidingGlass.position.set(0, topFloorY + duplexFloorH * 0.48, -terraceDepth / 2 + livingDepth / 2);
-        roofGroup.add(slidingGlass);
-
-        // Duplex Penthouse Sloped Roof Cap
-        const pRoofGeo = safeBox(W * 0.9, 0.2, livingDepth + 0.4);
-        const pRoof = new THREE.Mesh(
-          pRoofGeo,
-          new THREE.MeshStandardMaterial({
-            color: colors.roof,
-            roughness: 0.4,
-            metalness: 0.2,
-          })
-        );
-        pRoof.position.set(0, topFloorY + duplexFloorH + 0.1, -terraceDepth / 2);
-        pRoof.rotation.x = -0.05;
-        roofGroup.add(pRoof);
-
-        // Skylight / Çatı Güvercinlik Pencereleri on Penthouse roof
-        const skyW = 1.4;
-        const skyD = 1.2;
-        const skyGeo = safeBox(skyW, 0.15, skyD);
-        const skyMesh = new THREE.Mesh(skyGeo, glassMaterial);
-        skyMesh.position.set(W * 0.22, topFloorY + duplexFloorH + 0.25, -terraceDepth / 2);
-        skyMesh.rotation.x = -0.05;
-        roofGroup.add(skyMesh);
-
-        // Spacious Open-Air Roof Terrace (Front half)
-        const terraceSlabGeo = safeBox(W, 0.2, terraceDepth);
-        const terraceSlab = new THREE.Mesh(
-          terraceSlabGeo,
-          new THREE.MeshStandardMaterial({
-            color: 0x94a3b8, // Light stone terrace decking
-            roughness: 0.8,
-          })
-        );
-        terraceSlab.position.set(0, topFloorY + 0.1, D / 2 - terraceDepth / 2);
-        roofGroup.add(terraceSlab);
-
-        // Terrace Glass Balustrade (Cam Küpeşte)
-        const railH = 1.1;
-        const terraceFrontRailGeo = safeBox(W, railH, 0.05);
-        const terraceFrontRail = new THREE.Mesh(terraceFrontRailGeo, glassMaterial);
-        terraceFrontRail.position.set(0, topFloorY + 0.2 + railH / 2, D / 2);
-        roofGroup.add(terraceFrontRail);
-
-        // Terrace Pergola (Ahşap Pergola / Gölgelik Kirişleri)
-        const pergolaBeamCount = 7;
-        const beamGeo = safeBox(0.12, 0.22, terraceDepth * 0.85);
-        for (let b = 0; b < pergolaBeamCount; b++) {
-          const bx = -W * 0.35 + (W * 0.7 / (pergolaBeamCount - 1)) * b;
-          const beam = new THREE.Mesh(beamGeo, woodMaterial);
-          beam.position.set(bx, topFloorY + 2.5, D / 2 - terraceDepth / 2);
-          beam.castShadow = true;
-          roofGroup.add(beam);
+        let roofCoreCenterX = 0;
+        let roofCoreCenterZ = 0;
+        if (isCustomPoly && activePolyPts) {
+          const centroid = getPolygonCentroid(activePolyPts);
+          const bounds = getPolygonBounds(activePolyPts);
+          if (isPointInPolygon(centroid.x, centroid.y, activePolyPts)) {
+            roofCoreCenterX = centroid.x - bounds.centerX;
+            roofCoreCenterZ = centroid.y - bounds.centerY;
+          }
+        } else {
+          roofCoreCenterX = sW / 2 + eW / 2;
+          roofCoreCenterZ = 0;
         }
-
-        // Pergola support posts
-        const postGeo = safeBox(0.16, 2.5, 0.16);
-        const post1 = new THREE.Mesh(postGeo, woodMaterial);
-        post1.position.set(-W * 0.35, topFloorY + 1.25, D / 2 - 0.2);
-        roofGroup.add(post1);
-
-        const post2 = new THREE.Mesh(postGeo, woodMaterial);
-        post2.position.set(W * 0.35, topFloorY + 1.25, D / 2 - 0.2);
-        roofGroup.add(post2);
-      } else {
-        // 4. Flat Roof with Parapet (Teras Çatı)
-        const parapetHeight = 0.9;
-        const parapetMat = new THREE.LineBasicMaterial({
-          color: isLight ? 0x94a3b8 : 0x71717a,
-          linewidth: 2,
-        });
 
         if (isCustomPoly && activePolyPts) {
           const bounds = getPolygonBounds(activePolyPts);
+          const shape = createShapeFromPolygon(activePolyPts, bounds.centerX, bounds.centerY);
+          const roofSlabGeo = new THREE.ExtrudeGeometry(shape, { depth: slabThickness, bevelEnabled: false });
+          const roofSlab = new THREE.Mesh(roofSlabGeo, slabMaterial);
+          roofSlab.rotation.x = Math.PI / 2;
+          roofSlab.position.set(0, topFloorY + slabThickness, 0);
+          roofSlab.castShadow = true;
+          roofGroup.add(roofSlab);
+
+          // Penthouse suite
+          const livingGeo = safeBox(W * 0.7, duplexFloorH, livingDepth * 0.8);
+          const livingMesh = new THREE.Mesh(livingGeo, wallMaterial);
+          livingMesh.position.set(roofCoreCenterX, topFloorY + duplexFloorH / 2, roofCoreCenterZ - D * 0.1);
+          livingMesh.castShadow = true;
+          roofGroup.add(livingMesh);
+
+          const pRoofGeo = safeBox(W * 0.75, 0.2, livingDepth * 0.85);
+          const pRoof = new THREE.Mesh(
+            pRoofGeo,
+            new THREE.MeshStandardMaterial({
+              color: colors.roof,
+              roughness: 0.4,
+              metalness: 0.2,
+            })
+          );
+          pRoof.position.set(roofCoreCenterX, topFloorY + duplexFloorH + 0.1, roofCoreCenterZ - D * 0.1);
+          roofGroup.add(pRoof);
+        } else {
+          // Duplex Enclosed Penthouse Living Suite (Back half)
+          const livingGeo = safeBox(W * 0.85, duplexFloorH, livingDepth);
+          const livingMesh = new THREE.Mesh(livingGeo, wallMaterial);
+          livingMesh.position.set(0, topFloorY + duplexFloorH / 2, -terraceDepth / 2);
+          livingMesh.castShadow = true;
+          roofGroup.add(livingMesh);
+
+          const slidingGlassGeo = safeBox(W * 0.7, duplexFloorH * 0.85, 0.06);
+          const slidingGlass = new THREE.Mesh(slidingGlassGeo, glassMaterial);
+          slidingGlass.position.set(0, topFloorY + duplexFloorH * 0.48, -terraceDepth / 2 + livingDepth / 2);
+          roofGroup.add(slidingGlass);
+
+          const pRoofGeo = safeBox(W * 0.9, 0.2, livingDepth + 0.4);
+          const pRoof = new THREE.Mesh(
+            pRoofGeo,
+            new THREE.MeshStandardMaterial({
+              color: colors.roof,
+              roughness: 0.4,
+              metalness: 0.2,
+            })
+          );
+          pRoof.position.set(0, topFloorY + duplexFloorH + 0.1, -terraceDepth / 2);
+          pRoof.rotation.x = -0.05;
+          roofGroup.add(pRoof);
+
+          const skyGeo = safeBox(1.4, 0.15, 1.2);
+          const skyMesh = new THREE.Mesh(skyGeo, glassMaterial);
+          skyMesh.position.set(W * 0.22, topFloorY + duplexFloorH + 0.25, -terraceDepth / 2);
+          skyMesh.rotation.x = -0.05;
+          roofGroup.add(skyMesh);
+
+          const terraceSlabGeo = safeBox(W, 0.2, terraceDepth);
+          const terraceSlab = new THREE.Mesh(
+            terraceSlabGeo,
+            new THREE.MeshStandardMaterial({
+              color: 0x94a3b8,
+              roughness: 0.8,
+            })
+          );
+          terraceSlab.position.set(0, topFloorY + 0.1, D / 2 - terraceDepth / 2);
+          roofGroup.add(terraceSlab);
+
+          const railH = 1.1;
+          const terraceFrontRailGeo = safeBox(W, railH, 0.05);
+          const terraceFrontRail = new THREE.Mesh(terraceFrontRailGeo, glassMaterial);
+          terraceFrontRail.position.set(0, topFloorY + 0.2 + railH / 2, D / 2);
+          roofGroup.add(terraceFrontRail);
+
+          const pergolaBeamCount = 7;
+          const beamGeo = safeBox(0.12, 0.22, terraceDepth * 0.85);
+          for (let b = 0; b < pergolaBeamCount; b++) {
+            const bx = -W * 0.35 + (W * 0.7 / (pergolaBeamCount - 1)) * b;
+            const beam = new THREE.Mesh(beamGeo, woodMaterial);
+            beam.position.set(bx, topFloorY + 2.5, D / 2 - terraceDepth / 2);
+            beam.castShadow = true;
+            roofGroup.add(beam);
+          }
+
+          const postGeo = safeBox(0.16, 2.5, 0.16);
+          const post1 = new THREE.Mesh(postGeo, woodMaterial);
+          post1.position.set(-W * 0.35, topFloorY + 1.25, D / 2 - 0.2);
+          roofGroup.add(post1);
+
+          const post2 = new THREE.Mesh(postGeo, woodMaterial);
+          post2.position.set(W * 0.35, topFloorY + 1.25, D / 2 - 0.2);
+          roofGroup.add(post2);
+        }
+      } else {
+        // 4. Flat Roof with Parapet (Teras Çatı)
+        const parapetHeight = 0.9;
+        if (isCustomPoly && activePolyPts) {
+          const bounds = getPolygonBounds(activePolyPts);
+          const shape = createShapeFromPolygon(activePolyPts, bounds.centerX, bounds.centerY);
+          const roofSlabGeo = new THREE.ExtrudeGeometry(shape, { depth: slabThickness, bevelEnabled: false });
+          const roofSlab = new THREE.Mesh(roofSlabGeo, slabMaterial);
+          roofSlab.rotation.x = Math.PI / 2;
+          roofSlab.position.set(0, topFloorY + slabThickness, 0);
+          roofSlab.castShadow = true;
+          roofGroup.add(roofSlab);
+
           const edges = getPolygonEdges(activePolyPts);
+          let signedArea = 0;
+          for (let i = 0; i < activePolyPts.length; i++) {
+            const j = (i + 1) % activePolyPts.length;
+            signedArea += (activePolyPts[i].x * activePolyPts[j].y - activePolyPts[j].x * activePolyPts[i].y);
+          }
+          const isCW = signedArea > 0;
+
+          const parapetMat = new THREE.MeshStandardMaterial({
+            color: isLight ? 0xcbd5e1 : 0x475569,
+            roughness: 0.6,
+          });
+
           edges.forEach((edge) => {
             const x1 = edge.start.x - bounds.centerX;
             const z1 = edge.start.y - bounds.centerY;
             const x2 = edge.end.x - bounds.centerX;
             const z2 = edge.end.y - bounds.centerY;
-            const pPoints = [
-              new THREE.Vector3(x1, topFloorY, z1),
-              new THREE.Vector3(x2, topFloorY, z2),
-              new THREE.Vector3(x2, topFloorY + parapetHeight, z2),
-              new THREE.Vector3(x1, topFloorY + parapetHeight, z1),
-              new THREE.Vector3(x1, topFloorY, z1),
-            ];
-            const pGeom = new THREE.BufferGeometry().setFromPoints(pPoints);
-            const pLine = new THREE.Line(pGeom, parapetMat);
-            roofGroup.add(pLine);
+            const dx = x2 - x1;
+            const dz = z2 - z1;
+            const length = Math.sqrt(dx * dx + dz * dz);
+
+            const normalX = isCW ? dz / length : -dz / length;
+            const normalZ = isCW ? -dx / length : dx / length;
+            const midX = (x1 + x2) / 2;
+            const midZ = (z1 + z2) / 2;
+
+            const wallCenterX = midX - normalX * (0.22 / 2);
+            const wallCenterZ = midZ - normalZ * (0.22 / 2);
+            const rotationY = Math.atan2(normalX, normalZ);
+
+            const pWall = new THREE.Mesh(safeBox(length, parapetHeight, 0.22), parapetMat);
+            pWall.position.set(wallCenterX, topFloorY + parapetHeight / 2, wallCenterZ);
+            pWall.rotation.y = rotationY;
+            pWall.castShadow = true;
+            roofGroup.add(pWall);
+
+            const pCap = new THREE.Mesh(safeBox(length + 0.04, 0.08, 0.28), frameMaterial);
+            pCap.position.set(wallCenterX, topFloorY + parapetHeight + 0.04, wallCenterZ);
+            pCap.rotation.y = rotationY;
+            roofGroup.add(pCap);
           });
         } else {
+          const parapetMat = new THREE.LineBasicMaterial({
+            color: isLight ? 0x94a3b8 : 0x71717a,
+            linewidth: 2,
+          });
           const parapetGeo = safeBox(W, parapetHeight, D);
           const parapetEdges = new THREE.EdgesGeometry(parapetGeo);
           const parapetLine = new THREE.LineSegments(parapetEdges, parapetMat);
@@ -1780,10 +2286,20 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         }
 
         // Elevator Overrun / Asansör Makine Dairesi
+        let overrunCoreCenterX = sW / 2 + eW / 2;
+        let overrunCoreCenterZ = 0;
+        if (isCustomPoly && activePolyPts) {
+          const centroid = getPolygonCentroid(activePolyPts);
+          const bounds = getPolygonBounds(activePolyPts);
+          if (isPointInPolygon(centroid.x, centroid.y, activePolyPts)) {
+            overrunCoreCenterX = centroid.x - bounds.centerX;
+            overrunCoreCenterZ = centroid.y - bounds.centerY;
+          }
+        }
         const overrunH = 2.2;
         const overrunGeo = safeBox(eW + 0.8, overrunH, eD + 0.8);
         const overrunMesh = new THREE.Mesh(overrunGeo, wallMaterial);
-        overrunMesh.position.set(sW / 2 + eW / 2, topFloorY + overrunH / 2, 0);
+        overrunMesh.position.set(overrunCoreCenterX, topFloorY + overrunH / 2, overrunCoreCenterZ);
         overrunMesh.castShadow = true;
         roofGroup.add(overrunMesh);
       }
