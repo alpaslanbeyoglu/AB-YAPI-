@@ -327,28 +327,33 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
 
-                {/* 3. Kattaki Daire Sayısı */}
+                  {/* 3. Kat Sayısı */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase">Toplam Kat Sayısı:</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={params.floorCount}
+                      disabled={true}
+                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border bg-slate-100 text-slate-500`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">Kat</span>
+                  </div>
+                </div>
+
+                {/* 4. Kattaki Daire Sayısı */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-indigo-700 uppercase">Kattaki Daire Sayısı:</label>
-                  <div className="flex items-center gap-1">
+                  <div className="grid grid-cols-5 gap-1">
                     {[1, 2, 3, 4, 6].map((num) => (
                       <button
                         key={num}
                         type="button"
-                        onClick={() => {
-                          const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                          const totalFlats = normalFloors * num;
-                          onChangeParams({
-                            ...params,
-                            flatsPerFloor: num,
-                            flatCount: totalFlats
-                          });
-                          handleFlatCountChange(totalFlats);
-                        }}
-                        className={`flex-1 py-2 text-[11px] font-bold rounded-xl border transition-all ${
+                        disabled={true}
+                        className={`py-2 text-[11px] font-bold rounded-xl border transition-all ${
                           params.flatsPerFloor === num
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200'
+                            ? 'bg-slate-200 text-slate-500 border-slate-300'
+                            : 'bg-slate-50 text-slate-400 border-slate-200'
                         }`}
                       >
                         {num}
@@ -357,7 +362,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
 
-                {/* 4. Daire İç Yerleşimi */}
+                {/* 5. Daire İç Yerleşimi */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-800 uppercase">Daire İç Yerleşimi (Oda):</label>
                   <div className="flex gap-1.5">
@@ -378,7 +383,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
 
-                {/* 5. Teklif Edilecek Birim m2 Maliyet Fiyatı */}
+                {/* 6. Teklif Edilecek Birim m2 Maliyet Fiyatı */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-indigo-700 uppercase">Teklif Birim m² Maliyeti (TL):</label>
                   <div className="relative">
@@ -425,6 +430,36 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 )}
 
                 <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-indigo-700 mb-1.5 uppercase">
+                    Zemin Kat Fonksiyonu:
+                  </label>
+                  <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer group bg-white">
+                    <input
+                      type="checkbox"
+                      checked={params.hasGroundFloorShop}
+                      onChange={(e) => {
+                        const hasShop = e.target.checked;
+                        const normalFloors = hasShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                        const flatsPerFloor = params.flatsPerFloor || 1;
+                        const totalFlats = normalFloors * flatsPerFloor;
+                        
+                        onChangeParams({
+                          ...params,
+                          hasGroundFloorShop: hasShop,
+                          flatCount: totalFlats
+                        });
+                        handleFlatCountChange(totalFlats);
+                      }}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div className="flex items-center gap-2.5">
+                      <Store className={`w-4 h-4 transition-colors ${params.hasGroundFloorShop ? 'text-indigo-600' : 'text-slate-400'}`} />
+                      <span className={`text-xs font-bold transition-colors ${params.hasGroundFloorShop ? 'text-slate-900' : 'text-slate-500'}`}>Zemin Kat Ticari (Dükkan)</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="sm:col-span-1">
                   <label className="block text-xs font-bold text-indigo-700 mb-1.5 uppercase">
                     Destek Modeli:
                   </label>
@@ -624,22 +659,15 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-center">
                   {activeFootprintMode === 'directArea' && (
                     <div className="space-y-4">
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-600">Bina Taban Oturumu (Net m²):</label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            value={params.baseBuildArea}
-                            onChange={(e) => handleFootprintUpdate({ baseBuildArea: parseFloat(e.target.value) || 0 })}
-                            className={`w-full text-sm font-mono font-bold px-3.5 py-3 rounded-xl border ${inputBg}`}
-                          />
-                          <span className="absolute right-4 top-3 text-xs font-bold text-slate-400">m²</span>
+                      <div className="space-y-1.5 text-center">
+                        <p className="text-[11px] text-slate-500 italic">
+                          Oturum alanı "Proje Künyesi" sekmesinden belirlenmiştir. Hızlı seçim butonlarını kullanarak güncelleyebilirsiniz:
+                        </p>
+                        <div className="flex gap-2 mt-3">
+                          {[100, 150, 250, 400].map(v => (
+                            <button key={v} onClick={() => handleFootprintUpdate({ baseBuildArea: v })} className="flex-1 py-2 text-[10px] font-bold bg-white border border-slate-200 rounded-lg hover:bg-indigo-50 transition-colors">{v} m²</button>
+                          ))}
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {[100, 150, 250, 400].map(v => (
-                          <button key={v} onClick={() => handleFootprintUpdate({ baseBuildArea: v })} className="flex-1 py-2 text-[10px] font-bold bg-white border border-slate-200 rounded-lg hover:bg-indigo-50 transition-colors">{v} m²</button>
-                        ))}
                       </div>
                     </div>
                   )}
@@ -774,34 +802,6 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between items-center mb-1.5">
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase">Normal Katlar:</label>
-                      <span className="text-xs font-mono font-bold text-indigo-600">{params.floorCount} Kat</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min="1"
-                        max="25"
-                        value={params.floorCount}
-                        onChange={(e) => {
-                          const count = parseInt(e.target.value);
-                          const normalFloors = params.hasGroundFloorShop ? Math.max(1, count - 1) : count;
-                          const flatsPerFloor = params.flatsPerFloor || 1;
-                          const totalFlats = normalFloors * flatsPerFloor;
-                          
-                          onChangeParams({
-                            ...params,
-                            floorCount: count,
-                            flatCount: totalFlats
-                          });
-                          handleFlatCountChange(totalFlats);
-                        }}
-                        className="flex-1 accent-indigo-600"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5">
                       <label className="block text-[11px] font-bold text-slate-600 uppercase">Bodrum Katlar:</label>
                       <span className="text-xs font-mono font-bold text-slate-500">{params.basementCount} Kat</span>
                     </div>
@@ -819,48 +819,23 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 </div>
               </div>
 
-              {/* Zemin Kat Fonksiyonu */}
+              {/* Zemin Kat Detayları (Sadece aktifse) */}
               <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
-                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-widest border-b border-slate-200 pb-2">Zemin Fonksiyonu</h4>
-                <div className="space-y-4">
-                  <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={params.hasGroundFloorShop}
-                      onChange={(e) => {
-                        const hasShop = e.target.checked;
-                        const normalFloors = hasShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                        const flatsPerFloor = params.flatsPerFloor || 1;
-                        const totalFlats = normalFloors * flatsPerFloor;
-                        
-                        onChangeParams({
-                          ...params,
-                          hasGroundFloorShop: hasShop,
-                          flatCount: totalFlats
-                        });
-                        handleFlatCountChange(totalFlats);
-                      }}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <div className="flex items-center gap-2.5">
-                      <Store className={`w-4 h-4 transition-colors ${params.hasGroundFloorShop ? 'text-indigo-600' : 'text-slate-400'}`} />
-                      <span className={`text-xs font-bold transition-colors ${params.hasGroundFloorShop ? 'text-slate-900' : 'text-slate-500'}`}>Zemin Kat Ticari (Dükkan)</span>
+                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-widest border-b border-slate-200 pb-2">Zemin Detayları</h4>
+                {params.hasGroundFloorShop ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Dükkan Sayısı:</label>
+                      <input type="number" value={params.shopCount} onChange={(e) => updateParam('shopCount', parseInt(e.target.value))} className={`w-full text-xs px-3 py-2 rounded-lg border ${inputBg}`} />
                     </div>
-                  </label>
-                  
-                  {params.hasGroundFloorShop && (
-                    <div className="animate-slide-down space-y-3 pl-8">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Dükkan Sayısı:</label>
-                        <input type="number" value={params.shopCount} onChange={(e) => updateParam('shopCount', parseInt(e.target.value))} className={`w-full text-xs px-3 py-2 rounded-lg border ${inputBg}`} />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kat Yüksekliği (m):</label>
-                        <input type="number" step="0.1" value={params.shopHeight} onChange={(e) => updateParam('shopHeight', parseFloat(e.target.value))} className={`w-full text-xs px-3 py-2 rounded-lg border ${inputBg}`} />
-                      </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kat Yüksekliği (m):</label>
+                      <input type="number" step="0.1" value={params.shopHeight} onChange={(e) => updateParam('shopHeight', parseFloat(e.target.value))} className={`w-full text-xs px-3 py-2 rounded-lg border ${inputBg}`} />
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-400 italic">Zemin kat konut olarak planlanmıştır. Değiştirmek için "Proje Künyesi" sekmesini kullanın.</p>
+                )}
               </div>
 
               {/* Mimari Segment & Stil */}
@@ -1027,66 +1002,6 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="space-y-4">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest">Dönüşüm Destek Modeli</label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {[
-                      { id: 'currentSupport', label: '2025/26 Mevcut Hibe & Kredi' },
-                      { id: 'futureSupport2027', label: '2027 Projeksiyon Kredisi' },
-                      { id: 'none', label: 'Desteksiz / Öz Kaynak' },
-                    ].map(opt => (
-                      <button
-                        key={opt.id}
-                        onClick={() => updateParam('transformationStatus', opt.id as any)}
-                        className={`w-full text-left px-4 py-3 rounded-2xl border text-[11px] font-bold transition-all ${
-                          params.transformationStatus === opt.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest">Yapım Modeli</label>
-                  <div className="flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
-                    <button
-                      onClick={() => updateParam('projectModel', 'cash')}
-                      className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${
-                        params.projectModel === 'cash' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      Nakit Ödeme
-                    </button>
-                    <button
-                      onClick={() => updateParam('projectModel', 'contractorShare')}
-                      className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${
-                        params.projectModel === 'contractorShare' ? 'bg-white text-indigo-700 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      Kat Karşılığı
-                    </button>
-                  </div>
-                  
-                  {params.projectModel === 'contractorShare' && (
-                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-bold text-amber-900 uppercase">Müteahhit Payı:</span>
-                        <span className="text-sm font-mono font-bold text-amber-600">%{params.contractorShareRate}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="20"
-                        max="75"
-                        value={params.contractorShareRate}
-                        onChange={(e) => updateParam('contractorShareRate', parseFloat(e.target.value))}
-                        className="w-full accent-amber-500"
-                      />
-                    </div>
-                  )}
-                </div>
-
                 <div className="space-y-4">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest">Ekonomi & Kâr</label>
                   <div className="space-y-3">
