@@ -42,6 +42,7 @@ import { DEFAULT_TABS, TabConfig, TabId } from './config/tabs';
 
 import { DEFAULT_PARAMS, calculateProject, synchronizeFlats } from './utils/calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS } from './utils/buildingModelUtils';
+import { calculateFootprint } from './utils/footprintUtils';
 import { initAuth, setCachedToken } from './services/auth';
 import { saveProjectJsonToDrive, deleteDriveFile } from './services/drive';
 import {
@@ -88,7 +89,14 @@ export default function App() {
   const [tabsConfig, setTabsConfig] = useState<TabConfig[]>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_tabs');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<TabConfig>[];
+        // Restore icon references from DEFAULT_TABS
+        return DEFAULT_TABS.map(defaultTab => {
+          const savedTab = parsed.find(t => t.id === defaultTab.id);
+          return savedTab ? { ...defaultTab, visible: savedTab.visible ?? defaultTab.visible, order: savedTab.order ?? defaultTab.order } : defaultTab;
+        });
+      }
     } catch (e) {}
     return DEFAULT_TABS;
   });
@@ -161,8 +169,8 @@ export default function App() {
       const nextModel: BuildingModelParams = {
         ...prevModel,
         footprintInputMode: newParams.footprintInputMode || prevModel.footprintInputMode,
-        facadeWidth: newParams.facadeWidth || newW,
-        facadeDepth: newParams.facadeDepth || newD,
+        facadeWidth: newW,
+        facadeDepth: newD,
         customFacadeCount: newParams.customFacadeCount || prevModel.customFacadeCount,
         customFacades: newParams.customFacades || prevModel.customFacades,
         lShapeFrontMain: newParams.lShapeFrontMain || prevModel.lShapeFrontMain,
@@ -208,7 +216,8 @@ export default function App() {
 
       // Live Sync to Calculator:
       setParams((prevCalc) => {
-        const area = Math.round(next.facadeWidth * next.facadeDepth * 10) / 10;
+        const footprintResult = calculateFootprint(next.footprintInputMode, next);
+        const area = footprintResult.area;
         const resFloors = next.hasGroundFloorShop
           ? Math.max(1, next.floorCount - 1)
           : next.floorCount;
@@ -501,7 +510,7 @@ export default function App() {
         </div>
       </div>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 pb-36 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6">
+      <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6">
         {/* Tab Views */}
         <div className="flex-1 w-full min-w-0">
           {feedback && (

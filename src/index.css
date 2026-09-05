@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
 /* Yazdırma Esnasında Yapılacak Düzenlemeler */
 @media print {
   /* Üst menü, butonlar ve yönlendirmeleri gizler */
