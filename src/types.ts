@@ -28,6 +28,36 @@ export interface PolygonPoint {
   y: number; // Metre cinsinden Y (veya Z derinlik) koordinatı
 }
 
+export interface GeometricValidationMetrics {
+  area: number;
+  perimeter: number;
+  edgeCount: number;
+  boundingBox: { width: number; depth: number; centerX: number; centerY: number };
+  centroid: { x: number; y: number };
+  isSelfIntersecting: boolean;
+  isConvex: boolean;
+  isOrthogonal: boolean;
+  minEdgeLength: number;
+  maxEdgeLength: number;
+  avgEdgeLength: number;
+}
+
+export interface GeometricValidationResult {
+  isValid: boolean;
+  healthScore: number; // 0 - 100
+  issues: string[];    // Critical errors (blocking)
+  warnings: string[];  // Non-blocking quality warnings
+  recommendations: string[];
+  metrics: GeometricValidationMetrics;
+  gridAlignment: {
+    totalVertices: number;
+    alignedVertices: number;
+    alignmentPercentage: number;
+    axesX: number[];
+    axesY: number[];
+  };
+}
+
 export interface FacadeDetailConfig {
   id: number;
   name: string;               // Örn: "1. Ön Cephe (Yol / Ana Giriş)", "2. Sağ Yan Cephe", vb.

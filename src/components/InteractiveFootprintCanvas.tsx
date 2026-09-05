@@ -25,6 +25,8 @@ import {
   getPolygonEdges,
   getPolygonBounds,
   generateFacadeConfigs,
+  normalizePolygonAndAlignToGrid,
+  validatePolygonFootprint,
 } from '../utils/footprintUtils';
 
 interface InteractiveFootprintCanvasProps {
@@ -65,11 +67,27 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
   const viewBoxSize = 34; // 34 meters total width/height (-17 to +17)
   const halfSize = viewBoxSize / 2;
 
-  // Real-time geometric calculations
+  // Real-time geometric calculations & validation engine
   const area = calculatePolygonArea(points);
   const perimeter = calculatePolygonPerimeter(points);
   const edges = getPolygonEdges(points);
   const bounds = getPolygonBounds(points);
+  const validation = validatePolygonFootprint(points, gridStep);
+
+  // Geometric Normalization & Grid Alignment Handler
+  const handleNormalizeAndAlign = () => {
+    const { normalizedPoints, actionsTaken } = normalizePolygonAndAlignToGrid(points, {
+      gridStep,
+      angleSnapToleranceDeg: 10,
+      minEdgeLength: 0.5,
+    });
+    onChangePoints(normalizedPoints);
+    if (actionsTaken.length > 0) {
+      alert(`Geometrik Doğrulama & Aks Hizalaması Tamamlandı:\n\n• ` + actionsTaken.join('\n• '));
+    } else {
+      alert(`Geometrik form zaten ${gridStep}m yapısal aks ızgarası ile mükemmel uyumludur.`);
+    }
+  };
 
   // Sync facade configurations when edges change
   const currentFacadeConfigs = generateFacadeConfigs(points, facadeConfigs, mainEntranceIndex);
@@ -194,7 +212,18 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
   const handleUpdateFacadeConfig = (index: number, updates: Partial<FacadeDetailConfig>) => {
     const updated = currentFacadeConfigs.map((cfg, i) => {
       if (i === index) {
-        return { ...cfg, ...updates };
+        const merged = { ...cfg, ...updates };
+        
+        // Under TR regulations, blind facades (0 windows) cannot have balconies
+        if (merged.windowCountPerFloor === 0) {
+          merged.hasBalcony = false;
+          merged.balconyCountPerFloor = 0;
+        } else if (merged.hasBalcony && merged.windowCountPerFloor === 0) {
+          // If they somehow had balcony but 0 windows, enforce at least 1 window
+          merged.windowCountPerFloor = 1;
+        }
+        
+        return merged;
       }
       if (updates.isEntrance && i !== index) {
         return { ...cfg, isEntrance: false };
@@ -270,6 +299,46 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
       {/* TAB 1: INTERACTIVE 2D CANVAS */}
       {activeTab === 'canvas' && (
         <div className="space-y-2.5">
+          {/* Geometric Validation & Structural Grid Alignment Banner */}
+          <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 flex-wrap ${
+            validation.isValid
+              ? validation.healthScore >= 90
+                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                : 'bg-amber-50/80 border-amber-200 text-amber-900'
+              : 'bg-rose-50/80 border-rose-200 text-rose-900'
+          }`}>
+            <div className="flex items-center gap-2">
+              <div className={`w-2.5 h-2.5 rounded-full ${
+                validation.isValid ? (validation.healthScore >= 90 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500') : 'bg-rose-500 animate-ping'
+              }`} />
+              <div>
+                <span className="font-bold">
+                  {validation.isValid ? `Geometrik Doğruluk: %${validation.healthScore}` : 'Geometrik Uyuşmazlık!'}
+                </span>
+                <span className="ml-2 text-[11px] opacity-80">
+                  ({validation.gridAlignment.alignmentPercentage}% Izgara Uyumlu • {validation.metrics.edgeCount} Köşe • {validation.metrics.isOrthogonal ? 'Dik Akslı' : 'Açısal Form'})
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {validation.issues.length > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-200 text-rose-800">
+                  {validation.issues[0]}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleNormalizeAndAlign}
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Köşeleri dikleştir, çakışmaları sil ve aks ızgarasına sabitle"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>⚡ Geometrik Düzelt & Aksa Hizala</span>
+              </button>
+            </div>
+          </div>
+
           {/* Quick Preset Selector & Grid Controls */}
           <div className="flex items-center justify-between gap-1 flex-wrap text-xs">
             <div className="flex items-center gap-1 flex-wrap">
@@ -568,6 +637,7 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
                       </label>
                       <select
                         value={cfg.hasBalcony ? cfg.balconyCountPerFloor || 1 : 0}
+                        disabled={cfg.windowCountPerFloor === 0}
                         onChange={(e) => {
                           const val = parseInt(e.target.value);
                           handleUpdateFacadeConfig(idx, {
@@ -575,12 +645,20 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
                             balconyCountPerFloor: val,
                           });
                         }}
-                        className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold"
+                        className={`w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold ${
+                          cfg.windowCountPerFloor === 0 ? 'opacity-60 cursor-not-allowed bg-slate-100 text-slate-400' : ''
+                        }`}
                       >
-                        <option value={0}>Balkon Yok</option>
-                        <option value={1}>1 Adet Balkon</option>
-                        <option value={2}>2 Adet Balkon</option>
-                        <option value={3}>3 Adet Balkon</option>
+                        {cfg.windowCountPerFloor === 0 ? (
+                          <option value={0}>Kör Cephede Balkon Olamaz</option>
+                        ) : (
+                          <>
+                            <option value={0}>Balkon Yok</option>
+                            <option value={1}>1 Adet Balkon</option>
+                            <option value={2}>2 Adet Balkon</option>
+                            <option value={3}>3 Adet Balkon</option>
+                          </>
+                        )}
                       </select>
                     </div>
                   </div>

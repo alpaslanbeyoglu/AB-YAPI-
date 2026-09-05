@@ -20,7 +20,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { BuildingModelParams } from '../types';
-import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds } from '../utils/footprintUtils';
+import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid } from '../utils/footprintUtils';
 
 // Safe geometry constructors to completely prevent any NaN/null/zero bounding sphere errors in Three.js
 function safeBox(w: number, h: number, d: number, ws: number = 1, hs: number = 1, ds: number = 1): THREE.BoxGeometry {
@@ -502,17 +502,83 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const colGeo = safeBox(colSize, roomHeight, colSize);
       if (isCustomPoly && activePolyPts) {
         const bounds = getPolygonBounds(activePolyPts);
-        activePolyPts.forEach((p: any) => {
+        const edges = getPolygonEdges(activePolyPts);
+        const nPts = activePolyPts.length;
+
+        // Calculate signed area to know winding direction
+        let signedArea = 0;
+        for (let i = 0; i < nPts; i++) {
+          const j = (i + 1) % nPts;
+          signedArea += (activePolyPts[i].x * activePolyPts[j].y - activePolyPts[j].x * activePolyPts[i].y);
+        }
+        const isCW = signedArea > 0;
+
+        // A. Corner Structural Columns along true inward angle bisector
+        activePolyPts.forEach((p: any, i: number) => {
           const px = p.x - bounds.centerX;
           const pz = p.y - bounds.centerY;
-          const dist = Math.sqrt(px * px + pz * pz) || 1;
-          const colX = px - (px / dist) * (colSize * 0.6);
-          const colZ = pz - (pz / dist) * (colSize * 0.6);
+
+          const pPrev = activePolyPts[(i - 1 + nPts) % nPts];
+          const pNext = activePolyPts[(i + 1) % nPts];
+
+          // Edge 1 vector & inward normal
+          const dx1 = p.x - pPrev.x, dy1 = p.y - pPrev.y;
+          const l1 = Math.sqrt(dx1 * dx1 + dy1 * dy1) || 1;
+          const inN1X = isCW ? dy1 / l1 : -dy1 / l1;
+          const inN1Z = isCW ? -dx1 / l1 : dx1 / l1;
+
+          // Edge 2 vector & inward normal
+          const dx2 = pNext.x - p.x, dy2 = pNext.y - p.y;
+          const l2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1;
+          const inN2X = isCW ? dy2 / l2 : -dy2 / l2;
+          const inN2Z = isCW ? -dx2 / l2 : dx2 / l2;
+
+          // Bisector vector
+          let bisectX = (inN1X + inN2X) / 2;
+          let bisectZ = (inN1Z + inN2Z) / 2;
+          const bLen = Math.sqrt(bisectX * bisectX + bisectZ * bisectZ) || 1;
+          bisectX /= bLen;
+          bisectZ /= bLen;
+
+          const colX = px + bisectX * (colSize * 0.45);
+          const colZ = pz + bisectZ * (colSize * 0.45);
+
           const colMesh = new THREE.Mesh(colGeo, columnMaterial);
           colMesh.position.set(colX, midY, colZ);
           colMesh.castShadow = true;
           floorGroup.add(colMesh);
         });
+
+        // B. Internal Structural Skeleton Columns (Inside Polygon)
+        const gridStepX = Math.max(4.0, bounds.width / 3);
+        const gridStepZ = Math.max(4.0, bounds.depth / 3);
+        for (let gx = bounds.minX + gridStepX; gx < bounds.maxX - 1.0; gx += gridStepX) {
+          for (let gy = bounds.minY + gridStepZ; gy < bounds.maxY - 1.0; gy += gridStepZ) {
+            if (isPointInPolygon(gx, gy, activePolyPts)) {
+              let farEnough = true;
+              for (const edge of edges) {
+                const x1 = edge.start.x, y1 = edge.start.y;
+                const x2 = edge.end.x, y2 = edge.end.y;
+                const C = x2 - x1, D = y2 - y1;
+                const lenSq = C * C + D * D;
+                let param = lenSq !== 0 ? ((gx - x1) * C + (gy - y1) * D) / lenSq : -1;
+                let xx = param < 0 ? x1 : (param > 1 ? x2 : x1 + param * C);
+                let yy = param < 0 ? y1 : (param > 1 ? y2 : y1 + param * D);
+                const dist = Math.sqrt((gx - xx) * (gx - xx) + (gy - yy) * (gy - yy));
+                if (dist < 1.3) {
+                  farEnough = false;
+                  break;
+                }
+              }
+              if (farEnough) {
+                const colMesh = new THREE.Mesh(colGeo, columnMaterial);
+                colMesh.position.set(gx - bounds.centerX, midY, gy - bounds.centerY);
+                colMesh.castShadow = true;
+                floorGroup.add(colMesh);
+              }
+            }
+          }
+        }
       } else {
         const colXCoords = [-floorW / 2 + colSize / 2, 0, floorW / 2 - colSize / 2];
         const colZCoords = [floorCenterZ - floorD / 2 + colSize / 2, floorCenterZ, floorCenterZ + floorD / 2 - colSize / 2];
@@ -528,9 +594,21 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       }
 
       // 3. CORE: STAIRCASE & ELEVATOR SHAFT (Merdiven ve Asansör Çekirdeği)
-      const coreZ = 0;
-      const stairX = -sW / 2;
-      const elevatorX = sW / 2 + eW / 2;
+      let coreCenterX = 0;
+      let coreCenterZ = 0;
+
+      if (isCustomPoly && activePolyPts) {
+        const centroid = getPolygonCentroid(activePolyPts);
+        const bounds = getPolygonBounds(activePolyPts);
+        if (isPointInPolygon(centroid.x, centroid.y, activePolyPts)) {
+          coreCenterX = centroid.x - bounds.centerX;
+          coreCenterZ = centroid.y - bounds.centerY;
+        }
+      }
+
+      const stairX = coreCenterX - sW / 2;
+      const elevatorX = coreCenterX + sW / 2 + eW / 2;
+      const coreZ = coreCenterZ;
 
       // Staircase shaft volume
       const stairGeo = safeBox(sW, roomHeight, sD);
@@ -545,7 +623,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const stepGeo = safeBox(sW * 0.45, stepHeight * 0.85, sD * 0.18);
       for (let s = 0; s < stepCount; s++) {
         const stepMesh = new THREE.Mesh(stepGeo, slabMaterial);
-        const stepZ = -sD / 3 + (s / stepCount) * (sD * 0.7);
+        const stepZ = coreZ - sD / 3 + (s / stepCount) * (sD * 0.7);
         stepMesh.position.set(
           s < stepCount / 2 ? stairX - sW * 0.22 : stairX + sW * 0.22,
           baseY + slabThickness + (s + 0.5) * stepHeight,
@@ -1138,8 +1216,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
           const isEntranceFacade = cfg.isEntrance || wIdx === (params.mainEntranceFacadeIndex || 0);
           const winCount = typeof cfg.windowCountPerFloor === 'number' ? cfg.windowCountPerFloor : (wIdx === 0 ? 3 : 2);
-          const hasBalc = cfg.hasBalcony && floorIndex > 0;
-          const balcCount = cfg.balconyCountPerFloor || 1;
+          
+          // Under TR regulations, a blind facade (windowCountPerFloor === 0) cannot have balconies
+          const hasBalc = winCount === 0 ? false : (cfg.hasBalcony && floorIndex > 0);
+          const balcCount = winCount === 0 ? 0 : (cfg.balconyCountPerFloor || 1);
 
           const wallGroup = new THREE.Group();
           wallGroup.position.set(wDef.x, 0, wDef.z);
@@ -1194,6 +1274,32 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             const winSill = 0.9;
             const pierW = (localW - winCount * winWidth) / (winCount + 1);
 
+            // Pre-calculate balcony center positions on this wall
+            const balcXPositions: number[] = [];
+            if (hasBalc && bD > 0.3) {
+              for (let b = 0; b < balcCount; b++) {
+                const bx = balcCount === 1 ? -localW * 0.22 : (b === 0 ? -localW * 0.25 : localW * 0.25);
+                balcXPositions.push(bx);
+              }
+            }
+
+            // Find window opening index closest to each balcony position
+            const balconyOpeningIndices = new Set<number>();
+            balcXPositions.forEach((bx) => {
+              let closestIdx = 0;
+              let minDist = Infinity;
+              for (let p = 0; p < winCount; p++) {
+                const px = -localW / 2 + pierW / 2 + p * (pierW + winWidth);
+                const wx = px + pierW / 2 + winWidth / 2;
+                const dist = Math.abs(wx - bx);
+                if (dist < minDist) {
+                  minDist = dist;
+                  closestIdx = p;
+                }
+              }
+              balconyOpeningIndices.add(closestIdx);
+            });
+
             for (let p = 0; p <= winCount; p++) {
               const px = -localW / 2 + pierW / 2 + p * (pierW + winWidth);
               const pierMesh = new THREE.Mesh(safeBox(pierW, roomHeight, wallThick), currentMat);
@@ -1203,29 +1309,89 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
               if (p < winCount) {
                 const wx = px + pierW / 2 + winWidth / 2;
-                
-                const sillMesh = new THREE.Mesh(safeBox(winWidth, winSill, wallThick), wallMaterial);
-                sillMesh.position.set(wx, baseY + slabThickness + winSill / 2, 0);
-                wallGroup.add(sillMesh);
+                const isBalconyDoor = balconyOpeningIndices.has(p);
 
-                const lintelH = roomHeight - (winSill + winHeight);
-                if (lintelH > 0.05) {
-                  const lintelMesh = new THREE.Mesh(safeBox(winWidth, lintelH, wallThick), wallMaterial);
-                  lintelMesh.position.set(wx, baseY + slabThickness + winSill + winHeight + lintelH / 2, 0);
-                  wallGroup.add(lintelMesh);
+                if (isBalconyDoor) {
+                  // --- BALKON KAPISI (FULL-HEIGHT GLASS BALCONY DOOR WITH LOW THRESHOLD & HANDLE) ---
+                  const thresholdH = 0.05;
+                  const doorH = 2.15;
+                  const glassH = doorH - thresholdH;
+
+                  // Low threshold step
+                  const thresholdMesh = new THREE.Mesh(safeBox(winWidth, thresholdH, wallThick), wallMaterial);
+                  thresholdMesh.position.set(wx, baseY + slabThickness + thresholdH / 2, 0);
+                  wallGroup.add(thresholdMesh);
+
+                  // Lintel wall above door
+                  const lintelH = roomHeight - doorH;
+                  if (lintelH > 0.05) {
+                    const lintelMesh = new THREE.Mesh(safeBox(winWidth, lintelH, wallThick), wallMaterial);
+                    lintelMesh.position.set(wx, baseY + slabThickness + doorH + lintelH / 2, 0);
+                    wallGroup.add(lintelMesh);
+                  }
+
+                  // Glass door panel
+                  const glassMesh = new THREE.Mesh(safeBox(winWidth - 0.08, glassH, 0.06), glassMaterial);
+                  glassMesh.position.set(wx, baseY + slabThickness + thresholdH + glassH / 2, 0);
+                  wallGroup.add(glassMesh);
+
+                  // Door frame
+                  const frameGeo = safeBox(winWidth, glassH, 0.08);
+                  const line = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(frameGeo),
+                    new THREE.LineBasicMaterial({ color: isLight ? 0x334155 : 0x1e293b })
+                  );
+                  line.position.copy(glassMesh.position);
+                  wallGroup.add(line);
+
+                  // Vertical aluminum mullion for double French balcony door look
+                  if (winWidth > 1.0) {
+                    const dividerMesh = new THREE.Mesh(safeBox(0.06, glassH, 0.08), frameMaterial);
+                    dividerMesh.position.copy(glassMesh.position);
+                    wallGroup.add(dividerMesh);
+                  }
+
+                  // Chrome/Dark Balcony Door Handle
+                  const handleMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.1 });
+                  const handleX = wx + (winWidth > 1.0 ? 0.08 : winWidth * 0.25);
+                  const handleY = baseY + slabThickness + 1.05;
+                  const handleZ = wallThick / 2 + 0.04;
+
+                  const handleBar = new THREE.Mesh(safeCylinder(0.018, 0.018, 0.35, 8), handleMat);
+                  handleBar.position.set(handleX, handleY, handleZ);
+                  handleBar.castShadow = true;
+                  wallGroup.add(handleBar);
+
+                  for (const hY of [-0.12, 0.12]) {
+                    const mount = new THREE.Mesh(safeBox(0.02, 0.02, 0.04), handleMat);
+                    mount.position.set(handleX, handleY + hY, wallThick / 2 + 0.02);
+                    wallGroup.add(mount);
+                  }
+                } else {
+                  // --- STANDARD WINDOW (PENCERE) ---
+                  const sillMesh = new THREE.Mesh(safeBox(winWidth, winSill, wallThick), wallMaterial);
+                  sillMesh.position.set(wx, baseY + slabThickness + winSill / 2, 0);
+                  wallGroup.add(sillMesh);
+
+                  const lintelH = roomHeight - (winSill + winHeight);
+                  if (lintelH > 0.05) {
+                    const lintelMesh = new THREE.Mesh(safeBox(winWidth, lintelH, wallThick), wallMaterial);
+                    lintelMesh.position.set(wx, baseY + slabThickness + winSill + winHeight + lintelH / 2, 0);
+                    wallGroup.add(lintelMesh);
+                  }
+
+                  const glassMesh = new THREE.Mesh(safeBox(winWidth, winHeight, 0.06), glassMaterial);
+                  glassMesh.position.set(wx, baseY + slabThickness + winSill + winHeight / 2, 0);
+                  wallGroup.add(glassMesh);
+
+                  const frameGeo = safeBox(winWidth + 0.04, winHeight + 0.04, 0.08);
+                  const line = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(frameGeo),
+                    new THREE.LineBasicMaterial({ color: isLight ? 0x64748b : 0x27272a })
+                  );
+                  line.position.copy(glassMesh.position);
+                  wallGroup.add(line);
                 }
-
-                const glassMesh = new THREE.Mesh(safeBox(winWidth, winHeight, 0.06), glassMaterial);
-                glassMesh.position.set(wx, baseY + slabThickness + winSill + winHeight / 2, 0);
-                wallGroup.add(glassMesh);
-
-                const frameGeo = safeBox(winWidth + 0.04, winHeight + 0.04, 0.08);
-                const line = new THREE.LineSegments(
-                  new THREE.EdgesGeometry(frameGeo),
-                  new THREE.LineBasicMaterial({ color: isLight ? 0x64748b : 0x27272a })
-                );
-                line.position.copy(glassMesh.position);
-                wallGroup.add(line);
               }
             }
           }

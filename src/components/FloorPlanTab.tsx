@@ -14,6 +14,7 @@ import {
 import { BuildingModelParams, ProjectParams, AppTheme } from '../types';
 import { calculateBuildingMetrics } from '../utils/buildingModelUtils';
 import { FloorPlan2DView } from './FloorPlan2DView';
+import { ZoningAuditPanel } from './ZoningAuditPanel';
 import { Logo } from './Logo';
 
 interface FloorPlanTabProps {
@@ -189,6 +190,12 @@ export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
         params={params}
         theme={theme}
         onUpdateParams={onUpdateParams}
+      />
+
+      {/* Istanbul Zoning & Legislation Audit Report Panel */}
+      <ZoningAuditPanel
+        params={params}
+        theme={theme}
       />
     </div>
   );
