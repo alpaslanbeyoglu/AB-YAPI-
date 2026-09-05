@@ -477,678 +477,384 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
         {activeSection === 'footprint' && (
           <div className="animate-fade-in space-y-6">
-          <div className="p-4 sm:p-5 rounded-3xl border bg-slate-50/90 border-slate-200/90 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
-                  <Ruler className="w-4 h-4" />
+            <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-6`}>
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                  <Ruler className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <span>Bina Taban Oturumu & Cephe Ölçüleri</span>
-                    <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                      3D Model ile Canlı Entegre
-                    </span>
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Taban alanını doğrudan m² olarak veya alternatif cephe adetleri ve uzunlukları ile belirleyin
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-900">Arsa ve Bina Oturum Bilgileri</h3>
+                  <p className="text-[11px] text-slate-500">Arsa alanı, oturum şekli ve kattaki daire sayısını belirleyin.</p>
                 </div>
               </div>
 
-              {/* Quick Navigation to 3D Model */}
-              {onNavigateToModel && (
-                <button
-                  type="button"
-                  onClick={onNavigateToModel}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 transition-all shadow-xs self-start sm:self-auto"
-                >
-                  <Box className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>3D Modelde Canlı Gör</span>
-                  <ArrowRight className="w-3 h-3 text-slate-400" />
-                </button>
-              )}
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Arsa Alanı */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">Tahmini Arsa Alanı (m²):</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={Math.round(params.baseBuildArea / 0.4)}
+                      readOnly
+                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border bg-slate-50 text-slate-500 cursor-not-allowed`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400">Not: Oturum alanına göre otomatik tahmin edilir.</p>
+                </div>
 
-            {/* Mode Switcher Tabs */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              <button
-                type="button"
-                onClick={() => handleFootprintUpdate({ footprintInputMode: 'directArea' })}
-                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
-                  activeFootprintMode === 'directArea'
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <span className="text-[11px] font-bold">1. Doğrudan m²</span>
-                <span className={`text-[10px] ${activeFootprintMode === 'directArea' ? 'text-indigo-100' : 'text-slate-400'}`}>
-                  {params.baseBuildArea} m²
-                </span>
-              </button>
+                {/* Katta Daire Sayısı */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-indigo-700">Kattaki Daire Sayısı:</label>
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 6].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => {
+                          const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                          const totalFlats = normalFloors * num;
+                          onChangeParams({
+                            ...params,
+                            flatsPerFloor: num,
+                            flatCount: totalFlats
+                          });
+                          handleFlatCountChange(totalFlats);
+                        }}
+                        className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
+                          params.flatsPerFloor === num
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-indigo-500 font-medium italic">Her normal katta planlanacak daire adedi.</p>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => handleFootprintUpdate({ footprintInputMode: 'dimensions' })}
-                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
-                  activeFootprintMode === 'dimensions'
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <span className="text-[11px] font-bold">2. Ön × Yan</span>
-                <span className={`text-[10px] ${activeFootprintMode === 'dimensions' ? 'text-indigo-100' : 'text-slate-400'}`}>
-                  {params.facadeWidth || 14}m × {params.facadeDepth || 18}m
-                </span>
-              </button>
+                {/* Oturum Modu Seçimi */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">Oturum Belirleme Modu:</label>
+                  <select
+                    value={activeFootprintMode}
+                    onChange={(e) => handleFootprintUpdate({ footprintInputMode: e.target.value as any })}
+                    className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                  >
+                    <option value="directArea">1. Manuel Alan Girişi (m²)</option>
+                    <option value="dimensions">2. Ön × Yan Cephe (Dikdörtgen)</option>
+                    <option value="polygonDraw">3. Serbest Çizim (Nokta Belirle)</option>
+                    <option value="customFacades">4. Çoklu Cephe Uzunlukları</option>
+                    <option value="lShape">5. L-Tipi Kütle Formu</option>
+                  </select>
+                </div>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => handleFootprintUpdate({ footprintInputMode: 'polygonDraw' })}
-                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
-                  activeFootprintMode === 'polygonDraw'
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-1 ring-indigo-400'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <span className="text-[11px] font-bold">3. ✏️ Nokta Çizim</span>
-                <span className={`text-[10px] ${activeFootprintMode === 'polygonDraw' ? 'text-indigo-100' : 'text-slate-400'}`}>
-                  Serbest Parsel & Çizgi
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleFootprintUpdate({ footprintInputMode: 'customFacades' })}
-                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 ${
-                  activeFootprintMode === 'customFacades'
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <span className="text-[11px] font-bold">4. Çoklu Cephe</span>
-                <span className={`text-[10px] ${activeFootprintMode === 'customFacades' ? 'text-indigo-100' : 'text-slate-400'}`}>
-                  {params.customFacadeCount || customFacadesList.length} Cepheli Parsel
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleFootprintUpdate({ footprintInputMode: 'lShape' })}
-                className={`py-2 px-2 rounded-xl text-xs font-semibold border text-center transition-all flex flex-col items-center gap-1 col-span-2 sm:col-span-1 ${
-                  activeFootprintMode === 'lShape'
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <span className="text-[11px] font-bold">5. L-Tipi Kütle</span>
-                <span className={`text-[10px] ${activeFootprintMode === 'lShape' ? 'text-indigo-100' : 'text-slate-400'}`}>
-                  Kademeli Form
-                </span>
-              </button>
-            </div>
-
-            {/* Mode 1: Doğrudan Alan (m²) */}
-            {activeFootprintMode === 'directArea' && (
-              <div className="space-y-3 p-3.5 bg-white rounded-2xl border border-slate-200">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold text-slate-800 mb-1">
-                      Bina Taban Oturumu (Net m²):
-                    </label>
-                    <div className="relative">
+              {/* Dinamik Giriş Alanı */}
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
+                {activeFootprintMode === 'directArea' && (
+                  <div className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="flex-1 space-y-1.5">
+                      <label className="block text-xs font-semibold text-slate-600">Bina Taban Oturumu (Net m²):</label>
                       <input
                         type="number"
-                        min="20"
-                        step="1"
                         value={params.baseBuildArea}
-                        onChange={(e) => {
-                          const base = parseFloat(e.target.value) || 0;
-                          handleFootprintUpdate({ baseBuildArea: base });
-                        }}
-                        className={`w-full text-sm font-mono font-bold px-3.5 py-2 rounded-xl border transition-all ${inputBg}`}
+                        onChange={(e) => handleFootprintUpdate({ baseBuildArea: parseFloat(e.target.value) || 0 })}
+                        className={`w-full text-sm font-mono font-bold px-3.5 py-2 rounded-xl border ${inputBg}`}
                       />
-                      <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
                     </div>
-                  </div>
-
-                  <div className="sm:w-64">
-                    <span className="block text-[11px] font-medium text-slate-500 mb-1">Hızlı Seçim Şablonları:</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {[100, 140, 180, 220, 252, 300, 400].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => handleFootprintUpdate({ baseBuildArea: preset })}
-                          className={`px-2 py-1 text-[11px] font-mono rounded-lg border transition-all ${
-                            params.baseBuildArea === preset
-                              ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-bold'
-                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          {preset} m²
-                        </button>
+                    <div className="flex gap-2">
+                      {[150, 250, 400].map(v => (
+                        <button key={v} onClick={() => handleFootprintUpdate({ baseBuildArea: v })} className="px-3 py-2 text-[10px] font-bold bg-white border border-slate-200 rounded-lg hover:bg-indigo-50">{v} m²</button>
                       ))}
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* Mode 2: Ön × Yan Cephe (4 Cephe) */}
-            {activeFootprintMode === 'dimensions' && (
-              <div className="space-y-4 p-3.5 bg-white rounded-2xl border border-slate-200">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <label className="font-semibold text-slate-800">Ön Cephe Genişliği (W):</label>
-                      <div className="flex items-center gap-1 font-mono font-bold text-indigo-700">
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="5"
-                          max="60"
-                          value={params.facadeWidth || 14}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            handleFootprintUpdate({ facadeWidth: val });
-                          }}
-                          className={`w-20 px-2 py-1 text-right text-xs rounded-lg border ${inputBg}`}
-                        />
-                        <span className="text-xs font-normal text-slate-500">m</span>
+                {activeFootprintMode === 'dimensions' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-xs font-bold text-slate-700">
+                        <span>Ön Cephe (W):</span>
+                        <span className="text-indigo-600">{params.facadeWidth}m</span>
                       </div>
+                      <input type="range" min="5" max="50" step="0.5" value={params.facadeWidth} onChange={(e) => handleFootprintUpdate({ facadeWidth: parseFloat(e.target.value) })} className="w-full accent-indigo-600" />
                     </div>
-                    <input
-                      type="range"
-                      min="6"
-                      max="40"
-                      step="0.5"
-                      value={params.facadeWidth || 14}
-                      onChange={(e) => handleFootprintUpdate({ facadeWidth: parseFloat(e.target.value) || 14 })}
-                      className="w-full accent-indigo-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <label className="font-semibold text-slate-800">Yan Cephe Derinliği (D):</label>
-                      <div className="flex items-center gap-1 font-mono font-bold text-indigo-700">
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="5"
-                          max="60"
-                          value={params.facadeDepth || 18}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            handleFootprintUpdate({ facadeDepth: val });
-                          }}
-                          className={`w-20 px-2 py-1 text-right text-xs rounded-lg border ${inputBg}`}
-                        />
-                        <span className="text-xs font-normal text-slate-500">m</span>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-xs font-bold text-slate-700">
+                        <span>Yan Cephe (D):</span>
+                        <span className="text-indigo-600">{params.facadeDepth}m</span>
                       </div>
+                      <input type="range" min="5" max="50" step="0.5" value={params.facadeDepth} onChange={(e) => handleFootprintUpdate({ facadeDepth: parseFloat(e.target.value) })} className="w-full accent-indigo-600" />
                     </div>
-                    <input
-                      type="range"
-                      min="6"
-                      max="40"
-                      step="0.5"
-                      value={params.facadeDepth || 18}
-                      onChange={(e) => handleFootprintUpdate({ facadeDepth: parseFloat(e.target.value) || 18 })}
-                      className="w-full accent-indigo-600 cursor-pointer"
-                    />
                   </div>
-                </div>
+                )}
 
-                <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100">
-                  <span className="text-[10px] font-medium text-slate-500 mr-1">Standart Cephe Ölçüleri:</span>
-                  {[
-                    { label: 'Kare 14×14 (196 m²)', w: 14, d: 14 },
-                    { label: 'Standart 14×18 (252 m²)', w: 14, d: 18 },
-                    { label: 'Geniş 16×20 (320 m²)', w: 16, d: 20 },
-                    { label: 'Uzun Parsel 12×24 (288 m²)', w: 12, d: 24 },
-                    { label: 'Dar Parsel 10×20 (200 m²)', w: 10, d: 20 },
-                  ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => handleFootprintUpdate({ facadeWidth: preset.w, facadeDepth: preset.d })}
-                      className={`px-2 py-0.5 text-[10px] rounded-lg border transition-all ${
-                        params.facadeWidth === preset.w && params.facadeDepth === preset.d
-                          ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-bold'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Mode 3: Serbest Nokta ve Çizgi Çizimi (Polygon Footprint & Facade Detail) */}
-            {activeFootprintMode === 'polygonDraw' && (
-              <div className="space-y-4 p-4 sm:p-5 bg-gradient-to-b from-indigo-50/40 to-white rounded-3xl border border-indigo-200/90 shadow-md">
-                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-indigo-100">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm">
-                      <Compass className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-800">
-                        Nokta Çizim Modu & Eşzamanlı 3D Canlı Görünüm
-                      </h4>
-                      <p className="text-[11px] text-slate-500">
-                        Sol tarafta köşe noktalarını ve cephe detaylarını belirleyin, sağ tarafta 3D binanın anlık değişimini izleyin.
+                {activeFootprintMode === 'polygonDraw' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-indigo-600 font-bold flex items-center gap-1">
+                        <Info className="w-3.5 h-3.5" />
+                        Noktaları sürükleyerek bina formunu belirleyin.
                       </p>
+                      <span className="text-[10px] font-mono font-bold text-slate-500">{params.baseBuildArea.toFixed(1)} m²</span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      Canlı 3D Senkronizasyon
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                  {/* Sol Bölüm: 2D Çizim ve Nokta Editörü */}
-                  <div className="lg:col-span-7 space-y-2">
-                    <div className="flex items-center justify-between px-1">
-                      <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                        <Box className="w-3.5 h-3.5 text-indigo-600" />
-                        2D Poligon Taban & Cephe Çizim Alanı
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-500">
-                        {params.polygonPoints?.length || 4} Köşe Noktası • {Math.round(params.baseBuildArea || 0)} m² Taban
-                      </span>
-                    </div>
-
-                    <InteractiveFootprintCanvas
-                      points={params.polygonPoints}
-                      onChangePoints={(newPoints) => {
-                        const area = calculatePolygonArea(newPoints);
-                        const bounds = getPolygonBounds(newPoints);
-                        handleFootprintUpdate({
-                          polygonPoints: newPoints,
-                          baseBuildArea: area,
-                          facadeWidth: Math.round(bounds.width * 10) / 10,
-                          facadeDepth: Math.round(bounds.depth * 10) / 10,
-                        });
-                      }}
-                      facadeConfigs={params.facadeConfigs}
-                      onChangeFacadeConfigs={(newConfigs) => {
-                        onChangeParams({ ...params, facadeConfigs: newConfigs });
-                      }}
-                      mainEntranceIndex={params.mainEntranceFacadeIndex || 0}
-                      onChangeMainEntranceIndex={(idx) => {
-                        onChangeParams({ ...params, mainEntranceFacadeIndex: idx });
-                      }}
-                      flatsPerFloor={Math.max(1, Math.round(params.flatCount / (params.floorCount || 1)))}
-                      theme={theme}
-                      compact={false}
-                    />
-                  </div>
-
-                  {/* Sağ Bölüm: 3D Canlı Bina Modeli */}
-                  <div className="lg:col-span-5 space-y-2">
-                    <div className="flex items-center justify-between px-1">
-                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        Sağ Taraf: 3D Canlı Model Görünümü
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-medium">
-                        {params.floorCount} Kat • {params.roofType === 'flat' ? 'Teras Çatı' : 'Kırma Çatı'}
-                      </span>
-                    </div>
-
-                    <div className="h-[600px] rounded-2xl overflow-hidden border border-slate-300 shadow-inner bg-slate-950 relative">
-                      <ThreeBuildingView
-                        params={calcBuildingModelParams}
+                    <div className="h-[400px] bg-white rounded-xl border border-slate-200 overflow-hidden">
+                      <InteractiveFootprintCanvas
+                        points={params.polygonPoints}
+                        onChangePoints={(newPoints) => {
+                          const area = calculatePolygonArea(newPoints);
+                          const bounds = getPolygonBounds(newPoints);
+                          handleFootprintUpdate({
+                            polygonPoints: newPoints,
+                            baseBuildArea: area,
+                            facadeWidth: Math.round(bounds.width * 10) / 10,
+                            facadeDepth: Math.round(bounds.depth * 10) / 10,
+                          });
+                        }}
+                        facadeConfigs={params.facadeConfigs}
+                        onChangeFacadeConfigs={(newConfigs) => updateParam('facadeConfigs', newConfigs)}
+                        mainEntranceIndex={params.mainEntranceFacadeIndex || 0}
+                        onChangeMainEntranceIndex={(idx) => updateParam('mainEntranceFacadeIndex', idx)}
+                        flatsPerFloor={params.flatsPerFloor || 2}
                         theme={theme}
                       />
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* Mode 4: Çoklu Cephe Adetleri & Uzunlukları */}
-            {activeFootprintMode === 'customFacades' && (
-              <div className="space-y-4 p-3.5 bg-white rounded-2xl border border-slate-200">
-                {/* Facade Count selector */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-slate-800">Bina Cephe Adedi:</span>
-                    <div className="flex items-center gap-1">
-                      {[4, 5, 6, 8].map((cnt) => (
-                        <button
-                          key={cnt}
-                          type="button"
-                          onClick={() => {
-                            const newSides = getDefaultCustomFacades(cnt, params.facadeWidth || 14, params.facadeDepth || 18);
-                            handleFootprintUpdate({
-                              customFacadeCount: cnt,
-                              customFacades: newSides,
-                            });
-                          }}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
-                            (params.customFacadeCount || customFacadesList.length) === cnt
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                          }`}
-                        >
-                          {cnt} Cephe
-                        </button>
-                      ))}
-                    </div>
+                {(activeFootprintMode === 'customFacades' || activeFootprintMode === 'lShape') && (
+                  <div className="text-center py-6 text-slate-400 italic text-xs">
+                    Bu mod için gelişmiş ayarlar panelde mevcuttur.
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const current = [...customFacadesList];
-                      const newId = current.length + 1;
-                      current.push({
-                        id: newId,
-                        name: `${newId}. Cephe`,
-                        length: 10.0,
-                      });
-                      handleFootprintUpdate({
-                        customFacadeCount: current.length,
-                        customFacades: current,
-                      });
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 self-start sm:self-auto"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Özel Cephe Ekle</span>
-                  </button>
-                </div>
-
-                {/* Facade length inputs grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  {customFacadesList.map((side, idx) => (
-                    <div
-                      key={side.id || idx}
-                      className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 hover:border-indigo-200 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <input
-                          type="text"
-                          value={side.name}
-                          onChange={(e) => {
-                            const updated = [...customFacadesList];
-                            updated[idx] = { ...updated[idx], name: e.target.value };
-                            handleFootprintUpdate({ customFacades: updated });
-                          }}
-                          className="text-[11px] font-semibold text-slate-700 bg-transparent border-none p-0 focus:ring-0 w-full truncate"
-                          placeholder="Cephe Adı"
-                        />
-                        {customFacadesList.length > 3 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = customFacadesList.filter((_, i) => i !== idx);
-                              handleFootprintUpdate({
-                                customFacadeCount: updated.length,
-                                customFacades: updated,
-                              });
-                            }}
-                            className="text-slate-400 hover:text-red-600 p-0.5"
-                            title="Bu cepheyi sil"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="1"
-                          max="100"
-                          value={side.length}
-                          onChange={(e) => {
-                            const updated = [...customFacadesList];
-                            updated[idx] = { ...updated[idx], length: parseFloat(e.target.value) || 0 };
-                            handleFootprintUpdate({ customFacades: updated });
-                          }}
-                          className={`w-full text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg border transition-all ${inputBg}`}
-                        />
-                        <span className="absolute right-2.5 top-1.5 text-xs text-slate-400 font-medium">m</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Mode 4: L-Tipi / Kademeli */}
-            {activeFootprintMode === 'lShape' && (
-              <div className="space-y-3 p-3.5 bg-white rounded-2xl border border-slate-200">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Ana Ön Genişlik:
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={params.lShapeFrontMain || 16.0}
-                        onChange={(e) => handleFootprintUpdate({ lShapeFrontMain: parseFloat(e.target.value) || 16.0 })}
-                        className={`w-full text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                      />
-                      <span className="absolute right-2 top-1.5 text-xs text-slate-400">m</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Ana Derinlik:
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={params.lShapeDepthMain || 20.0}
-                        onChange={(e) => handleFootprintUpdate({ lShapeDepthMain: parseFloat(e.target.value) || 20.0 })}
-                        className={`w-full text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                      />
-                      <span className="absolute right-2 top-1.5 text-xs text-slate-400">m</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Girinti Eni:
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={params.lShapeRecessFront || 6.0}
-                        onChange={(e) => handleFootprintUpdate({ lShapeRecessFront: parseFloat(e.target.value) || 6.0 })}
-                        className={`w-full text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                      />
-                      <span className="absolute right-2 top-1.5 text-xs text-slate-400">m</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Girinti Derinliği:
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={params.lShapeRecessDepth || 8.0}
-                        onChange={(e) => handleFootprintUpdate({ lShapeRecessDepth: parseFloat(e.target.value) || 8.0 })}
-                        className={`w-full text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                      />
-                      <span className="absolute right-2 top-1.5 text-xs text-slate-400">m</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Live Calculation Summary Bar */}
-            <div className="p-3 bg-gradient-to-r from-indigo-50/90 via-slate-50 to-emerald-50/90 rounded-2xl border border-indigo-100 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-slate-600 font-medium">Hesaplanan Taban Oturumu:</span>
-                  <span className="font-mono font-bold text-base text-indigo-700">
-                    {footprintCalc.area.toFixed(1)} m²
-                  </span>
-                </div>
-
-                <div className="h-4 w-px bg-slate-300 hidden sm:block" />
-
-                <div className="flex items-center gap-1.5 text-slate-600">
-                  <span className="font-medium">Bina Çevresi:</span>
-                  <span className="font-mono font-semibold text-slate-800">
-                    {footprintCalc.perimeter.toFixed(1)} m
-                  </span>
-                </div>
-
-                <div className="h-4 w-px bg-slate-300 hidden sm:block" />
-
-                <div className="flex items-center gap-1.5 text-slate-600">
-                  <span className="font-medium">3D Model Eşleşmesi:</span>
-                  <span className="font-mono font-semibold text-emerald-700">
-                    {footprintCalc.effectiveWidth}m (Ön) × {footprintCalc.effectiveDepth}m (Yan)
-                  </span>
-                </div>
+                )}
               </div>
 
-              <div className="text-[11px] text-slate-500 italic">
-                {footprintCalc.description}
+              {/* Özet Panel */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Taban Oturumu</span>
+                  <span className="text-sm font-mono font-bold text-slate-900">{params.baseBuildArea.toFixed(1)} m²</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100">
+                  <span className="block text-[10px] font-bold text-indigo-600 uppercase">Toplam İnşaat</span>
+                  <span className="text-sm font-mono font-bold text-indigo-900">{(params.baseBuildArea * params.floorCount).toFixed(1)} m²</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-100">
+                  <span className="block text-[10px] font-bold text-emerald-600 uppercase">Toplam Daire</span>
+                  <span className="text-sm font-mono font-bold text-emerald-900">{params.flatCount} Adet</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-100">
+                  <span className="block text-[10px] font-bold text-amber-600 uppercase">Daire Başı Brüt</span>
+                  <span className="text-sm font-mono font-bold text-amber-900">{(params.baseBuildArea / (params.flatsPerFloor || 1)).toFixed(1)} m²</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3D Model Entegrasyonu */}
+            <div className="h-72 rounded-3xl overflow-hidden border border-slate-200 shadow-inner relative group">
+              <ThreeBuildingView params={calcBuildingModelParams} theme={theme} />
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] font-bold text-indigo-700 shadow-sm flex items-center gap-2">
+                <Sparkles className="w-3 h-3" />
+                <span>Canlı 3D Kütle Modeli</span>
               </div>
             </div>
           </div>
-        </div>
         )}
 
         {/* Section 3: Structure Parameters */}
         {activeSection === 'structure' && (
           <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-6 animate-fade-in`}>
-             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2.5">
-                <Layers className="w-4 h-4 text-indigo-600" />
-                <span>Yapısal Parametreler</span>
-              </h3>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="space-y-3">
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Normal Kat Sayısı</label>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => updateParam('floorCount', Math.max(1, params.floorCount - 1))} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronDown className="w-4 h-4" /></button>
-                  <span className="flex-1 text-center text-xl font-bold font-mono">{params.floorCount}</span>
-                  <button onClick={() => updateParam('floorCount', params.floorCount + 1)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronUp className="w-4 h-4" /></button>
-                </div>
+            <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+              <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                <Layers className="w-5 h-5" />
               </div>
-
-              <div className="space-y-3">
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bodrum Kat</label>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => updateParam('basementCount', Math.max(0, params.basementCount - 1))} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronDown className="w-4 h-4" /></button>
-                  <span className="flex-1 text-center text-xl font-bold font-mono">{params.basementCount}</span>
-                  <button onClick={() => updateParam('basementCount', params.basementCount + 1)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronUp className="w-4 h-4" /></button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Zemin Dükkan</label>
-                <button
-                  onClick={() => updateParam('hasGroundFloorShop', !params.hasGroundFloorShop)}
-                  className={`w-full py-3 rounded-xl border font-bold text-xs transition-all ${
-                    params.hasGroundFloorShop ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-400 border-slate-200'
-                  }`}
-                >
-                  {params.hasGroundFloorShop ? 'VAR' : 'YOK'}
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Daire Sayısı</label>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => handleFlatCountChange(params.flatCount - 1)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronDown className="w-4 h-4" /></button>
-                  <span className="flex-1 text-center text-xl font-bold font-mono">{params.flatCount}</span>
-                  <button onClick={() => handleFlatCountChange(params.flatCount + 1)} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"><ChevronUp className="w-4 h-4" /></button>
-                </div>
-              </div>
-            </div>
-
-            {params.hasGroundFloorShop && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100">
-                <div>
-                  <label className="block text-xs font-bold text-indigo-900 mb-2">Zemin Dükkan Sayısı (Adet):</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={params.shopCount || 1}
-                    onChange={(e) => updateParam('shopCount', Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    className={`w-full text-xs px-3.5 py-3 rounded-xl border transition-all ${inputBg}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-indigo-900 mb-2">Dükkan Tavan Yüksekliği (m):</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="3.0"
-                    max="6.0"
-                    value={params.shopHeight || 3.8}
-                    onChange={(e) => updateParam('shopHeight', parseFloat(e.target.value) || 3.8)}
-                    className={`w-full text-xs px-3.5 py-3 rounded-xl border transition-all ${inputBg}`}
-                  />
-                </div>
-              </div>
-            )}
-            
-            <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-6 border-t border-slate-100">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-3">Çatı Konstrüksiyonu:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: 'gable', label: 'Kırma Çatı' },
-                    { id: 'flat', label: 'Teras Çatı' },
-                    { id: 'mansard', label: 'Mansart' },
-                    { id: 'duplex', label: 'Dubleks' },
-                  ].map(type => (
-                    <button
-                      key={type.id}
-                      onClick={() => updateParam('roofType', type.id as any)}
-                      className={`py-3 rounded-xl border text-xs font-bold transition-all ${
-                        params.roofType === type.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                      }`}
+                <h3 className="text-sm font-bold text-slate-900">Bina Yapısal Özellikleri & Mimari Detaylar</h3>
+                <p className="text-[11px] text-slate-500">Kat sayıları, çatı tipi ve daire içi konfigürasyonları belirleyin.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Kat Sayıları Grubu */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">Kat Sayıları</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Normal Kat Sayısı:</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="1"
+                        max="25"
+                        value={params.floorCount}
+                        onChange={(e) => {
+                          const count = parseInt(e.target.value);
+                          const normalFloors = params.hasGroundFloorShop ? Math.max(1, count - 1) : count;
+                          const flatsPerFloor = params.flatsPerFloor || 1;
+                          const totalFlats = normalFloors * flatsPerFloor;
+                          
+                          onChangeParams({
+                            ...params,
+                            floorCount: count,
+                            flatCount: totalFlats
+                          });
+                          handleFlatCountChange(totalFlats);
+                        }}
+                        className="flex-1 accent-indigo-600"
+                      />
+                      <span className="w-10 text-center text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg py-1">{params.floorCount}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Bodrum Kat Sayısı:</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="4"
+                        value={params.basementCount}
+                        onChange={(e) => updateParam('basementCount', parseInt(e.target.value))}
+                        className="flex-1 accent-slate-400"
+                      />
+                      <span className="w-10 text-center text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg py-1">{params.basementCount}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Zemin Kat Fonksiyonu */}
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-4">
+                <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">Zemin Kat Fonksiyonu</h4>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={params.hasGroundFloorShop}
+                      onChange={(e) => {
+                        const hasShop = e.target.checked;
+                        const normalFloors = hasShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                        const flatsPerFloor = params.flatsPerFloor || 1;
+                        const totalFlats = normalFloors * flatsPerFloor;
+                        
+                        onChangeParams({
+                          ...params,
+                          hasGroundFloorShop: hasShop,
+                          flatCount: totalFlats
+                        });
+                        handleFlatCountChange(totalFlats);
+                      }}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Store className="w-4 h-4 text-indigo-600" />
+                      <span className="text-xs font-bold text-slate-700">Zemin Kat Ticari (Dükkan)</span>
+                    </div>
+                  </label>
+                  
+                  {params.hasGroundFloorShop && (
+                    <div className="animate-slide-down space-y-2 pl-7">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500">Dükkan Sayısı:</label>
+                        <input type="number" value={params.shopCount} onChange={(e) => updateParam('shopCount', parseInt(e.target.value))} className={`w-full text-xs px-2 py-1.5 rounded-lg border ${inputBg}`} />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500">Tavan Yüksekliği (m):</label>
+                        <input type="number" step="0.1" value={params.shopHeight} onChange={(e) => updateParam('shopHeight', parseFloat(e.target.value))} className={`w-full text-xs px-2 py-1.5 rounded-lg border ${inputBg}`} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Mimari Standart & Stil */}
+              <div className="p-4 rounded-2xl bg-indigo-50/30 border border-indigo-100 space-y-4">
+                <h4 className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider border-b border-indigo-100 pb-2">Mimari Stil</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-indigo-700 mb-1">Yapı Segmenti:</label>
+                    <select
+                      value={params.buildingType}
+                      onChange={(e) => updateParam('buildingType', e.target.value as any)}
+                      className={`w-full text-xs px-3 py-2 rounded-xl border border-indigo-200 bg-white`}
                     >
-                      {type.label}
-                    </button>
-                  ))}
+                      <option value="standard">Ekonomik / Standart Yapı</option>
+                      <option value="luxury">Lüks / A+ Segment Yapı</option>
+                      <option value="commercial">Ticari Odaklı / Ofis</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-indigo-700 mb-1">Dış Cephe Karakteri:</label>
+                    <select
+                      value={params.facadeStyle}
+                      onChange={(e) => updateParam('facadeStyle', e.target.value as any)}
+                      className={`w-full text-xs px-3 py-2 rounded-xl border border-indigo-200 bg-white`}
+                    >
+                      <option value="modern">Modern (Beton & Boya)</option>
+                      <option value="wood_anthracite">Ahşap & Antrasit Detaylı</option>
+                      <option value="glass_minimal">Minimalist Cam Ağırlıklı</option>
+                      <option value="brick_stone">Tuğla & Doğal Taş Kaplama</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-3">Daire Tipi (Genel):</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {['1+1', '2+1', '3+1', '4+1'].map(type => (
+            </div>
+
+            {/* Alt Panel: Çatı ve Daire Tipleri */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+              {/* Çatı Tipleri */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-slate-800">Mimari Çatı Modeli:</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'gable', label: 'Kırma Çatı', icon: ChevronUp },
+                    { id: 'flat', label: 'Teras Çatı', icon: Layers },
+                    { id: 'mansard', label: 'Mansart Çatı', icon: Compass },
+                    { id: 'duplex', label: 'Çatı Dubleksi', icon: Sparkles },
+                  ].map((roof) => {
+                    const Icon = roof.icon;
+                    return (
+                      <button
+                        key={roof.id}
+                        onClick={() => updateParam('roofType', roof.id as any)}
+                        className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${
+                          params.roofType === roof.id
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="text-[10px] font-bold">{roof.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-400 italic">Mansart ve Teras çatı modelleri kentsel dönüşümde ek alan kazanımı sağlayabilir.</p>
+              </div>
+
+              {/* Daire Tipi Dağılımı */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-slate-800">Daire Tipi Dağılımı:</label>
+                <div className="flex gap-2">
+                  {['1+1', '2+1', '3+1', '4+1'].map((type) => (
                     <button
                       key={type}
                       onClick={() => updateParam('roomType', type as any)}
-                      className={`py-3 rounded-xl border text-xs font-bold transition-all ${
-                        params.roomType === type ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
+                        params.roomType === type
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-200'
                       }`}
                     >
                       {type}
                     </button>
                   ))}
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-emerald-800">Toplam Bağımsız Bölüm:</span>
+                  <span className="text-sm font-mono font-bold text-emerald-900">{params.flatCount} Adet</span>
                 </div>
               </div>
             </div>
