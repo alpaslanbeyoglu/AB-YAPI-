@@ -99,6 +99,11 @@ export interface FlatItem {
   isContractorShare?: boolean; // true = Müteahhit Dairesi, false = Hak Sahibi Dairesi
   flatType?: 'standard' | 'mansard' | 'duplex' | 'shop'; // Daire tipi
   description?: string; // Ek açıklama (örn: "Çatı Katı Mansart - Ayrı Bağımsız Bölüm", "Çatı Dubleksi - Tek Bağımsız Bölüm")
+  floorNumber?: number; // Bulunduğu Kat No (örn: 0 Zemin, 1, 2, 3...)
+  facade?: 'guney' | 'kuzey' | 'dogu' | 'bati' | 'guney_bati' | 'guney_dogu' | 'kuzey_bati' | 'kuzey_dogu' | 'kose' | 'on' | 'arka'; // Cephe / Yön
+  serefiyeMultiplier?: number; // Şerefiye Değerleme Çarpanı (Varsayılan 1.00; Örn: 1.15 = %15 daha değerli/üst kat, 0.90 = %10 zemin/arka)
+  landShareNumerator?: number; // Mevcut Arsa Payı Payı (Örn: 10)
+  landShareDenominator?: number; // Mevcut Arsa Payı Paydası (Örn: 240)
 }
 
 export type FacadeStyleType =
@@ -212,6 +217,11 @@ export interface ProjectParams {
   stage4Pay: number;
   stage5Pay: number;
 
+  // Şerefiye & Arsa Payı Dengeleme Modülü
+  enableSerefiye?: boolean; // Şerefiye (Kat/Konum/Cephe) çarpanını maliyet ve pay dağılımına yansıt
+  enableLandShareBalancing?: boolean; // Arsa Payı Mahsuplaşma ve Dengelemesini uygula
+  totalLandShareDenominator?: number; // Toplam arsa payı paydası (örn: 240, 1000)
+
   // Flats
   flats: FlatItem[];
 }
@@ -237,6 +247,14 @@ export interface FlatCalcResult {
   isContractorShare?: boolean;
   flatType?: 'standard' | 'mansard' | 'duplex' | 'shop';
   description?: string;
+  floorNumber?: number;
+  facade?: string;
+  serefiyeMultiplier?: number;
+  serefiyeAdjustedCost?: number;
+  landShareNumerator?: number;
+  landShareDenominator?: number;
+  landShareRatio?: number; // Arsa payı oranı (%)
+  landShareDifference?: number; // Arsa payı ile bağımsız bölüm değeri arasındaki mahsuplaşma farkı (+ / - TL)
   stagePayments: [number, number, number, number, number];
   monthlyInstallment: number; // Aylık taksit tutarı (TL)
 }

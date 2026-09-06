@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   Percent,
@@ -19,8 +19,24 @@ import {
   Layers,
   Sparkles,
   Clock,
+  Search,
+  Filter,
+  LayoutGrid,
+  Table as TableIcon,
+  Download,
+  ArrowUpDown,
+  Check,
+  X,
+  Plus,
+  RefreshCw,
+  Printer,
+  Scale,
+  Compass,
+  Award,
+  TrendingUp,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, FlatItem, AppTheme, FlatCalcResult } from '../types';
+import { OfficialOwnerReportModal } from './OfficialOwnerReportModal';
 
 interface OwnersTabProps {
   params: ProjectParams;
@@ -29,6 +45,10 @@ interface OwnersTabProps {
   onChangeParams: (newParams: ProjectParams) => void;
   onCalculate?: () => void;
 }
+
+type FilterType = 'all' | 'owners' | 'contractor' | 'withDebt' | 'paid' | 'withCredit';
+type SortType = 'id_asc' | 'id_desc' | 'name_asc' | 'area_desc' | 'area_asc' | 'debt_desc' | 'debt_asc';
+type ViewMode = 'grid' | 'table';
 
 export const OwnersTab: React.FC<OwnersTabProps> = ({
   params,
@@ -49,9 +69,25 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const [bulkDownPayment, setBulkDownPayment] = useState<number>(0);
   const [selectedFlatId, setSelectedFlatId] = useState<number | null>(null);
 
+  // Official Report Modal State
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [reportModalFlatId, setReportModalFlatId] = useState<number | null>(null);
+
+  const handleOpenReport = (flatId?: number) => {
+    setReportModalFlatId(flatId || selectedFlatId || params.flats[0]?.id || 1);
+    setIsReportModalOpen(true);
+  };
+
+  // Search, Filter, Sort and View Mode States
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [sortBy, setSortBy] = useState<SortType>('id_asc');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+
   // States to toggle sections
   const [isPolicyOpen, setIsPolicyOpen] = useState(true);
-  const [isStagesOpen, setIsStagesOpen] = useState(true);
+  const [isStagesOpen, setIsStagesOpen] = useState(false);
+  const [isSerefiyeOpen, setIsSerefiyeOpen] = useState(true);
   const [isOwnersGridOpen, setIsOwnersGridOpen] = useState(true);
 
   const updateParam = <K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) => {
@@ -74,13 +110,96 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
     });
   };
 
+  // Auto-Presets for Serefiye
+  const handleApplyAutoSerefiye = (preset: 'standard' | 'luxury' | 'reset') => {
+    const floorCount = Math.max(1, params.floorCount || 1);
+    const flatsPerFloor = Math.max(1, params.flatsPerFloor || 2);
+
+    const updatedFlats = params.flats.map((flat, idx) => {
+      if (preset === 'reset') {
+        return { ...flat, serefiyeMultiplier: 1.0 };
+      }
+
+      const floor = flat.floorNumber !== undefined ? flat.floorNumber : Math.floor(idx / flatsPerFloor);
+      let mult = 1.0;
+
+      if (preset === 'standard') {
+        if (flat.flatType === 'duplex') mult = 1.18;
+        else if (flat.flatType === 'mansard') mult = 1.08;
+        else if (floor === 0) mult = 0.92; // Zemin
+        else if (floor === 1) mult = 0.98; // 1. Kat
+        else if (floor >= floorCount - 1) mult = 1.10; // En Üst Kat
+        else mult = 1.02; // Ara Katlar
+
+        // Cephe Yön Bonusu
+        if (flat.facade === 'guney' || flat.facade === 'guney_bati' || flat.facade === 'guney_dogu' || flat.facade === 'on') {
+          mult += 0.03;
+        } else if (flat.facade === 'kuzey' || flat.facade === 'arka') {
+          mult -= 0.03;
+        }
+      } else if (preset === 'luxury') {
+        if (flat.flatType === 'duplex') mult = 1.25;
+        else if (flat.flatType === 'mansard') mult = 1.12;
+        else if (floor === 0) mult = 0.88;
+        else if (floor === 1) mult = 0.95;
+        else if (floor >= floorCount - 1) mult = 1.18;
+        else mult = 1.05;
+
+        if (flat.facade === 'guney' || flat.facade === 'guney_bati' || flat.facade === 'on') {
+          mult += 0.04;
+        }
+      }
+
+      return {
+        ...flat,
+        floorNumber: floor,
+        serefiyeMultiplier: parseFloat(mult.toFixed(2)),
+      };
+    });
+
+    onChangeParams({
+      ...params,
+      enableSerefiye: preset !== 'reset',
+      flats: updatedFlats,
+    });
+    if (onCalculate) onCalculate();
+  };
+
+  // Auto-Presets for Land Shares (Arsa Payı KMK)
+  const handleApplyAutoLandShare = (mode: 'proportional' | 'equal') => {
+    const denominator = params.totalLandShareDenominator || 1000;
+    const totalFlatsArea = params.flats.reduce((sum, f) => sum + (f.area || 0), 0) || 1;
+    const flatCount = Math.max(1, params.flats.length);
+
+    const updatedFlats = params.flats.map((flat) => {
+      let numerator = 0;
+      if (mode === 'proportional') {
+        numerator = Math.round(((flat.area || 0) / totalFlatsArea) * denominator);
+      } else {
+        numerator = Math.round(denominator / flatCount);
+      }
+      return {
+        ...flat,
+        landShareNumerator: numerator,
+        landShareDenominator: denominator,
+      };
+    });
+
+    onChangeParams({
+      ...params,
+      enableLandShareBalancing: true,
+      flats: updatedFlats,
+    });
+    if (onCalculate) onCalculate();
+  };
+
   const handleApplyBulkDownPayment = () => {
     const updatedFlats = params.flats.map((flat) => {
       // Don't apply to contractor shares
       const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
       return {
         ...flat,
-        downPayment: isContractor ? 0 : bulkDownPayment,
+        downPayment: isContractor ? 0 : Math.max(0, bulkDownPayment),
       };
     });
     onChangeParams({
@@ -107,6 +226,155 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const totalStateSupport = ownerFlats.reduce((sum, f) => sum + (f.usedCredit || 0), 0);
   const totalOwnerDebt = ownerFlats.reduce((sum, f) => sum + (f.grossPay || 0), 0);
   const totalRemainingDebt = ownerFlats.reduce((sum, f) => sum + (f.netRemainingDebt || 0), 0);
+
+  // Merged flats with calculation results and filter/sort logic
+  const mergedFlats = useMemo(() => {
+    return params.flats.map((flat, idx) => {
+      const isContractor = !!(params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare);
+      const calc = results.flatResults?.find((f) => f.id === flat.id);
+      return {
+        flat,
+        originalIndex: idx,
+        calc,
+        isContractor,
+      };
+    });
+  }, [params.flats, params.contractorFlatIds, results.flatResults]);
+
+  // Filtered & Sorted Flats
+  const filteredFlats = useMemo(() => {
+    let list = [...mergedFlats];
+
+    // 1. Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((item) => {
+        const flatNo = `daire ${item.flat.id}`.toLowerCase();
+        const idStr = `${item.flat.id}`;
+        const name = (item.flat.name || '').toLowerCase();
+        const tc = (item.flat.tc || '').toLowerCase();
+        return flatNo.includes(q) || idStr.includes(q) || name.includes(q) || tc.includes(q);
+      });
+    }
+
+    // 2. Category filter
+    if (activeFilter === 'owners') {
+      list = list.filter((item) => !item.isContractor);
+    } else if (activeFilter === 'contractor') {
+      list = list.filter((item) => item.isContractor);
+    } else if (activeFilter === 'withDebt') {
+      list = list.filter((item) => !item.isContractor && (item.calc?.netRemainingDebt || 0) > 0);
+    } else if (activeFilter === 'paid') {
+      list = list.filter((item) => !item.isContractor && (item.calc?.netRemainingDebt || 0) <= 0);
+    } else if (activeFilter === 'withCredit') {
+      list = list.filter((item) => !item.isContractor && !!item.flat.useTransformationCredit);
+    }
+
+    // 3. Sorting
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case 'id_asc':
+          return a.flat.id - b.flat.id;
+        case 'id_desc':
+          return b.flat.id - a.flat.id;
+        case 'name_asc':
+          return (a.flat.name || '').localeCompare(b.flat.name || '', 'tr');
+        case 'area_desc':
+          return b.flat.area - a.flat.area;
+        case 'area_asc':
+          return a.flat.area - b.flat.area;
+        case 'debt_desc':
+          return (b.calc?.netRemainingDebt || 0) - (a.calc?.netRemainingDebt || 0);
+        case 'debt_asc':
+          return (a.calc?.netRemainingDebt || 0) - (b.calc?.netRemainingDebt || 0);
+        default:
+          return a.flat.id - b.flat.id;
+      }
+    });
+
+    return list;
+  }, [mergedFlats, searchQuery, activeFilter, sortBy]);
+
+  // Dynamic metrics for filtered items
+  const filteredMetrics = useMemo(() => {
+    const count = filteredFlats.length;
+    const totalFlatsCount = params.flats.length;
+    const totalAreaFiltered = filteredFlats.reduce((sum, item) => sum + (item.flat.area || 0), 0);
+    const totalDownPaymentFiltered = filteredFlats
+      .filter((i) => !i.isContractor)
+      .reduce((sum, item) => sum + (item.flat.downPayment || 0), 0);
+    const totalDebtFiltered = filteredFlats
+      .filter((i) => !i.isContractor)
+      .reduce((sum, item) => sum + (item.calc?.netRemainingDebt || 0), 0);
+    const totalSupportFiltered = filteredFlats
+      .filter((i) => !i.isContractor)
+      .reduce((sum, item) => sum + (item.calc?.usedCredit || 0), 0);
+
+    return {
+      count,
+      totalFlatsCount,
+      totalArea: totalAreaFiltered,
+      totalDownPayment: totalDownPaymentFiltered,
+      totalDebt: totalDebtFiltered,
+      totalSupport: totalSupportFiltered,
+    };
+  }, [filteredFlats, params.flats.length]);
+
+  // CSV Export Handler
+  const handleExportCSV = () => {
+    const headers = [
+      'Daire No',
+      'Mülkiyet Durumu',
+      'Kat No',
+      'Cephe',
+      'Daire Tipi',
+      'Hak Sahibi Adı Soyadı',
+      'TC Kimlik No',
+      'Brüt Alan (m²)',
+      'Şerefiye Çarpanı',
+      'Arsa Payı (Hisse/Payda)',
+      'Şerefiyeli İnşaat Katkı Payı (TL)',
+      'Arsa Payı Mahsuplaşma Farkı (TL)',
+      'Ödenen Peşinat (TL)',
+      'Kentsel Dönüşüm Hibesi (TL)',
+      'Kalan Net Borç (TL)',
+      'Aylık Taksit / Aşama Tutarı (TL)',
+    ];
+
+    const rows = (results.flatResults || []).map((f) => {
+      const isContractor = !!f.isContractorShare;
+      const flatType = f.flatType === 'duplex' ? 'Çatı Dubleksi' : f.flatType === 'mansard' ? 'Mansart' : f.flatType === 'shop' ? 'Dükkan' : 'Standart';
+      const facadeLabel = f.facade === 'guney' ? 'Güney' : f.facade === 'kuzey' ? 'Kuzey' : f.facade === 'dogu' ? 'Doğu' : f.facade === 'bati' ? 'Batı' : f.facade === 'on' ? 'Ön Cephe' : f.facade === 'arka' ? 'Arka Cephe' : 'Standart';
+      return [
+        `"Daire ${f.id}"`,
+        isContractor ? '"Müteahhit Payı"' : '"Hak Sahibi"',
+        `"${f.floorNumber !== undefined ? (f.floorNumber === 0 ? 'Zemin' : `${f.floorNumber}. Kat`) : '-'}"`,
+        `"${facadeLabel}"`,
+        `"${flatType}"`,
+        `"${(f.name || '').replace(/"/g, '""')}"`,
+        `"${f.tc || '-'}"`,
+        f.area,
+        f.serefiyeMultiplier || 1.0,
+        `"${f.landShareNumerator || 0}/${f.landShareDenominator || params.totalLandShareDenominator || 1000}"`,
+        f.grossPay,
+        f.landShareDifference || 0,
+        f.downPayment,
+        f.usedCredit,
+        f.netRemainingDebt,
+        f.monthlyInstallment || 0,
+      ];
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Kat_Malikleri_Hakedis_Tablosu_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const selectedFlatResult = results.flatResults?.find((f) => f.id === selectedFlatId);
 
@@ -707,169 +975,1224 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         )}
       </div>
 
-      {/* 4. KAT MALİKLERİ BİLGİ GİRİŞLERİ & PEŞİNAT KARTLARI */}
+      {/* 3. ŞEREFİYE & KAT/CEPHE DEĞERLEME VE ARSA PAYI (KMK) DENGESİ MODÜLÜ */}
       <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
         <button
           type="button"
-          onClick={() => setIsOwnersGridOpen(!isOwnersGridOpen)}
+          onClick={() => setIsSerefiyeOpen(!isSerefiyeOpen)}
           className="w-full px-6 py-4 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-left transition-colors border-b border-slate-200/60"
         >
           <div className="flex items-center gap-2.5">
-            <UserCheck className="w-4 h-4 text-purple-600" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              3. Kat Malikleri Bilgi Girişleri & Özel Peşinat Kartları ({params.flats.length} Bağımsız Bölüm)
-            </span>
+            <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <Scale className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  3. Şerefiye (Kat / Cephe / Manzara) & Arsa Payı (KMK) Değerleme Modülü
+                </span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono ${
+                    params.enableSerefiye
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  Şerefiye: {params.enableSerefiye ? 'AKTİF' : 'KAPALI'}
+                </span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono ${
+                    params.enableLandShareBalancing
+                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  Arsa Payı: {params.enableLandShareBalancing ? 'DENGELENİYOR' : 'KAPALI'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Kat farkı, güney/kuzey cephe çarpanları ve tapudaki arsa payı (hisse/payda) mahsuplaşmalarını yönetin.
+              </p>
+            </div>
           </div>
-          <span>{isOwnersGridOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</span>
+          <span>{isSerefiyeOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</span>
         </button>
 
-        {isOwnersGridOpen && (
+        {isSerefiyeOpen && (
           <div className="p-6 space-y-6">
-            {/* Toplu Peşinat Uygulama Aracı */}
-            <div className={`flex items-center gap-3 flex-wrap p-4 ${innerCardBg} rounded-2xl text-xs border`}>
-              <label className="font-bold text-slate-800 whitespace-nowrap">
-                Tüm Dairelere Toplu Peşinat Uygula (TL):
-              </label>
-              <input
-                type="number"
-                step="10000"
-                value={bulkDownPayment}
-                onChange={(e) => setBulkDownPayment(parseFloat(e.target.value) || 0)}
-                placeholder="Örn: 250000 TL"
-                className={`w-40 text-xs px-3.5 py-2.5 rounded-xl border ${inputBg}`}
-              />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* A) Şerefiye Değerleme Çarpanı Kontrolü */}
+              <div className={`p-5 rounded-2xl border ${innerCardBg} space-y-4`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4 text-amber-600" />
+                    <h4 className="text-xs font-bold uppercase text-slate-800">
+                      A) Şerefiye (Kat, Cephe & Konum) Dağıtımı
+                    </h4>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!params.enableSerefiye}
+                      onChange={(e) => {
+                        updateParam('enableSerefiye', e.target.checked);
+                        if (onCalculate) onCalculate();
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                  </label>
+                </div>
+
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Şerefiye çarpanı aktif edildiğinde, binanın toplam inşaat maliyet havuzu <strong>asla değişmez</strong>;
+                  ancak zemin kat ile manzaralı üst kat ve güney cephe dairelerin katkı payı oranları adil olarak ağırlıklandırılır.
+                </p>
+
+                {/* Hızlı Şablon Butonları */}
+                <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Hızlı Şerefiye Şablonları:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyAutoSerefiye('standard')}
+                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Standart Kat & Cephe Dağıtımı</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyAutoSerefiye('luxury')}
+                      className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Lüks / Üst Kat Ağırlıklı</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyAutoSerefiye('reset')}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Sıfırla (Eşit 1.00)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* B) Kat Mülkiyeti Kanunu (KMK) Arsa Payı Dengeleme Modülü */}
+              <div className={`p-5 rounded-2xl border ${innerCardBg} space-y-4`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Scale className="w-4 h-4 text-emerald-600" />
+                    <h4 className="text-xs font-bold uppercase text-slate-800">
+                      B) Arsa Payı (KMK) Mahsuplaşma & Dengeleme
+                    </h4>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!params.enableLandShareBalancing}
+                      onChange={(e) => {
+                        updateParam('enableLandShareBalancing', e.target.checked);
+                        if (onCalculate) onCalculate();
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
+
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Kat maliklerinin tapudaki mevcut arsa payı hisse oranı ile yeni projede aldıkları bağımsız bölümün değeri
+                  karşılaştırılır. Arsa payından daha küçük daire alan maliklere <strong>alacak/mahsup hakkı</strong>, daha büyük daire alanlara <strong>dengeleme borcu</strong> yansıtılır.
+                </p>
+
+                <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-600">Toplam Arsa Paydası:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={params.totalLandShareDenominator || 1000}
+                      onChange={(e) => {
+                        updateParam('totalLandShareDenominator', Math.max(1, parseInt(e.target.value) || 1000));
+                        if (onCalculate) onCalculate();
+                      }}
+                      className={`w-24 text-xs px-2.5 py-1.5 rounded-lg border font-mono font-bold ${inputBg}`}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyAutoLandShare('proportional')}
+                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      title="Her dairenin arsa payını brüt m² alanına orantılı olarak dağıtır"
+                    >
+                      📐 m² Alanına Orantılı Dağıt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyAutoLandShare('equal')}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                      title="Tüm dairelere eşit hisse payı dağıtır"
+                    >
+                      ⚖️ Eşit Dağıt
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* C) Şerefiye & Arsa Payı Özet Metrik Şeridi */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200/70 space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-amber-800 block">Şerefiye Durumu</span>
+                <strong className="text-sm font-mono text-amber-950 font-bold">
+                  {params.enableSerefiye ? 'Aktif (Ağırlıklı)' : 'Pasif (Eşit Dağılım)'}
+                </strong>
+                <span className="text-[10px] text-amber-700 block">Toplam inşaat maliyeti korunur</span>
+              </div>
+
+              <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-200/70 space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-indigo-800 block">En Yüksek Şerefiye</span>
+                <strong className="text-sm font-mono text-indigo-950 font-bold">
+                  {Math.max(...params.flats.map((f) => f.serefiyeMultiplier || 1.0)).toFixed(2)}x
+                </strong>
+                <span className="text-[10px] text-indigo-700 block">Üst Kat / Dubleks / Güney</span>
+              </div>
+
+              <div className="p-3 bg-slate-100/70 rounded-xl border border-slate-200 space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-slate-600 block">En Düşük Şerefiye</span>
+                <strong className="text-sm font-mono text-slate-900 font-bold">
+                  {Math.min(...params.flats.map((f) => f.serefiyeMultiplier || 1.0)).toFixed(2)}x
+                </strong>
+                <span className="text-[10px] text-slate-500 block">Zemin Kat / Arka Cephe</span>
+              </div>
+
+              <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200/70 space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-emerald-800 block">Arsa Payı Dengesi</span>
+                <strong className="text-sm font-mono text-emerald-950 font-bold">
+                  {params.enableLandShareBalancing ? 'Mahsuplaşma Aktif' : 'Standart'}
+                </strong>
+                <span className="text-[10px] text-emerald-700 block">Payda: /{params.totalLandShareDenominator || 1000}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 4. KAT MALİKLERİ BİLGİ GİRİŞLERİ, ARAMA & TABLO / KART YÖNETİMİ */}
+      <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
+        <div className="w-full px-6 py-4 bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/60">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsOwnersGridOpen(!isOwnersGridOpen)}
+              className="flex items-center gap-2.5 text-left cursor-pointer group"
+            >
+              <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                <UserCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    4. Kat Malikleri Yönetimi & Pay Dağılımı
+                  </span>
+                  <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded-full font-mono">
+                    {params.flats.length} Daire
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Daire bazlı hak sahiplerini, hisse alanlarını, peşinat ve ödeme planlarını düzenleyin.
+                </p>
+              </div>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {/* Görünüm Modu Değiştirici */}
+            <div className="flex items-center p-1 bg-white border border-slate-200 rounded-xl shadow-xs">
               <button
                 type="button"
-                onClick={handleApplyBulkDownPayment}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all active:scale-95"
+                onClick={() => setViewMode('table')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+                title="Kompakt Excel Tablo Görünümü"
               >
-                Toplu Tanımla & Uygula
+                <TableIcon className="w-3.5 h-3.5" />
+                <span>Tablo (Excel)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === 'grid'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+                title="Kart Görünümü"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Kartlar</span>
               </button>
             </div>
 
-            {/* Flat cards grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {params.flats.map((flat, idx) => {
-                const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
-                return (
-                  <div
-                    key={flat.id}
-                    className={`${innerCardBg} rounded-2xl border p-4 space-y-3 transition-all ${
-                      isContractor ? 'ring-2 ring-amber-500/20 border-amber-300' : 'hover:border-slate-300'
+            {/* Excel / CSV İndir */}
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 shadow-xs transition-all active:scale-95 cursor-pointer"
+              title="Kat Malikleri Hakediş ve Ödeme Planını Excel / CSV Olarak İndir"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Excel / CSV</span>
+            </button>
+
+            {/* Resmi A4 Raporu / Taahhütname */}
+            <button
+              type="button"
+              onClick={() => handleOpenReport()}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 shadow-xs transition-all active:scale-95 cursor-pointer"
+              title="Resmi A4 Kat Maliki Taahhütnamesi ve Genel Kurul Raporunu Aç"
+            >
+              <Printer className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Resmi A4 Rapor</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsOwnersGridOpen(!isOwnersGridOpen)}
+              className="p-2 text-slate-400 hover:text-slate-700 rounded-lg"
+            >
+              {isOwnersGridOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {isOwnersGridOpen && (
+          <div className="p-6 space-y-5">
+            {/* 1. KONTROL & ARAMA & FİLTRELEME ÇUBUĞU */}
+            <div className="space-y-3">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                {/* Arama Kutusu */}
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Daire no, malik adı soyadı veya TC ile filtrele..."
+                    className={`w-full text-xs pl-9 pr-8 py-2.5 rounded-xl border ${inputBg}`}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Sıralama Seçici */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1 shrink-0">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                    Sırala:
+                  </span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortType)}
+                    className={`text-xs px-3 py-2 rounded-xl border font-medium ${inputBg}`}
+                  >
+                    <option value="id_asc">Daire No (Artan 1-N)</option>
+                    <option value="id_desc">Daire No (Azalan N-1)</option>
+                    <option value="name_asc">Malik Adı (A - Z)</option>
+                    <option value="area_desc">Brüt Alan (Büyükten Küçüğe)</option>
+                    <option value="area_asc">Brüt Alan (Küçükten Büyüğe)</option>
+                    <option value="debt_desc">Kalan Borç (En Yüksek)</option>
+                    <option value="debt_asc">Kalan Borç (En Düşük)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Akıllı Filtreleme Butonları (Chips) & Toplu Peşinat Paneli */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 mr-1 flex items-center gap-1">
+                    <Filter className="w-3 h-3" /> Filtrele:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      activeFilter === 'all'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
                     }`}
                   >
-                    <div className="font-bold text-xs text-slate-800 flex items-center justify-between pb-2 border-b border-slate-200">
-                      <span className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${isContractor ? 'bg-amber-500' : 'bg-indigo-500'}`} />
-                        Daire {flat.id} {isContractor ? '(Müteahhit Payı)' : '(Hak Sahibi)'}
-                      </span>
-                      <span className="text-[10px] bg-slate-200 text-slate-700 font-mono px-2 py-0.5 rounded-full border border-slate-300/50">
-                        {flat.area} m²
-                      </span>
-                    </div>
+                    Tümü ({params.flats.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('owners')}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      activeFilter === 'owners'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+                    }`}
+                  >
+                    Hak Sahipleri ({ownerFlats.length})
+                  </button>
+                  {params.projectModel === 'contractorShare' && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilter('contractor')}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                        activeFilter === 'contractor'
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-amber-50 hover:bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      Müteahhit Payı ({contractorFlats.length})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('withDebt')}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      activeFilter === 'withDebt'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-rose-50 hover:bg-rose-100 text-rose-700'
+                    }`}
+                  >
+                    Borcu Olanlar ({ownerFlats.filter((f) => f.netRemainingDebt > 0).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('paid')}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      activeFilter === 'paid'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    Borcu Kapananlar ({ownerFlats.filter((f) => f.netRemainingDebt <= 0).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('withCredit')}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      activeFilter === 'withCredit'
+                        ? 'bg-sky-600 text-white shadow-xs'
+                        : 'bg-sky-50 hover:bg-sky-100 text-sky-800'
+                    }`}
+                  >
+                    Dönüşüm Destekli ({ownerFlats.filter((f) => f.usedCredit > 0).length})
+                  </button>
+                </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                        Hak Sahibi Adı Soyadı:
-                      </label>
-                      <input
-                        type="text"
-                        value={flat.name}
-                        onChange={(e) => handleFlatChange(idx, 'name', e.target.value)}
-                        className={`w-full text-xs px-3 py-1.5 rounded-xl border ${inputBg}`}
-                        disabled={isContractor}
-                        placeholder={isContractor ? "MÜTEAHHİT KONTROLÜNDE" : "Daire Sahibi Adı Soyadı"}
-                      />
-                    </div>
+                {/* Toplu Peşinat Uygulama Aracı (Kompakt) */}
+                <div className="flex items-center gap-2 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/80 shrink-0">
+                  <span className="text-[11px] font-bold text-slate-700 pl-2">Toplu Peşinat:</span>
+                  <input
+                    type="number"
+                    step="25000"
+                    min="0"
+                    value={bulkDownPayment || ''}
+                    onChange={(e) => setBulkDownPayment(Math.max(0, parseFloat(e.target.value) || 0))}
+                    placeholder="Tutar (TL)"
+                    className={`w-28 text-xs px-2.5 py-1.5 rounded-lg border font-mono ${inputBg}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyBulkDownPayment}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                  >
+                    Uygula
+                  </button>
+                </div>
+              </div>
+            </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+            {/* 2. FİLTRE VE ARAMA ÖZET ŞERİDİ */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200/80 text-xs text-slate-600">
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="font-semibold">
+                  Gösterilen:{' '}
+                  <strong className="text-slate-900 font-mono">
+                    {filteredMetrics.count} / {filteredMetrics.totalFlatsCount}
+                  </strong>{' '}
+                  Daire
+                </span>
+                <span className="text-slate-300">|</span>
+                <span>
+                  Toplam Alan:{' '}
+                  <strong className="text-slate-900 font-mono">
+                    {filteredMetrics.totalArea.toLocaleString('tr-TR')} m²
+                  </strong>
+                </span>
+                <span className="text-slate-300">|</span>
+                <span>
+                  Toplanan Peşinat:{' '}
+                  <strong className="text-indigo-700 font-mono">
+                    {filteredMetrics.totalDownPayment.toLocaleString('tr-TR')} TL
+                  </strong>
+                </span>
+                <span className="text-slate-300">|</span>
+                <span>
+                  Kalan Borç:{' '}
+                  <strong className="text-amber-700 font-mono">
+                    {filteredMetrics.totalDebt.toLocaleString('tr-TR')} TL
+                  </strong>
+                </span>
+                {filteredMetrics.totalSupport > 0 && (
+                  <>
+                    <span className="text-slate-300">|</span>
+                    <span>
+                      Hibe/Destek:{' '}
+                      <strong className="text-emerald-700 font-mono">
+                        {filteredMetrics.totalSupport.toLocaleString('tr-TR')} TL
+                      </strong>
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {(searchQuery || activeFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setActiveFilter('all');
+                  }}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Filtreleri Sıfırla</span>
+                </button>
+              )}
+            </div>
+
+            {/* 3. KOMPAKT EXCEL TABLO GÖRÜNÜMÜ */}
+            {viewMode === 'table' ? (
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs max-h-[650px] overflow-y-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="sticky top-0 bg-slate-100 text-slate-700 font-bold uppercase tracking-wider z-10 border-b border-slate-200 text-[11px]">
+                    <tr>
+                      <th className="p-3 w-16 text-center">Daire</th>
+                      <th className="p-3 w-28 text-center">Kat / Cephe</th>
+                      <th className="p-3 min-w-[150px]">Hak Sahibi Adı Soyadı</th>
+                      <th className="p-3 w-24">T.C. Kimlik</th>
+                      <th className="p-3 w-20 text-right">Brüt (m²)</th>
+                      <th className="p-3 w-24 text-center">Şerefiye</th>
+                      <th className="p-3 w-24 text-center">Arsa Payı (KMK)</th>
+                      <th className="p-3 w-28 text-right">Peşinat (TL)</th>
+                      <th className="p-3 w-16 text-center">Hibe</th>
+                      {params.projectModel === 'contractorShare' && (
+                        <th className="p-3 w-20 text-center">Müteahhit</th>
+                      )}
+                      <th className="p-3 w-28 text-right text-slate-800">Katkı Payı</th>
+                      {params.enableLandShareBalancing && (
+                        <th className="p-3 w-28 text-right text-emerald-800">Arsa Mahsubu</th>
+                      )}
+                      <th className="p-3 w-28 text-right text-slate-900">Kalan Net Borç</th>
+                      <th className="p-3 w-28 text-right text-emerald-800">Taksit / Aşama</th>
+                      <th className="p-3 w-20 text-center">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {filteredFlats.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={15}
+                          className="p-8 text-center text-slate-400 font-medium"
+                        >
+                          Arama kriterlerine uygun kat maliki bulunamadı.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredFlats.map(({ flat, originalIndex, calc, isContractor }) => {
+                        const isSelected = selectedFlatId === flat.id;
+                        const netDebt = calc?.netRemainingDebt || 0;
+                        const isPaid = !isContractor && netDebt <= 0;
+                        const serefiyePct = Math.round(((flat.serefiyeMultiplier || 1.0) - 1.0) * 100);
+                        const landShareDiff = calc?.landShareDifference || 0;
+
+                        return (
+                          <tr
+                            key={flat.id}
+                            className={`transition-colors ${
+                              isSelected
+                                ? 'bg-indigo-50/80 ring-1 ring-indigo-400/40'
+                                : isContractor
+                                ? 'bg-amber-50/20 hover:bg-amber-50/40 text-slate-600'
+                                : isPaid
+                                ? 'bg-emerald-50/20 hover:bg-emerald-50/30'
+                                : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            {/* Daire No & Rol */}
+                            <td className="p-2 text-center">
+                              <div className="flex flex-col items-center">
+                                <span className="font-bold text-slate-900 font-mono text-xs">
+                                  No {flat.id}
+                                </span>
+                                <span
+                                  className={`text-[9px] px-1.5 py-0.5 rounded font-bold mt-0.5 ${
+                                    isContractor
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-indigo-100 text-indigo-800'
+                                  }`}
+                                >
+                                  {isContractor ? 'Müteahhit' : 'Malik'}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Kat ve Cephe Seçimi */}
+                            <td className="p-2 text-center">
+                              <div className="flex flex-col gap-1 items-center">
+                                <select
+                                  value={flat.floorNumber !== undefined ? flat.floorNumber : ''}
+                                  onChange={(e) =>
+                                    handleFlatChange(originalIndex, 'floorNumber', parseInt(e.target.value) || 0)
+                                  }
+                                  className={`text-[10px] px-1.5 py-1 rounded border font-medium ${inputBg} w-20 text-center`}
+                                >
+                                  <option value={-1}>Bodrum</option>
+                                  <option value={0}>Zemin Kat</option>
+                                  {Array.from({ length: Math.max(1, params.floorCount || 5) }).map((_, fIdx) => (
+                                    <option key={fIdx + 1} value={fIdx + 1}>
+                                      {fIdx + 1}. Kat
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  value={flat.facade || 'guney'}
+                                  onChange={(e) => handleFlatChange(originalIndex, 'facade', e.target.value)}
+                                  className={`text-[9px] px-1 py-0.5 rounded border font-medium ${inputBg} w-20 text-center`}
+                                >
+                                  <option value="guney">Güney</option>
+                                  <option value="guney_bati">G-Batı</option>
+                                  <option value="guney_dogu">G-Doğu</option>
+                                  <option value="kuzey">Kuzey</option>
+                                  <option value="dogu">Doğu</option>
+                                  <option value="bati">Batı</option>
+                                  <option value="on">Ön Cephe</option>
+                                  <option value="arka">Arka Cephe</option>
+                                </select>
+                              </div>
+                            </td>
+
+                            {/* Malik Adı Soyadı (Inline Input) */}
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={flat.name || ''}
+                                onChange={(e) => handleFlatChange(originalIndex, 'name', e.target.value)}
+                                disabled={isContractor}
+                                placeholder={isContractor ? 'MÜTEAHHİT SATIŞ PAYI' : 'Malik Adı Soyadı'}
+                                className={`w-full text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
+                                  isContractor
+                                    ? 'bg-slate-100/80 text-slate-500 border-transparent italic'
+                                    : 'bg-white border-slate-200 focus:border-indigo-500 text-slate-800 shadow-2xs'
+                                }`}
+                              />
+                            </td>
+
+                            {/* T.C. Kimlik No (Inline Input) */}
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                maxLength={11}
+                                value={flat.tc || ''}
+                                onChange={(e) => handleFlatChange(originalIndex, 'tc', e.target.value)}
+                                disabled={isContractor}
+                                placeholder="TC No"
+                                className={`w-full text-xs px-2 py-1.5 rounded-lg border font-mono transition-all text-center ${
+                                  isContractor
+                                    ? 'bg-slate-100/80 text-slate-400 border-transparent'
+                                    : 'bg-white border-slate-200 focus:border-indigo-500 text-slate-700 shadow-2xs'
+                                }`}
+                              />
+                            </td>
+
+                            {/* Brüt Alan m² (Inline Input) */}
+                            <td className="p-2 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  min="1"
+                                  value={flat.area || ''}
+                                  onChange={(e) =>
+                                    handleFlatChange(
+                                      originalIndex,
+                                      'area',
+                                      Math.max(1, parseFloat(e.target.value) || 0)
+                                    )
+                                  }
+                                  className={`w-16 text-xs px-1.5 py-1.5 rounded-lg border font-mono font-bold text-right ${inputBg} shadow-2xs`}
+                                />
+                                <span className="text-[10px] text-slate-400">m²</span>
+                              </div>
+                            </td>
+
+                            {/* Şerefiye Çarpanı (Inline Input & Badge) */}
+                            <td className="p-2 text-center">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0.5"
+                                  max="2.5"
+                                  value={flat.serefiyeMultiplier !== undefined ? flat.serefiyeMultiplier : 1.0}
+                                  onChange={(e) =>
+                                    handleFlatChange(
+                                      originalIndex,
+                                      'serefiyeMultiplier',
+                                      Math.max(0.5, parseFloat(e.target.value) || 1.0)
+                                    )
+                                  }
+                                  className={`w-16 text-xs px-1 py-1 rounded-lg border font-mono text-center font-bold ${
+                                    params.enableSerefiye ? 'bg-amber-50/60 border-amber-300 text-amber-950' : inputBg
+                                  }`}
+                                />
+                                {params.enableSerefiye && (
+                                  <span
+                                    className={`text-[9px] font-mono font-bold px-1 rounded ${
+                                      serefiyePct > 0
+                                        ? 'text-emerald-700 bg-emerald-50'
+                                        : serefiyePct < 0
+                                        ? 'text-amber-700 bg-amber-50'
+                                        : 'text-slate-500'
+                                    }`}
+                                  >
+                                    {serefiyePct > 0 ? `+${serefiyePct}%` : serefiyePct < 0 ? `${serefiyePct}%` : '0%'}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Arsa Payı (KMK Hisse / Payda) */}
+                            <td className="p-2 text-center">
+                              <div className="flex items-center justify-center gap-1 font-mono text-xs">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={flat.landShareNumerator !== undefined ? flat.landShareNumerator : ''}
+                                  onChange={(e) =>
+                                    handleFlatChange(
+                                      originalIndex,
+                                      'landShareNumerator',
+                                      Math.max(0, parseInt(e.target.value) || 0)
+                                    )
+                                  }
+                                  placeholder="0"
+                                  className={`w-12 text-xs px-1 py-1 rounded-lg border text-center font-bold ${
+                                    params.enableLandShareBalancing
+                                      ? 'bg-emerald-50/60 border-emerald-300 text-emerald-950'
+                                      : inputBg
+                                  }`}
+                                />
+                                <span className="text-[10px] text-slate-400">
+                                  /{flat.landShareDenominator || params.totalLandShareDenominator || 1000}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Peşinat TL (Inline Input) */}
+                            <td className="p-2 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <input
+                                  type="number"
+                                  step="10000"
+                                  min="0"
+                                  value={flat.downPayment || ''}
+                                  onChange={(e) =>
+                                    handleFlatChange(
+                                      originalIndex,
+                                      'downPayment',
+                                      Math.max(0, parseFloat(e.target.value) || 0)
+                                    )
+                                  }
+                                  disabled={isContractor}
+                                  placeholder="0"
+                                  className={`w-20 text-xs px-1.5 py-1.5 rounded-lg border font-mono text-right ${
+                                    isContractor
+                                      ? 'bg-slate-100 text-slate-400 border-transparent'
+                                      : 'bg-white border-slate-200 text-indigo-700 font-bold focus:border-indigo-500 shadow-2xs'
+                                  }`}
+                                />
+                                <span className="text-[10px] text-slate-400">₺</span>
+                              </div>
+                            </td>
+
+                            {/* Devlet Desteği Checkbox */}
+                            <td className="p-2 text-center">
+                              <label className="inline-flex items-center justify-center cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={!!flat.useTransformationCredit}
+                                  onChange={(e) =>
+                                    handleFlatChange(originalIndex, 'useTransformationCredit', e.target.checked)
+                                  }
+                                  disabled={isContractor}
+                                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-40 cursor-pointer"
+                                />
+                              </label>
+                            </td>
+
+                            {/* Müteahhit Payı Toggle */}
+                            {params.projectModel === 'contractorShare' && (
+                              <td className="p-2 text-center">
+                                <label className="inline-flex items-center justify-center cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={isContractor}
+                                    onChange={(e) => {
+                                      const isChecked = e.target.checked;
+                                      const currentIds = params.contractorFlatIds
+                                        ? [...params.contractorFlatIds]
+                                        : [];
+                                      let nextIds: number[];
+                                      if (isChecked) {
+                                        nextIds = currentIds.includes(flat.id)
+                                          ? currentIds
+                                          : [...currentIds, flat.id];
+                                      } else {
+                                        nextIds = currentIds.filter((id) => id !== flat.id);
+                                      }
+                                      onChangeParams({
+                                        ...params,
+                                        contractorFlatIds: nextIds,
+                                        flats: params.flats.map((f, i) =>
+                                          i === originalIndex ? { ...f, isContractorShare: isChecked } : f
+                                        ),
+                                      });
+                                    }}
+                                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
+                                  />
+                                </label>
+                              </td>
+                            )}
+
+                            {/* Toplam Katkı Payı */}
+                            <td className="p-2 text-right font-mono text-slate-800 font-semibold">
+                              {calc
+                                ? `${calc.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL`
+                                : '-'}
+                            </td>
+
+                            {/* Arsa Payı Mahsuplaşma Dengesi (+ / - TL) */}
+                            {params.enableLandShareBalancing && (
+                              <td className="p-2 text-right font-mono text-xs">
+                                {isContractor ? (
+                                  <span className="text-slate-400">-</span>
+                                ) : landShareDiff > 0 ? (
+                                  <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                    +{landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                  </span>
+                                ) : landShareDiff < 0 ? (
+                                  <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    {landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">0 TL</span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Kalan Net Borç */}
+                            <td className="p-2 text-right font-mono">
+                              {isContractor ? (
+                                <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                  Müteahhitte
+                                </span>
+                              ) : isPaid ? (
+                                <span className="text-emerald-700 font-bold flex items-center justify-end gap-1">
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>0 TL</span>
+                                </span>
+                              ) : (
+                                <span className="font-extrabold text-slate-900">
+                                  {netDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Taksit / Aşama Bilgisi */}
+                            <td className="p-2 text-right font-mono text-xs">
+                              {isContractor ? (
+                                <span className="text-slate-400">-</span>
+                              ) : netDebt <= 0 ? (
+                                <span className="text-emerald-600 font-semibold">Ödendi</span>
+                              ) : params.paymentPlanType === 'installments' ? (
+                                <span className="text-emerald-700 font-bold">
+                                  {(calc?.monthlyInstallment || 0).toLocaleString('tr-TR', {
+                                    maximumFractionDigits: 0,
+                                  })}{' '}
+                                  TL / Ay
+                                </span>
+                              ) : (
+                                <span className="text-indigo-700 font-semibold">
+                                  1. Aş: {(calc?.stagePayments?.[0] || 0).toLocaleString('tr-TR', {
+                                    maximumFractionDigits: 0,
+                                  })}{' '}
+                                  TL
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Detay Kartı & A4 Rapor Butonları */}
+                            <td className="p-2 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedFlatId(flat.id)}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-indigo-600 text-white'
+                                      : 'bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200'
+                                  }`}
+                                  title="Ödeme Kartını Aç"
+                                >
+                                  {isSelected ? 'Açık' : 'Kart'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenReport(flat.id)}
+                                  className="p-1 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 transition-all cursor-pointer"
+                                  title={`Daire ${flat.id} Resmi A4 Taahhütnamesini Yazdır / PDF`}
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              /* 4. KART GÖRÜNÜMÜ */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredFlats.map(({ flat, originalIndex, calc, isContractor }) => {
+                  const isSelected = selectedFlatId === flat.id;
+                  const netDebt = calc?.netRemainingDebt || 0;
+
+                  return (
+                    <div
+                      key={flat.id}
+                      className={`${innerCardBg} rounded-2xl border p-4 space-y-3 transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-indigo-500 border-indigo-400 bg-indigo-50/30 shadow-md'
+                          : isContractor
+                          ? 'ring-1 ring-amber-500/20 border-amber-300'
+                          : 'hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="font-bold text-xs text-slate-800 flex items-center justify-between pb-2 border-b border-slate-200">
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full ${
+                              isContractor ? 'bg-amber-500' : 'bg-indigo-500'
+                            }`}
+                          />
+                          <span>Daire {flat.id}</span>
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                              isContractor
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-indigo-100 text-indigo-800'
+                            }`}
+                          >
+                            {isContractor ? 'Müteahhit' : 'Hak Sahibi'}
+                          </span>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] bg-slate-200 text-slate-700 font-mono px-2 py-0.5 rounded-full border border-slate-300/50">
+                            {flat.area} m²
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFlatId(flat.id)}
+                            className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
+                          >
+                            Kart
+                          </button>
+                        </div>
+                      </div>
+
                       <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                          T.C. Kimlik No:
+                          Hak Sahibi Adı Soyadı:
                         </label>
                         <input
                           type="text"
-                          maxLength={11}
-                          value={flat.tc}
-                          onChange={(e) => handleFlatChange(idx, 'tc', e.target.value)}
+                          value={flat.name || ''}
+                          onChange={(e) => handleFlatChange(originalIndex, 'name', e.target.value)}
                           className={`w-full text-xs px-3 py-1.5 rounded-xl border ${inputBg}`}
                           disabled={isContractor}
-                          placeholder="-"
+                          placeholder={isContractor ? 'MÜTEAHHİT KONTROLÜNDE' : 'Daire Sahibi Adı Soyadı'}
                         />
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                          Brüt Alan (m²):
-                        </label>
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={flat.area}
-                          onChange={(e) => handleFlatChange(idx, 'area', parseFloat(e.target.value) || 0)}
-                          className={`w-full text-xs px-3 py-1.5 rounded-xl border ${inputBg}`}
-                        />
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                          Peşinat (TL):
-                        </label>
-                        <input
-                          type="number"
-                          step="5000"
-                          value={flat.downPayment}
-                          onChange={(e) => handleFlatChange(idx, 'downPayment', parseFloat(e.target.value) || 0)}
-                          className={`w-full text-xs px-3 py-1.5 rounded-xl border ${inputBg}`}
-                          disabled={isContractor}
-                        />
-                      </div>
-                      <div className="flex flex-col justify-end">
-                        <label className="flex items-center gap-1.5 text-[9px] font-semibold text-slate-700 cursor-pointer h-full pb-2 select-none">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            T.C. Kimlik No:
+                          </label>
                           <input
-                            type="checkbox"
-                            checked={!!flat.useTransformationCredit}
-                            onChange={(e) => handleFlatChange(idx, 'useTransformationCredit', e.target.checked)}
-                            className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                            type="text"
+                            maxLength={11}
+                            value={flat.tc || ''}
+                            onChange={(e) => handleFlatChange(originalIndex, 'tc', e.target.value)}
+                            className={`w-full text-xs px-3 py-1.5 rounded-xl border ${inputBg}`}
+                            disabled={isContractor}
+                            placeholder="-"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Brüt Alan (m²):
+                          </label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="1"
+                            value={flat.area || ''}
+                            onChange={(e) =>
+                              handleFlatChange(
+                                originalIndex,
+                                'area',
+                                Math.max(1, parseFloat(e.target.value) || 0)
+                              )
+                            }
+                            className={`w-full text-xs px-3 py-1.5 rounded-xl border ${inputBg}`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Kat No:
+                          </label>
+                          <select
+                            value={flat.floorNumber !== undefined ? flat.floorNumber : ''}
+                            onChange={(e) =>
+                              handleFlatChange(originalIndex, 'floorNumber', parseInt(e.target.value) || 0)
+                            }
+                            className={`w-full text-xs px-2.5 py-1.5 rounded-xl border ${inputBg}`}
+                          >
+                            <option value={-1}>Bodrum Kat</option>
+                            <option value={0}>Zemin Kat</option>
+                            {Array.from({ length: Math.max(1, params.floorCount || 5) }).map((_, fIdx) => (
+                              <option key={fIdx + 1} value={fIdx + 1}>
+                                {fIdx + 1}. Kat
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Cephe Yönü:
+                          </label>
+                          <select
+                            value={flat.facade || 'guney'}
+                            onChange={(e) => handleFlatChange(originalIndex, 'facade', e.target.value)}
+                            className={`w-full text-xs px-2.5 py-1.5 rounded-xl border ${inputBg}`}
+                          >
+                            <option value="guney">Güney Cephe</option>
+                            <option value="guney_bati">Güney-Batı</option>
+                            <option value="guney_dogu">Güney-Doğu</option>
+                            <option value="kuzey">Kuzey Cephe</option>
+                            <option value="dogu">Doğu Cephe</option>
+                            <option value="bati">Batı Cephe</option>
+                            <option value="on">Ön Cephe</option>
+                            <option value="arka">Arka Cephe</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                              Şerefiye:
+                            </label>
+                            <span className="text-[9px] font-mono font-bold text-amber-700">
+                              {Math.round(((flat.serefiyeMultiplier || 1.0) - 1.0) * 100) > 0
+                                ? `+${Math.round(((flat.serefiyeMultiplier || 1.0) - 1.0) * 100)}%`
+                                : `${Math.round(((flat.serefiyeMultiplier || 1.0) - 1.0) * 100)}%`}
+                            </span>
+                          </div>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.5"
+                            max="2.5"
+                            value={flat.serefiyeMultiplier !== undefined ? flat.serefiyeMultiplier : 1.0}
+                            onChange={(e) =>
+                              handleFlatChange(
+                                originalIndex,
+                                'serefiyeMultiplier',
+                                Math.max(0.5, parseFloat(e.target.value) || 1.0)
+                              )
+                            }
+                            className={`w-full text-xs px-2.5 py-1.5 rounded-xl border font-mono ${
+                              params.enableSerefiye ? 'bg-amber-50/50 border-amber-300 font-bold' : inputBg
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Arsa Payı (KMK):
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              value={flat.landShareNumerator !== undefined ? flat.landShareNumerator : ''}
+                              onChange={(e) =>
+                                handleFlatChange(
+                                  originalIndex,
+                                  'landShareNumerator',
+                                  Math.max(0, parseInt(e.target.value) || 0)
+                                )
+                              }
+                              placeholder="0"
+                              className={`w-full text-xs px-2.5 py-1.5 rounded-xl border font-mono text-center ${
+                                params.enableLandShareBalancing ? 'bg-emerald-50/50 border-emerald-300 font-bold' : inputBg
+                              }`}
+                            />
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              /{flat.landShareDenominator || params.totalLandShareDenominator || 1000}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Peşinat (TL):
+                          </label>
+                          <input
+                            type="number"
+                            step="5000"
+                            min="0"
+                            value={flat.downPayment || ''}
+                            onChange={(e) =>
+                              handleFlatChange(
+                                originalIndex,
+                                'downPayment',
+                                Math.max(0, parseFloat(e.target.value) || 0)
+                              )
+                            }
+                            className={`w-full text-xs px-3 py-1.5 rounded-xl border ${inputBg}`}
                             disabled={isContractor}
                           />
-                          <span>Devlet Desteği</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {params.projectModel === 'contractorShare' && (
-                      <div className="pt-1.5 border-t border-slate-200/50">
-                        <label className="flex items-center gap-2 text-[10px] font-bold text-amber-800 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={isContractor}
-                            onChange={(e) => {
-                              const isChecked = e.target.checked;
-                              const currentIds = params.contractorFlatIds ? [...params.contractorFlatIds] : [];
-                              let nextIds: number[];
-                              if (isChecked) {
-                                nextIds = currentIds.includes(flat.id) ? currentIds : [...currentIds, flat.id];
-                              } else {
-                                nextIds = currentIds.filter((id) => id !== flat.id);
+                        </div>
+                        <div className="flex flex-col justify-end">
+                          <label className="flex items-center gap-1.5 text-[9px] font-semibold text-slate-700 cursor-pointer h-full pb-2 select-none">
+                            <input
+                              type="checkbox"
+                              checked={!!flat.useTransformationCredit}
+                              onChange={(e) =>
+                                handleFlatChange(originalIndex, 'useTransformationCredit', e.target.checked)
                               }
-                              onChangeParams({
-                                ...params,
-                                contractorFlatIds: nextIds,
-                                flats: params.flats.map((f, i) => (i === idx ? { ...f, isContractorShare: isChecked } : f)),
-                              });
-                            }}
-                            className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
-                          />
-                          <span>Bu Daire Müteahhide Ait (Satış Payı)</span>
-                        </label>
+                              className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                              disabled={isContractor}
+                            />
+                            <span>Devlet Desteği</span>
+                          </label>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+
+                      {/* Canlı Maliyet & Kalan Borç Göstergesi */}
+                      {calc && !isContractor && (
+                        <div className="pt-2 border-t border-slate-200/60 space-y-1 text-xs font-mono">
+                          {params.enableLandShareBalancing && (calc.landShareDifference || 0) !== 0 && (
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-500">Arsa Payı Dengelemesi:</span>
+                              <span
+                                className={`font-bold ${
+                                  (calc.landShareDifference || 0) > 0 ? 'text-amber-700' : 'text-emerald-700'
+                                }`}
+                              >
+                                {(calc.landShareDifference || 0) > 0 ? '+' : ''}
+                                {(calc.landShareDifference || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
+                                TL
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-slate-500">Kalan Net Borç:</span>
+                            <span
+                              className={`font-bold ${
+                                netDebt <= 0 ? 'text-emerald-700' : 'text-slate-900'
+                              }`}
+                            >
+                              {netDebt <= 0
+                                ? 'Tamamı Ödendi'
+                                : `${netDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {params.projectModel === 'contractorShare' && (
+                        <div className="pt-1.5 border-t border-slate-200/50">
+                          <label className="flex items-center gap-2 text-[10px] font-bold text-amber-800 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={isContractor}
+                              onChange={(e) => {
+                                const isChecked = e.target.checked;
+                                const currentIds = params.contractorFlatIds
+                                  ? [...params.contractorFlatIds]
+                                  : [];
+                                let nextIds: number[];
+                                if (isChecked) {
+                                  nextIds = currentIds.includes(flat.id)
+                                    ? currentIds
+                                    : [...currentIds, flat.id];
+                                } else {
+                                  nextIds = currentIds.filter((id) => id !== flat.id);
+                                }
+                                onChangeParams({
+                                  ...params,
+                                  contractorFlatIds: nextIds,
+                                  flats: params.flats.map((f, i) =>
+                                    i === originalIndex ? { ...f, isContractorShare: isChecked } : f
+                                  ),
+                                });
+                              }}
+                              className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
+                            />
+                            <span>Bu Daire Müteahhide Ait (Satış Payı)</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -954,13 +2277,24 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     <UserCheck className="w-4 h-4 text-indigo-600" />
                     <span>Daire {selectedFlatResult.id} Ödeme Kartı</span>
                   </h4>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFlatId(null)}
-                    className="text-slate-400 hover:text-slate-600 text-xs font-bold"
-                  >
-                    Kapat
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReport(selectedFlatResult.id)}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg border border-indigo-200 transition-all cursor-pointer"
+                      title="Resmi A4 Taahhütname Yazdır / PDF"
+                    >
+                      <Printer className="w-3 h-3 text-indigo-600" />
+                      <span>A4 Taahhütname</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFlatId(null)}
+                      className="text-slate-400 hover:text-slate-600 text-xs font-bold px-1.5 py-1"
+                    >
+                      Kapat
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2 text-xs">
@@ -969,9 +2303,31 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     <strong className="text-slate-800">{selectedFlatResult.name || 'Belirtilmedi'}</strong>
                   </p>
                   <p className="flex justify-between">
+                    <span className="text-slate-500">Konum / Kat & Cephe:</span>
+                    <strong className="text-slate-800">
+                      {selectedFlatResult.floorNumber !== undefined ? (selectedFlatResult.floorNumber === 0 ? 'Zemin' : `${selectedFlatResult.floorNumber}. Kat`) : '-'} / {selectedFlatResult.facade || 'Güney'}
+                    </strong>
+                  </p>
+                  <p className="flex justify-between">
                     <span className="text-slate-500">Bağımsız Bölüm Brüt:</span>
                     <strong className="font-mono text-slate-800">{selectedFlatResult.area} m²</strong>
                   </p>
+                  {params.enableSerefiye && (
+                    <p className="flex justify-between text-amber-900 bg-amber-50/70 px-2 py-1 rounded border border-amber-200/60">
+                      <span>Şerefiye Katsayısı:</span>
+                      <strong className="font-mono">
+                        {selectedFlatResult.serefiyeMultiplier || 1.0} ({Math.round(((selectedFlatResult.serefiyeMultiplier || 1.0) - 1.0) * 100) > 0 ? '+' : ''}{Math.round(((selectedFlatResult.serefiyeMultiplier || 1.0) - 1.0) * 100)}%)
+                      </strong>
+                    </p>
+                  )}
+                  {params.enableLandShareBalancing && (
+                    <p className="flex justify-between text-emerald-900 bg-emerald-50/70 px-2 py-1 rounded border border-emerald-200/60">
+                      <span>Arsa Payı Dengelemesi:</span>
+                      <strong className="font-mono">
+                        {(selectedFlatResult.landShareDifference || 0) > 0 ? '+' : ''}{(selectedFlatResult.landShareDifference || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </strong>
+                    </p>
+                  )}
                   <p className="flex justify-between">
                     <span className="text-slate-500">Toplam İnşaat Katkı Payı:</span>
                     <strong className="font-mono text-slate-900">
@@ -1114,6 +2470,15 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Resmi A4 Kat Maliki Rapor ve Taahhütname Modalı */}
+      <OfficialOwnerReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        params={params}
+        results={results}
+        initialFlatId={reportModalFlatId}
+      />
     </div>
   );
 };

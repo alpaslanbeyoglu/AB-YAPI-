@@ -229,6 +229,38 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
     const kabaFactor = activeKabaTypeMult * multiplier;
     const inceFactor = activeInceTypeMult * multiplier;
 
+    const effConcretePrice = Math.round(safeConcretePrice * kabaFactor * 100) / 100;
+    const effSteelPrice = Math.round(safeSteelPrice * kabaFactor * 100) / 100;
+    const effSteelLaborPrice = Math.round(safeSteelLaborPrice * kabaFactor * 100) / 100;
+    const effFormworkLabPrice = Math.round(safeFormworkLabPrice * kabaFactor * 100) / 100;
+    const effBrickMatPrice = Math.round(safeBrickMatPrice * kabaFactor * 100) / 100;
+    const effBrickLabPrice = Math.round(safeBrickLabPrice * kabaFactor * 100) / 100;
+    const effExcavationPrice = Math.round(safeExcavationPrice * kabaFactor * 100) / 100;
+
+    const effPlumbingPrice = Math.round(safePlumbingPrice * inceFactor * 100) / 100;
+    const effElectricPrice = Math.round(safeElectricPrice * inceFactor * 100) / 100;
+    const effPvcPrice = Math.round(safePvcPrice * inceFactor * 100) / 100;
+    const effTilesPrice = Math.round(safeTilesPrice * inceFactor * 100) / 100;
+    const effKitchenPrice = Math.round(safeKitchenPrice * inceFactor * 100) / 100;
+    const effDoorsPrice = Math.round(safeDoorsPrice * inceFactor * 100) / 100;
+    const effPaintPlasterPrice = Math.round(safePaintPlasterPrice * inceFactor * 100) / 100;
+
+    const effElevatorPrice = Math.round(safeElevatorPrice * multiplier * 100) / 100;
+    const effGasPrice = Math.round(safeGasPrice * multiplier * 100) / 100;
+    const effSmartHomePrice = Math.round(safeSmartHomePrice * multiplier * 100) / 100;
+    const effIntercomPrice = Math.round(safeIntercomPrice * multiplier * 100) / 100;
+
+    const effNotaryPrice = Math.round(safeNotaryPrice * multiplier * 100) / 100;
+    const effCompanyPrice = Math.round(safeCompanyPrice * multiplier * 100) / 100;
+    const effProjectPermitPrice = Math.round(safeProjectPermitPrice * multiplier * 100) / 100;
+    const effSgkPrice = Math.round(safeSgkPrice * multiplier * 100) / 100;
+    const effInsurancePrice = Math.round(safeInsurancePrice * multiplier * 100) / 100;
+    const effSalesMarketingPrice = Math.round(safeSalesMarketingPrice * multiplier * 100) / 100;
+
+    const pvcM2 = Math.round(totalArea * pvcAreaFactor * 10) / 10;
+    const paintPlasterM2 = Math.round(totalArea * paintPlasterAreaFactor * 10) / 10;
+    const elevatorQty = params.elevatorCount || 1;
+
     return [
       // KABA İNŞAAT
       {
@@ -237,8 +269,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Hazır Beton (C30/37 Sınıfı KDV & Pompa Dahil)',
         unit: 'm³',
         quantity: concreteM3,
-        unitPrice: safeConcretePrice,
-        total: Math.round(concreteM3 * safeConcretePrice * kabaFactor * 100) / 100,
+        unitPrice: effConcretePrice,
+        total: Math.round(concreteM3 * effConcretePrice * 100) / 100,
         laborShare: 5,
       },
       {
@@ -247,8 +279,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Nervürlü İnşaat Demiri (Q8-Q32 Malzeme)',
         unit: 'Ton',
         quantity: steelTon,
-        unitPrice: safeSteelPrice,
-        total: Math.round(steelTon * safeSteelPrice * kabaFactor * 100) / 100,
+        unitPrice: effSteelPrice,
+        total: Math.round(steelTon * effSteelPrice * 100) / 100,
         laborShare: 0,
       },
       {
@@ -257,8 +289,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'İnşaat Demiri Bağlama ve Montaj İşçiliği',
         unit: 'Ton',
         quantity: steelTon,
-        unitPrice: safeSteelLaborPrice,
-        total: Math.round(steelTon * safeSteelLaborPrice * kabaFactor * 100) / 100,
+        unitPrice: effSteelLaborPrice,
+        total: Math.round(steelTon * effSteelLaborPrice * 100) / 100,
         laborShare: 100,
       },
       {
@@ -267,8 +299,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Kalıp, İskele ve Beton Döküm İşçiliği',
         unit: 'm²',
         quantity: totalArea,
-        unitPrice: safeFormworkLabPrice,
-        total: Math.round(totalArea * safeFormworkLabPrice * kabaFactor * 100) / 100,
+        unitPrice: effFormworkLabPrice,
+        total: Math.round(totalArea * effFormworkLabPrice * 100) / 100,
         laborShare: 100,
       },
       {
@@ -277,8 +309,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Tuğla / Bims / Gazbeton Duvar Malzemesi',
         unit: 'm²',
         quantity: brickM2,
-        unitPrice: safeBrickMatPrice,
-        total: Math.round(brickM2 * safeBrickMatPrice * kabaFactor * 100) / 100,
+        unitPrice: effBrickMatPrice,
+        total: Math.round(brickM2 * effBrickMatPrice * 100) / 100,
         laborShare: 0,
       },
       {
@@ -287,8 +319,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Tuğla ve Duvar Örme İşçiliği',
         unit: 'm²',
         quantity: brickM2,
-        unitPrice: safeBrickLabPrice,
-        total: Math.round(brickM2 * safeBrickLabPrice * kabaFactor * 100) / 100,
+        unitPrice: effBrickLabPrice,
+        total: Math.round(brickM2 * effBrickLabPrice * 100) / 100,
         laborShare: 100,
       },
       {
@@ -297,8 +329,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Temel & Bodrum Kazı, Hafriyat ve Nakliye',
         unit: 'm³',
         quantity: excavationM3,
-        unitPrice: safeExcavationPrice,
-        total: Math.round(excavationM3 * safeExcavationPrice * kabaFactor * 100) / 100,
+        unitPrice: effExcavationPrice,
+        total: Math.round(excavationM3 * effExcavationPrice * 100) / 100,
         laborShare: 60,
       },
 
@@ -309,8 +341,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Sıhhi ve Temiz Su Tesisat Donanımı',
         unit: 'Daire',
         quantity: flatCount,
-        unitPrice: safePlumbingPrice,
-        total: Math.round(flatCount * safePlumbingPrice * inceFactor * 100) / 100,
+        unitPrice: effPlumbingPrice,
+        total: Math.round(flatCount * effPlumbingPrice * 100) / 100,
         laborShare: 45,
       },
       {
@@ -319,8 +351,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Elektrik Altyapı & Aydınlatma Tesisatı',
         unit: 'Daire',
         quantity: flatCount,
-        unitPrice: safeElectricPrice,
-        total: Math.round(flatCount * safeElectricPrice * inceFactor * 100) / 100,
+        unitPrice: effElectricPrice,
+        total: Math.round(flatCount * effElectricPrice * 100) / 100,
         laborShare: 45,
       },
       {
@@ -328,9 +360,9 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         category: 'ince',
         name: 'Isıcamlı Konfor PVC Pencere & Doğrama',
         unit: 'm²',
-        quantity: Math.round(totalArea * pvcAreaFactor * 10) / 10,
-        unitPrice: safePvcPrice,
-        total: Math.round(totalArea * pvcAreaFactor * safePvcPrice * inceFactor * 100) / 100,
+        quantity: pvcM2,
+        unitPrice: effPvcPrice,
+        total: Math.round(pvcM2 * effPvcPrice * 100) / 100,
         laborShare: 25,
       },
       {
@@ -339,8 +371,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Seramik, Granit & Islak Zemin Kaplama',
         unit: 'm²',
         quantity: totalArea,
-        unitPrice: safeTilesPrice,
-        total: Math.round(totalArea * safeTilesPrice * inceFactor * 100) / 100,
+        unitPrice: effTilesPrice,
+        total: Math.round(totalArea * effTilesPrice * 100) / 100,
         laborShare: 50,
       },
       {
@@ -349,8 +381,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Lake / Akrilik Mutfak Dolabı & Tezgah',
         unit: 'Daire',
         quantity: flatCount,
-        unitPrice: safeKitchenPrice,
-        total: Math.round(flatCount * safeKitchenPrice * inceFactor * 100) / 100,
+        unitPrice: effKitchenPrice,
+        total: Math.round(flatCount * effKitchenPrice * 100) / 100,
         laborShare: 20,
       },
       {
@@ -359,8 +391,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Ahşap Panel & Çelik Kapı Setleri',
         unit: 'Daire',
         quantity: flatCount,
-        unitPrice: safeDoorsPrice,
-        total: Math.round(flatCount * safeDoorsPrice * inceFactor * 100) / 100,
+        unitPrice: effDoorsPrice,
+        total: Math.round(flatCount * effDoorsPrice * 100) / 100,
         laborShare: 20,
       },
       {
@@ -368,9 +400,9 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         category: 'ince',
         name: 'Alçı Sıva, Macun & Saten İç/Dış Boya',
         unit: 'm²',
-        quantity: Math.round(totalArea * paintPlasterAreaFactor * 10) / 10,
-        unitPrice: safePaintPlasterPrice,
-        total: Math.round(totalArea * paintPlasterAreaFactor * safePaintPlasterPrice * inceFactor * 100) / 100,
+        quantity: paintPlasterM2,
+        unitPrice: effPaintPlasterPrice,
+        total: Math.round(paintPlasterM2 * effPaintPlasterPrice * 100) / 100,
         laborShare: 70,
       },
 
@@ -380,9 +412,9 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         category: 'tesisat',
         name: 'TSE Çift Hızlı Otomatik Asansör Sistemi',
         unit: 'Adet',
-        quantity: params.elevatorCount || 1,
-        unitPrice: safeElevatorPrice,
-        total: Math.round(safeElevatorPrice * (params.elevatorCount || 1) * multiplier * 100) / 100,
+        quantity: elevatorQty,
+        unitPrice: effElevatorPrice,
+        total: Math.round(elevatorQty * effElevatorPrice * 100) / 100,
         laborShare: 20,
       },
       {
@@ -391,8 +423,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Doğalgaz & Kalorifer Kolon Dağıtım Hattı',
         unit: 'Daire',
         quantity: flatCount,
-        unitPrice: safeGasPrice,
-        total: Math.round(flatCount * safeGasPrice * multiplier * 100) / 100,
+        unitPrice: effGasPrice,
+        total: Math.round(flatCount * effGasPrice * 100) / 100,
         laborShare: 30,
       },
       {
@@ -401,8 +433,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Akıllı Ev Otomasyonu ve Güvenlik Altyapısı',
         unit: 'Daire',
         quantity: flatCount,
-        unitPrice: safeSmartHomePrice,
-        total: Math.round(flatCount * safeSmartHomePrice * multiplier * 100) / 100,
+        unitPrice: effSmartHomePrice,
+        total: Math.round(flatCount * effSmartHomePrice * 100) / 100,
         laborShare: 15,
       },
       {
@@ -411,8 +443,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Görüntülü Diafon & İnterkom Merkezi',
         unit: 'Sistem',
         quantity: 1,
-        unitPrice: safeIntercomPrice,
-        total: Math.round(safeIntercomPrice * multiplier * 100) / 100,
+        unitPrice: effIntercomPrice,
+        total: Math.round(effIntercomPrice * 100) / 100,
         laborShare: 20,
       },
 
@@ -423,8 +455,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Noter Sözleşmeleri & Hukuki Şerh Harçları',
         unit: 'Proje',
         quantity: 1,
-        unitPrice: safeNotaryPrice,
-        total: Math.round(safeNotaryPrice * multiplier * 100) / 100,
+        unitPrice: effNotaryPrice,
+        total: Math.round(effNotaryPrice * 100) / 100,
         laborShare: 10,
       },
       {
@@ -433,8 +465,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Şantiye Kuruluşu & Merkez Yönetim Gideri',
         unit: 'Proje',
         quantity: 1,
-        unitPrice: safeCompanyPrice,
-        total: Math.round(safeCompanyPrice * multiplier * 100) / 100,
+        unitPrice: effCompanyPrice,
+        total: Math.round(effCompanyPrice * 100) / 100,
         laborShare: 40,
       },
       {
@@ -443,8 +475,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Belediye Ruhsatı, Mimari Projeler & Vizeler',
         unit: 'm²',
         quantity: totalArea,
-        unitPrice: safeProjectPermitPrice,
-        total: Math.round(totalArea * safeProjectPermitPrice * multiplier * 100) / 100,
+        unitPrice: effProjectPermitPrice,
+        total: Math.round(totalArea * effProjectPermitPrice * 100) / 100,
         laborShare: 20,
       },
       {
@@ -453,8 +485,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'SGK Asgari İşçilik Yasal Prim Ödemesi',
         unit: 'm²',
         quantity: totalArea,
-        unitPrice: safeSgkPrice,
-        total: Math.round(totalArea * safeSgkPrice * multiplier * 100) / 100,
+        unitPrice: effSgkPrice,
+        total: Math.round(totalArea * effSgkPrice * 100) / 100,
         laborShare: 100,
       },
       {
@@ -463,8 +495,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'All-Risk Şantiye & Mesleki Sorumluluk Sigortası',
         unit: 'Proje',
         quantity: 1,
-        unitPrice: safeInsurancePrice,
-        total: Math.round(safeInsurancePrice * multiplier * 100) / 100,
+        unitPrice: effInsurancePrice,
+        total: Math.round(effInsurancePrice * 100) / 100,
         laborShare: 0,
       },
       {
@@ -473,8 +505,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         name: 'Proje Tanıtım, Satış & Pazarlama Gideri',
         unit: 'Daire',
         quantity: flatCount,
-        unitPrice: safeSalesMarketingPrice,
-        total: Math.round(flatCount * safeSalesMarketingPrice * multiplier * 100) / 100,
+        unitPrice: effSalesMarketingPrice,
+        total: Math.round(flatCount * effSalesMarketingPrice * 100) / 100,
         laborShare: 50,
       },
     ];

@@ -16,7 +16,7 @@ export const DEFAULT_PARAMS: ProjectParams = {
   buildingType: 'standard',
   roomType: '3+1',
   usdRate: 48.24,
-  costMultiplier: 2.5,
+  costMultiplier: 1.0,
   profitRate: 25,
 
   // Taban Oturumu ve Çoklu Cephe Seçenekleri
@@ -164,6 +164,25 @@ export function synchronizeFlats(
     let flatType: FlatItem['flatType'] = 'standard';
     let description: string | undefined;
 
+    // Automatic floor calculation: 0 = Ground, 1 = 1st floor, etc.
+    const calculatedFloor = Math.floor(i / Math.max(1, flatsPerFloor));
+
+    // Default Serefiye based on floor & flat type
+    let defaultSerefiye = 1.0;
+    if (isDuplexFlat) {
+      defaultSerefiye = 1.18;
+    } else if (isMansardFlat) {
+      defaultSerefiye = 1.08;
+    } else if (calculatedFloor === 0) {
+      defaultSerefiye = 0.92; // Zemin Kat
+    } else if (calculatedFloor === 1) {
+      defaultSerefiye = 0.98; // 1. Kat
+    } else if (calculatedFloor >= floorCount - 1) {
+      defaultSerefiye = 1.10; // En Üst Kat
+    } else {
+      defaultSerefiye = 1.02; // Ara Katlar
+    }
+
     if (isMansardFlat) {
       area = mansardAvg;
       flatType = 'mansard';
@@ -181,6 +200,11 @@ export function synchronizeFlats(
         area,
         flatType,
         description,
+        floorNumber: existing.floorNumber !== undefined ? existing.floorNumber : calculatedFloor,
+        facade: existing.facade || (i % 2 === 0 ? 'guney' : 'kuzey'),
+        serefiyeMultiplier: existing.serefiyeMultiplier !== undefined ? existing.serefiyeMultiplier : defaultSerefiye,
+        landShareNumerator: existing.landShareNumerator !== undefined ? existing.landShareNumerator : Math.round(area * 10),
+        landShareDenominator: existing.landShareDenominator !== undefined ? existing.landShareDenominator : 1000,
         name: existing.name && existing.name.startsWith('Kat Maliki')
           ? (isMansardFlat ? `Kat Maliki ${i + 1} (Mansart Çatı)` : isDuplexFlat ? `Kat Maliki ${i + 1} (Çatı Dubleksi)` : existing.name)
           : existing.name,
@@ -202,6 +226,11 @@ export function synchronizeFlats(
       useTransformationCredit: transStatus !== 'none',
       flatType,
       description,
+      floorNumber: calculatedFloor,
+      facade: i % 2 === 0 ? 'guney' : 'kuzey',
+      serefiyeMultiplier: defaultSerefiye,
+      landShareNumerator: Math.round(area * 10),
+      landShareDenominator: 1000,
     };
   });
 }
@@ -487,6 +516,20 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     roofAtticArea
   );
 
+  // Şerefiye (Kat/Konum/Yön Çarpanı) Normalizasyon Hesabı:
+  const enableSerefiye = params.enableSerefiye || false;
+  const enableLandShare = params.enableLandShareBalancing || false;
+
+  const totalFlatsArea = synchronizedFlats.reduce((acc, f) => acc + (f.area || 0), 0) || 1;
+  const totalWeightedFlatsArea = synchronizedFlats.reduce(
+    (acc, f) => acc + (f.area || 0) * (f.serefiyeMultiplier !== undefined ? f.serefiyeMultiplier : 1.0),
+    0
+  ) || 1;
+  const serefiyeNormFactor = enableSerefiye ? totalFlatsArea / totalWeightedFlatsArea : 1.0;
+
+  // Arsa Payı Toplam Havuzu:
+  const totalProjectValue = totalFlatsArea * baseCostPerSqM;
+
   const flatResults: FlatCalcResult[] = [];
   const totalStageIncomes = [0, 0, 0, 0, 0];
 
@@ -504,7 +547,22 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     }
 
     const isOwner = !isContractor;
-    const grossPay = flat.area * baseCostPerSqM;
+
+    // Şerefiye ile düzeltilmiş birim maliyet & brüt maliyet
+    const mult = flat.serefiyeMultiplier !== undefined ? flat.serefiyeMultiplier : 1.0;
+    const effectiveUnitPrice = enableSerefiye
+      ? baseCostPerSqM * mult * serefiyeNormFactor
+      : baseCostPerSqM;
+    const grossPay = flat.area * effectiveUnitPrice;
+    const serefiyeAdjustedCost = grossPay;
+
+    // Arsa Payı Oranı ve Mahsuplaşma Farkı Hesabı
+    const num = flat.landShareNumerator !== undefined ? flat.landShareNumerator : Math.round(flat.area * 10);
+    const den = flat.landShareDenominator !== undefined ? flat.landShareDenominator : (params.totalLandShareDenominator || 1000);
+    const landShareRatio = den > 0 ? (num / den) * 100 : 0;
+    const ownerLandValueEntitlement = (num / (den || 1)) * totalProjectValue;
+    const landShareDifference = enableLandShare ? grossPay - ownerLandValueEntitlement : 0;
+
     const paid = flat.downPayment || 0;
     const remainingAfterDown = Math.max(0, grossPay - paid);
 
@@ -551,6 +609,14 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       isContractorShare: isContractor,
       flatType: flat.flatType || 'standard',
       description: flat.description,
+      floorNumber: flat.floorNumber,
+      facade: flat.facade,
+      serefiyeMultiplier: flat.serefiyeMultiplier,
+      serefiyeAdjustedCost: Math.round(serefiyeAdjustedCost * 100) / 100,
+      landShareNumerator: num,
+      landShareDenominator: den,
+      landShareRatio: Math.round(landShareRatio * 100) / 100,
+      landShareDifference: Math.round(landShareDifference * 100) / 100,
       stagePayments: [p1, p2, p3, p4, p5],
       monthlyInstallment,
     });
