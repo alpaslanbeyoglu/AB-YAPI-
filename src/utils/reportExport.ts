@@ -606,16 +606,23 @@ export function generateContractHtml(
 
   const flatRows = res.flatResults
     .map(
-      (f) => `
+      (f, idx) => {
+        const landShareStr = f.landShareNumerator && params.totalLandShareDenominator
+          ? `${f.landShareNumerator}/${params.totalLandShareDenominator}`
+          : `1/${res.flatResults.length}`;
+        return `
     <tr>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:bold;">Daire ${f.id}</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;">${f.name}</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;">${f.tc}</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;text-align:center;">${landShareStr}</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;">${f.area} m²</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${f.downPayment.toLocaleString('tr-TR')} TL</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:bold;text-align:right;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-    </tr>`
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:center;font-size:9px;color:#94a3b8;">........................</td>
+    </tr>`;
+      }
     )
     .join('');
 
@@ -657,7 +664,7 @@ export function generateContractHtml(
     h2 { color: #0f172a; text-align: center; font-size: 15px; margin-bottom: 4px; font-weight: bold; }
     h3 { color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 3px; margin-top: 16px; font-size: 12px; text-transform: uppercase; }
     h4 { color: #1e293b; margin-top: 10px; margin-bottom: 3px; font-size: 11px; font-weight: bold; }
-    table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10px; }
     th { background: #0f172a; color: white; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; }
     .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
     .no-print { display: none !important; }
@@ -677,19 +684,19 @@ export function generateContractHtml(
   <div class="avoid-break">
     <h3>BÖLÜM I: TARAFLAR VE PROJE TANIMI</h3>
     <h4>MADDE 1: TARAFLAR</h4>
-    <p><strong>1. YÜKLENİCİ (MÜTEAHHİT):</strong> ${showLegal ? compLegal : compName} ${showAddr && compAddress ? `(${compAddress})` : ''} ${showTax && compTax ? `[${compTax}]` : ''}<br>
+    <p><strong>1. YÜKLENİCİ (MÜTEAHHİT):</strong> ${showLegal ? compLegal : compName} ${showAddr && compAddress ? `(${compAddress})` : ''} ${showTax && compTax ? `[Vergi Dairesi/No: ${compTax}]` : ''}<br>
     ${showFirstAuth || showSecondAuth ? `Yetkili Temsilci: ${showFirstAuth ? `${compAuth} (${compAuthTitle}${showFirstAuthChamber && compAuthChamber ? ` - ${compAuthChamber}` : ''})` : ''}${showFirstAuth && showSecondAuth && compAuth2 ? ' / ' : ''}${showSecondAuth && compAuth2 ? `${compAuth2} (${compAuthTitle2}${showSecondAuthChamber && compAuthChamber2 ? ` - ${compAuthChamber2}` : ''})` : ''}<br>` : ''}
     ${showBank && compBank && compIban ? `Resmî Hesap: ${compBank} - IBAN: ${compIban}<br>` : ''}
-    <strong>2. İŞ SAHİBİ / KAT MALİKLERİ:</strong> Ek-1 Hak Sahipleri Listesinde isim ve TC kimlikleri bulunan taşınmaz malikleri.</p>
+    <strong>2. İŞ SAHİBİ / KAT MALİKLERİ:</strong> Ek-1 Hak Sahipleri Listesinde isim, TC kimlik ve arsa payı bilgileri bulunan taşınmaz malikleri.</p>
     
     <h4>MADDE 2: SÖZLEŞME KONUSU VE GAYRİMENKUL</h4>
     <p>Tapuda <strong>${params.projectAddress || 'Belirtilen Adres'}</strong> adresinde kayıtlı taşınmazın yıkılarak yerine taban oturumu <strong>${res.baseArea} m²</strong>, toplam brüt inşaat alanı <strong>${res.totalArea} m²</strong> olan ve toplam <strong>${res.flatCount} adet bağımsız bölümden</strong> oluşan yeni binanın yapılmasıdır.</p>
   </div>
 
   <div class="avoid-break">
-    <h3>BÖLÜM II: MALİ HÜKÜMLER VE HAKEDİŞLER</h3>
+    <h3>BÖLÜM II: MALİ HÜKÜMLER VE HAKEDİŞ MUDAT DÜZENLEMELERİ</h3>
     <h4>MADDE 3: PROJE İMALAT BEDELİ</h4>
-    <p>Birim imalat fiyatı <strong>${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>, toplam bedel <strong>${res.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong> olarak belirlenmiştir.</p>
+    <p>Birim imalat fiyatı <strong>${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>, toplam proje yapım bedeli <strong>${res.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong> olarak belirlenmiştir.</p>
     ${params.paymentPlanType === 'installments' ? `
     <h4>MADDE 4: AYLIK EŞİT TAKSİTLİ ÖDEME PLANI VE VADE ESASLARI</h4>
     <p>Maliklerin peşinat ve kentsel dönüşüm destekleri düşüldükten sonra kalan net borç tutarları toplam <strong>${params.installmentCount || 12} eşit aylık taksite</strong> bölünmüştür. Taksitler her ayın ilk 5 iş günü içerisinde yüklenici firma banka hesabına ödenecektir.</p>
@@ -708,21 +715,50 @@ export function generateContractHtml(
       <li>2. Hakediş (%${params.stage2Pay}): Hafriyat ve radye temel / subasman seviyesi betonarme vizesi.</li>
       <li>3. Hakediş (%${params.stage3Pay}): Kaba inşaat ve tuğla duvarların tamamlanması.</li>
       <li>4. Hakediş (%${params.stage4Pay}): İnce inşaat, tesisatlar ve cephe mantolama (Varsa kentsel dönüşüm kredi/hibe aktarımı bu aşamada gerçekleşir).</li>
-      <li>5. Hakediş (%${params.stage5Pay}): İskân belgesinin alınması ve anahtar teslimi.</li>
+      <li>5. Hakediş (%${params.stage5Pay}): İskân belgesinin alınıp bağımsız bölümlerin fiilen anahtar teslimi.</li>
     </ul>
     `}
+    <h4>MADDE 5: HAKEDİŞ VE YAPI DENETİM VİZELERİ</h4>
+    <p>Hakediş ödemelerinin serbest bırakılmasında T.C. Çevre, Şehircilik ve İklim Değişikliği Bakanlığı onaylı Yapı Denetim Firması hakediş seviye raporları ile ilgili belediyenin betonarme ve donatı vize tutanakları esas alınır.</p>
   </div>
 
   <div class="avoid-break">
-    <h3>BÖLÜM III: SÜRE, İŞ GÜVENLİĞİ VE GARANTİLER (TBK m. 478)</h3>
-    <p>Proje ve inşaat süresi <strong>${res.finalMonths} Ay</strong> olarak kararlaştırılmıştır. Taşıyıcı betonarme sistemde 20 Yıl, ince işçilikte 5 Yıl, mekanik/asansör donatılarında 2 Yıl garanti geçerlidir.</p>
+    <h3>BÖLÜM III: SÜRE, İŞ GÜVENLİĞİ, GECİKME TAZMİNATI VE GARANTİLER (TBK m. 478)</h3>
+    <h4>MADDE 6: TESLİM SÜRESİ VE GECİKME TAZMİNATI (CEZAİ ŞART)</h4>
+    <p>Proje ve inşaat teslim süresi, inşaat ruhsatının alındığı tarihten itibaren <strong>${res.finalMonths} Ay</strong> olarak kararlaştırılmıştır. İnşaatın taahhüt edilen sürede teslim edilmemesi halinde Yüklenici, gecikilen her ay için her bir bağımsız bölüm başına bölgedeki emsal rayiç kira bedeli tutarında gecikme tazminatını Arsa Sahiplerine ödemeyi kabul ve taahhüt eder.</p>
+
+    <h4>MADDE 7: MÜCBİR SEBEPLER VE SÜRE UZATIMI</h4>
+    <p>Deprem, sel, salgın gibi doğal afetler ile T.C. Belediyeleri ve resmî kurumlar nezdinde yürütülen ruhsat/imar planı askı ve itiraz süreçleri, imar planı değişiklikleri ve idari durdurmalar mücbir sebep kabul edilir. Mücbir sebep hallerinde geçen süreler inşaat teslim süresine ilave edilir.</p>
+
+    <h4>MADDE 8: YAPI GARANTİLERİ VE TEKNİK SORUMLULUK (TBK m. 478)</h4>
+    <p>Taşıyıcı betonarme sistemde <strong>20 Yıl</strong>, ince işçilik ve su/ısı yalıtımında <strong>5 Yıl</strong>, mekanik/asansör ve elektronik donatılarda <strong>2 Yıl</strong> garanti geçerlidir.</p>
+
+    <h4>MADDE 9: KAT İRTİFAKI VE MÜLKİYET DEVRİ</h4>
+    <p>Kat irtifakı ve kat mülkiyeti kurulması işlemleri Yüklenici tarafından takip edilir, mevzuat harç ve masrafları taraflarca anlaşılan usulde karşılanır.</p>
+
+    <h4>MADDE 10: UYUŞMAZLIKLARIN ÇÖZÜMÜ</h4>
+    <p>İşbu sözleşmeden doğacak tüm uyuşmazlıklarda <strong>${params.projectAddress?.split('/')[0] || 'Yerel'} Mahkemeleri ve İcra Daireleri</strong> yetkilidir.</p>
+    ${params.customContractNotes ? `
+    <h4>MADDE 11: İLAVE ÖZEL ŞARTLAR VE HÜKÜMLER</h4>
+    <p style="white-space:pre-wrap;background:#f8fafc;padding:8px 10px;border-left:3px solid #0f172a;font-family:monospace;font-size:10px;color:#1e293b;">${params.customContractNotes}</p>
+    ` : ''}
   </div>
 
   <div class="avoid-break">
     <h3>BÖLÜM IV: EK-1 HAK SAHİPLERİ VE BAĞIMSIZ BÖLÜM DAĞILIMI</h3>
     <table>
       <thead>
-        <tr><th>Daire No</th><th>Hak Sahibi</th><th>T.C. No</th><th>Alan</th><th>Toplam Bedel</th><th>Peşinat</th><th>Kalan Borç</th></tr>
+        <tr>
+          <th>Daire No</th>
+          <th>Hak Sahibi</th>
+          <th>T.C. No</th>
+          <th>Arsa Payı</th>
+          <th>Alan</th>
+          <th>Toplam Bedel</th>
+          <th>Peşinat</th>
+          <th>Kalan Borç</th>
+          <th style="text-align:center;">İmza</th>
+        </tr>
       </thead>
       <tbody>${flatRows}</tbody>
     </table>

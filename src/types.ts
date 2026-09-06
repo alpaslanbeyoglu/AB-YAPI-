@@ -254,6 +254,9 @@ export interface ProjectParams {
   enableLandShareBalancing?: boolean; // Arsa Payı Mahsuplaşma ve Dengelemesini uygula
   totalLandShareDenominator?: number; // Toplam arsa payı paydası (örn: 240, 1000)
 
+  // Özel Sözleşme Notları & İlave Maddeler
+  customContractNotes?: string;
+
   // Flats
   flats: FlatItem[];
 }
