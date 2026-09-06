@@ -181,7 +181,12 @@ export interface ProjectParams {
   // Kaba insaat
   priceConcrete: number;
   priceSteel: number;
-  costKabaWork: number;
+  costKabaWork: number; // Toplam kaba işçilik / kalıp-demir-duvar referansı
+  priceSteelLabor?: number; // Demir bağlama ve montaj işçiliği (₺/Ton)
+  priceBrickMaterial?: number; // Tuğla / Bims / Gazbeton duvar malzemesi (₺/m²)
+  priceBrickLabor?: number; // Tuğla / Duvar örme işçiliği (₺/m²)
+  priceFormworkLabor?: number; // Kalıp, iskele ve beton döküm işçiliği (₺/m²)
+  priceExcavation?: number; // Temel ve bodrum kazı / hafriyat (₺/m³)
 
   // Ince insaat
   costElevator: number;
@@ -271,9 +276,24 @@ export interface CalculationResult {
   grossUsdPerSqM: number;
   baseCostPerSqM: number;
 
-  // Material estimates
+  // Material estimates & Metraj
   concreteM3: number;
   steelTon: number;
+  brickM2?: number;
+  formworkM2?: number;
+  excavationM3?: number;
+
+  // Exact Labor vs Material breakdown
+  kabaLaborCost?: number;
+  kabaMaterialCost?: number;
+  fineLaborCost?: number;
+  fineMaterialCost?: number;
+  systemsLaborCost?: number;
+  systemsMaterialCost?: number;
+  officialLaborCost?: number;
+  officialMaterialCost?: number;
+  totalLaborCost?: number;
+  totalMaterialCost?: number;
 
   // Cash flow & flats
   cashFlowRows: CashFlowRow[];

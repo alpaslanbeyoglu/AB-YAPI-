@@ -52,29 +52,34 @@ export const DEFAULT_PARAMS: ProjectParams = {
   elevatorCount: 1,
 
   // Cost items
-  costNotaryContract: 35000,
-  costCompany: 45000,
-  priceProjectPermit: 550,
-  priceSgk: 420,
-  costInsurance: 30000,
-  costSalesMarketing: 25000,
+  costNotaryContract: 40000,
+  costCompany: 50000,
+  priceProjectPermit: 580,
+  priceSgk: 460,
+  costInsurance: 35000,
+  costSalesMarketing: 30000,
 
-  // Kaba
-  priceConcrete: 3950,
+  // Kaba insaat (2026 Güncel Piyasa & ÇŞİDB Rayiçleri)
+  priceConcrete: 3850,
   priceSteel: 36200,
+  priceSteelLabor: 4800,
+  priceBrickMaterial: 240,
+  priceBrickLabor: 420,
+  priceFormworkLabor: 1100,
+  priceExcavation: 320,
   costKabaWork: 2200,
 
-  // Ince
-  costElevator: 320000,
+  // Ince insaat & Sistemler
+  costElevator: 350000,
   priceSmartHome: 15000,
   costIntercom: 50000,
-  priceGas: 60000,
-  pricePlumbing: 70000,
-  priceElectric: 55000,
+  priceGas: 65000,
+  pricePlumbing: 75000,
+  priceElectric: 60000,
   pricePvc: 4800,
   priceTiles: 850,
-  priceKitchen: 125000,
-  priceDoors: 80000,
+  priceKitchen: 135000,
+  priceDoors: 85000,
   pricePaintPlaster: 520,
 
   includeProfitOwner: 'yes',
@@ -312,39 +317,75 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     totalDays = 0;
   }
 
-  // Cost items
+  // Cost items with boundary checks
+  const safeNotary = Math.max(0, params.costNotaryContract ?? 40000);
+  const safeCompany = Math.max(0, params.costCompany ?? 50000);
+  const safeProjectPermit = Math.max(0, params.priceProjectPermit ?? 580);
+  const safeSgk = Math.max(0, params.priceSgk ?? 460);
+  const safeInsurance = Math.max(0, params.costInsurance ?? 35000);
+  const safeSalesMarketing = Math.max(0, params.costSalesMarketing ?? 30000);
+
   const officialCost =
-    (params.costNotaryContract +
-      params.costCompany +
-      totalArea * params.priceProjectPermit) *
-    costMultiplier;
+    (safeNotary + safeCompany + totalArea * safeProjectPermit) * costMultiplier;
 
   const sgkSalesCost =
-    (totalArea * params.priceSgk +
-      params.costInsurance +
-      effectiveFlatCount * params.costSalesMarketing) *
-    costMultiplier;
+    (totalArea * safeSgk + safeInsurance + effectiveFlatCount * safeSalesMarketing) * costMultiplier;
 
-  const concreteM3 = Math.round(totalArea * 0.45 * 100) / 100;
-  const steelTon = Math.round(totalArea * 0.04 * 100) / 100;
+  // --- KABA İNŞAAT METRAJ & KALEMLERİ ---
+  const concreteM3 = Math.round(totalArea * 0.42 * 100) / 100;
+  const steelTon = Math.round(totalArea * 0.042 * 100) / 100;
+  const brickM2 = Math.round(totalArea * 0.75 * 100) / 100; // İç ve dış tuğla/gazbeton duvar metrajı
+  const formworkM2 = Math.round(totalArea * 2.65 * 100) / 100; // Kalıp yüzey alanı
+  const excavationM3 = Math.round(activeBaseArea * (Math.max(1, basementFloorsCount) * (params.floorHeight || 2.9) + 1.6) * 1.15 * 100) / 100;
 
-  const kabaTotalCost =
-    Math.round(
-      (concreteM3 * params.priceConcrete +
-        steelTon * params.priceSteel +
-        totalArea * params.costKabaWork) *
-      kabaTypeMult *
-      costMultiplier * 100
-    ) / 100;
+  const safePriceConcrete = Math.max(0, params.priceConcrete ?? 3850);
+  const safePriceSteel = Math.max(0, params.priceSteel ?? 36200);
+  const safePriceSteelLabor = Math.max(0, params.priceSteelLabor ?? 4800);
+  const safePriceBrickMat = Math.max(0, params.priceBrickMaterial ?? 240);
+  const safePriceBrickLab = Math.max(0, params.priceBrickLabor ?? 420);
+  const safePriceFormworkLab = Math.max(
+    0,
+    params.priceFormworkLabor ?? (params.costKabaWork ? params.costKabaWork * 0.50 : 1100)
+  );
+  const safePriceExcavation = Math.max(0, params.priceExcavation ?? 320);
 
-  const systemsCost =
-    Math.round(
-      (params.costElevator +
-        effectiveFlatCount * params.priceSmartHome +
-        params.costIntercom +
-        effectiveFlatCount * params.priceGas) *
-      costMultiplier * 100
-    ) / 100;
+  // Kaba İnşaat Malzeme Kalemleri
+  const costConcreteMat = concreteM3 * safePriceConcrete;
+  const costSteelMat = steelTon * safePriceSteel;
+  const costBrickMat = brickM2 * safePriceBrickMat;
+  const costExcavationMat = excavationM3 * safePriceExcavation * 0.4; // Akaryakıt, makine aşınma payı & döküm harcı
+
+  // Kaba İnşaat İşçilik Kalemleri
+  const costSteelLab = steelTon * safePriceSteelLabor;
+  const costBrickLab = brickM2 * safePriceBrickLab;
+  const costFormworkLab = totalArea * safePriceFormworkLab;
+  const costExcavationLab = excavationM3 * safePriceExcavation * 0.6; // Ekskavatör operatör & kamyon şoför işçiliği
+
+  const kabaMaterialCost =
+    Math.round((costConcreteMat + costSteelMat + costBrickMat + costExcavationMat) * kabaTypeMult * costMultiplier * 100) / 100;
+  const kabaLaborCost =
+    Math.round((costSteelLab + costBrickLab + costFormworkLab + costExcavationLab) * kabaTypeMult * costMultiplier * 100) / 100;
+  const kabaTotalCost = Math.round((kabaMaterialCost + kabaLaborCost) * 100) / 100;
+
+  // --- SİSTEMLER & MEKANİK ---
+  const safeCostElevator = Math.max(0, params.costElevator ?? 350000);
+  const safePriceSmartHome = Math.max(0, params.priceSmartHome ?? 15000);
+  const safeCostIntercom = Math.max(0, params.costIntercom ?? 50000);
+  const safePriceGas = Math.max(0, params.priceGas ?? 65000);
+
+  const costElevatorTotal = safeCostElevator * (params.elevatorCount || 1);
+  const costSmartHomeTotal = effectiveFlatCount * safePriceSmartHome;
+  const costIntercomTotal = safeCostIntercom;
+  const costGasTotal = effectiveFlatCount * safePriceGas;
+
+  const systemsRawTotal = costElevatorTotal + costSmartHomeTotal + costIntercomTotal + costGasTotal;
+  const systemsCost = Math.round(systemsRawTotal * costMultiplier * 100) / 100;
+  const systemsLaborCost = Math.round(
+    (costElevatorTotal * 0.20 + costSmartHomeTotal * 0.15 + costIntercomTotal * 0.20 + costGasTotal * 0.30) *
+      costMultiplier *
+      100
+  ) / 100;
+  const systemsMaterialCost = Math.round((systemsCost - systemsLaborCost) * 100) / 100;
 
   // Compute blind vs open facade ratio for PVC and paint/plaster takeoff adjustments
   let activeOpenFacadeRatio = 1.0;
@@ -361,18 +402,49 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const pvcAreaFactor = 0.18 * activeOpenFacadeRatio;
   const paintPlasterAreaFactor = 2.8 + 0.18 * (1 - activeOpenFacadeRatio);
 
-  const finishingTotalCost =
-    Math.round(
-      (effectiveFlatCount * params.pricePlumbing +
-        effectiveFlatCount * params.priceElectric +
-        totalArea * pvcAreaFactor * params.pricePvc +
-        totalArea * params.priceTiles +
-        effectiveFlatCount * params.priceKitchen +
-        effectiveFlatCount * params.priceDoors +
-        totalArea * paintPlasterAreaFactor * params.pricePaintPlaster) *
+  // --- İNCE İNŞAAT ---
+  const safePricePlumbing = Math.max(0, params.pricePlumbing ?? 75000);
+  const safePriceElectric = Math.max(0, params.priceElectric ?? 60000);
+  const safePricePvc = Math.max(0, params.pricePvc ?? 4800);
+  const safePriceTiles = Math.max(0, params.priceTiles ?? 850);
+  const safePriceKitchen = Math.max(0, params.priceKitchen ?? 135000);
+  const safePriceDoors = Math.max(0, params.priceDoors ?? 85000);
+  const safePricePaintPlaster = Math.max(0, params.pricePaintPlaster ?? 520);
+
+  const costPlumbing = effectiveFlatCount * safePricePlumbing;
+  const costElectric = effectiveFlatCount * safePriceElectric;
+  const costPvc = totalArea * pvcAreaFactor * safePricePvc;
+  const costTiles = totalArea * safePriceTiles;
+  const costKitchen = effectiveFlatCount * safePriceKitchen;
+  const costDoors = effectiveFlatCount * safePriceDoors;
+  const costPaintPlaster = totalArea * paintPlasterAreaFactor * safePricePaintPlaster;
+
+  const finishingRawTotal =
+    costPlumbing + costElectric + costPvc + costTiles + costKitchen + costDoors + costPaintPlaster;
+  const finishingTotalCost = Math.round(finishingRawTotal * inceTypeMult * costMultiplier * 100) / 100;
+
+  const fineLaborCost = Math.round(
+    (costPlumbing * 0.45 +
+      costElectric * 0.45 +
+      costPvc * 0.25 +
+      costTiles * 0.50 +
+      costKitchen * 0.20 +
+      costDoors * 0.20 +
+      costPaintPlaster * 0.70) *
       inceTypeMult *
-      costMultiplier * 100
-    ) / 100;
+      costMultiplier *
+      100
+  ) / 100;
+  const fineMaterialCost = Math.round((finishingTotalCost - fineLaborCost) * 100) / 100;
+
+  // --- RESMİ & İDARİ ---
+  const officialCombinedCost = officialCost + sgkSalesCost;
+  const officialLaborCost = Math.round((totalArea * safeSgk * costMultiplier + safeSalesMarketing * effectiveFlatCount * 0.5 * costMultiplier) * 100) / 100;
+  const officialMaterialCost = Math.round((officialCombinedCost - officialLaborCost) * 100) / 100;
+
+  // Genel Malzeme vs İşçilik Toplamları
+  const totalLaborCost = Math.round((kabaLaborCost + fineLaborCost + systemsLaborCost + officialLaborCost) * 100) / 100;
+  const totalMaterialCost = Math.round((kabaMaterialCost + fineMaterialCost + systemsMaterialCost + officialMaterialCost) * 100) / 100;
 
   const subTotalCost =
     Math.round(
@@ -488,11 +560,6 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     .filter((f) => !f.isContractorShare)
     .reduce((sum, f) => sum + f.monthlyInstallment, 0);
 
-  const totalMaterialCost =
-    (concreteM3 * params.priceConcrete + steelTon * params.priceSteel) *
-    costMultiplier;
-  const totalLaborCost = Math.max(0, subTotalCost - totalMaterialCost);
-
   const stagesMeta = [
     { name: '1. Aşama: Sözleşme İmzası / Peşinat', matMult: 0.1, labMult: 0.05 },
     { name: '2. Aşama: Subasman / Temel Seviyesi', matMult: 0.25, labMult: 0.2 },
@@ -552,6 +619,19 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     baseCostPerSqM,
     concreteM3,
     steelTon,
+    brickM2,
+    formworkM2,
+    excavationM3,
+    kabaLaborCost,
+    kabaMaterialCost,
+    fineLaborCost,
+    fineMaterialCost,
+    systemsLaborCost,
+    systemsMaterialCost,
+    officialLaborCost,
+    officialMaterialCost,
+    totalLaborCost,
+    totalMaterialCost,
     cashFlowRows,
     flatResults,
     calculatedAt: new Date().toLocaleDateString('tr-TR'),
