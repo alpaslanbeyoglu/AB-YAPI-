@@ -100,6 +100,88 @@ function createShapeFromPolygon(pts: Array<{ x: number; y: number }>, centerX: n
   return shape;
 }
 
+function pointToSegmentDistance(x: number, y: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-6) {
+    return Math.sqrt((x - x1) * (x - x1) + (y - y1) * (y - y1));
+  }
+  let t = ((x - x1) * dx + (y - y1) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const projX = x1 + t * dx;
+  const projY = y1 + t * dy;
+  return Math.sqrt((x - projX) * (x - projX) + (y - projY) * (y - projY));
+}
+
+function isPointInsideFootprint(
+  x: number, z: number,
+  isCustomPoly: boolean,
+  activePolyPts: any[] | null,
+  bounds: any,
+  W: number, D: number, floorCenterZ: number,
+  margin: number = 0.4
+): boolean {
+  if (isCustomPoly && activePolyPts && bounds) {
+    const gx = x + bounds.centerX;
+    const gy = z + bounds.centerY;
+    
+    if (!isPointInPolygon(gx, gy, activePolyPts)) {
+      return false;
+    }
+    
+    const nPts = activePolyPts.length;
+    for (let i = 0; i < nPts; i++) {
+      const p1 = activePolyPts[i];
+      const p2 = activePolyPts[(i + 1) % nPts];
+      const dist = pointToSegmentDistance(gx, gy, p1.x, p1.y, p2.x, p2.y);
+      if (dist < margin) {
+        return false;
+      }
+    }
+    return true;
+  } else {
+    const minX = -W / 2 + margin;
+    const maxX = W / 2 - margin;
+    const minZ = floorCenterZ - D / 2 + margin;
+    const maxZ = floorCenterZ + D / 2 - margin;
+    return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
+  }
+}
+
+function getSafePoint(
+  tx: number, tz: number, 
+  cx: number, cz: number, 
+  isCustomPoly: boolean, 
+  activePolyPts: any[] | null, 
+  bounds: any, 
+  W: number, D: number, floorCenterZ: number,
+  margin: number = 0.4
+): { x: number; z: number } {
+  if (isPointInsideFootprint(tx, tz, isCustomPoly, activePolyPts, bounds, W, D, floorCenterZ, margin)) {
+    return { x: tx, z: tz };
+  }
+  
+  let low = 0.0;
+  let high = 1.0;
+  let bestX = cx;
+  let bestZ = cz;
+  
+  for (let iter = 0; iter < 12; iter++) {
+    const mid = (low + high) / 2;
+    const px = cx + (tx - cx) * mid;
+    const pz = cz + (tz - cz) * mid;
+    if (isPointInsideFootprint(px, pz, isCustomPoly, activePolyPts, bounds, W, D, floorCenterZ, margin)) {
+      bestX = px;
+      bestZ = pz;
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+  return { x: bestX, z: bestZ };
+}
+
 function createRectangularHipRoofGeometry(
   W: number,
   D: number,
@@ -866,22 +948,69 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // 3. CORE: STAIRCASE & ELEVATOR SHAFT (Merdiven ve Asansör Çekirdeği)
       let coreCenterX = 0;
       let coreCenterZ = 0;
+      const bounds = isCustomPoly && activePolyPts ? getPolygonBounds(activePolyPts) : null;
 
-      if (isCustomPoly && activePolyPts) {
+      if (isCustomPoly && activePolyPts && bounds) {
         const centroid = getPolygonCentroid(activePolyPts);
-        const bounds = getPolygonBounds(activePolyPts);
         if (isPointInPolygon(centroid.x, centroid.y, activePolyPts)) {
           coreCenterX = centroid.x - bounds.centerX;
           coreCenterZ = centroid.y - bounds.centerY;
         }
       }
 
-      const stairX = coreCenterX - sW / 2;
-      const elevatorX = coreCenterX + sW / 2 + eW / 2;
-      const coreZ = coreCenterZ;
+      // Shift core and scale dynamically to NEVER overflow building footprint limits!
+      let safeCoreCenterX = coreCenterX;
+      let safeCoreCenterZ = coreCenterZ;
+      let safeSW = sW;
+      let safeSD = sD;
+      let safeEW = eW;
+      let safeED = eD;
+      let safeHallDist = 1.2;
+
+      const minSW = 1.5;
+      const minSD = 3.2;
+      const minEW = 1.0;
+      const minED = 1.0;
+      const minHall = 0.8;
+
+      const buildingCentroidX = isCustomPoly && activePolyPts && bounds ? (getPolygonCentroid(activePolyPts).x - bounds.centerX) : 0;
+      const buildingCentroidZ = isCustomPoly && activePolyPts && bounds ? (getPolygonCentroid(activePolyPts).y - bounds.centerY) : floorCenterZ;
+
+      // Iteratively shrink core and shift towards building centroid if it overflows
+      for (let scaleIter = 0; scaleIter < 12; scaleIter++) {
+        const minX = safeCoreCenterX - safeSW - 0.4;
+        const maxX = safeCoreCenterX + safeSW / 2 + safeEW + 0.4;
+        const minZ = safeCoreCenterZ - Math.max(safeSD, safeED) / 2 - safeHallDist;
+        const maxZ = safeCoreCenterZ + Math.max(safeSD, safeED) / 2 + safeHallDist;
+
+        // Check 4 corners of bounds
+        const c1 = isPointInsideFootprint(minX, minZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterZ, 0.22);
+        const c2 = isPointInsideFootprint(maxX, minZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterZ, 0.22);
+        const c3 = isPointInsideFootprint(minX, maxZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterZ, 0.22);
+        const c4 = isPointInsideFootprint(maxX, maxZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterZ, 0.22);
+
+        if (c1 && c2 && c3 && c4) {
+          break; // Fitting perfectly!
+        }
+
+        // Shift towards safe centroid
+        safeCoreCenterX = safeCoreCenterX * 0.75 + buildingCentroidX * 0.25;
+        safeCoreCenterZ = safeCoreCenterZ * 0.75 + buildingCentroidZ * 0.25;
+
+        // Shrink dimensions safely
+        safeSW = Math.max(minSW, safeSW * 0.9);
+        safeSD = Math.max(minSD, safeSD * 0.9);
+        safeEW = Math.max(minEW, safeEW * 0.9);
+        safeED = Math.max(minED, safeED * 0.9);
+        safeHallDist = Math.max(minHall, safeHallDist * 0.9);
+      }
+
+      const stairX = safeCoreCenterX - safeSW / 2;
+      const elevatorX = safeCoreCenterX + safeSW / 2 + safeEW / 2;
+      const coreZ = safeCoreCenterZ;
 
       // Staircase shaft volume
-      const stairGeo = safeBox(sW, roomHeight, sD);
+      const stairGeo = safeBox(safeSW, roomHeight, safeSD);
       const stairMesh = new THREE.Mesh(stairGeo, stairCoreMaterial);
       stairMesh.position.set(stairX, midY, coreZ);
       stairMesh.castShadow = true;
@@ -890,12 +1019,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // Add miniature stair steps inside the staircase
       const stepCount = 8;
       const stepHeight = roomHeight / stepCount;
-      const stepGeo = safeBox(sW * 0.45, stepHeight * 0.85, sD * 0.18);
+      const stepGeo = safeBox(safeSW * 0.45, stepHeight * 0.85, safeSD * 0.18);
       for (let s = 0; s < stepCount; s++) {
         const stepMesh = new THREE.Mesh(stepGeo, slabMaterial);
-        const stepZ = coreZ - sD / 3 + (s / stepCount) * (sD * 0.7);
+        const stepZ = coreZ - safeSD / 3 + (s / stepCount) * (safeSD * 0.7);
         stepMesh.position.set(
-          s < stepCount / 2 ? stairX - sW * 0.22 : stairX + sW * 0.22,
+          s < stepCount / 2 ? stairX - safeSW * 0.22 : stairX + safeSW * 0.22,
           baseY + slabThickness + (s + 0.5) * stepHeight,
           stepZ
         );
@@ -903,14 +1032,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       }
 
       // Elevator shaft volume
-      const elevatorGeo = safeBox(eW, roomHeight, eD);
+      const elevatorGeo = safeBox(safeEW, roomHeight, safeED);
       const elevatorMesh = new THREE.Mesh(elevatorGeo, elevatorCoreMaterial);
       elevatorMesh.position.set(elevatorX, midY, coreZ);
       elevatorMesh.castShadow = true;
       floorGroup.add(elevatorMesh);
 
       // Elevator cabin inside
-      const cabinGeo = safeBox(eW * 0.75, roomHeight * 0.7, eD * 0.75);
+      const cabinGeo = safeBox(safeEW * 0.75, roomHeight * 0.7, safeED * 0.75);
       const cabinMat = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         metalness: 0.8,
@@ -1026,19 +1155,29 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           hasDoor: boolean = false,
           doorOffset: number = 0
         ) => {
-          if (isCustomPoly && activePolyPts) {
-            const bounds = getPolygonBounds(activePolyPts);
-            if (!isPointInPolygon(centerX + bounds.centerX, centerZ + bounds.centerY, activePolyPts)) {
-              return;
-            }
+          let x1 = isAlongX ? (centerX - length / 2) : centerX;
+          let z1 = isAlongX ? centerZ : (centerZ - length / 2);
+          let x2 = isAlongX ? (centerX + length / 2) : centerX;
+          let z2 = isAlongX ? centerZ : (centerZ + length / 2);
+
+          const p1Safe = getSafePoint(x1, z1, buildingCentroidX, buildingCentroidZ, isCustomPoly, activePolyPts, bounds, W, D, floorCenterZ, 0.22);
+          const p2Safe = getSafePoint(x2, z2, buildingCentroidX, buildingCentroidZ, isCustomPoly, activePolyPts, bounds, W, D, floorCenterZ, 0.22);
+
+          // Re-calculate actual safe length and center
+          const newCenterX = (p1Safe.x + p2Safe.x) / 2;
+          const newCenterZ = (p1Safe.z + p2Safe.z) / 2;
+          const newLength = Math.sqrt((p1Safe.x - p2Safe.x) ** 2 + (p1Safe.z - p2Safe.z) ** 2);
+
+          if (newLength < 0.2) {
+            return; // Too small/outside to render
           }
 
           if (!hasDoor) {
             const wGeo = isAlongX
-              ? safeBox(length, intWallH, intWallThick)
-              : safeBox(intWallThick, intWallH, length);
+              ? safeBox(newLength, intWallH, intWallThick)
+              : safeBox(intWallThick, intWallH, newLength);
             const wMesh = new THREE.Mesh(wGeo, interiorWallMat);
-            wMesh.position.set(centerX, midY, centerZ);
+            wMesh.position.set(newCenterX, midY, newCenterZ);
             wMesh.castShadow = true;
             wMesh.receiveShadow = true;
             floorGroup.add(wMesh);
@@ -1048,19 +1187,19 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           // Wall with 0.9m wide x 2.1m high doorway
           const doorW = 0.9;
           const doorH = Math.min(2.1, intWallH * 0.85);
-          const leftLen = Math.max(0.2, (length - doorW) / 2 + doorOffset);
-          const rightLen = Math.max(0.2, length - doorW - leftLen);
+          const leftLen = Math.max(0.2, (newLength - doorW) / 2 + doorOffset);
+          const rightLen = Math.max(0.2, newLength - doorW - leftLen);
 
           // Left wall chunk
           if (isAlongX) {
             const leftGeo = safeBox(leftLen, intWallH, intWallThick);
             const leftM = new THREE.Mesh(leftGeo, interiorWallMat);
-            leftM.position.set(centerX - length / 2 + leftLen / 2, midY, centerZ);
+            leftM.position.set(newCenterX - newLength / 2 + leftLen / 2, midY, newCenterZ);
             floorGroup.add(leftM);
 
             const rightGeo = safeBox(rightLen, intWallH, intWallThick);
             const rightM = new THREE.Mesh(rightGeo, interiorWallMat);
-            rightM.position.set(centerX + length / 2 - rightLen / 2, midY, centerZ);
+            rightM.position.set(newCenterX + newLength / 2 - rightLen / 2, midY, newCenterZ);
             floorGroup.add(rightM);
 
             // Lintel over door
@@ -1069,21 +1208,21 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               const lintelGeo = safeBox(doorW, lintelH, intWallThick);
               const lintelM = new THREE.Mesh(lintelGeo, interiorWallMat);
               lintelM.position.set(
-                centerX - length / 2 + leftLen + doorW / 2,
+                newCenterX - newLength / 2 + leftLen + doorW / 2,
                 baseY + slabThickness + doorH + lintelH / 2,
-                centerZ
+                newCenterZ
               );
               floorGroup.add(lintelM);
             }
           } else {
             const leftGeo = safeBox(intWallThick, intWallH, leftLen);
             const leftM = new THREE.Mesh(leftGeo, interiorWallMat);
-            leftM.position.set(centerX, midY, centerZ - length / 2 + leftLen / 2);
+            leftM.position.set(newCenterX, midY, newCenterZ - newLength / 2 + leftLen / 2);
             floorGroup.add(leftM);
 
             const rightGeo = safeBox(intWallThick, intWallH, rightLen);
             const rightM = new THREE.Mesh(rightGeo, interiorWallMat);
-            rightM.position.set(centerX, midY, centerZ + length / 2 - rightLen / 2);
+            rightM.position.set(newCenterX, midY, newCenterZ + newLength / 2 - rightLen / 2);
             floorGroup.add(rightM);
 
             const lintelH = intWallH - doorH;
@@ -1091,9 +1230,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               const lintelGeo = safeBox(intWallThick, lintelH, doorW);
               const lintelM = new THREE.Mesh(lintelGeo, interiorWallMat);
               lintelM.position.set(
-                centerX,
+                newCenterX,
                 baseY + slabThickness + doorH + lintelH / 2,
-                centerZ - length / 2 + leftLen + doorW / 2
+                newCenterZ - newLength / 2 + leftLen + doorW / 2
               );
               floorGroup.add(lintelM);
             }
@@ -1101,9 +1240,108 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         };
 
         // Layout the apartments dynamically based on flatsPerFloor:
-        const coreHallDistZ = sD / 2 + 1.2;
+        const coreHallDistZ = safeSD / 2 + safeHallDist;
+        const isGroundFloor = floorIndex === 0;
 
-        if (flatsPerFloor === 1) {
+        if (isGroundFloor && !isShopFloor) {
+          // ================= LOBBY & GROUND FLOOR ENTRANCE (Giriş Holü, Rüzgarlık, Posta Kutuları) =================
+          const mainEntranceIdx = params.mainEntranceFacadeIndex || 0;
+          
+          const lobbyFloorMat = new THREE.MeshStandardMaterial({
+            color: 0xf1f5f9,
+            roughness: 0.1,
+            metalness: 0.1,
+          });
+
+          // Width of the lobby path
+          const lobbyW = 3.0;
+
+          if (mainEntranceIdx === 0) {
+            // FRONT FACADE ENTRANCE
+            const pathStartZ = safeCoreCenterZ + safeSD / 2;
+            const pathEndZ = floorCenterZ + D / 2;
+            const pathLength = Math.max(1.0, pathEndZ - pathStartZ);
+            const pathCenterZ = pathStartZ + pathLength / 2;
+
+            if (!isCustomPoly) {
+              const lobbyFloor = new THREE.Mesh(safeBox(lobbyW, 0.02, pathLength), lobbyFloorMat);
+              lobbyFloor.position.set(safeCoreCenterX, floorFinishY, pathCenterZ);
+              lobbyFloor.receiveShadow = true;
+              floorGroup.add(lobbyFloor);
+            }
+
+            createWallWithDoor(pathLength, false, safeCoreCenterX - lobbyW / 2, pathCenterZ, true, 0);
+            createWallWithDoor(pathLength, false, safeCoreCenterX + lobbyW / 2, pathCenterZ, true, 0);
+
+            // Add mailboxes (posta kutuları)
+            const mbGeo = safeBox(0.2, 1.2, 1.8);
+            const mbMesh = new THREE.Mesh(mbGeo, woodFurnitureMat);
+            mbMesh.position.set(safeCoreCenterX - lobbyW / 2 + 0.1, baseY + slabThickness + 0.9, pathCenterZ);
+            floorGroup.add(mbMesh);
+
+          } else if (mainEntranceIdx === 2) {
+            // BACK FACADE ENTRANCE
+            const pathStartZ = floorCenterZ - D / 2;
+            const pathEndZ = safeCoreCenterZ - safeSD / 2;
+            const pathLength = Math.max(1.0, pathEndZ - pathStartZ);
+            const pathCenterZ = pathStartZ + pathLength / 2;
+
+            if (!isCustomPoly) {
+              const lobbyFloor = new THREE.Mesh(safeBox(lobbyW, 0.02, pathLength), lobbyFloorMat);
+              lobbyFloor.position.set(safeCoreCenterX, floorFinishY, pathCenterZ);
+              lobbyFloor.receiveShadow = true;
+              floorGroup.add(lobbyFloor);
+            }
+
+            createWallWithDoor(pathLength, false, safeCoreCenterX - lobbyW / 2, pathCenterZ, true, 0);
+            createWallWithDoor(pathLength, false, safeCoreCenterX + lobbyW / 2, pathCenterZ, true, 0);
+
+            // Add mailboxes
+            const mbGeo = safeBox(0.2, 1.2, 1.8);
+            const mbMesh = new THREE.Mesh(mbGeo, woodFurnitureMat);
+            mbMesh.position.set(safeCoreCenterX - lobbyW / 2 + 0.1, baseY + slabThickness + 0.9, pathCenterZ);
+            floorGroup.add(mbMesh);
+
+          } else if (mainEntranceIdx === 1) {
+            // RIGHT FACADE ENTRANCE
+            const pathStartX = safeCoreCenterX + safeSW / 2 + safeEW;
+            const pathEndX = W / 2;
+            const pathLength = Math.max(1.0, pathEndX - pathStartX);
+            const pathCenterX = pathStartX + pathLength / 2;
+
+            if (!isCustomPoly) {
+              const lobbyFloor = new THREE.Mesh(safeBox(pathLength, 0.02, lobbyW), lobbyFloorMat);
+              lobbyFloor.position.set(pathCenterX, floorFinishY, safeCoreCenterZ);
+              lobbyFloor.receiveShadow = true;
+              floorGroup.add(lobbyFloor);
+            }
+
+            createWallWithDoor(pathLength, true, pathCenterX, safeCoreCenterZ - lobbyW / 2, true, 0);
+            createWallWithDoor(pathLength, true, pathCenterX, safeCoreCenterZ + lobbyW / 2, true, 0);
+
+          } else if (mainEntranceIdx === 3) {
+            // LEFT FACADE ENTRANCE
+            const pathStartX = -W / 2;
+            const pathEndX = safeCoreCenterX - safeSW / 2;
+            const pathLength = Math.max(1.0, pathEndX - pathStartX);
+            const pathCenterX = pathStartX + pathLength / 2;
+
+            if (!isCustomPoly) {
+              const lobbyFloor = new THREE.Mesh(safeBox(pathLength, 0.02, lobbyW), lobbyFloorMat);
+              lobbyFloor.position.set(pathCenterX, floorFinishY, safeCoreCenterZ);
+              lobbyFloor.receiveShadow = true;
+              floorGroup.add(lobbyFloor);
+            }
+
+            createWallWithDoor(pathLength, true, pathCenterX, safeCoreCenterZ - lobbyW / 2, true, 0);
+            createWallWithDoor(pathLength, true, pathCenterX, safeCoreCenterZ + lobbyW / 2, true, 0);
+          }
+
+          // Connecting general circulation walls (kat holü) so everything is enclosed properly
+          createWallWithDoor(W * 0.85, true, safeCoreCenterX, safeCoreCenterZ + coreHallDistZ, true, 0);
+          createWallWithDoor(W * 0.85, true, safeCoreCenterX, safeCoreCenterZ - coreHallDistZ, true, 0);
+
+        } else if (flatsPerFloor === 1) {
           // ================= SINGLE FLAT (Tam Kat Lüks Rezidans) =================
           createWallWithDoor(W * 0.85, true, 0, coreHallDistZ, true, 0);
           createWallWithDoor(W * 0.85, true, 0, -coreHallDistZ, true, 0);
@@ -1411,15 +1649,24 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
             const cfg = activeFacadeConfigs[idx] || {
               isEntrance: idx === (params.mainEntranceFacadeIndex || 0),
+              windowCountPerFloor: 2,
             };
             const isEntrance = cfg.isEntrance || idx === (params.mainEntranceFacadeIndex || 0);
+            const isBlind = (cfg as any).windowCountPerFloor === 0;
 
             const wallGroup = new THREE.Group();
             wallGroup.position.set(wallCenterX, 0, wallCenterZ);
             wallGroup.rotation.y = rotationY;
             floorGroup.add(wallGroup);
 
-            if (isEntrance) {
+            if (isBlind) {
+              // Completely SOLID wall for blind facades!
+              const solidShopWall = new THREE.Mesh(safeBox(length, roomHeight, wallThick), wallMaterial);
+              solidShopWall.position.set(0, midY, 0);
+              solidShopWall.castShadow = !isXRay;
+              wallGroup.add(solidShopWall);
+            } else {
+              // Beautiful Glass Storefront Vitrine with Fascia
               const vitrineHeight = roomHeight - 0.75;
               const fasciaHeight = 0.75;
 
@@ -1430,26 +1677,27 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               fasciaMesh.castShadow = true;
               wallGroup.add(fasciaMesh);
 
-              const signBarGeo = safeBox(Math.min(length * 0.7, 4.0), 0.35, 0.02);
-              const signBarMesh = new THREE.Mesh(signBarGeo, shopSignGlowMat);
-              signBarMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, wallThick / 2 + 0.01);
-              wallGroup.add(signBarMesh);
+              if (isEntrance) {
+                const signBarGeo = safeBox(Math.min(length * 0.7, 4.0), 0.35, 0.02);
+                const signBarMesh = new THREE.Mesh(signBarGeo, shopSignGlowMat);
+                signBarMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, 0); // flush
+                wallGroup.add(signBarMesh);
 
-              // Glass Canopy over entrance (Removed/Disabled to prevent any overflow beyond outer walls)
-              const canopyDepth = 0.01;
-              const canopyGeo = safeBox(Math.min(length * 0.8, 3.2), 0.05, canopyDepth);
-              const canopyMesh = new THREE.Mesh(canopyGeo, frameMaterial);
-              canopyMesh.position.set(0, baseY + slabThickness + vitrineHeight + 0.05, wallThick / 2 + canopyDepth / 2);
-              canopyMesh.castShadow = true;
-              wallGroup.add(canopyMesh);
+                const canopyDepth = 0.1;
+                const canopyGeo = safeBox(Math.min(length * 0.8, 3.2), 0.05, canopyDepth);
+                const canopyMesh = new THREE.Mesh(canopyGeo, frameMaterial);
+                canopyMesh.position.set(0, baseY + slabThickness + vitrineHeight + 0.025, -wallThick / 2 + canopyDepth / 2); // recessed
+                canopyMesh.castShadow = true;
+                wallGroup.add(canopyMesh);
+              }
 
-              // Full Height Storefront Glass Panels
+              // Full Height Storefront Glass Panels (Geniş Alüminyum Vitrin Camları)
               const glassVitrineGeo = safeBox(length - 0.2, vitrineHeight, 0.08);
               const glassVitrineMesh = new THREE.Mesh(glassVitrineGeo, glassMaterial);
               glassVitrineMesh.position.set(0, baseY + slabThickness + vitrineHeight / 2, 0);
               wallGroup.add(glassVitrineMesh);
 
-              // Storefront Mullions
+              // Storefront Vertical Aluminum Mullions
               const mullionCount = Math.max(2, Math.floor(length / 2));
               for (let m = 0; m <= mullionCount; m++) {
                 const mx = -(length - 0.2) / 2 + ((length - 0.2) / mullionCount) * m;
@@ -1459,121 +1707,125 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                 wallGroup.add(mulMesh);
               }
 
-              // Commercial Entrance Glass Doors
-              const doorW = Math.min(1.8, length * 0.5);
-              const doorH = Math.min(2.4, vitrineHeight - 0.2);
-              const doorFrameMesh = new THREE.Mesh(safeBox(doorW, doorH, 0.14), frameMaterial);
-              doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, 0.02);
-              wallGroup.add(doorFrameMesh);
+              if (isEntrance) {
+                // Commercial Entrance Glass Doors with Stainless Handles recessed (içten birleşik)
+                const doorW = Math.min(1.8, length * 0.5);
+                const doorH = Math.min(2.4, vitrineHeight - 0.2);
+                const doorFrameMesh = new THREE.Mesh(safeBox(doorW, doorH, 0.14), frameMaterial);
+                doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, -wallThick / 4);
+                wallGroup.add(doorFrameMesh);
 
-              const doorGlass = new THREE.Mesh(safeBox(doorW - 0.15, doorH - 0.15, 0.06), glassMaterial);
-              doorGlass.position.copy(doorFrameMesh.position);
-              wallGroup.add(doorGlass);
-            } else {
-              // Side / Rear Commercial Shop Wall
-              if (length > 3.0) {
-                const vitrineH = roomHeight - 0.8;
-                const sideGlass = new THREE.Mesh(safeBox(length - 0.6, vitrineH, 0.08), glassMaterial);
-                sideGlass.position.set(0, baseY + slabThickness + vitrineH / 2 + 0.3, 0);
-                wallGroup.add(sideGlass);
-
-                const wallFrame = new THREE.Mesh(safeBox(length, roomHeight, wallThick), wallMaterial);
-                wallFrame.position.set(0, midY, 0);
-                wallFrame.castShadow = !isXRay;
-                wallGroup.add(wallFrame);
-              } else {
-                const solidShopWall = new THREE.Mesh(safeBox(length, roomHeight, wallThick), wallMaterial);
-                solidShopWall.position.set(0, midY, 0);
-                solidShopWall.castShadow = !isXRay;
-                wallGroup.add(solidShopWall);
+                const doorGlass = new THREE.Mesh(safeBox(doorW - 0.15, doorH - 0.15, 0.06), glassMaterial);
+                doorGlass.position.copy(doorFrameMesh.position);
+                wallGroup.add(doorGlass);
               }
             }
           });
         } else {
           // Standard Rectangular Shop
           const backWallThick = 0.25;
-          const backWallGeo = safeBox(floorW, roomHeight, backWallThick);
-          const backWallMesh = new THREE.Mesh(backWallGeo, wallMaterial);
-          backWallMesh.position.set(0, midY, floorCenterZ - floorD / 2 + backWallThick / 2);
-          backWallMesh.castShadow = !isXRay;
-          floorGroup.add(backWallMesh);
-
-          // Side Walls
-          const sideWallGeo = safeBox(backWallThick, roomHeight, floorD);
-          const leftSide = new THREE.Mesh(sideWallGeo, wallMaterial);
-          leftSide.position.set(-floorW / 2 + backWallThick / 2, midY, floorCenterZ);
-          floorGroup.add(leftSide);
-
-          const rightSide = new THREE.Mesh(sideWallGeo, wallMaterial);
-          rightSide.position.set(floorW / 2 - backWallThick / 2, midY, floorCenterZ);
-          floorGroup.add(rightSide);
-
-          // FRONT STOREFRONT (VİTRİN VE TABELA BANDI)
-          const frontZ = floorCenterZ + floorD / 2;
-          const vitrineHeight = roomHeight - 0.75;
-          const fasciaHeight = 0.75;
-
-          // 1. Sleek Commercial Signage Fascia Band (Işıklı Tabela Bandı)
-          const fasciaGeo = safeBox(floorW, fasciaHeight, 0.22);
-          const fasciaMesh = new THREE.Mesh(fasciaGeo, shopSignFasciaMat);
-          fasciaMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ - 0.11);
-          fasciaMesh.castShadow = true;
-          floorGroup.add(fasciaMesh);
-
-          // Illuminated Signage Bar
-          const signBarGeo = safeBox(floorW * 0.7, 0.35, 0.02);
-          const signBarMesh = new THREE.Mesh(signBarGeo, shopSignGlowMat);
-          signBarMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, frontZ - 0.01);
-          floorGroup.add(signBarMesh);
-
-          // 2. Modern Steel & Glass Entrance Canopy (Removed/Disabled to prevent any overflow beyond outer walls)
-          const canopyDepth = 0.01;
-          const canopyGeo = safeBox(floorW * 0.85, 0.05, canopyDepth);
-          const canopyMesh = new THREE.Mesh(canopyGeo, frameMaterial);
-          canopyMesh.position.set(0, baseY + slabThickness + vitrineHeight + 0.05, frontZ - 0.01);
-          canopyMesh.castShadow = true;
-          floorGroup.add(canopyMesh);
-
-          // 3. Full Height Storefront Glass Panels (Geniş Alüminyum Vitrin Camları)
-          const glassVitrineGeo = safeBox(floorW - 0.6, vitrineHeight, 0.08);
-          const glassVitrineMesh = new THREE.Mesh(glassVitrineGeo, glassMaterial);
-          glassVitrineMesh.position.set(0, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
-          floorGroup.add(glassVitrineMesh);
-
-          // Storefront Vertical Aluminum Mullions
-          const mullionCount = Math.max(4, Math.floor(floorW / 2));
-          for (let m = 0; m <= mullionCount; m++) {
-            const mx = -(floorW - 0.6) / 2 + ((floorW - 0.6) / mullionCount) * m;
-            const mulGeo = safeBox(0.08, vitrineHeight, 0.12);
-            const mulMesh = new THREE.Mesh(mulGeo, frameMaterial);
-            mulMesh.position.set(mx, baseY + slabThickness + vitrineHeight / 2, frontZ - 0.05);
-            floorGroup.add(mulMesh);
-          }
-
-          // Commercial Entrance Glass Doors with Stainless Handles
-          const doorW = 1.8;
-          const doorH = Math.min(2.4, vitrineHeight - 0.2);
-          const doorFrameGeo = safeBox(doorW, doorH, 0.14);
-          const doorFrameMesh = new THREE.Mesh(doorFrameGeo, frameMaterial);
-          doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, frontZ - 0.02);
-          floorGroup.add(doorFrameMesh);
-
-          const doorGlass = new THREE.Mesh(
-            safeBox(doorW - 0.15, doorH - 0.15, 0.06),
-            glassMaterial
+          const activeFacadeConfigs = generateFacadeConfigs(
+            4,
+            params.facadeConfigs,
+            params.mainEntranceFacadeIndex || 0
           );
-          doorGlass.position.copy(doorFrameMesh.position);
-          floorGroup.add(doorGlass);
 
-          // Vertical steel handles
-          for (const hSide of [-0.15, 0.15]) {
-            const handle = new THREE.Mesh(
-              safeCylinder(0.025, 0.025, 0.9, 8),
-              new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
-            );
-            handle.position.set(hSide, baseY + slabThickness + 1.1, frontZ + 0.1);
-            floorGroup.add(handle);
-          }
+          const wallDefs = [
+            { name: 'Ön Cephe', length: floorW, x: 0, z: floorCenterZ + floorD / 2 - backWallThick / 2, rotationY: 0, idx: 0 },
+            { name: 'Sağ Cephe', length: floorD, x: floorW / 2 - backWallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, idx: 1 },
+            { name: 'Arka Cephe', length: floorW, x: 0, z: floorCenterZ - floorD / 2 + backWallThick / 2, rotationY: Math.PI, idx: 2 },
+            { name: 'Sol Cephe', length: floorD, x: -floorW / 2 + backWallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, idx: 3 },
+          ];
+
+          wallDefs.forEach((wall) => {
+            const cfg = activeFacadeConfigs[wall.idx] || {
+              isEntrance: wall.idx === (params.mainEntranceFacadeIndex || 0),
+              windowCountPerFloor: 2,
+            };
+            const isEntrance = cfg.isEntrance || wall.idx === (params.mainEntranceFacadeIndex || 0);
+            const isBlind = (cfg as any).windowCountPerFloor === 0;
+
+            const wallGroup = new THREE.Group();
+            wallGroup.position.set(wall.x, 0, wall.z);
+            wallGroup.rotation.y = wall.rotationY;
+            floorGroup.add(wallGroup);
+
+            if (isBlind) {
+              // Completely SOLID wall for blind facades!
+              const solidShopWall = new THREE.Mesh(safeBox(wall.length, roomHeight, backWallThick), wallMaterial);
+              solidShopWall.position.set(0, midY, 0);
+              solidShopWall.castShadow = !isXRay;
+              wallGroup.add(solidShopWall);
+            } else {
+              // Beautiful Glass Storefront Vitrine with Fascia
+              const vitrineHeight = roomHeight - 0.75;
+              const fasciaHeight = 0.75;
+
+              // Illuminated Signage Fascia Band
+              const fasciaGeo = safeBox(wall.length, fasciaHeight, backWallThick);
+              const fasciaMesh = new THREE.Mesh(fasciaGeo, shopSignFasciaMat);
+              fasciaMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, 0);
+              fasciaMesh.castShadow = true;
+              wallGroup.add(fasciaMesh);
+
+              if (isEntrance) {
+                const signBarGeo = safeBox(Math.min(wall.length * 0.7, 4.0), 0.35, 0.02);
+                const signBarMesh = new THREE.Mesh(signBarGeo, shopSignGlowMat);
+                signBarMesh.position.set(0, baseY + slabThickness + vitrineHeight + fasciaHeight / 2, 0); // flush
+                wallGroup.add(signBarMesh);
+
+                const canopyDepth = 0.1;
+                const canopyGeo = safeBox(Math.min(wall.length * 0.85, 3.2), 0.05, canopyDepth);
+                const canopyMesh = new THREE.Mesh(canopyGeo, frameMaterial);
+                canopyMesh.position.set(0, baseY + slabThickness + vitrineHeight + 0.025, -backWallThick / 2 + canopyDepth / 2); // recessed
+                canopyMesh.castShadow = true;
+                wallGroup.add(canopyMesh);
+              }
+
+              // Full Height Storefront Glass Panels (Geniş Alüminyum Vitrin Camları)
+              const glassVitrineGeo = safeBox(wall.length - 0.2, vitrineHeight, 0.08);
+              const glassVitrineMesh = new THREE.Mesh(glassVitrineGeo, glassMaterial);
+              glassVitrineMesh.position.set(0, baseY + slabThickness + vitrineHeight / 2, 0);
+              wallGroup.add(glassVitrineMesh);
+
+              // Storefront Vertical Aluminum Mullions
+              const mullionCount = Math.max(2, Math.floor(wall.length / 2));
+              for (let m = 0; m <= mullionCount; m++) {
+                const mx = -(wall.length - 0.2) / 2 + ((wall.length - 0.2) / mullionCount) * m;
+                const mulGeo = safeBox(0.08, vitrineHeight, 0.12);
+                const mulMesh = new THREE.Mesh(mulGeo, frameMaterial);
+                mulMesh.position.set(mx, baseY + slabThickness + vitrineHeight / 2, 0);
+                wallGroup.add(mulMesh);
+              }
+
+              if (isEntrance) {
+                // Commercial Entrance Glass Doors with Stainless Handles recessed (içten birleşik)
+                const doorW = Math.min(1.8, wall.length * 0.5);
+                const doorH = Math.min(2.4, vitrineHeight - 0.2);
+                const doorFrameGeo = safeBox(doorW, doorH, 0.14);
+                const doorFrameMesh = new THREE.Mesh(doorFrameGeo, frameMaterial);
+                doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, -backWallThick / 4);
+                wallGroup.add(doorFrameMesh);
+
+                const doorGlass = new THREE.Mesh(
+                  safeBox(doorW - 0.15, doorH - 0.15, 0.06),
+                  glassMaterial
+                );
+                doorGlass.position.copy(doorFrameMesh.position);
+                wallGroup.add(doorGlass);
+
+                // Vertical steel handles recessed
+                for (const hSide of [-0.15, 0.15]) {
+                  const handle = new THREE.Mesh(
+                    safeCylinder(0.025, 0.025, 0.9, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 })
+                  );
+                  handle.position.set(hSide, baseY + slabThickness + 1.1, -backWallThick / 4 + 0.06);
+                  wallGroup.add(handle);
+                }
+              }
+            }
+          });
         }
       } else if (!isBasement) {
         const wallThick = 0.22;
@@ -1687,23 +1939,26 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               wallGroup.add(lintelMesh);
             }
 
-            // Low profile entrance framing/canopy (Modified to prevent any overflow beyond outer walls)
-            const canopyMesh = new THREE.Mesh(safeBox(doorW + 0.1, 0.05, 0.01), frameMaterial);
-            canopyMesh.position.set(0, baseY + slabThickness + doorH + 0.1, wallThick / 2 + 0.005);
-            canopyMesh.castShadow = true;
-            wallGroup.add(canopyMesh);
-
-            const signMesh = new THREE.Mesh(safeBox(doorW * 0.8, 0.3, 0.02), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-            signMesh.position.set(0, baseY + slabThickness + doorH + 0.35, wallThick / 2 + 0.01);
-            wallGroup.add(signMesh);
+            // Recess the door and framing slightly inwards so it connects inwardly with the wall (içten birleşik)
+            const recessZ = -wallThick / 4; 
 
             const doorFrameMesh = new THREE.Mesh(safeBox(doorW, doorH, 0.12), frameMaterial);
-            doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, 0);
+            doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, recessZ);
             wallGroup.add(doorFrameMesh);
 
             const doorGlass = new THREE.Mesh(safeBox(doorW - 0.2, doorH - 0.2, 0.06), glassMaterial);
             doorGlass.position.copy(doorFrameMesh.position);
             wallGroup.add(doorGlass);
+
+            // Keep the canopy and signage inside/flush with the wall opening face, preventing any outer protrusion
+            const canopyMesh = new THREE.Mesh(safeBox(doorW, 0.05, 0.1), frameMaterial); // slightly deeper but recessed!
+            canopyMesh.position.set(0, baseY + slabThickness + doorH + 0.025, -wallThick / 2 + 0.05);
+            canopyMesh.castShadow = true;
+            wallGroup.add(canopyMesh);
+
+            const signMesh = new THREE.Mesh(safeBox(doorW * 0.8, 0.3, 0.02), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            signMesh.position.set(0, baseY + slabThickness + doorH + 0.35, -wallThick / 2 + 0.01);
+            wallGroup.add(signMesh);
           } else if (winCount === 0) {
             const solidWall = new THREE.Mesh(safeBox(localW, roomHeight, wallThick), currentMat);
             solidWall.position.set(0, midY, 0);
@@ -2026,16 +2281,38 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const topFloorY = floorBaseYs[totalFloors - 1] + floorHeights[totalFloors - 1];
       const roofGroup = new THREE.Group();
 
+      const isTopFloorCantilever = totalFloors >= 2 && hasCantilever;
+      let topFloorW = W;
+      let topFloorD = D;
+      let topFloorCenterZ = 0;
+      if (isTopFloorCantilever) {
+        if (cantileverDirection === 'front') {
+          topFloorD = D + cantileverDepth;
+          topFloorCenterZ = cantileverDepth / 2;
+        } else if (cantileverDirection === 'all') {
+          topFloorW = W + 2 * cantileverDepth;
+          topFloorD = D + 2 * cantileverDepth;
+          topFloorCenterZ = 0;
+        } else {
+          // front_back
+          topFloorD = D + 2 * cantileverDepth;
+          topFloorCenterZ = 0;
+        }
+      }
+
+      // 50cm standard Turkish eaves overhang (Çatı Saçağı)
+      const eavesOverhang = 0.5;
+
       const minSpan = isCustomPoly && activePolyPts
         ? Math.min(getPolygonBounds(activePolyPts).width, getPolygonBounds(activePolyPts).depth)
-        : Math.min(W, D);
+        : Math.min(topFloorW, topFloorD);
 
       if (roofType === 'gable') {
         // 1. Classic Turkish Gable / Kırma Çatı
         const roofHeight = Math.max(1.8, Math.min(4.2, minSpan * 0.28 + 0.8));
         if (isCustomPoly && activePolyPts) {
           const bounds = getPolygonBounds(activePolyPts);
-          const roofGeo = createPolygonHipRoofGeometry(activePolyPts, bounds.centerX, bounds.centerY, roofHeight, 0.0, 0.25);
+          const roofGeo = createPolygonHipRoofGeometry(activePolyPts, bounds.centerX, bounds.centerY, roofHeight, eavesOverhang, 0.25);
           const roofMesh = new THREE.Mesh(
             roofGeo,
             new THREE.MeshStandardMaterial({
@@ -2050,7 +2327,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           roofMesh.castShadow = true;
           roofGroup.add(roofMesh);
         } else {
-          const roofGeom = createRectangularHipRoofGeometry(W, D, roofHeight, 0.0);
+          const roofGeom = createRectangularHipRoofGeometry(topFloorW, topFloorD, roofHeight, eavesOverhang);
           const roofMesh = new THREE.Mesh(
             roofGeom,
             new THREE.MeshStandardMaterial({
@@ -2061,7 +2338,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               side: THREE.DoubleSide,
             })
           );
-          roofMesh.position.set(0, topFloorY, 0);
+          roofMesh.position.set(0, topFloorY, topFloorCenterZ);
           roofMesh.castShadow = true;
           roofGroup.add(roofMesh);
         }
@@ -2078,7 +2355,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
         if (isCustomPoly && activePolyPts) {
           const bounds = getPolygonBounds(activePolyPts);
-          const lowerGeo = createPolygonHipRoofGeometry(activePolyPts, bounds.centerX, bounds.centerY, mansardLowerH, 0.0, 0.2);
+          const lowerGeo = createPolygonHipRoofGeometry(activePolyPts, bounds.centerX, bounds.centerY, mansardLowerH, eavesOverhang, 0.2);
           const lowerMesh = new THREE.Mesh(lowerGeo, mansardMat);
           lowerMesh.position.set(0, topFloorY, 0);
           lowerMesh.castShadow = true;
@@ -2111,48 +2388,48 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             }
           }
         } else {
-          const lowerGeo = createRectangularHipRoofGeometry(W, D, mansardLowerH, 0.0);
+          const lowerGeo = createRectangularHipRoofGeometry(topFloorW, topFloorD, mansardLowerH, eavesOverhang);
           const lowerMesh = new THREE.Mesh(lowerGeo, mansardMat);
-          lowerMesh.position.set(0, topFloorY, 0);
+          lowerMesh.position.set(0, topFloorY, topFloorCenterZ);
           lowerMesh.castShadow = true;
           roofGroup.add(lowerMesh);
 
           const setback = 0.8;
-          const upperCapGeo = safeBox(Math.max(1, W - setback * 2), 0.15, Math.max(1, D - setback * 2));
+          const upperCapGeo = safeBox(Math.max(1, topFloorW - setback * 2), 0.15, Math.max(1, topFloorD - setback * 2));
           const upperCapMesh = new THREE.Mesh(upperCapGeo, mansardMat);
-          upperCapMesh.position.set(0, topFloorY + mansardLowerH + 0.08, 0);
+          upperCapMesh.position.set(0, topFloorY + mansardLowerH + 0.08, topFloorCenterZ);
           upperCapMesh.castShadow = true;
           roofGroup.add(upperCapMesh);
 
-          const dormerCount = Math.max(2, Math.floor(W / 4));
+          const dormerCount = Math.max(2, Math.floor(topFloorW / 4));
           const dormerW = 1.2;
           const dormerH = 1.4;
           const dormerD = 1.1;
 
           for (let d = 0; d < dormerCount; d++) {
-            const dx = -W / 2 + (W / (dormerCount + 1)) * (d + 1);
+            const dx = -topFloorW / 2 + (topFloorW / (dormerCount + 1)) * (d + 1);
 
             const dBodyGeo = safeBox(dormerW, dormerH, dormerD);
             const dBody = new THREE.Mesh(dBodyGeo, wallMaterial);
-            dBody.position.set(dx, topFloorY + dormerH / 2 + 0.3, D / 2 - dormerD / 2 + 0.1);
+            dBody.position.set(dx, topFloorY + dormerH / 2 + 0.3, topFloorCenterZ + topFloorD / 2 - dormerD / 2 + 0.1);
             dBody.castShadow = true;
             roofGroup.add(dBody);
 
             const dGlassGeo = safeBox(dormerW * 0.75, dormerH * 0.7, 0.05);
             const dGlass = new THREE.Mesh(dGlassGeo, glassMaterial);
-            dGlass.position.set(dx, topFloorY + dormerH / 2 + 0.3, D / 2 + 0.12);
+            dGlass.position.set(dx, topFloorY + dormerH / 2 + 0.3, topFloorCenterZ + topFloorD / 2 + 0.12);
             roofGroup.add(dGlass);
 
             const dRoofGeo = safeCone(dormerW * 0.8, 0.5, 4);
             dRoofGeo.rotateY(Math.PI / 4);
             const dRoof = new THREE.Mesh(dRoofGeo, mansardMat);
-            dRoof.position.set(dx, topFloorY + dormerH + 0.3 + 0.25, D / 2 - dormerD / 2 + 0.1);
+            dRoof.position.set(dx, topFloorY + dormerH + 0.3 + 0.25, topFloorCenterZ + topFloorD / 2 - dormerD / 2 + 0.1);
             roofGroup.add(dRoof);
           }
 
-          const crestGeo = safeBox(Math.max(1, W - setback * 2 + 0.1), 0.08, Math.max(1, D - setback * 2 + 0.1));
+          const crestGeo = safeBox(Math.max(1, topFloorW - setback * 2 + 0.1), 0.08, Math.max(1, topFloorD - setback * 2 + 0.1));
           const crestMesh = new THREE.Mesh(crestGeo, frameMaterial);
-          crestMesh.position.set(0, topFloorY + mansardLowerH + 0.2, 0);
+          crestMesh.position.set(0, topFloorY + mansardLowerH + 0.2, topFloorCenterZ);
           roofGroup.add(crestMesh);
         }
       } else if (roofType === 'duplex') {
@@ -2331,10 +2608,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             color: isLight ? 0x94a3b8 : 0x71717a,
             linewidth: 2,
           });
-          const parapetGeo = safeBox(W, parapetHeight, D);
+          const parapetGeo = safeBox(topFloorW, parapetHeight, topFloorD);
           const parapetEdges = new THREE.EdgesGeometry(parapetGeo);
           const parapetLine = new THREE.LineSegments(parapetEdges, parapetMat);
-          parapetLine.position.set(0, topFloorY + parapetHeight / 2, 0);
+          parapetLine.position.set(0, topFloorY + parapetHeight / 2, topFloorCenterZ);
           roofGroup.add(parapetLine);
         }
 
@@ -2462,6 +2739,26 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const redIntersectMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
       const magentaPeakMat = new THREE.MeshBasicMaterial({ color: 0xec4899 });
 
+      const isTopFloorCantilever = totalFloors >= 2 && hasCantilever;
+      let topFloorW = W;
+      let topFloorD = D;
+      let topFloorCenterZ = 0;
+      if (isTopFloorCantilever) {
+        if (cantileverDirection === 'front') {
+          topFloorD = D + cantileverDepth;
+          topFloorCenterZ = cantileverDepth / 2;
+        } else if (cantileverDirection === 'all') {
+          topFloorW = W + 2 * cantileverDepth;
+          topFloorD = D + 2 * cantileverDepth;
+          topFloorCenterZ = 0;
+        } else {
+          // front_back
+          topFloorD = D + 2 * cantileverDepth;
+          topFloorCenterZ = 0;
+        }
+      }
+      const eavesOverhang = 0.5;
+
       if (isCustomPoly && activePolyPts) {
         const bounds = getPolygonBounds(activePolyPts);
         activePolyPts.forEach((p) => {
@@ -2488,20 +2785,34 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         debugGroup.add(pMesh);
       } else {
         const eaveNodes = [
-          [-W / 2, topSlabY, -D / 2],
-          [W / 2, topSlabY, -D / 2],
-          [-W / 2, topSlabY, D / 2],
-          [W / 2, topSlabY, D / 2],
+          [-topFloorW / 2 - eavesOverhang, topSlabY, topFloorCenterZ - topFloorD / 2 - eavesOverhang],
+          [topFloorW / 2 + eavesOverhang, topSlabY, topFloorCenterZ - topFloorD / 2 - eavesOverhang],
+          [-topFloorW / 2 - eavesOverhang, topSlabY, topFloorCenterZ + topFloorD / 2 + eavesOverhang],
+          [topFloorW / 2 + eavesOverhang, topSlabY, topFloorCenterZ + topFloorD / 2 + eavesOverhang],
         ];
+
+        let r1X = 0, r2X = 0, r1Z = topFloorCenterZ, r2Z = topFloorCenterZ;
+        if (topFloorW >= topFloorD) {
+          const ridgeHalfLen = Math.max(0.1, (topFloorW - topFloorD) / 2);
+          r1X = -ridgeHalfLen;
+          r2X = ridgeHalfLen;
+        } else {
+          const ridgeHalfLen = Math.max(0.1, (topFloorD - topFloorW) / 2);
+          r1Z = topFloorCenterZ - ridgeHalfLen;
+          r2Z = topFloorCenterZ + ridgeHalfLen;
+        }
 
         eaveNodes.forEach(([ex, ey, ez]) => {
           const eMesh = new THREE.Mesh(roofIntersectGeo, redIntersectMat);
           eMesh.position.set(ex, ey, ez);
           debugGroup.add(eMesh);
 
+          const targetRidgeX = ex < 0 ? r1X : r2X;
+          const targetRidgeZ = topFloorW >= topFloorD ? topFloorCenterZ : (ez < topFloorCenterZ ? r1Z : r2Z);
+
           const lineGeo = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(ex, ey, ez),
-            new THREE.Vector3(0, roofPeakY, 0),
+            new THREE.Vector3(targetRidgeX, roofPeakY, targetRidgeZ),
           ]);
           const lineMat = new THREE.LineBasicMaterial({ color: 0xff0055 });
           const lineMesh = new THREE.Line(lineGeo, lineMat);
@@ -2509,12 +2820,27 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         });
 
         const ridgeMesh1 = new THREE.Mesh(roofIntersectGeo, magentaPeakMat);
-        ridgeMesh1.position.set(-Math.max(0, W - D) / 2, roofPeakY, 0);
+        ridgeMesh1.position.set(r1X, roofPeakY, r1Z);
         debugGroup.add(ridgeMesh1);
 
         const ridgeMesh2 = new THREE.Mesh(roofIntersectGeo, magentaPeakMat);
-        ridgeMesh2.position.set(Math.max(0, W - D) / 2, roofPeakY, 0);
+        ridgeMesh2.position.set(r2X, roofPeakY, r2Z);
         debugGroup.add(ridgeMesh2);
+
+        // Visual Eaves Boundary Box (dashed line segments) in 3D representing the limit
+        const limitW = topFloorW + 2 * eavesOverhang;
+        const limitD = topFloorD + 2 * eavesOverhang;
+        const limitBoxGeo = safeBox(limitW, totalBuildingH + roofH, limitD);
+        const limitEdges = new THREE.EdgesGeometry(limitBoxGeo);
+        const limitLineMat = new THREE.LineDashedMaterial({
+          color: 0xff0055,
+          dashSize: 0.5,
+          gapSize: 0.2,
+        });
+        const limitLine = new THREE.LineSegments(limitEdges, limitLineMat);
+        limitLine.computeLineDistances();
+        limitLine.position.set(0, (totalBuildingH + roofH) / 2, topFloorCenterZ);
+        debugGroup.add(limitLine);
       }
 
       buildingGroup.add(debugGroup);

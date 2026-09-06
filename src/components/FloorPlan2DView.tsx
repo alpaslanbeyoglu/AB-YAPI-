@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   Compass,
   Building,
@@ -11,6 +11,18 @@ import {
   Warehouse,
   Shield,
   Grid,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Plus,
+  Trash2,
+  Sliders,
+  PenTool,
+  Move,
+  Spline,
+  Maximize,
+  Ruler,
+  RefreshCw,
 } from 'lucide-react';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
@@ -43,9 +55,68 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
   theme = 'light',
 }) => {
   const planRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [selectedFloorTab, setSelectedFloorTab] = useState<SelectedFloorTab>('typical');
   const [syncedFeedback, setSyncedFeedback] = useState<string | null>(null);
   const [showGrid, setShowGrid] = useState<boolean>(true);
+
+  // Layout Caching and Interactivity States
+  const [layouts, setLayouts] = useState<Record<string, FlatLayout[]>>({});
+  const [duplexRoomsState, setDuplexRoomsState] = useState<Record<string, RoomDetail[]>>({});
+  
+  // Zoom & Pan for Floor Plan
+  const [zoom, setZoom] = useState<number>(1.0);
+  const [panX, setPanX] = useState<number>(0);
+  const [panY, setPanY] = useState<number>(0);
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Room Selection and Dragging
+  const [selectedRoom, setSelectedRoom] = useState<{ flatId?: string; isDuplex?: boolean; roomId: string } | null>(null);
+  const [draggedRoom, setDraggedRoom] = useState<{
+    flatId?: string;
+    isDuplex?: boolean;
+    roomId: string;
+    startModelX: number;
+    startModelY: number;
+    originalXPercent: number;
+    originalYPercent: number;
+  } | null>(null);
+  const [draggedResizeHandle, setDraggedResizeHandle] = useState<{
+    flatId?: string;
+    isDuplex?: boolean;
+    roomId: string;
+    startModelX: number;
+    startModelY: number;
+    originalWidthPercent: number;
+    originalDepthPercent: number;
+  } | null>(null);
+
+  // Core offset for moving staircase & elevator core
+  const [coreOffsetX, setCoreOffsetX] = useState<number>(0);
+  const [coreOffsetY, setCoreOffsetY] = useState<number>(0);
+  const [draggedCore, setDraggedCore] = useState<{
+    startModelX: number;
+    startModelY: number;
+    originalOffsetX: number;
+    originalOffsetY: number;
+  } | null>(null);
+
+  // Custom Editable CAD Lines (Partition Walls, Dimensions, Grid Axes)
+  const [customLines, setCustomLines] = useState<any[]>([]);
+  const [drawingMode, setDrawingMode] = useState<'select' | 'draw_wall' | 'draw_axis' | 'draw_dimension'>('select');
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [draggedLine, setDraggedLine] = useState<{
+    id: string;
+    part: 'p1' | 'p2' | 'all';
+    startModelX: number;
+    startModelY: number;
+    originalX1: number;
+    originalY1: number;
+    originalX2: number;
+    originalY2: number;
+  } | null>(null);
+  const [tempDrawingLine, setTempDrawingLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
   const isGray = theme === 'gray';
   const isLight = !isGray;
@@ -100,27 +171,30 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
     });
   }
 
-  // Active layouts based on selected floor
+  // Active layouts based on selected floor, cached for user interactivity and edits
+  const currentKey = `${selectedFloorTab}_${params.flatsPerFloor}_${params.roomType}_${params.facadeWidth}_${params.facadeDepth}_${params.hasGroundFloorShop}`;
+  const duplexKey = `duplex_${params.facadeWidth}_${params.facadeDepth}_${params.roomType}`;
+
   let activeLayouts: FlatLayout[] = [];
   let isDuplexAtticView = false;
 
   if (selectedFloorTab === 'basement') {
-    activeLayouts = getBasementFloorLayout(params, metrics);
+    activeLayouts = layouts[currentKey] || getBasementFloorLayout(params, metrics);
   } else if (selectedFloorTab === 'ground') {
     if (params.hasGroundFloorShop) {
-      activeLayouts = getShopFloorLayout(params, metrics);
+      activeLayouts = layouts[currentKey] || getShopFloorLayout(params, metrics);
     } else {
-      activeLayouts = getFloorFlatLayouts(params, metrics);
+      activeLayouts = layouts[currentKey] || getFloorFlatLayouts(params, metrics);
     }
   } else if (selectedFloorTab === 'duplex') {
     isDuplexAtticView = true;
     activeLayouts = [];
   } else {
     // 'first' or 'typical'
-    activeLayouts = getFloorFlatLayouts(params, metrics);
+    activeLayouts = layouts[currentKey] || getFloorFlatLayouts(params, metrics);
   }
 
-  const duplexAtticRooms: RoomDetail[] = isDuplex ? getDuplexAtticRooms(metrics.flatNetArea) : [];
+  const duplexAtticRooms: RoomDetail[] = isDuplex ? (duplexRoomsState[duplexKey] || getDuplexAtticRooms(metrics.flatNetArea)) : [];
 
   // Determine current floor dimensions (account for cantilevers on upper floors)
   const isUpperFloorWithCantilever =
@@ -165,9 +239,25 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
   // İç bölme duvarı: 15 cm = 0.15 * scale = 4.2 px
   const intWallThick = Math.max(3, Math.round(0.15 * scale)); // ~4.2px
 
-  // Center core coordinates on symmetry axis
-  const coreCenterX = bX + bW / 2;
-  const coreCenterY = bY + bH / 2;
+  // Initialize some nice mock partition walls, axes, and dimensions if empty
+  useEffect(() => {
+    if (customLines.length === 0 && bW > 0) {
+      setCustomLines([
+        // Mock interior wall partition lines
+        { id: 'w-1', x1: Math.round(bX + extWallThick + 40), y1: Math.round(bY + extWallThick + 60), x2: Math.round(bX + extWallThick + 140), y2: Math.round(bY + extWallThick + 60), type: 'wall' },
+        { id: 'w-2', x1: Math.round(bX + extWallThick + 140), y1: Math.round(bY + extWallThick + 60), x2: Math.round(bX + extWallThick + 140), y2: Math.round(bY + extWallThick + 160), type: 'wall' },
+        { id: 'w-3', x1: Math.round(bX + extWallThick + 180), y1: Math.round(bY + bH / 2 - 40), x2: Math.round(bX + extWallThick + 180), y2: Math.round(bY + bH / 2 + 45), type: 'wall' },
+        // Custom interactive helper axis
+        { id: 'a-1', x1: Math.round(bX + bW / 4), y1: Math.round(bY - 30), x2: Math.round(bX + bW / 4), y2: Math.round(bY + bH + 30), type: 'axis' },
+        // Custom interactive helper dimension
+        { id: 'd-1', x1: Math.round(bX + extWallThick + 40), y1: Math.round(bY + extWallThick + 35), x2: Math.round(bX + extWallThick + 140), y2: Math.round(bY + extWallThick + 35), type: 'dimension' }
+      ]);
+    }
+  }, [bW, bH, customLines.length, bX, bY, extWallThick]);
+
+  // Center core coordinates on symmetry axis (fully editable / draggable)
+  const coreCenterX = bX + bW / 2 + coreOffsetX;
+  const coreCenterY = bY + bH / 2 + coreOffsetY;
 
   // Core dimensions in pixels (Staircase & Elevator)
   const stairW = params.stairWidth * scale;
@@ -187,6 +277,462 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
   const corrY = Math.min(stairY, elevY) - corridorPad;
   const corrW = elevX + elevW - stairX + 16;
   const corrH = Math.max(stairH, elevH) + corridorPad * 2;
+
+  // Helper to extract mouse/touch client coords safely
+  const getClientCoords = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+    if ('touches' in e) {
+      if (e.touches && e.touches.length > 0) {
+        return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+      }
+      if ('changedTouches' in e && e.changedTouches && e.changedTouches.length > 0) {
+        return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
+      }
+    }
+    return { clientX: (e as any).clientX, clientY: (e as any).clientY };
+  };
+
+  // Convert floor plan screen coordinates to scaled SVG coordinates
+  const getSvgCoords = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!svgRef.current) return null;
+    const rect = svgRef.current.getBoundingClientRect();
+    const { clientX, clientY } = getClientCoords(e);
+    
+    const svgX = ((clientX - rect.left) / rect.width) * totalSvgWidth;
+    const svgY = ((clientY - rect.top) / rect.height) * totalSvgHeight;
+    
+    return {
+      x: (svgX - panX) / zoom,
+      y: (svgY - panY) / zoom,
+    };
+  };
+
+  // Mouse Wheel Zoom centered at the cursor for Floor Plan
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomIntensity = 0.08;
+      const rect = svg.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const svgX = (mouseX / rect.width) * totalSvgWidth;
+      const svgY = (mouseY / rect.height) * totalSvgHeight;
+
+      const oldZoom = zoom;
+      const wheel = e.deltaY < 0 ? 1 : -1;
+      const newZoom = Math.max(0.6, Math.min(5.0, zoom + wheel * zoomIntensity));
+
+      setPanX((prev) => svgX - (svgX - prev) * (newZoom / oldZoom));
+      setPanY((prev) => svgY - (svgY - prev) * (newZoom / oldZoom));
+      setZoom(newZoom);
+    };
+
+    svg.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      svg.removeEventListener('wheel', handleWheel);
+    };
+  }, [zoom, panX, panY, totalSvgWidth, totalSvgHeight]);
+
+  // Mouse selection & dragging handlers
+  const handleRoomMouseDown = (flatId: string | undefined, isDuplex: boolean, roomId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedRoom({ flatId, isDuplex, roomId });
+    
+    const coords = getSvgCoords(e);
+    if (!coords) return;
+    
+    let xPercent = 0;
+    let yPercent = 0;
+    
+    if (isDuplex) {
+      const room = duplexAtticRooms.find(r => r.id === roomId);
+      if (room) {
+        xPercent = room.xPercent;
+        yPercent = room.yPercent;
+      }
+    } else {
+      const flat = activeLayouts.find(f => f.id === flatId);
+      const room = flat?.rooms.find(r => r.id === roomId);
+      if (room) {
+        xPercent = room.xPercent;
+        yPercent = room.yPercent;
+      }
+    }
+    
+    setDraggedRoom({
+      flatId,
+      isDuplex,
+      roomId,
+      startModelX: coords.x,
+      startModelY: coords.y,
+      originalXPercent: xPercent,
+      originalYPercent: yPercent
+    });
+  };
+
+  const handleResizeMouseDown = (flatId: string | undefined, isDuplex: boolean, roomId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const coords = getSvgCoords(e);
+    if (!coords) return;
+    
+    let wPercent = 0;
+    let dPercent = 0;
+    
+    if (isDuplex) {
+      const room = duplexAtticRooms.find(r => r.id === roomId);
+      if (room) {
+        wPercent = room.widthPercent;
+        dPercent = room.depthPercent;
+      }
+    } else {
+      const flat = activeLayouts.find(f => f.id === flatId);
+      const room = flat?.rooms.find(r => r.id === roomId);
+      if (room) {
+        wPercent = room.widthPercent;
+        dPercent = room.depthPercent;
+      }
+    }
+    
+    setDraggedResizeHandle({
+      flatId,
+      isDuplex,
+      roomId,
+      startModelX: coords.x,
+      startModelY: coords.y,
+      originalWidthPercent: wPercent,
+      originalDepthPercent: dPercent
+    });
+  };
+
+  const handleFloorPlanMouseMove = (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => {
+    if (draggedRoom) {
+      const coords = getSvgCoords(e);
+      if (!coords) return;
+      
+      const deltaX = coords.x - draggedRoom.startModelX;
+      const deltaY = coords.y - draggedRoom.startModelY;
+      
+      if (draggedRoom.isDuplex) {
+        const netW = bW - extWallThick * 2;
+        const netH = bH * 0.52;
+        const deltaXPercent = (deltaX / netW) * 100;
+        const deltaYPercent = (deltaY / netH) * 100;
+        
+        const room = duplexAtticRooms.find(r => r.id === draggedRoom.roomId);
+        if (room) {
+          const newXPercent = Math.max(0, Math.min(100 - room.widthPercent, Math.round(draggedRoom.originalXPercent + deltaXPercent)));
+          const newYPercent = Math.max(0, Math.min(100 - room.depthPercent, Math.round(draggedRoom.originalYPercent + deltaYPercent)));
+          
+          const updatedRooms = duplexAtticRooms.map(r => r.id === room.id ? { ...r, xPercent: newXPercent, yPercent: newYPercent } : r);
+          setDuplexRoomsState(prev => ({
+            ...prev,
+            [duplexKey]: updatedRooms
+          }));
+        }
+      } else {
+        const flat = activeLayouts.find(f => f.id === draggedRoom.flatId);
+        if (flat) {
+          const fW = (flat.bounds.widthPercent / 100) * (bW - extWallThick * 2);
+          const fH = (flat.bounds.depthPercent / 100) * (bH - extWallThick * 2);
+          const fW_model = fW - 8;
+          const fH_model = fH - 26;
+          
+          const deltaXPercent = (deltaX / fW_model) * 100;
+          const deltaYPercent = (deltaY / fH_model) * 100;
+          
+          const room = flat.rooms.find(r => r.id === draggedRoom.roomId);
+          if (room) {
+            const newXPercent = Math.max(0, Math.min(100 - room.widthPercent, Math.round(draggedRoom.originalXPercent + deltaXPercent)));
+            const newYPercent = Math.max(0, Math.min(100 - room.depthPercent, Math.round(draggedRoom.originalYPercent + deltaYPercent)));
+            
+            const updatedRooms = flat.rooms.map(r => r.id === room.id ? { ...r, xPercent: newXPercent, yPercent: newYPercent } : r);
+            const updatedLayouts = activeLayouts.map(f => f.id === flat.id ? { ...f, rooms: updatedRooms } : f);
+            setLayouts(prev => ({
+              ...prev,
+              [currentKey]: updatedLayouts
+            }));
+          }
+        }
+      }
+    } else if (draggedResizeHandle) {
+      const coords = getSvgCoords(e);
+      if (!coords) return;
+      
+      const deltaX = coords.x - draggedResizeHandle.startModelX;
+      const deltaY = coords.y - draggedResizeHandle.startModelY;
+      
+      if (draggedResizeHandle.isDuplex) {
+        const netW = bW - extWallThick * 2;
+        const netH = bH * 0.52;
+        const deltaWPercent = (deltaX / netW) * 100;
+        const deltaDPercent = (deltaY / netH) * 100;
+        
+        const room = duplexAtticRooms.find(r => r.id === draggedResizeHandle.roomId);
+        if (room) {
+          const newWPercent = Math.max(10, Math.min(100 - room.xPercent, Math.round(draggedResizeHandle.originalWidthPercent + deltaWPercent)));
+          const newDPercent = Math.max(10, Math.min(100 - room.yPercent, Math.round(draggedResizeHandle.originalDepthPercent + deltaDPercent)));
+          
+          const netW_m = netW / scale;
+          const netH_m = netH / scale;
+          const wM = (newWPercent / 100) * netW_m;
+          const dM = (newDPercent / 100) * netH_m;
+          
+          const updatedRooms = duplexAtticRooms.map(r => r.id === room.id ? { 
+            ...r, 
+            widthPercent: newWPercent, 
+            depthPercent: newDPercent,
+            widthM: wM,
+            depthM: dM,
+            areaM2: wM * dM
+          } : r);
+          setDuplexRoomsState(prev => ({
+            ...prev,
+            [duplexKey]: updatedRooms
+          }));
+        }
+      } else {
+        const flat = activeLayouts.find(f => f.id === draggedResizeHandle.flatId);
+        if (flat) {
+          const fW = (flat.bounds.widthPercent / 100) * (bW - extWallThick * 2);
+          const fH = (flat.bounds.depthPercent / 100) * (bH - extWallThick * 2);
+          const fW_model = fW - 8;
+          const fH_model = fH - 26;
+          
+          const deltaWPercent = (deltaX / fW_model) * 100;
+          const deltaDPercent = (deltaY / fH_model) * 100;
+          
+          const room = flat.rooms.find(r => r.id === draggedResizeHandle.roomId);
+          if (room) {
+            const newWPercent = Math.max(10, Math.min(100 - room.xPercent, Math.round(draggedResizeHandle.originalWidthPercent + deltaWPercent)));
+            const newDPercent = Math.max(10, Math.min(100 - room.yPercent, Math.round(draggedResizeHandle.originalDepthPercent + deltaDPercent)));
+            
+            const netW_m = fW_model / scale;
+            const netH_m = fH_model / scale;
+            const wM = (newWPercent / 100) * netW_m;
+            const dM = (newDPercent / 100) * netH_m;
+            
+            const updatedRooms = flat.rooms.map(r => r.id === room.id ? { 
+              ...r, 
+              widthPercent: newWPercent, 
+              depthPercent: newDPercent,
+              widthM: wM,
+              depthM: dM,
+              areaM2: wM * dM
+            } : r);
+            const updatedLayouts = activeLayouts.map(f => f.id === flat.id ? { ...f, rooms: updatedRooms } : f);
+            setLayouts(prev => ({
+              ...prev,
+              [currentKey]: updatedLayouts
+            }));
+          }
+        }
+      }
+    } else if (draggedCore) {
+      const coords = getSvgCoords(e);
+      if (coords) {
+        const deltaX = coords.x - draggedCore.startModelX;
+        const deltaY = coords.y - draggedCore.startModelY;
+        setCoreOffsetX(Math.max(-currentFacadeWidth * 0.45 * scale, Math.min(currentFacadeWidth * 0.45 * scale, Math.round(draggedCore.originalOffsetX + deltaX))));
+        setCoreOffsetY(Math.max(-currentFacadeDepth * 0.45 * scale, Math.min(currentFacadeDepth * 0.45 * scale, Math.round(draggedCore.originalOffsetY + deltaY))));
+      }
+    } else if (draggedLine) {
+      const coords = getSvgCoords(e);
+      if (coords) {
+        const deltaX = coords.x - draggedLine.startModelX;
+        const deltaY = coords.y - draggedLine.startModelY;
+        setCustomLines(prev => prev.map(l => {
+          if (l.id === draggedLine.id) {
+            if (draggedLine.part === 'p1') {
+              return { ...l, x1: Math.round(draggedLine.originalX1 + deltaX), y1: Math.round(draggedLine.originalY1 + deltaY) };
+            } else if (draggedLine.part === 'p2') {
+              return { ...l, x2: Math.round(draggedLine.originalX2 + deltaX), y2: Math.round(draggedLine.originalY2 + deltaY) };
+            } else {
+              return {
+                ...l,
+                x1: Math.round(draggedLine.originalX1 + deltaX),
+                y1: Math.round(draggedLine.originalY1 + deltaY),
+                x2: Math.round(draggedLine.originalX2 + deltaX),
+                y2: Math.round(draggedLine.originalY2 + deltaY)
+              };
+            }
+          }
+          return l;
+        }));
+      }
+    } else if (tempDrawingLine) {
+      const coords = getSvgCoords(e);
+      if (coords) {
+        setTempDrawingLine(prev => prev ? { ...prev, x2: Math.round(coords.x), y2: Math.round(coords.y) } : null);
+      }
+    } else if (isPanning) {
+      const { clientX, clientY } = getClientCoords(e);
+      if (svgRef.current) {
+        const rect = svgRef.current.getBoundingClientRect();
+        const deltaX = (clientX - panStart.x) * (totalSvgWidth / rect.width);
+        const deltaY = (clientY - panStart.y) * (totalSvgHeight / rect.height);
+        setPanX(prev => prev + deltaX);
+        setPanY(prev => prev + deltaY);
+        setPanStart({ x: clientX, y: clientY });
+      }
+    }
+  };
+
+  const handleFloorPlanMouseUp = () => {
+    setDraggedRoom(null);
+    setDraggedResizeHandle(null);
+    setDraggedCore(null);
+    setDraggedLine(null);
+    setIsPanning(false);
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => {
+    const coords = getSvgCoords(e);
+    if (drawingMode !== 'select' && coords) {
+      e.stopPropagation();
+      if (!tempDrawingLine) {
+        // Start drawing first point
+        setTempDrawingLine({
+          x1: Math.round(coords.x),
+          y1: Math.round(coords.y),
+          x2: Math.round(coords.x),
+          y2: Math.round(coords.y)
+        });
+      } else {
+        // Finish drawing line
+        const newLine = {
+          id: `custom-line-${Date.now()}`,
+          x1: tempDrawingLine.x1,
+          y1: tempDrawingLine.y1,
+          x2: Math.round(coords.x),
+          y2: Math.round(coords.y),
+          type: drawingMode === 'draw_wall' ? 'wall' : drawingMode === 'draw_axis' ? 'axis' : 'dimension'
+        };
+        setCustomLines(prev => [...prev, newLine]);
+        setTempDrawingLine(null);
+      }
+      return;
+    }
+    const { clientX, clientY } = getClientCoords(e);
+    setIsPanning(true);
+    setPanStart({ x: clientX, y: clientY });
+  };
+
+  const handleCoreMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const coords = getSvgCoords(e);
+    if (!coords) return;
+    setDraggedCore({
+      startModelX: coords.x,
+      startModelY: coords.y,
+      originalOffsetX: coreOffsetX,
+      originalOffsetY: coreOffsetY
+    });
+  };
+
+  const handleLineMouseDown = (lineId: string, part: 'p1' | 'p2' | 'all', e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedLineId(lineId);
+    setSelectedRoom(null); // Deselect room if a line is selected
+    const coords = getSvgCoords(e);
+    if (!coords) return;
+    const line = customLines.find(l => l.id === lineId);
+    if (line) {
+      setDraggedLine({
+        id: lineId,
+        part,
+        startModelX: coords.x,
+        startModelY: coords.y,
+        originalX1: line.x1,
+        originalY1: line.y1,
+        originalX2: line.x2,
+        originalY2: line.y2
+      });
+    }
+  };
+
+  const handleAddRoom = (flatId: string | undefined, isDuplex: boolean, roomType: "salon" | "room" | "bath" | "hall" | "balcony" | "kitchen" | "parent_bath", customName?: string) => {
+    const defaultNames: Record<string, string> = {
+      salon: 'Salon',
+      room: 'Oda',
+      bedroom: 'Yatak Odası',
+      kitchen: 'Mutfak',
+      bath: 'Banyo',
+      hall: 'Antre / Hol',
+      balcony: 'Balkon',
+      terrace: 'Teras',
+      office: 'Çalışma Ofisi',
+      parent_bath: 'Ebeveyn Banyosu',
+      laundry: 'Çamaşır Odası',
+      cinema: 'Sinema Odası',
+      commercial_area: 'Mağaza Alanı',
+      basement_parking: 'Otopark Alanı',
+      shelter: 'Sığınak Bölümü'
+    };
+    
+    const flatW = isDuplex 
+      ? (currentFacadeWidth - 2.0) 
+      : (() => {
+          const flat = activeLayouts.find(f => f.id === flatId);
+          return flat ? (flat.bounds.widthPercent / 100) * (currentFacadeWidth - 2.0) : 6.0;
+        })();
+    const flatD = isDuplex 
+      ? (currentFacadeDepth - 2.0) 
+      : (() => {
+          const flat = activeLayouts.find(f => f.id === flatId);
+          return flat ? (flat.bounds.depthPercent / 100) * (currentFacadeDepth - 2.0) : 6.0;
+        })();
+
+    const newRoom: RoomDetail = {
+      id: `room_${Date.now()}`,
+      name: customName || defaultNames[roomType] || 'Oda',
+      type: roomType,
+      xPercent: 15,
+      yPercent: 15,
+      widthPercent: 25,
+      depthPercent: 25,
+      widthM: flatW * 0.25,
+      depthM: flatD * 0.25,
+      areaM2: (flatW * 0.25) * (flatD * 0.25)
+    };
+    
+    const netArea = isDuplex ? metrics.flatNetArea : (activeLayouts.find(f => f.id === flatId)?.netArea || 60);
+    newRoom.areaM2 = netArea * (newRoom.widthPercent * newRoom.depthPercent / 10000);
+    
+    if (isDuplex) {
+      const updated = [...duplexAtticRooms, newRoom];
+      setDuplexRoomsState(prev => ({ ...prev, [duplexKey]: updated }));
+      setSelectedRoom({ isDuplex: true, roomId: newRoom.id });
+    } else {
+      const flat = activeLayouts.find(f => f.id === flatId);
+      if (flat) {
+        const updatedRooms = [...flat.rooms, newRoom];
+        const updatedLayouts = activeLayouts.map(f => f.id === flatId ? { ...f, rooms: updatedRooms } : f);
+        setLayouts(prev => ({ ...prev, [currentKey]: updatedLayouts }));
+        setSelectedRoom({ flatId, roomId: newRoom.id });
+      }
+    }
+  };
+
+  const handleDeleteRoom = () => {
+    if (!selectedRoom) return;
+    const { flatId, isDuplex, roomId } = selectedRoom;
+    
+    if (isDuplex) {
+      const updated = duplexAtticRooms.filter(r => r.id !== roomId);
+      setDuplexRoomsState(prev => ({ ...prev, [duplexKey]: updated }));
+    } else {
+      const flat = activeLayouts.find(f => f.id === flatId);
+      if (flat) {
+        const updatedRooms = flat.rooms.filter(r => r.id !== roomId);
+        const updatedLayouts = activeLayouts.map(f => f.id === flatId ? { ...f, rooms: updatedRooms } : f);
+        setLayouts(prev => ({ ...prev, [currentKey]: updatedLayouts }));
+      }
+    }
+    setSelectedRoom(null);
+  };
 
   // Sync dimensions to main calculation engine
   const handleSyncToCalculator = () => {
@@ -642,12 +1188,188 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
             </div>
           </div>
 
+          {/* Interactive Room Editor and Zoom Control Panel */}
+          <div className="w-full max-w-[920px] mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl border bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 transition-all shadow-sm select-none">
+            {/* Zoom / Pan and View Options */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setZoom(prev => Math.min(5.0, prev + 0.2))}
+                className="p-2 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 border border-slate-200 dark:border-zinc-700 rounded-xl transition-all shadow-sm text-slate-700 dark:text-zinc-300 flex items-center justify-center"
+                title="Yakınlaştır (Mouse tekerleği de kullanılabilir)"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setZoom(prev => Math.max(0.6, prev - 0.2))}
+                className="p-2 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 border border-slate-200 dark:border-zinc-700 rounded-xl transition-all shadow-sm text-slate-700 dark:text-zinc-300 flex items-center justify-center"
+                title="Uzaklaştır (Mouse tekerleği de kullanılabilir)"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  setZoom(1.0);
+                  setPanX(0);
+                  setPanY(0);
+                }}
+                className="px-3 py-1.5 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-medium transition-all shadow-sm text-slate-700 dark:text-zinc-300 flex items-center gap-1.5"
+                title="Görünümü Sıfırla"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Ortala</span>
+              </button>
+              <button
+                onClick={() => setShowGrid(!showGrid)}
+                className={`px-3 py-1.5 border rounded-xl text-xs font-medium transition-all shadow-sm flex items-center gap-1.5 ${
+                  showGrid
+                    ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400'
+                    : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300'
+                }`}
+              >
+                <Grid className="w-3.5 h-3.5" />
+                <span>Klavuz Çizgileri</span>
+              </button>
+            </div>
+
+            {/* Drawing Tools */}
+            <div className="flex flex-wrap items-center gap-2 border-l border-slate-200 dark:border-zinc-700 pl-2">
+              <button
+                onClick={() => setDrawingMode('select')}
+                className={`p-2 rounded-xl transition-all ${drawingMode === 'select' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'}`}
+                title="Seçim Aracı"
+              >
+                <Move className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setDrawingMode('draw_wall')}
+                className={`p-2 rounded-xl transition-all ${drawingMode === 'draw_wall' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'}`}
+                title="Duvar Çiz"
+              >
+                <PenTool className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setDrawingMode('draw_axis')}
+                className={`p-2 rounded-xl transition-all ${drawingMode === 'draw_axis' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'}`}
+                title="Aks Çiz"
+              >
+                <Spline className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setDrawingMode('draw_dimension')}
+                className={`p-2 rounded-xl transition-all ${drawingMode === 'draw_dimension' ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'}`}
+                title="Ölçü Çiz"
+              >
+                <Ruler className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedRoom ? (
+                <div className="flex items-center gap-2 bg-indigo-50/60 dark:bg-indigo-950/20 p-1.5 rounded-xl border border-indigo-100 dark:border-indigo-950/50">
+                  {/* Selected Room Label / Rename */}
+                  <input
+                    type="text"
+                    value={(() => {
+                      if (selectedRoom.isDuplex) {
+                        return duplexAtticRooms.find(r => r.id === selectedRoom.roomId)?.name || '';
+                      } else {
+                        const flat = activeLayouts.find(f => f.id === selectedRoom.flatId);
+                        return flat?.rooms.find(r => r.id === selectedRoom.roomId)?.name || '';
+                      }
+                    })()}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      if (selectedRoom.isDuplex) {
+                        const updated = duplexAtticRooms.map(r => r.id === selectedRoom.roomId ? { ...r, name: newName } : r);
+                        setDuplexRoomsState(prev => ({ ...prev, [duplexKey]: updated }));
+                      } else {
+                        const flat = activeLayouts.find(f => f.id === selectedRoom.flatId);
+                        if (flat) {
+                          const updatedRooms = flat.rooms.map(r => r.id === selectedRoom.roomId ? { ...r, name: newName } : r);
+                          const updatedLayouts = activeLayouts.map(f => f.id === selectedRoom.flatId ? { ...f, rooms: updatedRooms } : f);
+                          setLayouts(prev => ({ ...prev, [currentKey]: updatedLayouts }));
+                        }
+                      }
+                    }}
+                    placeholder="Oda İsmi"
+                    className="px-2 py-1 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800 dark:text-zinc-200 w-28"
+                  />
+                  {/* Delete Room */}
+                  <button
+                    onClick={handleDeleteRoom}
+                    className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all"
+                    title="Seçili Odayı Sil"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedRoom(null)}
+                    className="text-[11px] font-medium text-slate-500 hover:text-slate-700 px-1"
+                  >
+                    Kapat
+                  </button>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 dark:text-zinc-400 font-medium flex items-center gap-1">
+                  <Sliders className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Oda taşımak/boyutlandırmak için üzerine tıklayın</span>
+                </div>
+              )}
+
+              {/* Add Room Actions */}
+              <div className="relative group">
+                <button
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Oda Ekle</span>
+                </button>
+                
+                {/* Add room dropdown list */}
+                <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl py-1 z-50 hidden group-hover:block hover:block">
+                  {[
+                    { type: 'salon', name: 'Salon', label: 'Salon' },
+                    { type: 'room', name: 'Yatak Odası', label: 'Yatak Odası' },
+                    { type: 'kitchen', name: 'Mutfak', label: 'Mutfak' },
+                    { type: 'bath', name: 'Banyo', label: 'Banyo' },
+                    { type: 'hall', name: 'Antre / Hol', label: 'Antre / Hol' },
+                    { type: 'room', name: 'Çalışma Ofisi', label: 'Çalışma Ofisi' },
+                    { type: 'balcony', name: 'Balkon', label: 'Balkon' }
+                  ].map((item, idx) => (
+                    <button
+                      key={`${item.type}-${idx}`}
+                      onClick={() => {
+                        if (isDuplexAtticView) {
+                          handleAddRoom(undefined, true, item.type as any, item.label);
+                        } else {
+                          const targetFlatId = activeLayouts[0]?.id;
+                          handleAddRoom(targetFlatId, false, item.type as any, item.label);
+                        }
+                      }}
+                      className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-zinc-700 text-xs text-slate-700 dark:text-zinc-300 font-medium transition-all"
+                    >
+                      + {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Scaled SVG Architectural Drawing adhering strictly to CAD rules */}
           <svg
+            ref={svgRef}
             viewBox={`0 0 ${totalSvgWidth} ${totalSvgHeight}`}
-            className={`w-full max-w-[920px] h-auto drop-shadow-md rounded-2xl border transition-colors ${
+            className={`w-full max-w-[920px] h-auto drop-shadow-md rounded-2xl border transition-colors cursor-grab active:cursor-grabbing ${
               isLight ? 'bg-[#fcfdfd] border-slate-300' : 'bg-[#0d0e12] border-zinc-800'
             } print:bg-white print:border-slate-300`}
+            onMouseDown={handleCanvasMouseDown}
+            onMouseMove={handleFloorPlanMouseMove}
+            onMouseUp={handleFloorPlanMouseUp}
+            onMouseLeave={handleFloorPlanMouseUp}
+            onTouchStart={handleCanvasMouseDown}
+            onTouchMove={handleFloorPlanMouseMove}
+            onTouchEnd={handleFloorPlanMouseUp}
           >
             <defs>
               {/* CAD 0.5m & 1.0m Modular Grid Pattern */}
@@ -725,6 +1447,8 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                 />
               </pattern>
             </defs>
+
+            <g transform={`translate(${panX}, ${panY}) scale(${zoom})`}>
 
             {/* 1. CAD MODULAR GRID SYSTEM */}
             {showGrid && (
@@ -994,7 +1718,12 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
               )}
 
             {/* 8. COMMON CIRCULATION CORRIDOR (ORTAK KAT HOLÜ & YANGIN KORİDORU) */}
-            <g id="common-circulation-corridor">
+            <g
+              id="common-circulation-corridor"
+              onMouseDown={handleCoreMouseDown}
+              style={{ cursor: 'move' }}
+              title="Sürükleyerek merdiven/asansör sirkülasyon çekirdeğini taşıyın"
+            >
               <rect
                 x={corrX}
                 y={corrY}
@@ -1019,7 +1748,12 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
             </g>
 
             {/* 9. CENTRAL CORE: STAIRCASE SHAFT (MERDİVEN KOVASI) */}
-            <g id="staircase-core">
+            <g
+              id="staircase-core"
+              onMouseDown={handleCoreMouseDown}
+              style={{ cursor: 'move' }}
+              title="Sürükleyerek merdiven/asansör sirkülasyon çekirdeğini taşıyın"
+            >
               {/* Staircase Enclosing Concrete Shaft (Perde Duvar) */}
               <rect
                 x={stairX}
@@ -1110,7 +1844,12 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
             </g>
 
             {/* 10. CENTRAL CORE: ELEVATOR SHAFT (ASANSÖR ŞAFTI) */}
-            <g id="elevator-core">
+            <g
+              id="elevator-core"
+              onMouseDown={handleCoreMouseDown}
+              style={{ cursor: 'move' }}
+              title="Sürükleyerek merdiven/asansör sirkülasyon çekirdeğini taşıyın"
+            >
               {/* Concrete Shaft Wall */}
               <rect
                 x={elevX}
@@ -1210,8 +1949,14 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                   const rw = (room.widthPercent / 100) * (bW - extWallThick * 2);
                   const rh = (room.depthPercent / 100) * (bH * 0.52);
 
+                  const isSel = selectedRoom?.isDuplex && selectedRoom?.roomId === room.id;
+
                   return (
-                    <g key={room.id}>
+                    <g
+                      key={room.id}
+                      onMouseDown={(e) => handleRoomMouseDown(undefined, true, room.id, e)}
+                      style={{ cursor: 'move' }}
+                    >
                       {/* Room boundary with 15cm interior partition walls */}
                       <rect
                         x={rx}
@@ -1219,11 +1964,28 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                         width={rw}
                         height={rh}
                         fill={isLight ? '#ffffff' : '#1a1a1e'}
-                        stroke={isLight ? '#334155' : '#71717a'}
-                        strokeWidth={intWallThick}
+                        stroke={isSel ? '#2563eb' : (isLight ? '#334155' : '#71717a')}
+                        strokeWidth={isSel ? 2.5 : intWallThick}
+                        className="transition-colors duration-150"
                       />
+                      
+                      {/* Selected state overlay ring */}
+                      {isSel && (
+                        <rect
+                          x={rx - 2}
+                          y={ry - 2}
+                          width={rw + 4}
+                          height={rh + 4}
+                          fill="none"
+                          stroke="#3b82f6"
+                          strokeWidth="1.5"
+                          strokeDasharray="4,2"
+                          rx="2"
+                        />
+                      )}
+
                       {/* 90-degree CAD Door */}
-                      {renderCadDoor(rx + 8, ry + rh, 18, 'S', 'right', isLight ? '#475569' : '#a1a1aa')}
+                      {rw > 32 && rh > 28 && renderCadDoor(rx + 8, ry + rh, 18, 'S', 'right', isLight ? '#475569' : '#a1a1aa')}
 
                       {/* Room label badge */}
                       <rect
@@ -1232,7 +1994,7 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                         width="84"
                         height="24"
                         fill={isLight ? '#f8fafc' : '#121214'}
-                        stroke={isLight ? '#cbd5e1' : '#3f3f46'}
+                        stroke={isSel ? '#2563eb' : (isLight ? '#cbd5e1' : '#3f3f46')}
                         strokeWidth="0.8"
                         rx="5"
                       />
@@ -1257,6 +2019,28 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                       >
                         {room.areaM2.toFixed(2)} m²
                       </text>
+
+                      {/* Resize Handle at Bottom-Right Corner */}
+                      {isSel && (
+                        <g
+                          onMouseDown={(e) => handleResizeMouseDown(undefined, true, room.id, e)}
+                          style={{ cursor: 'nwse-resize' }}
+                        >
+                          <circle
+                            cx={rx + rw}
+                            cy={ry + rh}
+                            r="7"
+                            fill="#2563eb"
+                             stroke="#ffffff"
+                             strokeWidth="1.5"
+                           />
+                           <path
+                             d={`M ${rx + rw - 3} ${ry + rh + 1} L ${rx + rw + 1} ${ry + rh - 3}`}
+                             stroke="#ffffff"
+                             strokeWidth="1.2"
+                           />
+                        </g>
+                      )}
                     </g>
                   );
                 })}
@@ -1316,6 +2100,18 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                       true
                     )}
 
+                    {/* Thick apartment boundary line separating flats (Kalın Daire Bölme Duvarları) */}
+                    <rect
+                      x={fX}
+                      y={fY}
+                      width={fW}
+                      height={fH}
+                      fill="none"
+                      stroke={isLight ? '#1e293b' : '#f8fafc'}
+                      strokeWidth="3.5"
+                      strokeLinejoin="miter"
+                    />
+
                     {/* ROOMS INSIDE THIS FLAT (Snapping to Grid, 15cm Common Partitions) */}
                     {flat.rooms.map((room) => {
                       const rx = fX + 4 + (room.xPercent / 100) * (fW - 8);
@@ -1326,12 +2122,18 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                       const isBath = room.type === 'bath' || room.type === 'parent_bath';
                       const isSalon = room.type === 'salon';
 
+                      const isSel = selectedRoom?.flatId === flat.id && selectedRoom?.roomId === room.id;
+
                       // Determine interior room door location
                       const roomDoorX = rx + 6;
                       const roomDoorY = ry + rh;
 
                       return (
-                        <g key={room.id}>
+                        <g
+                          key={room.id}
+                          onMouseDown={(e) => handleRoomMouseDown(flat.id, false, room.id, e)}
+                          style={{ cursor: 'move' }}
+                        >
                           {/* 15 cm Interior Partition Wall (Double / Solid CAD Wall) */}
                           <rect
                             x={rx}
@@ -1349,9 +2151,25 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                                 ? '#ffffff'
                                 : '#16161a'
                             }
-                            stroke={isLight ? '#334155' : '#71717a'}
-                            strokeWidth={intWallThick}
+                            stroke={isSel ? '#2563eb' : (isLight ? '#475569' : '#818cf8')}
+                            strokeWidth={isSel ? 2.5 : intWallThick}
+                            className="transition-colors duration-150"
                           />
+
+                          {/* Selected state overlay ring */}
+                          {isSel && (
+                            <rect
+                              x={rx - 2}
+                              y={ry - 2}
+                              width={rw + 4}
+                              height={rh + 4}
+                              fill="none"
+                              stroke="#3b82f6"
+                              strokeWidth="1.5"
+                              strokeDasharray="4,2"
+                              rx="2"
+                            />
+                          )}
 
                           {/* 90-degree CAD Room Door */}
                           {rw > 32 &&
@@ -1398,7 +2216,7 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                                 width="76"
                                 height="22"
                                 fill={isLight ? '#ffffff' : '#121214'}
-                                stroke={isLight ? '#cbd5e1' : '#3f3f46'}
+                                stroke={isSel ? '#2563eb' : (isLight ? '#cbd5e1' : '#3f3f46')}
                                 strokeWidth="0.8"
                                 rx="4"
                                 opacity="0.94"
@@ -1424,6 +2242,28 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                               >
                                 {room.areaM2.toFixed(2)} m²
                               </text>
+                            </g>
+                          )}
+
+                          {/* Resize Handle at Bottom-Right Corner */}
+                          {isSel && (
+                            <g
+                              onMouseDown={(e) => handleResizeMouseDown(flat.id, false, room.id, e)}
+                              style={{ cursor: 'nwse-resize' }}
+                            >
+                              <circle
+                                cx={rx + rw}
+                                cy={ry + rh}
+                                r="7"
+                                fill="#2563eb"
+                                stroke="#ffffff"
+                                strokeWidth="1.5"
+                              />
+                              <path
+                                d={`M ${rx + rw - 3} ${ry + rh + 1} L ${rx + rw + 1} ${ry + rh - 3}`}
+                                stroke="#ffffff"
+                                strokeWidth="1.2"
+                              />
                             </g>
                           )}
                         </g>
@@ -1513,6 +2353,182 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                 </text>
               </g>
             )}
+
+            {/* 14. CUSTOM EDITABLE CAD LINES */}
+            <g id="custom-editable-lines">
+              {customLines.map((l) => {
+                const isSelected = selectedLineId === l.id;
+                const distM = Math.sqrt(Math.pow(l.x2 - l.x1, 2) + Math.pow(l.y2 - l.y1, 2)) / scale;
+                const midX = (l.x1 + l.x2) / 2;
+                const midY = (l.y1 + l.y2) / 2;
+                const angle = Math.atan2(l.y2 - l.y1, l.x2 - l.x1) * 180 / Math.PI;
+
+                return (
+                  <g key={l.id} className="group">
+                    {/* Fat transparent helper line for easier clicking/hovering */}
+                    <line
+                      x1={l.x1}
+                      y1={l.y1}
+                      x2={l.x2}
+                      y2={l.y2}
+                      stroke="transparent"
+                      strokeWidth="16"
+                      style={{ cursor: 'move' }}
+                      onMouseDown={(e) => handleLineMouseDown(l.id, 'all', e)}
+                    />
+
+                    {/* Actual visible line */}
+                    {l.type === 'wall' && (
+                      <line
+                        x1={l.x1}
+                        y1={l.y1}
+                        x2={l.x2}
+                        y2={l.y2}
+                        stroke={isSelected ? '#3b82f6' : (isLight ? '#475569' : '#94a3b8')}
+                        strokeWidth="5"
+                        strokeLinecap="square"
+                        onMouseDown={(e) => handleLineMouseDown(l.id, 'all', e)}
+                        style={{ cursor: 'move' }}
+                      />
+                    )}
+
+                    {l.type === 'axis' && (
+                      <g>
+                        <line
+                          x1={l.x1}
+                          y1={l.y1}
+                          x2={l.x2}
+                          y2={l.y2}
+                          stroke={isSelected ? '#3b82f6' : '#ef4444'}
+                          strokeWidth="1.2"
+                          strokeDasharray="8,4,2,4"
+                          onMouseDown={(e) => handleLineMouseDown(l.id, 'all', e)}
+                          style={{ cursor: 'move' }}
+                        />
+                        {/* Circular bubble label on end point 1 */}
+                        <circle
+                          cx={l.x1}
+                          cy={l.y1}
+                          r="9"
+                          fill={isLight ? '#fee2e2' : '#7f1d1d'}
+                          stroke="#ef4444"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={l.x1}
+                          y={l.y1 + 3}
+                          fill="#ef4444"
+                          fontSize="7.5"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          A
+                        </text>
+                      </g>
+                    )}
+
+                    {l.type === 'dimension' && (
+                      <g>
+                        <line
+                          x1={l.x1}
+                          y1={l.y1}
+                          x2={l.x2}
+                          y2={l.y2}
+                          stroke={isSelected ? '#3b82f6' : (isLight ? '#0f766e' : '#14b8a6')}
+                          strokeWidth="1"
+                          onMouseDown={(e) => handleLineMouseDown(l.id, 'all', e)}
+                          style={{ cursor: 'move' }}
+                        />
+                        {/* CAD dimension tick marks at endpoints */}
+                        <line x1={l.x1 - 3} y1={l.y1 + 3} x2={l.x1 + 3} y2={l.y1 - 3} stroke={isSelected ? '#3b82f6' : (isLight ? '#0f766e' : '#14b8a6')} strokeWidth="1.5" />
+                        <line x1={l.x2 - 3} y1={l.y2 + 3} x2={l.x2 + 3} y2={l.y2 - 3} stroke={isSelected ? '#3b82f6' : (isLight ? '#0f766e' : '#14b8a6')} strokeWidth="1.5" />
+                        
+                        {/* Dimension Label in Meters */}
+                        <g transform={`translate(${midX}, ${midY - 7}) rotate(${angle > 90 || angle < -90 ? angle + 180 : angle})`}>
+                          <rect
+                            x="-18"
+                            y="-6"
+                            width="36"
+                            height="11"
+                            fill={isLight ? '#ffffff' : '#121214'}
+                            rx="2"
+                          />
+                          <text
+                            x="0"
+                            y="2"
+                            fill={isSelected ? '#2563eb' : (isLight ? '#0f766e' : '#2dd4bf')}
+                            fontSize="8"
+                            fontWeight="bold"
+                            textAnchor="middle"
+                            className="font-mono"
+                          >
+                            {distM.toFixed(2)}m
+                          </text>
+                        </g>
+                      </g>
+                    )}
+
+                    {/* Endpoint handles if selected or during select mode */}
+                    {(isSelected || drawingMode === 'select') && (
+                      <g>
+                        {/* Handle 1 */}
+                        <circle
+                          cx={l.x1}
+                          cy={l.y1}
+                          r="6"
+                          fill="#3b82f6"
+                          stroke="#ffffff"
+                          strokeWidth="1.5"
+                          style={{ cursor: 'pointer' }}
+                          onMouseDown={(e) => handleLineMouseDown(l.id, 'p1', e)}
+                        />
+                        {/* Handle 2 */}
+                        <circle
+                          cx={l.x2}
+                          cy={l.y2}
+                          r="6"
+                          fill="#3b82f6"
+                          stroke="#ffffff"
+                          strokeWidth="1.5"
+                          style={{ cursor: 'pointer' }}
+                          onMouseDown={(e) => handleLineMouseDown(l.id, 'p2', e)}
+                        />
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+
+              {/* Temporary live preview drawing line */}
+              {tempDrawingLine && (
+                <g>
+                  <line
+                    x1={tempDrawingLine.x1}
+                    y1={tempDrawingLine.y1}
+                    x2={tempDrawingLine.x2}
+                    y2={tempDrawingLine.y2}
+                    stroke="#10b981"
+                    strokeWidth="1.5"
+                    strokeDasharray="4,4"
+                  />
+                  <circle cx={tempDrawingLine.x1} cy={tempDrawingLine.y1} r="4" fill="#10b981" />
+                  <circle cx={tempDrawingLine.x2} cy={tempDrawingLine.y2} r="4" fill="#10b981" />
+                  {/* Floating length feedback */}
+                  <text
+                    x={(tempDrawingLine.x1 + tempDrawingLine.x2) / 2}
+                    y={(tempDrawingLine.y1 + tempDrawingLine.y2) / 2 - 8}
+                    fill="#10b981"
+                    fontSize="9"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    className="font-mono bg-white"
+                  >
+                    {(Math.sqrt(Math.pow(tempDrawingLine.x2 - tempDrawingLine.x1, 2) + Math.pow(tempDrawingLine.y2 - tempDrawingLine.y1, 2)) / scale).toFixed(2)}m
+                  </text>
+                </g>
+              )}
+            </g>
+            </g>
           </svg>
 
           {/* Technical CAD Legend and Specification Details */}

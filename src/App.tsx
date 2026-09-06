@@ -117,9 +117,21 @@ export default function App() {
       const saved = localStorage.getItem('ab_yapi_last_params');
       if (saved) {
         const parsed = JSON.parse(saved);
+        const fc = parsed.floorCount || 5;
+        const fpf = parsed.flatsPerFloor || 2;
+        const hasShop = !!parsed.hasGroundFloorShop;
+        const rf = hasShop ? Math.max(1, fc - 1) : fc;
+        const normalFlats = rf * fpf;
+        let fcCorrected = parsed.flatCount;
+        if (!fcCorrected || fcCorrected <= 0 || (fcCorrected === fc && fpf > 1)) {
+          fcCorrected = normalFlats;
+        }
         return {
           ...DEFAULT_PARAMS,
           ...parsed,
+          floorCount: fc,
+          flatsPerFloor: fpf,
+          flatCount: fcCorrected,
           roofType: parsed.roofType || 'gable',
           basementCount: parsed.basementCount !== undefined ? parsed.basementCount : 1,
         };
@@ -226,7 +238,7 @@ export default function App() {
     const roofType = newParams.roofType || 'gable';
     const isMansard = roofType === 'mansard';
     const isDuplex = roofType === 'duplex';
-    const flatsPerFloor = newParams.flatsPerFloor || 1;
+    const flatsPerFloor = newParams.flatsPerFloor || 2;
     const normalFloorFlats = resFloors * flatsPerFloor;
 
     // KURAL:
@@ -240,8 +252,10 @@ export default function App() {
       ? newParams.flatCount
       : Math.max(1, normalFloorFlats + extraMansardFlats);
 
-    // Mansart seçildiğinde eğer daire sayısı sadece normal katlara eşit kalmışsa otomatik ekle
-    if (isMansard && totalFlats === normalFloorFlats) {
+    // Otomatik Düzeltme: Eğer daire sayısı kat sayısına eşit kalmışsa ve katta daire > 1 ise (ör. 5 kat * 2 daire = 10 yerine 5 kalmışsa)
+    if (totalFlats === resFloors && flatsPerFloor > 1) {
+      totalFlats = normalFloorFlats + extraMansardFlats;
+    } else if (isMansard && totalFlats === normalFloorFlats) {
       totalFlats = normalFloorFlats + extraMansardFlats;
     }
 
@@ -374,7 +388,7 @@ export default function App() {
       }
 
       const nextFloorCount = updates.floorCount !== undefined ? updates.floorCount : prev.floorCount;
-      const nextFlatsPerFloor = updates.flatsPerFloor !== undefined ? updates.flatsPerFloor : (prev.flatsPerFloor || 1);
+      const nextFlatsPerFloor = updates.flatsPerFloor !== undefined ? updates.flatsPerFloor : (prev.flatsPerFloor || 2);
       const nextHasShop = updates.hasGroundFloorShop !== undefined ? updates.hasGroundFloorShop : (prev.hasGroundFloorShop || false);
 
       const resFloors = nextHasShop ? Math.max(1, nextFloorCount - 1) : nextFloorCount;
@@ -400,6 +414,8 @@ export default function App() {
         updates.roofType !== undefined ||
         updates.mansardFlatCount !== undefined
       ) {
+        nextFlatCount = Math.max(1, resFloors * nextFlatsPerFloor + extraMansardFlats);
+      } else if (nextFlatCount === resFloors && nextFlatsPerFloor > 1) {
         nextFlatCount = Math.max(1, resFloors * nextFlatsPerFloor + extraMansardFlats);
       } else if (isMansard && nextFlatCount === resFloors * nextFlatsPerFloor) {
         nextFlatCount = resFloors * nextFlatsPerFloor + extraMansardFlats;

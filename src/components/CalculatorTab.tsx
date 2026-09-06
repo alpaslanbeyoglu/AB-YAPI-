@@ -301,19 +301,21 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Katta Daire</span>
-                  <div className="text-xs font-mono font-bold text-slate-800">{params.flatsPerFloor || 1} Adet</div>
+                  <div className="text-xs font-mono font-bold text-slate-800">{params.flatsPerFloor || 2} Adet</div>
                 </div>
                 <div className="space-y-0.5 col-span-2 sm:col-span-1 lg:col-span-1">
                   <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Toplam Bağımsız Bölüm</span>
                   <div className="text-xs font-mono font-bold text-emerald-900">
                     {params.hasGroundFloorShop
-                      ? `${params.flatCount + (params.shopCount || 1)} Adet (${params.flatCount} Daire, ${params.shopCount || 1} Dükkan)`
-                      : `${params.flatCount} Adet (${params.flatCount} Daire)`}
+                      ? `${(params.flatCount || 10) + (params.shopCount || 1)} Adet (${params.flatCount || 10} Daire, ${params.shopCount || 1} Dükkan)`
+                      : `${params.flatCount || 10} Adet (${params.flatCount || 10} Daire)`}
                   </div>
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Toplam İnşaat</span>
-                  <div className="text-xs font-mono font-bold text-slate-800">{results.totalGrossArea ? results.totalGrossArea.toFixed(0) : 0} m²</div>
+                  <div className="text-xs font-mono font-bold text-slate-800">
+                    {((results?.totalArea || (params.baseBuildArea * params.floorCount)) || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m²
+                  </div>
                 </div>
               </div>
 
@@ -433,7 +435,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         onChange={(e) => {
                           const hasShop = e.target.checked;
                           const normalFloors = hasShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                          const flatsPerFloor = params.flatsPerFloor || 1;
+                          const flatsPerFloor = params.flatsPerFloor || 2;
                           const totalFlats = normalFloors * flatsPerFloor;
                           onChangeParams({
                             ...params,
@@ -496,7 +498,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       onClick={() => {
                         const nextCount = Math.max(1, params.floorCount - 1);
                         const normalFloors = params.hasGroundFloorShop ? Math.max(1, nextCount - 1) : nextCount;
-                        const totalFlats = normalFloors * (params.flatsPerFloor || 1);
+                        const totalFlats = normalFloors * (params.flatsPerFloor || 2);
                         onChangeParams({
                           ...params,
                           floorCount: nextCount,
@@ -516,7 +518,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         onChange={(e) => {
                           const count = Math.max(1, parseInt(e.target.value) || 1);
                           const normalFloors = params.hasGroundFloorShop ? Math.max(1, count - 1) : count;
-                          const totalFlats = normalFloors * (params.flatsPerFloor || 1);
+                          const totalFlats = normalFloors * (params.flatsPerFloor || 2);
                           onChangeParams({
                             ...params,
                             floorCount: count,
@@ -531,7 +533,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       onClick={() => {
                         const nextCount = params.floorCount + 1;
                         const normalFloors = params.hasGroundFloorShop ? Math.max(1, nextCount - 1) : nextCount;
-                        const totalFlats = normalFloors * (params.flatsPerFloor || 1);
+                        const totalFlats = normalFloors * (params.flatsPerFloor || 2);
                         onChangeParams({
                           ...params,
                           floorCount: nextCount,
@@ -551,7 +553,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         type="button"
                         onClick={() => {
                           const normalFloors = params.hasGroundFloorShop ? Math.max(1, fl - 1) : fl;
-                          const totalFlats = normalFloors * (params.flatsPerFloor || 1);
+                          const totalFlats = normalFloors * (params.flatsPerFloor || 2);
                           onChangeParams({
                             ...params,
                             floorCount: fl,
@@ -574,13 +576,13 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-indigo-700 uppercase">Kattaki Daire Sayısı:</label>
-                    <span className="text-[10px] font-bold text-indigo-600 font-mono">Katta {params.flatsPerFloor || 1} Daire</span>
+                    <span className="text-[10px] font-bold text-indigo-600 font-mono">Katta {params.flatsPerFloor || 2} Daire</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => {
-                        const nextFlats = Math.max(1, (params.flatsPerFloor || 1) - 1);
+                        const nextFlats = Math.max(1, (params.flatsPerFloor || 2) - 1);
                         const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
                         onChangeParams({
                           ...params,
@@ -597,7 +599,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         type="number"
                         min="1"
                         max="30"
-                        value={params.flatsPerFloor || 1}
+                        value={params.flatsPerFloor || 2}
                         onChange={(e) => {
                           const num = Math.max(1, parseInt(e.target.value) || 1);
                           const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
@@ -613,7 +615,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const nextFlats = (params.flatsPerFloor || 1) + 1;
+                        const nextFlats = (params.flatsPerFloor || 2) + 1;
                         const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
                         onChangeParams({
                           ...params,
@@ -660,7 +662,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       type="button"
                       onClick={() => {
                         const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                        const calcTotal = normalFloors * (params.flatsPerFloor || 1);
+                        const calcTotal = normalFloors * (params.flatsPerFloor || 2);
                         onChangeParams({
                           ...params,
                           flatCount: calcTotal,
@@ -669,7 +671,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1"
                       title="Kat × Katta Daire formülü ile güncelle"
                     >
-                      <span>⚡ Kattan Hesapla ({params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount}×{params.flatsPerFloor || 1})</span>
+                      <span>⚡ Kattan Hesapla ({params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount}×{params.flatsPerFloor || 2})</span>
                     </button>
                   </div>
                   <div className="relative">
@@ -818,7 +820,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     <label className="block text-xs font-bold text-slate-700 uppercase">Çatı Tipi (3D Model & Bağımsız Bölüm):</label>
                     {params.roofType === 'mansard' && (
                       <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
-                        +{(params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 1))} Ayrı B.B. Dahil
+                        +{(params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 2))} Ayrı B.B. Dahil
                       </span>
                     )}
                     {params.roofType === 'duplex' && (
@@ -832,15 +834,15 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     onChange={(e) => {
                       const newRoof = e.target.value as any;
                       const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                      const normalFlats = resFloors * (params.flatsPerFloor || 1);
+                      const normalFlats = resFloors * (params.flatsPerFloor || 2);
                       const extraMansard = newRoof === 'mansard'
-                        ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 1))
+                        ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 2))
                         : 0;
 
                       onChangeParams({
                         ...params,
                         roofType: newRoof,
-                        flatCount: newRoof === 'mansard' ? normalFlats + extraMansard : (params.flatCount === normalFlats + (params.flatsPerFloor || 1) ? normalFlats : params.flatCount),
+                        flatCount: newRoof === 'mansard' ? normalFlats + extraMansard : (params.flatCount === normalFlats + (params.flatsPerFloor || 2) ? normalFlats : params.flatCount),
                       });
                     }}
                     className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
@@ -864,14 +866,14 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         <span className="text-[10px] font-bold text-indigo-800">Çatıdaki İlave Bağımsız Bölüm Sayısı:</span>
                         <div className="flex items-center gap-1.5">
                           {[1, 2, 3, 4].map((cnt) => {
-                            const activeCnt = params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 1);
+                            const activeCnt = params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 2);
                             return (
                               <button
                                 key={cnt}
                                 type="button"
                                 onClick={() => {
                                   const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                                  const normalFlats = resFloors * (params.flatsPerFloor || 1);
+                                  const normalFlats = resFloors * (params.flatsPerFloor || 2);
                                   onChangeParams({
                                     ...params,
                                     mansardFlatCount: cnt,
@@ -1373,7 +1375,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-100 group hover:border-amber-200 transition-colors">
                   <span className="block text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Daire Başı Brüt</span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-base font-mono font-bold text-amber-900">{(params.baseBuildArea / (params.flatsPerFloor || 1)).toFixed(1)}</span>
+                    <span className="text-base font-mono font-bold text-amber-900">{(params.baseBuildArea / (params.flatsPerFloor || 2)).toFixed(1)}</span>
                     <span className="text-[10px] font-bold text-amber-400">m²</span>
                   </div>
                 </div>
@@ -1515,15 +1517,15 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                         onClick={() => {
                           const newRoof = roof.id as any;
                           const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                          const normalFlats = resFloors * (params.flatsPerFloor || 1);
+                          const normalFlats = resFloors * (params.flatsPerFloor || 2);
                           const extraMansard = newRoof === 'mansard'
-                            ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 1))
+                            ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 2))
                             : 0;
 
                           onChangeParams({
                             ...params,
                             roofType: newRoof,
-                            flatCount: newRoof === 'mansard' ? normalFlats + extraMansard : (params.flatCount === normalFlats + (params.flatsPerFloor || 1) ? normalFlats : params.flatCount),
+                            flatCount: newRoof === 'mansard' ? normalFlats + extraMansard : (params.flatCount === normalFlats + (params.flatsPerFloor || 2) ? normalFlats : params.flatCount),
                           });
                         }}
                         className={`flex flex-col items-center gap-1.5 p-3.5 rounded-2xl border transition-all duration-300 ${
@@ -1543,7 +1545,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 </div>
                 {params.roofType === 'mansard' ? (
                   <p className="text-[11px] text-indigo-700 bg-indigo-50/80 p-2.5 rounded-xl border border-indigo-200 font-medium leading-relaxed">
-                    ✨ <strong>Kural Uygulandı:</strong> Mansart çatı tek seçildiğinde ortaya ekstra bağımsız bölüm çıkmaktadır. Eklenen çatı katı bağımsız bölümü (+{params.mansardFlatCount || (params.flatsPerFloor || 1)} daire) tüm inşaat, hakediş ve kat maliki hesaplarına dahil edilmiştir.
+                    ✨ <strong>Kural Uygulandı:</strong> Mansart çatı tek seçildiğinde ortaya ekstra bağımsız bölüm çıkmaktadır. Eklenen çatı katı bağımsız bölümü (+{params.mansardFlatCount || (params.flatsPerFloor || 2)} daire) tüm inşaat, hakediş ve kat maliki hesaplarına dahil edilmiştir.
                   </p>
                 ) : params.roofType === 'duplex' ? (
                   <p className="text-[11px] text-emerald-700 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200 font-medium leading-relaxed">

@@ -16,6 +16,8 @@ import {
   Sliders,
   Eye,
   Info,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { PolygonPoint, FacadeDetailConfig, AppTheme } from '../types';
 import {
@@ -60,10 +62,16 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
   const [gridStep, setGridStep] = useState<number>(0.5); // 0.5m grid step
-  const [activeTab, setActiveTab] = useState<'canvas' | 'facades' | 'core'>('canvas');
   const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(0);
 
-  // Canvas coordinate system parameters: -15m to +15m
+  // Zoom & Pan State
+  const [zoom, setZoom] = useState<number>(1.0);
+  const [panX, setPanX] = useState<number>(0);
+  const [panY, setPanY] = useState<number>(0);
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Canvas coordinate system parameters: -17m to +17m
   const viewBoxSize = 34; // 34 meters total width/height (-17 to +17)
   const halfSize = viewBoxSize / 2;
 
@@ -92,19 +100,36 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
   // Sync facade configurations when edges change
   const currentFacadeConfigs = generateFacadeConfigs(points, facadeConfigs, mainEntranceIndex);
 
-  // Convert SVG mouse/touch coordinates to meters (-17 to +17)
+  // Helper to extract mouse/touch client coords safely
+  const getClientCoords = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+    if ('touches' in e) {
+      if (e.touches && e.touches.length > 0) {
+        return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+      }
+      if ('changedTouches' in e && e.changedTouches && e.changedTouches.length > 0) {
+        return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
+      }
+    }
+    return { clientX: (e as any).clientX, clientY: (e as any).clientY };
+  };
+
+  // Convert SVG mouse/touch coordinates to meters (-17 to +17) accounting for Zoom & Pan
   const getMeterCoordinates = useCallback(
     (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>): { x: number; y: number } | null => {
       if (!svgRef.current) return null;
       const rect = svgRef.current.getBoundingClientRect();
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const { clientX, clientY } = getClientCoords(e);
 
       const normX = (clientX - rect.left) / rect.width;
       const normY = (clientY - rect.top) / rect.height;
 
-      let meterX = (normX * viewBoxSize) - halfSize;
-      let meterY = (normY * viewBoxSize) - halfSize;
+      // Base unscaled coordinates from -17m to +17m
+      const baseSvgX = (normX * viewBoxSize) - halfSize;
+      const baseSvgY = (normY * viewBoxSize) - halfSize;
+
+      // Invert zoom and pan to map back to building coordinates
+      let meterX = (baseSvgX - panX) / zoom;
+      let meterY = (baseSvgY - panY) / zoom;
 
       if (snapToGrid) {
         meterX = Math.round(meterX / gridStep) * gridStep;
@@ -116,18 +141,52 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
         y: Math.round(meterY * 10) / 10,
       };
     },
-    [snapToGrid, gridStep, viewBoxSize, halfSize]
+    [snapToGrid, gridStep, viewBoxSize, halfSize, zoom, panX, panY]
   );
 
-  // Handle Canvas Click to add vertex if not dragging
+  // Mouse Wheel Zoom centered at the cursor
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomIntensity = 0.08;
+      const rect = svg.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const normX = mouseX / rect.width;
+      const normY = mouseY / rect.height;
+
+      const baseSvgX = (normX * viewBoxSize) - halfSize;
+      const baseSvgY = (normY * viewBoxSize) - halfSize;
+
+      const oldZoom = zoom;
+      const wheel = e.deltaY < 0 ? 1 : -1;
+      const newZoom = Math.max(0.6, Math.min(5.5, zoom + wheel * zoomIntensity));
+
+      // Translate pan to keep cursor point stationary
+      setPanX((prev) => baseSvgX - (baseSvgX - prev) * (newZoom / oldZoom));
+      setPanY((prev) => baseSvgY - (baseSvgY - prev) * (newZoom / oldZoom));
+      setZoom(newZoom);
+    };
+
+    svg.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      svg.removeEventListener('wheel', handleWheel);
+    };
+  }, [zoom, panX, panY, viewBoxSize, halfSize]);
+
+  // Handle Canvas Click to add vertex if not dragging or panning
   const handleCanvasClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (isDragging) return;
+    if (isDragging || isPanning) return;
     const coords = getMeterCoordinates(e);
     if (!coords) return;
 
     // Check if clicked near existing point
     const nearIndex = points.findIndex(
-      (p) => Math.hypot(p.x - coords.x, p.y - coords.y) < 1.0
+      (p) => Math.hypot(p.x - coords.x, p.y - coords.y) < 0.9
     );
 
     if (nearIndex !== -1) {
@@ -169,22 +228,42 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
     setIsDragging(true);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => {
-    if (!isDragging || selectedPointIndex === null) return;
-    const coords = getMeterCoordinates(e);
-    if (!coords) return;
+  // Canvas Panning Handler
+  const handleCanvasMouseDown = (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => {
+    // Left-click to pan or touch start
+    const { clientX, clientY } = getClientCoords(e);
+    setIsPanning(true);
+    setPanStart({ x: clientX, y: clientY });
+  };
 
-    const updated = [...points];
-    updated[selectedPointIndex] = {
-      ...updated[selectedPointIndex],
-      x: coords.x,
-      y: coords.y,
-    };
-    onChangePoints(updated);
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => {
+    if (isDragging && selectedPointIndex !== null) {
+      const coords = getMeterCoordinates(e);
+      if (!coords) return;
+
+      const updated = [...points];
+      updated[selectedPointIndex] = {
+        ...updated[selectedPointIndex],
+        x: coords.x,
+        y: coords.y,
+      };
+      onChangePoints(updated);
+    } else if (isPanning) {
+      const { clientX, clientY } = getClientCoords(e);
+      if (svgRef.current) {
+        const rect = svgRef.current.getBoundingClientRect();
+        const deltaX = (clientX - panStart.x) * (viewBoxSize / rect.width);
+        const deltaY = (clientY - panStart.y) * (viewBoxSize / rect.height);
+        setPanX((prev) => prev + deltaX);
+        setPanY((prev) => prev + deltaY);
+        setPanStart({ x: clientX, y: clientY });
+      }
+    }
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    setIsPanning(false);
   };
 
   // Delete selected vertex
@@ -243,49 +322,13 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
   const polygonPointsStr = points.map((p) => `${p.x},${p.y}`).join(' ');
 
   return (
-    <div className={`space-y-3 ${isGray ? 'text-slate-200' : 'text-slate-800'}`}>
-      {/* Sub-Header & Mode Navigation */}
-      <div className="flex items-center justify-between gap-2 flex-wrap pb-1">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setActiveTab('canvas')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === 'canvas'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            <MousePointer className="w-3.5 h-3.5" />
-            <span>Nokta & Çizgi Çizimi</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('facades')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === 'facades'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Cephe, Pencere & Balkonlar ({edges.length})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('core')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === 'core'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            <DoorOpen className="w-3.5 h-3.5" />
-            <span>Giriş & Merdiven Dağılımı</span>
-          </button>
-        </div>
-
-        {/* Live Area / Metrics Badge */}
+    <div className={`space-y-4 ${isGray ? 'text-slate-200' : 'text-slate-800'}`}>
+      {/* Real-time metrics bar */}
+      <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-slate-200">
+        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+          <MousePointer className="w-4 h-4 text-indigo-600" />
+          <span>Poligon Çizim Editörü & Cephe Konfigürasyonu</span>
+        </span>
         <div className="flex items-center gap-2">
           <div className="px-2.5 py-1 bg-indigo-50 border border-indigo-200 rounded-lg text-xs font-bold text-indigo-900 font-mono">
             Alan: <span className="text-indigo-600">{area.toFixed(1)} m²</span>
@@ -296,9 +339,8 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
         </div>
       </div>
 
-      {/* TAB 1: INTERACTIVE 2D CANVAS */}
-      {activeTab === 'canvas' && (
-        <div className="space-y-2.5">
+      {/* INTERACTIVE 2D CANVAS */}
+      <div className="space-y-2.5">
           {/* Geometric Validation & Structural Grid Alignment Banner */}
           <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 flex-wrap ${
             validation.isValid
@@ -377,11 +419,16 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
           </div>
 
           {/* Interactive SVG Drawing Board */}
-          <div className="relative w-full aspect-[4/3] max-h-[380px] bg-slate-900 rounded-2xl border-2 border-slate-800 overflow-hidden shadow-inner cursor-crosshair select-none">
+          <div className="relative w-full h-[460px] md:h-[500px] bg-slate-900 rounded-2xl border-2 border-slate-800 overflow-hidden shadow-inner cursor-grab active:cursor-grabbing select-none">
             <svg
               ref={svgRef}
               viewBox={`-${halfSize} -${halfSize} ${viewBoxSize} ${viewBoxSize}`}
               className="w-full h-full"
+              onMouseDown={(e) => {
+                // If clicked on point, point's handler stops propagation
+                handleCanvasMouseDown(e);
+              }}
+              onTouchStart={handleCanvasMouseDown}
               onClick={handleCanvasClick}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -404,151 +451,206 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
                 </pattern>
               </defs>
 
-              {/* Grid Background */}
-              <rect x={`-${halfSize}`} y={`-${halfSize}`} width={viewBoxSize} height={viewBoxSize} fill="#0f172a" />
-              <rect x={`-${halfSize}`} y={`-${halfSize}`} width={viewBoxSize} height={viewBoxSize} fill="url(#grid-5m)" />
+              {/* Grid Background - remains static or moves with pan depending on choice. We move it for realistic CAD grid feel */}
+              <g transform={`translate(${panX}, ${panY}) scale(${zoom})`}>
+                <rect x="-100" y="-100" width="200" height="200" fill="#0f172a" />
+                {/* Scaled grid */}
+                <rect x="-100" y="-100" width="200" height="200" fill="url(#grid-5m)" />
 
-              {/* Center Axes (X, Y in meters) */}
-              <line x1={`-${halfSize}`} y1="0" x2={halfSize} y2="0" stroke="rgba(255,255,255,0.2)" strokeWidth="0.06" strokeDasharray="0.3,0.3" />
-              <line x1="0" y1={`-${halfSize}`} x2="0" y2={halfSize} stroke="rgba(255,255,255,0.2)" strokeWidth="0.06" strokeDasharray="0.3,0.3" />
+                {/* Center Axes (X, Y in meters) */}
+                <line x1="-100" y1="0" x2="100" y2="0" stroke="rgba(255,255,255,0.2)" strokeWidth="0.06" strokeDasharray="0.3,0.3" />
+                <line x1="0" y1="-100" x2="0" y2="100" stroke="rgba(255,255,255,0.2)" strokeWidth="0.06" strokeDasharray="0.3,0.3" />
 
-              {/* Direction Indicator */}
-              <text x={0} y={`-${halfSize - 1.2}`} fill="rgba(255,255,255,0.4)" fontSize="0.9" fontWeight="bold" textAnchor="middle">
-                ▲ ARKA PARSEL / KUZEY
-              </text>
-              <text x={0} y={`${halfSize - 0.6}`} fill="rgba(99, 102, 241, 0.8)" fontSize="0.9" fontWeight="bold" textAnchor="middle">
-                ▼ ÖN YOL / GİRİŞ CEPHESİ
-              </text>
-
-              {/* Filled Polygon Floor */}
-              <polygon
-                points={polygonPointsStr}
-                fill="url(#hatch-arch)"
-                stroke="rgba(99, 102, 241, 0.4)"
-                strokeWidth="0.1"
-              />
-
-              {/* Central Stair & Elevator Core Representation */}
-              <g transform={`translate(${bounds.centerX}, ${bounds.centerY})`}>
-                <rect
-                  x="-1.8"
-                  y="-1.5"
-                  width="3.6"
-                  height="3.0"
-                  fill="rgba(234, 179, 8, 0.2)"
-                  stroke="rgba(234, 179, 8, 0.8)"
-                  strokeWidth="0.12"
-                  rx="0.2"
+                {/* Filled Polygon Floor */}
+                <polygon
+                  points={polygonPointsStr}
+                  fill="url(#hatch-arch)"
+                  stroke="rgba(99, 102, 241, 0.4)"
+                  strokeWidth="0.1"
                 />
-                <text x="0" y="-0.2" fill="#fef08a" fontSize="0.55" fontWeight="bold" textAnchor="middle">
-                  🏛️ MERDİVEN & ASANSÖR
-                </text>
-                <text x="0" y="0.7" fill="#fde047" fontSize="0.45" textAnchor="middle">
-                  {flatsPerFloor} Daireli Kat Holü
-                </text>
-              </g>
 
-              {/* Polygon Edges with Lengths and Entrance Indicator */}
-              {edges.map((edge, idx) => {
-                const isEntrance = (currentFacadeConfigs[idx]?.isEntrance) || (idx === mainEntranceIndex);
-                const isSelected = selectedEdgeIndex === idx;
+                {/* Central Stair & Elevator Core Representation */}
+                <g transform={`translate(${bounds.centerX}, ${bounds.centerY})`}>
+                  <rect
+                    x="-1.8"
+                    y="-1.5"
+                    width="3.6"
+                    height="3.0"
+                    fill="rgba(234, 179, 8, 0.2)"
+                    stroke="rgba(234, 179, 8, 0.8)"
+                    strokeWidth="0.12"
+                    rx="0.2"
+                  />
+                  <text x="0" y="-0.2" fill="#fef08a" fontSize="0.55" fontWeight="bold" textAnchor="middle">
+                    🏛️ MERDİVEN & ASANSÖR
+                  </text>
+                  <text x="0" y="0.7" fill="#fde047" fontSize="0.45" textAnchor="middle">
+                    {flatsPerFloor} Daireli Kat Holü
+                  </text>
+                </g>
 
-                return (
-                  <g key={`edge-${idx}`} className="cursor-pointer" onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedEdgeIndex(idx);
-                    setActiveTab('facades');
-                  }}>
-                    {/* Line */}
-                    <line
-                      x1={edge.start.x}
-                      y1={edge.start.y}
-                      x2={edge.end.x}
-                      y2={edge.end.y}
-                      stroke={isEntrance ? '#22c55e' : (isSelected ? '#6366f1' : '#38bdf8')}
-                      strokeWidth={isEntrance ? '0.4' : '0.28'}
-                      strokeLinecap="round"
-                    />
+                {/* Polygon Edges with Lengths and Entrance Indicator */}
+                {edges.map((edge, idx) => {
+                  const isEntrance = (currentFacadeConfigs[idx]?.isEntrance) || (idx === mainEntranceIndex);
+                  const isSelected = selectedEdgeIndex === idx;
 
-                    {/* Edge Midpoint Label & Length Badge */}
-                    <g transform={`translate(${edge.midpoint.x}, ${edge.midpoint.y})`}>
-                      <circle
-                        r="0.85"
-                        fill={isEntrance ? '#15803d' : '#1e293b'}
-                        stroke={isEntrance ? '#4ade80' : '#64748b'}
-                        strokeWidth="0.08"
+                  return (
+                    <g key={`edge-${idx}`} className="cursor-pointer" onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedEdgeIndex(idx);
+                    }}>
+                      {/* Line */}
+                      <line
+                        x1={edge.start.x}
+                        y1={edge.start.y}
+                        x2={edge.end.x}
+                        y2={edge.end.y}
+                        stroke={isEntrance ? '#22c55e' : (isSelected ? '#6366f1' : '#38bdf8')}
+                        strokeWidth={isEntrance ? '0.4' : '0.28'}
+                        strokeLinecap="round"
                       />
+
+                      {/* Edge Midpoint Label & Length Badge */}
+                      <g transform={`translate(${edge.midpoint.x}, ${edge.midpoint.y})`}>
+                        <circle
+                          r="0.85"
+                          fill={isEntrance ? '#15803d' : '#1e293b'}
+                          stroke={isEntrance ? '#4ade80' : '#64748b'}
+                          strokeWidth="0.08"
+                        />
+                        <text
+                          x="0"
+                          y="0.25"
+                          fill="#ffffff"
+                          fontSize="0.52"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          {edge.length}m
+                        </text>
+
+                        {isEntrance && (
+                          <g transform="translate(0, 1.4)">
+                            <rect x="-2.2" y="-0.5" width="4.4" height="1.0" rx="0.3" fill="#16a34a" />
+                            <text x="0" y="0.22" fill="#ffffff" fontSize="0.45" fontWeight="bold" textAnchor="middle">
+                              🚪 ANA GİRİŞ
+                            </text>
+                          </g>
+                        )}
+                      </g>
+                    </g>
+                  );
+                })}
+
+                {/* Vertex Control Points (Draggable Dots) */}
+                {points.map((p, idx) => {
+                  const isSelected = selectedPointIndex === idx;
+                  return (
+                    <g
+                      key={`point-${p.id || idx}`}
+                      className="cursor-move"
+                      onMouseDown={(e) => handlePointMouseDown(idx, e)}
+                      onTouchStart={(e) => handlePointMouseDown(idx, e)}
+                    >
+                      {/* Outer Glow Halo */}
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r={isSelected ? '1.0' : '0.75'}
+                        fill={isSelected ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.2)'}
+                      />
+                      {/* Core Handle */}
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r="0.45"
+                        fill={isSelected ? '#6366f1' : '#f8fafc'}
+                        stroke="#0f172a"
+                        strokeWidth="0.12"
+                      />
+                      {/* Vertex Index Label */}
                       <text
-                        x="0"
-                        y="0.25"
-                        fill="#ffffff"
-                        fontSize="0.52"
+                        cx={p.x}
+                        cy={p.y}
+                        x={p.x}
+                        y={p.y - 0.7}
+                        fill="#94a3b8"
+                        fontSize="0.55"
                         fontWeight="bold"
                         textAnchor="middle"
                       >
-                        {edge.length}m
+                        K{idx + 1}
                       </text>
-
-                      {isEntrance && (
-                        <g transform="translate(0, 1.4)">
-                          <rect x="-2.2" y="-0.5" width="4.4" height="1.0" rx="0.3" fill="#16a34a" />
-                          <text x="0" y="0.22" fill="#ffffff" fontSize="0.45" fontWeight="bold" textAnchor="middle">
-                            🚪 ANA GİRİŞ
-                          </text>
-                        </g>
-                      )}
                     </g>
-                  </g>
-                );
-              })}
+                  );
+                })}
+              </g>
 
-              {/* Vertex Control Points (Draggable Dots) */}
-              {points.map((p, idx) => {
-                const isSelected = selectedPointIndex === idx;
-                return (
-                  <g
-                    key={`point-${p.id || idx}`}
-                    className="cursor-move"
-                    onMouseDown={(e) => handlePointMouseDown(idx, e)}
-                    onTouchStart={(e) => handlePointMouseDown(idx, e)}
-                  >
-                    {/* Outer Glow Halo */}
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r={isSelected ? '1.0' : '0.75'}
-                      fill={isSelected ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.2)'}
-                    />
-                    {/* Core Handle */}
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r="0.45"
-                      fill={isSelected ? '#6366f1' : '#f8fafc'}
-                      stroke="#0f172a"
-                      strokeWidth="0.12"
-                    />
-                    {/* Vertex Index Label */}
-                    <text
-                      cx={p.x}
-                      cy={p.y}
-                      x={p.x}
-                      y={p.y - 0.7}
-                      fill="#94a3b8"
-                      fontSize="0.55"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                    >
-                      K{idx + 1}
-                    </text>
-                  </g>
-                );
-              })}
+              {/* Static overlay direction indicators (do not scale/pan) */}
+              <g className="pointer-events-none opacity-50">
+                <text x="0" y={`-${halfSize - 1.2}`} fill="#94a3b8" fontSize="0.95" fontWeight="bold" textAnchor="middle">
+                  ▲ ARKA PARSEL / KUZEY
+                </text>
+                <text x="0" y={`${halfSize - 0.8}`} fill="#818cf8" fontSize="0.95" fontWeight="bold" textAnchor="middle">
+                  ▼ ÖN YOL / GİRİŞ CEPHESİ
+                </text>
+              </g>
             </svg>
 
+            {/* Interactive floating Zoom & Navigation Panel */}
+            <div className="absolute top-2 right-2 flex flex-col gap-1.5 bg-slate-900/90 backdrop-blur-sm p-1.5 rounded-xl border border-slate-700 shadow-lg">
+              <button
+                type="button"
+                onClick={() => setZoom(z => Math.min(5.5, z + 0.2))}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-650 rounded-lg text-slate-300 transition-colors"
+                title="Yakınlaştır (+)"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom(z => Math.max(0.6, z - 0.2))}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-650 rounded-lg text-slate-300 transition-colors"
+                title="Uzaklaştır (-)"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setZoom(1.0);
+                  setPanX(0);
+                  setPanY(0);
+                }}
+                className="px-1.5 py-1 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 active:bg-slate-650 rounded-lg text-indigo-300 transition-colors text-center"
+                title="Birebir Ölçek"
+              >
+                1:1
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPanX(-bounds.centerX);
+                  setPanY(-bounds.centerY);
+                  const maxDim = Math.max(bounds.width, bounds.depth);
+                  if (maxDim > 0) {
+                    setZoom(Math.max(0.7, Math.min(2.2, (viewBoxSize * 0.72) / maxDim)));
+                  }
+                }}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-650 rounded-lg text-amber-400 transition-colors"
+                title="Sığdır / Ortala"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+            </div>
+
             {/* Canvas Overlay Helper */}
-            <div className="absolute top-2 left-2 px-2 py-1 bg-slate-900/85 backdrop-blur-sm rounded-lg border border-slate-700 text-[10px] text-slate-300 pointer-events-none">
-              💡 <b>İpucu:</b> Boş yere tıklayarak <b>yeni köşe ekleyin</b>, noktaları <b>sürükleyerek</b> formu değiştirin.
+            <div className="absolute top-2 left-2 px-2.5 py-1.5 bg-slate-900/85 backdrop-blur-sm rounded-lg border border-slate-700 text-[10px] text-slate-300 pointer-events-none max-w-[280px]">
+              💡 <b>Etkileşim Rehberi:</b><br />
+              • Boş alana tıklayıp <b>sürükleyerek kaydırın</b> (Pan).<br />
+              • Fare tekerleğiyle veya sağdaki butonlarla <b>yakınlaştırın</b> (Zoom).<br />
+              • Boş alana sol tıklayarak <b>yeni köşe ekleyin</b>.<br />
+              • Köşeleri (K1, K2...) sürükleyerek <b>formu değiştirin</b>.
             </div>
 
             {/* Selected Vertex Delete Action Bar */}
@@ -569,10 +671,27 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
             )}
           </div>
         </div>
-      )}
+
+      {/* 📐 ÖN × YAN CEPHE BOYUTLARI PANELİ */}
+      <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-2xl shadow-sm">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900 pb-2 border-b border-indigo-200">
+          <Sliders className="w-4 h-4 text-indigo-600" />
+          <span>📐 Ön × Yan Cephe Boyutları (Poligondan Dinamik Hesaplanan)</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 pt-2.5">
+          <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex flex-col gap-0.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase">Ön Cephe Genişliği (W):</span>
+            <span className="font-mono text-sm font-bold text-indigo-600">{bounds.width.toFixed(1)} m</span>
+          </div>
+          <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex flex-col gap-0.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase">Yan Cephe Derinliği (D):</span>
+            <span className="font-mono text-sm font-bold text-indigo-600">{bounds.depth.toFixed(1)} m</span>
+          </div>
+        </div>
+      </div>
 
       {/* TAB 2: CEPHELER, PENCERELER & BALKONLAR MANUEL GİRİŞİ */}
-      {activeTab === 'facades' && (
+      {true && (
         <div className="space-y-3">
           <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl text-xs text-indigo-950 flex items-start gap-2">
             <Info className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
@@ -712,7 +831,7 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
       )}
 
       {/* TAB 3: MERDİVEN, DAİRE DAĞILIMI & BİNA GİRİŞİ */}
-      {activeTab === 'core' && (
+      {true && (
         <div className="space-y-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-200">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-800 pb-2 border-b border-slate-200">
             <DoorOpen className="w-4 h-4 text-indigo-600" />

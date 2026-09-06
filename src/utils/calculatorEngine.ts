@@ -11,7 +11,7 @@ export const DEFAULT_PARAMS: ProjectParams = {
   projectModel: 'cash',
   baseBuildArea: 100,
   floorCount: 5,
-  flatCount: 5,
+  flatCount: 10,
   contractorShareRate: 50,
   buildingType: 'standard',
   roomType: '3+1',
@@ -86,11 +86,16 @@ export const DEFAULT_PARAMS: ProjectParams = {
   stage5Pay: 10,
 
   flats: [
-    { id: 1, name: 'Kat Maliki 1', tc: '10000000001', area: 100, downPayment: 0, useTransformationCredit: true },
-    { id: 2, name: 'Kat Maliki 2', tc: '10000000002', area: 100, downPayment: 0, useTransformationCredit: true },
-    { id: 3, name: 'Kat Maliki 3', tc: '10000000003', area: 100, downPayment: 0, useTransformationCredit: true },
-    { id: 4, name: 'Kat Maliki 4', tc: '10000000004', area: 100, downPayment: 0, useTransformationCredit: true },
-    { id: 5, name: 'Kat Maliki 5', tc: '10000000005', area: 100, downPayment: 0, useTransformationCredit: true },
+    { id: 1, name: 'Kat Maliki 1', tc: '10000000001', area: 50, downPayment: 0, useTransformationCredit: true },
+    { id: 2, name: 'Kat Maliki 2', tc: '10000000002', area: 50, downPayment: 0, useTransformationCredit: true },
+    { id: 3, name: 'Kat Maliki 3', tc: '10000000003', area: 50, downPayment: 0, useTransformationCredit: true },
+    { id: 4, name: 'Kat Maliki 4', tc: '10000000004', area: 50, downPayment: 0, useTransformationCredit: true },
+    { id: 5, name: 'Kat Maliki 5', tc: '10000000005', area: 50, downPayment: 0, useTransformationCredit: true },
+    { id: 6, name: 'Kat Maliki 6', tc: '10000000006', area: 50, downPayment: 0, useTransformationCredit: true },
+    { id: 7, name: 'Kat Maliki 7', tc: '10000000007', area: 50, downPayment: 0, useTransformationCredit: true },
+    { id: 8, name: 'Kat Maliki 8', tc: '10000000008', area: 50, downPayment: 0, useTransformationCredit: true },
+    { id: 9, name: 'Kat Maliki 9', tc: '10000000009', area: 50, downPayment: 0, useTransformationCredit: true },
+    { id: 10, name: 'Kat Maliki 10', tc: '10000000010', area: 50, downPayment: 0, useTransformationCredit: true },
   ],
 };
 
@@ -269,7 +274,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
   const effectiveFlatCount = isMansard
     ? Math.max(flatCount, normalFloorFlats + extraMansardFlats)
-    : flatCount;
+    : (flatCount === floorCount && flatsPerFloor > 1 ? normalFloorFlats : (flatCount || normalFloorFlats));
 
   let kabaDaysPerFloor = 22;
   let inceDaysPerFloor = 28;

@@ -244,7 +244,7 @@ export function generateOfferHtml(
       <div><strong>Proje Kat Alanı (Oturum):</strong> ${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
       <div><strong>Toplam İnşaat Alanı:</strong> ${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
       <div><strong>Normal Kat Sayısı:</strong> ${params.floorCount} Kat</div>
-      <div><strong>Kattaki Daire Sayısı:</strong> ${params.flatsPerFloor || 1} Adet</div>
+      <div><strong>Kattaki Daire Sayısı:</strong> ${params.flatsPerFloor || 2} Adet</div>
       <div><strong>Toplam Daire Sayısı:</strong> ${res.flatCount} Adet</div>
       <div><strong>Daire İç Yerleşimi:</strong> ${params.roomType || '3+1'} Oda</div>
       <div><strong>Fiziki Daire Brüt Alanı:</strong> ${physicalGrossArea_rep} m²</div>

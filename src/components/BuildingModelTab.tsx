@@ -1040,7 +1040,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                     <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900 text-xs flex items-start gap-2">
                       <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-bold">Kural Uygulandı (Mansart Çatı Tek):</span> Çatı katında ilave bağımsız bölüm ortaya çıkar. Eklenen bağımsız bölümler ({metrics.extraMansardFlats || (modelParams.flatsPerFloor || 1)} daire) inşaat maliyetlerine, hakedişlere ve daire listesine dahil edildi.
+                        <span className="font-bold">Kural Uygulandı (Mansart Çatı Tek):</span> Çatı katında ilave bağımsız bölüm ortaya çıkar. Eklenen bağımsız bölümler ({metrics.extraMansardFlats || (modelParams.flatsPerFloor || 2)} daire) inşaat maliyetlerine, hakedişlere ve daire listesine dahil edildi.
                       </div>
                     </div>
                   )}
