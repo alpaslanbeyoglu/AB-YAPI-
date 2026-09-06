@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Cloud, CheckCircle2, AlertCircle, Sparkles, ShieldCheck, FileText, FileSpreadsheet, Layers, Compass, Building, Check } from 'lucide-react';
+import { Cloud, CheckCircle2, AlertCircle, Sparkles, ShieldCheck, FileText, FileSpreadsheet, Layers, Compass, Building, Check, Copy, Search, X } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { saveReportDocumentToDrive } from '../services/drive';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
@@ -27,39 +27,92 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   const [activeTab, setActiveTab] = useState<'common' | 'project'>('common');
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [copiedStatus, setCopiedStatus] = useState(false);
   const specContainerRef = useRef<HTMLDivElement>(null);
 
   const isGray = theme === 'gray';
+
+  // Boundary checks for mathematical metrics to prevent negative or NaN values
+  const safeBaseArea = Math.max(0, results.baseArea || 0);
+  const safeTotalArea = Math.max(0, results.totalArea || 0);
+  const safeFlatCount = Math.max(0, results.flatCount || 0);
+  const safeShopCount = Math.max(0, params.shopCount || 0);
+  const safeConcrete = Math.max(0, results.concreteM3 || 0);
+  const safeSteel = Math.max(0, results.steelTon || 0);
+  const safeMonths = Math.max(1, results.finalMonths || 12);
+  const safeFloorCount = Math.max(1, params.floorCount || 1);
+  const safeBasementCount = Math.max(0, params.basementCount ?? 1);
+  const safeAddress = params.projectAddress?.trim() || 'İstanbul (Adres Belirtilmemiş)';
+
+  // Authorizations print toggles
+  const showFirstAuth = profile.printOptions?.showFirstAuthorized !== false && !!profile.authorizedPerson;
+  const showFirstAuthChamber = profile.printOptions?.showFirstAuthorizedChamber !== false && !!(profile.authorizedChamberNo || profile.authorizedChamber);
+  const showSecondAuth = profile.printOptions?.showSecondAuthorized === true && !!profile.authorizedPerson2;
+  const showSecondAuthChamber = profile.printOptions?.showSecondAuthorizedChamber !== false && !!(profile.authorizedChamberNo2 || profile.authorizedChamber2);
+
+  const companyLegalName = profile.legalName || profile.companyName || 'AB YAPI MÜTEAHHİTLİK';
 
   const specTitle = "KENTSEL DÖNÜŞÜM ORTAK TEKNİK ŞARTNAMESİ";
   const specSubtitle = `${profile.companyName} Proje Çeşitlilikleri, Malzeme ve Uygulama Esasları`;
 
   const projectTitle = "PROJEYE ÖZEL KENTSEL DÖNÜŞÜM YAPIM ŞARTNAMESİ";
-  const projectSubtitle = `Adres: ${params.projectAddress || 'Belirtilmemiş'} | Özel Mühendislik ve Malzeme Listesi`;
+  const projectSubtitle = `Adres: ${safeAddress} | Özel Mühendislik ve Malzeme Listesi`;
 
   const currentRoof = getRoofInfo(params.roofType);
   const currentRoom = getRoomTypeDescription(params.roomType);
   const totalUnitsDisplay = params.hasGroundFloorShop 
-    ? `${results.flatCount + (params.shopCount || 1)} Adet, ${results.flatCount} Daire, ${params.shopCount || 1} Dükkan`
-    : `${results.flatCount} Adet, ${results.flatCount} Daire, 0 Dükkan`;
+    ? `${safeFlatCount + (safeShopCount || 1)} Adet, ${safeFlatCount} Daire, ${safeShopCount || 1} Dükkan`
+    : `${safeFlatCount} Adet, ${safeFlatCount} Daire, 0 Dükkan`;
 
   const handleExportPdf = async () => {
     if (!specContainerRef.current) return;
     const isCommon = activeTab === 'common';
-    const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
+    const safeAddr = safeAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
+    const safeName = profile.companyName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
     const fileName = isCommon
-      ? `${profile.companyName.replace(/ /g, '_')}_Ortak_Teknik_Sartname_${new Date().toISOString().slice(0, 10)}.pdf`
-      : `${profile.companyName.replace(/ /g, '_')}_Projeye_Ozel_Teknik_Sartname_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      ? `${safeName}_Ortak_Teknik_Sartname_${new Date().toISOString().slice(0, 10)}.pdf`
+      : `${safeName}_Projeye_Ozel_Teknik_Sartname_${safeAddr}_${new Date().toISOString().slice(0, 10)}.pdf`;
     await exportElementToPdf(specContainerRef.current, fileName);
   };
 
   const handlePrint = () => {
     const html = generateSpecHtml();
-    const docTitle = activeTab === 'common' ? `${profile.companyName.replace(/ /g, '_')}_Ortak_Teknik_Sartname` : `${profile.companyName.replace(/ /g, '_')}_Projeye_Ozel_Sartname_${params.projectAddress || 'Proje'}`;
+    const safeName = profile.companyName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+    const docTitle = activeTab === 'common' 
+      ? `${safeName}_Ortak_Teknik_Sartname` 
+      : `${safeName}_Projeye_Ozel_Sartname_${safeAddress}`;
     printHtmlContent(html, docTitle);
   };
 
+  const handleCopyToClipboard = () => {
+    if (!specContainerRef.current) return;
+    const textContent = specContainerRef.current.innerText;
+    navigator.clipboard.writeText(textContent);
+    setCopiedStatus(true);
+    setTimeout(() => setCopiedStatus(false), 2500);
+  };
+
+  // Helper to highlight search keywords dynamically
+  const highlightText = (text: string) => {
+    if (!searchQuery.trim()) return text;
+    const parts = text.split(new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+    return parts.map((part, i) =>
+      part.toLowerCase() === searchQuery.toLowerCase() ? (
+        <mark key={i} className="bg-amber-200 text-amber-900 rounded font-semibold px-0.5">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  };
+
   const generateSpecHtml = () => {
+    const compLogo = profile.logoBase64 || '';
+    const compName = profile.companyName || 'AB YAPI';
+    const compLegal = companyLegalName;
+
     if (activeTab === 'common') {
       return `<!DOCTYPE html>
 <html lang="tr">
@@ -67,36 +120,47 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   <meta charset="UTF-8">
   <title>${specTitle}</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; color: #1e293b; max-width: 1000px; margin: 0 auto; line-height: 1.6; font-size: 13px; }
-    .header-card { background: #0f172a; color: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; }
-    .header-card h1 { margin: 0 0 5px 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px; color: #38bdf8; }
-    .header-card h2 { margin: 0 0 15px 0; font-size: 13px; font-weight: 400; color: #94a3b8; }
-    .meta-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 10px; font-size: 11px; border-top: 1px solid #334155; padding-top: 15px; color: #cbd5e1; }
-    .section-title { font-size: 14px; font-weight: 800; color: #b45309; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .subsection-title { font-size: 12px; font-weight: 700; color: #0f172a; border-left: 3px solid #f59e0b; padding-left: 10px; margin-top: 20px; margin-bottom: 10px; }
-    ul { padding-left: 20px; margin: 5px 0 10px 0; }
-    li { margin-bottom: 6px; }
-    .flexibility-box { background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 12px; margin: 10px 0; font-size: 11.5px; color: #78350f; }
+    @page {
+      size: A4 portrait;
+      margin: 12mm 10mm 15mm 10mm;
+      @bottom-right {
+        content: "Sayfa " counter(page) " / " counter(pages);
+        font-size: 9px;
+        color: #64748b;
+        font-weight: bold;
+        font-family: sans-serif;
+      }
+      @bottom-left {
+        content: "${compName} - Ortak Teknik Şartname";
+        font-size: 9px;
+        color: #64748b;
+        font-family: sans-serif;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 0; color: #0f172a; max-width: 960px; margin: 0 auto; line-height: 1.5; font-size: 11px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    h2 { color: #0f172a; text-align: left; font-size: 15px; margin: 0; font-weight: bold; }
+    .section-title { font-size: 12px; font-weight: 800; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 3px; margin-top: 20px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .subsection-title { font-size: 11px; font-weight: 700; color: #1e293b; border-left: 3px solid #f59e0b; padding-left: 8px; margin-top: 14px; margin-bottom: 8px; }
+    ul { padding-left: 18px; margin: 4px 0 8px 0; }
+    li { margin-bottom: 4px; }
+    .flexibility-box { background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 10px; margin: 8px 0; font-size: 10.5px; color: #78350f; }
     .flexibility-box strong { color: #92400e; }
-    .footer-table { width: 100%; margin-top: 50px; border-collapse: collapse; }
-    .footer-table td { width: 50%; text-align: center; vertical-align: top; font-size: 12px; }
-    .footer-meta { text-align: center; font-size: 11px; color: #64748b; margin-top: 60px; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+    .footer-table { width: 100%; margin-top: 30px; border-collapse: collapse; }
+    .footer-table td { width: 50%; text-align: center; vertical-align: top; font-size: 11px; }
+    .footer-meta { text-align: center; font-size: 10px; color: #64748b; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+    .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
   </style>
 </head>
 <body>
-  <div class="header-card print-header">
-    <div style="display:flex; align-items:center; gap: 15px;">
-        ${profile.logoBase64 ? `<img src="${profile.logoBase64}" style="max-height: 50px; border-radius: 8px;" />` : ''}
-        <div>
-            <h1>${specTitle}</h1>
-            <h2>${specSubtitle}</h2>
-        </div>
-    </div>
-    <div class="meta-grid">
-      <div><strong>Yüklenici:</strong> ${profile.companyName}</div>
-      <div><strong>Doküman Kodu:</strong> AB-TŞ-REV2026</div>
-      <div><strong>Kapsam:</strong> Kentsel Dönüşüm Projeleri Esnek ve Standart Teknik Kriterleri</div>
-      <div><strong>Tarih:</strong> Eylül 2026</div>
+  <div class="avoid-break" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
+      <div>
+        <h2>${specTitle}</h2>
+        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;font-weight:600;">${compLegal}</p>
+        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')} | Belge No: ${compName}-2026/TŞ-01 | Kentsel Dönüşüm Ortak Standartları</p>
+      </div>
     </div>
   </div>
 
@@ -194,45 +258,52 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   
   <div class="subsection-title">Yıkım ve Proje Yönetimi</div>
   <ul>
-    <li>Eski binaların yıkımı, yasal ruhsatlar alındıktan sonra iş güvenliği kurallarına tam uygun olarak AB YAPI güvencesiyle gerçekleştirilecektir. Hafriyat ve yıkım maliyetleri yükleniciye aittir.</li>
+    <li>Eski binaların yıkımı, yasal ruhsatlar alındıktan sonra iş güvenliği kurallarına tam uygun olarak ${profile.companyName} güvencesiyle gerçekleştirilecektir. Hafriyat ve yıkım maliyetleri yükleniciye aittir.</li>
     <li>Tüm imalatlar onaylı mimari, statik ve tesisat projeleri ile yapı denetim denetiminde yürütülecektir. Yüklenici, kalite standardından ödün vermemek şartıyla eşdeğer muadil malzeme uygulama hakkına sahiptir.</li>
   </ul>
 
   <table class="footer-table">
     <tr>
       <td>
-        <strong>KAT MALİKLERİ ONAYI</strong><br><br><br><br>
-        İmza: .......................................
+        <strong>KAT MALİKLERİ ONAYI</strong><br><br>
+        <div style="height: 30px;"></div>
+        İmza: .......................................<br>
+        <span style="font-size:10px; color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
       </td>
       <td>
-        <strong>AB YAPI MÜTEAHHİTLİK ONAYI</strong><br><br><br><br>
-        Kaşe / İmza: .......................................
+        <strong>${companyLegalName.toUpperCase()} ONAYI</strong><br>
+        ${profile.stampUrl ? `<img src="${profile.stampUrl}" style="max-height: 48px; margin: 4px auto; display:block;" />` : ''}
+        <div style="font-size: 11px; color: #1e293b; margin-top: 4px;">
+          ${showFirstAuth ? `<strong>${profile.authorizedPerson}</strong> (${profile.authorizedTitle})<br>` : ''}
+          ${showSecondAuth && profile.authorizedPerson2 ? `<strong>${profile.authorizedPerson2}</strong> (${profile.authorizedTitle2 || ''})<br>` : ''}
+        </div>
+        Kaşe / İmza: .......................................<br>
+        <span style="font-size:10px; color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
       </td>
     </tr>
   </table>
 
   <div class="footer-meta">
-    AB YAPI - Güvene Yükselen Yapılar | Ortak Teknik Şartname
+    ${profile.companyName} - Güvene Yükselen Yapılar | Ortak Teknik Şartname
   </div>
 </body>
 </html>`;
     } else {
       // Dynamic Project-Specific HTML
       const isShop = params.hasGroundFloorShop 
-        ? `Var (${params.shopCount || 1} Adet Zemin Kat Ticari Dükkan)` 
+        ? `Var (${safeShopCount} Adet Zemin Kat Ticari Dükkan)` 
         : "Yok (Tamamı Konut)";
       const roofInfo = getRoofInfo(params.roofType);
       const bType = params.buildingType === 'standard' ? 'Standart Konut (A Sınıfı)' : params.buildingType === 'luxury' ? 'Lüks Konut / Rezidans' : 'Ticari + Konut Karma Yapı';
       const cantDesc = params.hasCantilever 
-        ? `Var (Konsol Çıkma: ${params.cantileverDepth || 1.2}m, Yön: ${params.cantileverDirection === 'front_back' ? 'Ön-Arka Cepheler' : params.cantileverDirection === 'front' ? 'Yalnızca Ön Cephe' : 'Ayrık / Tüm Cepheler'})` 
+        ? `Var (Konsol Çıkma: ${Math.max(0, params.cantileverDepth || 1.2)}m, Yön: ${params.cantileverDirection === 'front_back' ? 'Ön-Arka Cepheler' : params.cantileverDirection === 'front' ? 'Yalnızca Ön Cephe' : 'Ayrık / Tüm Cepheler'})` 
         : 'Yok (Düz Prizmatik Kütle)';
-      const basementDesc = (params.basementCount ?? 1) > 0 
-        ? `${params.basementCount ?? 1} Kat Bodrum (Sığınak, Su Deposu, Ortak Alan & Kapalı Otopark)` 
+      const basementDesc = safeBasementCount > 0 
+        ? `${safeBasementCount} Kat Bodrum (Sığınak, Su Deposu, Ortak Alan & Kapalı Otopark)` 
         : 'Bodrum Kat Yok';
       const totalUnits = params.hasGroundFloorShop 
-        ? `${results.flatCount} Adet Konut + ${params.shopCount || 1} Adet Ticari Dükkan (Toplam ${results.flatCount + (params.shopCount || 1)} Bağımsız Bölüm)` 
-        : `${results.flatCount} Adet Konut`;
-      const roomDesc = getRoomTypeDescription(params.roomType);
+        ? `${safeFlatCount} Adet Konut + ${safeShopCount} Adet Ticari Dükkan (Toplam ${safeFlatCount + safeShopCount} Bağımsız Bölüm)` 
+        : `${safeFlatCount} Adet Konut`;
 
       return `<!DOCTYPE html>
 <html lang="tr">
@@ -240,34 +311,45 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   <meta charset="UTF-8">
   <title>${projectTitle}</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; color: #1e293b; max-width: 1000px; margin: 0 auto; line-height: 1.6; font-size: 13px; }
-    .header-card { background: #1e3a8a; color: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; }
-    .header-card h1 { margin: 0 0 5px 0; font-size: 20px; font-weight: 800; color: #60a5fa; }
-    .header-card h2 { margin: 0 0 15px 0; font-size: 13px; font-weight: 400; color: #93c5fd; }
-    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11px; border-top: 1px solid #3b82f6; padding-top: 15px; color: #eff6ff; }
-    .specs-table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 25px; }
-    .specs-table th, .specs-table td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+    @page {
+      size: A4 portrait;
+      margin: 12mm 10mm 15mm 10mm;
+      @bottom-right {
+        content: "Sayfa " counter(page) " / " counter(pages);
+        font-size: 9px;
+        color: #64748b;
+        font-weight: bold;
+        font-family: sans-serif;
+      }
+      @bottom-left {
+        content: "${compName} - Projeye Özel Şartname";
+        font-size: 9px;
+        color: #64748b;
+        font-family: sans-serif;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 0; color: #0f172a; max-width: 960px; margin: 0 auto; line-height: 1.5; font-size: 11px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    h2 { color: #0f172a; text-align: left; font-size: 15px; margin: 0; font-weight: bold; }
+    .specs-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; font-size: 10px; }
+    .specs-table th, .specs-table td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
     .specs-table th { background: #f8fafc; font-weight: bold; width: 30%; color: #334155; }
-    .section-title { font-size: 14px; font-weight: 800; color: #1e3a8a; border-bottom: 2px solid #cbd5e1; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; text-transform: uppercase; }
-    .footer-table { width: 100%; margin-top: 50px; border-collapse: collapse; }
-    .footer-table td { width: 50%; text-align: center; vertical-align: top; font-size: 12px; }
-    .footer-meta { text-align: center; font-size: 11px; color: #64748b; margin-top: 60px; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+    .section-title { font-size: 12px; font-weight: 800; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 3px; margin-top: 20px; margin-bottom: 10px; text-transform: uppercase; }
+    .footer-table { width: 100%; margin-top: 30px; border-collapse: collapse; }
+    .footer-table td { width: 50%; text-align: center; vertical-align: top; font-size: 11px; }
+    .footer-meta { text-align: center; font-size: 10px; color: #64748b; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+    .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
   </style>
 </head>
 <body>
-  <div class="header-card print-header">
-    <div style="display:flex; align-items:center; gap: 15px;">
-        ${profile.logoBase64 ? `<img src="${profile.logoBase64}" style="max-height: 50px; border-radius: 8px;" />` : ''}
-        <div>
-            <h1>${projectTitle}</h1>
-            <h2>${projectSubtitle}</h2>
-        </div>
-    </div>
-    <div class="meta-grid">
-      <div><strong>Proje Adresi:</strong> ${params.projectAddress}</div>
-      <div><strong>Bağımsız Bölüm Sayısı:</strong> ${totalUnits}</div>
-      <div><strong>İmalat Süresi:</strong> ${results.finalMonths} Ay</div>
-      <div><strong>Tarih:</strong> ${new Date().toLocaleDateString('tr-TR')}</div>
+  <div class="avoid-break" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
+      <div>
+        <h2>${projectTitle}</h2>
+        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;font-weight:600;">${compLegal}</p>
+        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')} | Belge No: ${compName}-2026/TŞ-02 | Adres: ${safeAddress}</p>
+      </div>
     </div>
   </div>
 
@@ -275,7 +357,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   <table class="specs-table">
     <tr>
       <th>Proje Adresi</th>
-      <td>${params.projectAddress}</td>
+      <td>${safeAddress}</td>
     </tr>
     <tr>
       <th>Yapı Tipi Sınıfı</th>
@@ -283,15 +365,15 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Taban Oturum Alanı</th>
-      <td>${results.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</td>
+      <td>${safeBaseArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</td>
     </tr>
     <tr>
       <th>Toplam İnşaat Alanı</th>
-      <td>${results.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</td>
+      <td>${safeTotalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</td>
     </tr>
     <tr>
       <th>Kat Yapısı</th>
-      <td>${params.floorCount} Normal Kat + ${(params.basementCount ?? 1)} Bodrum Kat ${params.hasGroundFloorShop ? `(Zemin Kat Ticari Dükkan + ${params.floorCount - 1} Normal Kat)` : '(Tamamı Konut)'}</td>
+      <td>${safeFloorCount} Normal Kat + ${safeBasementCount} Bodrum Kat ${params.hasGroundFloorShop ? `(Zemin Kat Ticari Dükkan + ${Math.max(0, safeFloorCount - 1)} Normal Kat)` : '(Tamamı Konut)'}</td>
     </tr>
     <tr>
       <th>Bodrum Kat Durumu</th>
@@ -303,7 +385,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Daire Tipi (Oda + Salon Sayısı)</th>
-      <td>${roomDesc} Yapı Standardı</td>
+      <td>${currentRoom} Yapı Standardı</td>
     </tr>
     <tr>
       <th>Zemin Kat Dükkan Seçeneği</th>
@@ -311,7 +393,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Tahmini Yapım Süresi</th>
-      <td>${results.finalMonths} Ay</td>
+      <td>${safeMonths} Ay</td>
     </tr>
   </table>
 
@@ -323,7 +405,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Tahmini Beton Hacmi</th>
-      <td>${results.concreteM3.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m³</td>
+      <td>${safeConcrete.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m³</td>
     </tr>
     <tr>
       <th>Demir Donatı Kalitesi</th>
@@ -331,7 +413,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Tahmini Çelik Tonajı</th>
-      <td>${results.steelTon.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} Ton</td>
+      <td>${safeSteel.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} Ton</td>
     </tr>
   </table>
 
@@ -382,18 +464,26 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   <table class="footer-table">
     <tr>
       <td>
-        <strong>KAT MALİKLERİ ONAYI</strong><br><br><br><br>
-        İmza: .......................................
+        <strong>KAT MALİKLERİ ONAYI</strong><br><br>
+        <div style="height: 30px;"></div>
+        İmza: .......................................<br>
+        <span style="font-size:10px; color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
       </td>
       <td>
-        <strong>AB YAPI MÜTEAHHİTLİK ONAYI</strong><br><br><br><br>
-        Kaşe / İmza: .......................................
+        <strong>${companyLegalName.toUpperCase()} ONAYI</strong><br>
+        ${profile.stampUrl ? `<img src="${profile.stampUrl}" style="max-height: 48px; margin: 4px auto; display:block;" />` : ''}
+        <div style="font-size: 11px; color: #1e293b; margin-top: 4px;">
+          ${showFirstAuth ? `<strong>${profile.authorizedPerson}</strong> (${profile.authorizedTitle})<br>` : ''}
+          ${showSecondAuth && profile.authorizedPerson2 ? `<strong>${profile.authorizedPerson2}</strong> (${profile.authorizedTitle2 || ''})<br>` : ''}
+        </div>
+        Kaşe / İmza: .......................................<br>
+        <span style="font-size:10px; color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
       </td>
     </tr>
   </table>
 
   <div class="footer-meta">
-    AB YAPI - Güvene Yükselen Yapılar | Projeye Özel Teknik Şartname
+    ${profile.companyName} - Güvene Yükselen Yapılar | Projeye Özel Teknik Şartname
   </div>
 </body>
 </html>`;
@@ -411,17 +501,19 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     try {
       const htmlContent = generateSpecHtml();
       const prefix = activeTab === 'common' ? 'Ortak_Teknik_Sartname' : 'Projeye_Ozel_Teknik_Sartname';
-      const fileName = `AB_YAPI_${prefix}_${params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 20)}.html`;
+      const safeAddr = safeAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 20);
+      const safeName = profile.companyName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+      const fileName = `${safeName}_${prefix}_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
       await saveReportDocumentToDrive(
         fileName,
         htmlContent,
         activeTab === 'common'
-          ? `AB YAPI Ortak Teknik Şartname - ${params.projectAddress}`
-          : `AB YAPI Projeye Özel Teknik Şartname - ${params.projectAddress}`
+          ? `${profile.companyName} Ortak Teknik Şartname - ${safeAddress}`
+          : `${profile.companyName} Projeye Özel Teknik Şartname - ${safeAddress}`
       );
       setSaveStatus({
         type: 'success',
-        msg: `${activeTab === 'common' ? 'Ortak' : 'Projeye Özel'} teknik şartname Google Drive hesabınıza başarıyla kaydedildi.`,
+        msg: `${activeTab === 'common' ? 'Ortak' : 'Projeye Özel'} teknik şartname Google Drive hesabınıza başarıyla kaydedildi: "${fileName}"`,
       });
     } catch (err: any) {
       setSaveStatus({
@@ -437,66 +529,159 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     ? 'bg-slate-100 border-slate-300 text-slate-900 shadow-sm'
     : 'bg-white border-slate-200 text-slate-900 shadow-sm';
 
+  const renderSignatureBlock = () => (
+    <div className="grid grid-cols-2 gap-8 pt-8 px-4 text-xs text-slate-700 border-t border-slate-200">
+      <div className="text-center border-r border-dashed border-slate-300 pr-4">
+        <p className="font-bold mb-10 text-slate-900">KAT MALİKLERİ ONAYI</p>
+        <div className="h-10 border-b border-slate-300 mx-8 mb-2"></div>
+        <p className="text-slate-400 text-[10px]">Tarih: {new Date().toLocaleDateString('tr-TR')}</p>
+      </div>
+
+      <div className="text-center pl-4 relative">
+        <p className="font-bold mb-1 text-slate-900">YÜKLENİCİ FİRMA KAŞE / İMZA</p>
+        <p className="text-[11px] text-slate-600 mb-2 leading-tight">
+          {companyLegalName}
+        </p>
+
+        <div className="flex items-center justify-center gap-4 min-h-[45px] relative my-1">
+          {profile.stampUrl && (
+            <img
+              src={profile.stampUrl}
+              alt="Kaşe/İmza"
+              className="max-h-12 object-contain absolute opacity-80 z-10 pointer-events-none"
+            />
+          )}
+          {showFirstAuth && profile.authorizedPerson && (
+            <div className="relative z-0">
+              <p className="font-bold text-slate-900 text-xs">{profile.authorizedPerson}</p>
+              <p className="text-[10px] text-indigo-700">{profile.authorizedTitle}</p>
+              {showFirstAuthChamber && (profile.authorizedChamberNo || profile.authorizedChamber) && (
+                <p className="text-[9px] text-slate-500 font-mono">{profile.authorizedChamberNo || profile.authorizedChamber}</p>
+              )}
+            </div>
+          )}
+          {showSecondAuth && profile.authorizedPerson2 && (
+            <div className="relative z-0 border-l border-slate-200 pl-3">
+              <p className="font-bold text-slate-900 text-xs">{profile.authorizedPerson2}</p>
+              <p className="text-[10px] text-emerald-700">{profile.authorizedTitle2}</p>
+              {showSecondAuthChamber && (profile.authorizedChamberNo2 || profile.authorizedChamber2) && (
+                <p className="text-[9px] text-slate-500 font-mono">{profile.authorizedChamberNo2 || profile.authorizedChamber2}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="h-6 border-b border-slate-300 mx-8 mb-2"></div>
+        <p className="text-slate-400 text-[10px]">Tarih: {new Date().toLocaleDateString('tr-TR')}</p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       
-      {/* Tab Switcher */}
-      <div className="flex bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 max-w-md print:hidden">
-        <button
-          type="button"
-          onClick={() => { setActiveTab('common'); setSaveStatus(null); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-            activeTab === 'common'
-              ? 'bg-white text-indigo-700 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>Ortak Teknik Şartname</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => { setActiveTab('project'); setSaveStatus(null); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-            activeTab === 'project'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>Projeye Özel Şartname</span>
-        </button>
-      </div>
+      {/* Top Controls Bar */}
+      <div className={`p-5 rounded-3xl border print:hidden shadow-sm space-y-4 ${cardBg}`}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="font-semibold text-sm text-slate-900">
+              {activeTab === 'common' ? 'Ortak Teknik Şartname Belgesi' : 'Projeye Özel Teknik Şartname'}
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {activeTab === 'common'
+                ? 'Kentsel dönüşüm bina yapımında esnek ve standart teknik kriterler şartnamesi'
+                : 'Projenin geometrik, metraj ve mühendislik detaylarını içeren dinamik şartname'}
+            </p>
+          </div>
 
-      {/* Top action bar */}
-      <div className={`flex flex-wrap items-center justify-between gap-4 p-5 rounded-3xl border print:hidden shadow-sm ${cardBg}`}>
-        <div>
-          <h3 className="font-semibold text-sm text-slate-900">
-            {activeTab === 'common' ? 'Ortak Teknik Şartname Belgesi' : 'Projeye Özel Teknik Şartname'}
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {activeTab === 'common'
-              ? 'Yenilenen resmi esnek ve ortak teknik kriterler şartnamesi'
-              : 'Üzerinde çalışılan projenin fiziksel, geometrik ve metraj detaylarını içeren dinamik şartname'}
-          </p>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Tab Switcher */}
+            <div className="flex bg-slate-200/80 p-1 rounded-xl border border-slate-300 mr-2">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('common'); setSaveStatus(null); }}
+                className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'common'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Ortak Şartname</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('project'); setSaveStatus(null); }}
+                className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'project'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Projeye Özel Şartname</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyToClipboard}
+              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold shadow-sm border transition-all active:scale-95 cursor-pointer ${
+                copiedStatus
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+              }`}
+            >
+              {copiedStatus ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              <span>{copiedStatus ? 'Metin Kopyalandı!' : 'Metni Kopyala'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSaveToDrive}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
+            >
+              <Cloud className="w-4 h-4" />
+              <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
+            </button>
+
+            <PrintAndPdfButtons
+              onExportPdf={handleExportPdf}
+              onPrint={handlePrint}
+              getHtmlContent={generateSpecHtml}
+              documentTitle={activeTab === 'common' ? 'Ortak Teknik Şartname' : 'Projeye Özel Teknik Şartname'}
+              theme={theme}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleSaveToDrive}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
-          >
-            <Cloud className="w-4 h-4" />
-            <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
-          </button>
-          <PrintAndPdfButtons
-            onExportPdf={handleExportPdf}
-            onPrint={handlePrint}
-            getHtmlContent={generateSpecHtml}
-            documentTitle={activeTab === 'common' ? 'Ortak Teknik Şartname' : 'Projeye Özel Teknik Şartname'}
-            theme={theme}
-          />
+
+        {/* Search Bar */}
+        <div className="flex items-center gap-3 pt-2 border-t border-slate-200/80">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Şartnamede ara (örn: C30, asansör, mantolama, çatı, seramik, radon)..."
+              className="w-full text-xs pl-9 pr-8 py-2 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <span className="text-[11px] text-slate-500 font-medium">
+              Kelime Vurgulama Aktif
+            </span>
+          )}
         </div>
       </div>
 
@@ -517,55 +702,27 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
         </div>
       )}
 
-      {/* RENDER ACTIVE TAB */}
+      {/* RENDER ACTIVE TAB BODY */}
       <div ref={specContainerRef}>
       {activeTab === 'common' ? (
-        /* Specification Document Body (matches scanned image exactly) */
+        /* COMMON SPECIFICATION DOCUMENT */
         <div className="bg-white border border-slate-200 rounded-3xl shadow-md p-6 sm:p-10 text-xs leading-relaxed text-slate-800 print:border-none print:shadow-none print:p-0">
           
-          {/* Scanned-style Header Bar */}
-          <div className="bg-indigo-950 text-white rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden border border-slate-800 shadow-sm print:bg-slate-900 print:text-white">
-            <div className="absolute right-0 top-0 opacity-10 translate-x-4 -translate-y-4">
-              <Logo size="xl" variant="icon" theme="dark" />
+          {/* Corporate Header Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 pb-5 mb-6 print:border-slate-300">
+            <div className="flex items-center gap-3">
+              <Logo size="lg" variant="full" theme={theme} />
             </div>
-            
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 text-amber-300 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                  <Sparkles className="w-3 h-3" />
-                  Resmi Ortak Şartname
-                </span>
-                <h1 className="text-base sm:text-xl font-black tracking-wide text-white uppercase mt-1">
-                  {specTitle}
-                </h1>
-                <p className="text-[11px] text-indigo-200">
-                  {specSubtitle}
-                </p>
-              </div>
-              
-              <div className="bg-white/10 p-2 rounded-xl border border-white/15 shrink-0 print:bg-slate-800">
-                <Logo size="md" variant="compact" theme="dark" />
-              </div>
-            </div>
-
-            {/* Metadata Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-white/10 text-[10px] text-indigo-100 font-mono">
-              <div>
-                <span className="block text-indigo-300 font-sans text-[9px] uppercase">YÜKLENİCİ</span>
-                <strong>AB YAPI - Güvene Yükselen</strong>
-              </div>
-              <div>
-                <span className="block text-indigo-300 font-sans text-[9px] uppercase">DOKÜMAN KODU</span>
-                <strong>AB-TŞ-REV2026</strong>
-              </div>
-              <div>
-                <span className="block text-indigo-300 font-sans text-[9px] uppercase">KAPSAM</span>
-                <strong>Kentsel Dönüşüm Projeleri</strong>
-              </div>
-              <div>
-                <span className="block text-indigo-300 font-sans text-[9px] uppercase">TARİH</span>
-                <strong>Eylül 2026</strong>
-              </div>
+            <div className="text-center sm:text-right">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 uppercase tracking-wide">
+                {highlightText(specTitle)}
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                Tarih: {results.calculatedAt || new Date().toLocaleDateString('tr-TR')} | Belge No: {profile.companyName}-{new Date().getFullYear()}/TŞ-01
+              </p>
+              <p className="text-[10px] text-slate-600 font-medium mt-0.5">
+                {companyLegalName} | Kentsel Dönüşüm Ortak Teknik Standartları
+              </p>
             </div>
           </div>
 
@@ -574,43 +731,43 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* SECTION 01 */}
             <div className="space-y-4">
               <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">01.</span> KABA YAPI, ZEMİN VE STATİK KRİTERLERİ
+                <span className="text-amber-500 font-mono">01.</span> {highlightText('KABA YAPI, ZEMİN VE STATİK KRİTERLERİ')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Zemin Etüdü ve Statik Projelendirme
+                    {highlightText('Zemin Etüdü ve Statik Projelendirme')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Zemin etütleri ruhsat aşamasında yetkili zemin mekaniği firmalarına yaptırılarak ilgili belediyeye onaylattırılacaktır.</li>
-                    <li>Statik hesaplamalar; zemin emniyet gerilmeleri ve yürürlükteki Deprem Yönetmeliği esas alınarak hazırlanacaktır.</li>
+                    <li>{highlightText('Zemin etütleri ruhsat aşamasında yetkili zemin mekaniği firmalarına yaptırılarak ilgili belediyeye onaylattırılacaktır.')}</li>
+                    <li>{highlightText('Statik hesaplamalar; zemin emniyet gerilmeleri ve yürürlükteki Deprem Yönetmeliği esas alınarak hazırlanacaktır.')}</li>
                   </ul>
                   <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">Proje Çeşitliliği / Esneklik:</span> Parsel oturum alanına ve zemin sınıfına (Z1-Z5) bağlı olarak temel tipi (Radye Jeneral, İyileştirmeli veya projeye göre gerekli görüldüğünde kuyu temel sistemleri) statik gerekler doğrultusunda farklılık gösterebilir.
+                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Parsel oturum alanına ve zemin sınıfına (Z1-Z5) bağlı olarak temel tipi (Radye Jeneral, İyileştirmeli veya projeye göre gerekli görüldüğünde kuyu temel sistemleri) statik gerekler doğrultusunda farklılık gösterebilir.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Betonarme Taşıyıcı Sistem ve Malzemeler
+                    {highlightText('Betonarme Taşıyıcı Sistem ve Malzemeler')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Binanın taşıyıcı sistemi betonarme karkas olup, en son deprem yönetmeliğine uygun projelendirilecektir.</li>
-                    <li>Hazır beton sınıfı asgari C30 standardında temin edilecek, demir donatı olarak S420 nervürlü TSE belgeli sismik çelik kullanılacaktır. Beton döküm test sonuçları paydaşlara sunulacaktır.</li>
+                    <li>{highlightText('Binanın taşıyıcı sistemi betonarme karkas olup, en son deprem yönetmeliğine uygun projelendirilecektir.')}</li>
+                    <li>{highlightText('Hazır beton sınıfı asgari C30 standardında temin edilecek, demir donatı olarak S420 nervürlü TSE belgeli sismik çelik kullanılacaktır. Beton döküm test sonuçları paydaşlara sunulacaktır.')}</li>
                   </ul>
                   <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">Proje Çeşitliliği / Esneklik:</span> Bodrum kat perdeleri ve bina yüksekliğine/statik hesaplara göre beton sınıfları (C30, C35 vb.) mühendislik hesapları baz alınarak projeye özel optimize edilir.
+                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Bodrum kat perdeleri ve bina yüksekliğine/statik hesaplara göre beton sınıfları (C30, C35 vb.) mühendislik hesapları baz alınarak projeye özel optimize edilir.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Su Yalıtımı ve Drenaj Sistemleri
+                    {highlightText('Su Yalıtımı ve Drenaj Sistemleri')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Temel ve toprak altı bodrum perdelerinde bina ömrünü korumak amacıyla su yalıtımı (bohçalama veya uygun perde yalıtımları) uygulanacaktır.</li>
-                    <li>Perde duvarlarda yalıtımı korumak amacıyla yüksek dansite XPS levhalar ve drenaj levhaları konumlandırılacaktır.</li>
+                    <li>{highlightText('Temel ve toprak altı bodrum perdelerinde bina ömrünü korumak amacıyla su yalıtımı (bohçalama veya uygun perde yalıtımları) uygulanacaktır.')}</li>
+                    <li>{highlightText('Perde duvarlarda yalıtımı korumak amacıyla yüksek dansite XPS levhalar ve drenaj levhaları konumlandırılacaktır.')}</li>
                   </ul>
                 </div>
               </div>
@@ -619,29 +776,29 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* SECTION 02 */}
             <div className="space-y-4">
               <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">02.</span> DUVARLAR VE ÇATI İMALAT ÇEŞİTLİLİKLERİ
+                <span className="text-amber-500 font-mono">02.</span> {highlightText('DUVARLAR VE ÇATI İMALAT ÇEŞİTLİLİKLERİ')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Bölücü Duvarlar ve Ses / Isı Yalıtımı
+                    {highlightText('Bölücü Duvarlar ve Ses / Isı Yalıtımı')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Dış duvarlar ve ıslak hacim duvarları projesine uygun tuğla veya yalıtımlı blok elemanlarla örülecektir.</li>
+                    <li>{highlightText('Dış duvarlar ve ıslak hacim duvarları projesine uygun tuğla veya yalıtımlı blok elemanlarla örülecektir.')}</li>
                   </ul>
                   <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">Proje Çeşitliliği / Esneklik:</span> Duvar kalınlıkları (8.5 cm, 13.5 cm) ve iki daire arası ses/ısı yalıtım detayları (çift duvar uygulaması veya akustik tuğla/taş yünü yalıtım katmanları); mimari akslara ve akustik yönetmelik gereksinimlerine göre her projede farklılık gösterebilir. Kesin bir tek tip duvar detayı dayatılmaz.
+                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Duvar kalınlıkları (8.5 cm, 13.5 cm) ve iki daire arası ses/ısı yalıtım detayları (çift duvar uygulaması veya akustik tuğla/taş yünü yalıtım katmanları); mimari akslara ve akustik yönetmelik gereksinimlerine göre her projede farklılık gösterebilir. Kesin bir tek tip duvar detayı dayatılmaz.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Çatı Konstrüksiyonu ve Yalıtım Detayları
+                    {highlightText('Çatı Konstrüksiyonu ve Yalıtım Detayları')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Çatı sistemleri onaylı mimari projeye uygun olarak çelik veya ahşap karkas konstrüksiyon şeklinde imal edilecektir.</li>
-                    <li>Çatı kaplamasında OSB, su yalıtım membranı ve shingle / kenet sac alternatifleri projenin mimari çizgisine göre uygulanacaktır. Isı yalıtımı için taş yünü veya poliüretan köpük sistemleri tercih edilecektir.</li>
+                    <li>{highlightText('Çatı sistemleri onaylı mimari projeye uygun olarak çelik veya ahşap karkas konstrüksiyon şeklinde imal edilecektir.')}</li>
+                    <li>{highlightText('Çatı kaplamasında OSB, su yalıtım membranı ve shingle / kenet sac alternatifleri projenin mimari çizgisine göre uygulanacaktır. Isı yalıtımı için taş yünü veya poliüretan köpük sistemleri tercih edilecektir.')}</li>
                   </ul>
                 </div>
               </div>
@@ -650,27 +807,27 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* SECTION 03 */}
             <div className="space-y-4">
               <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">03.</span> DIŞ CEPHE VE DOĞRAMA ÇEŞİTLİLİKLERİ
+                <span className="text-amber-500 font-mono">03.</span> {highlightText('DIŞ CEPHE VE DOĞRAMA ÇEŞİTLİLİKLERİ')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Dış Cephe Mantolama ve Tasarım
+                    {highlightText('Dış Cephe Mantolama ve Tasarım')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Bina dış cepheleri ısı yalıtım projesi (BEP) değerlerini sağlayacak kalınlık ve yoğunlukta mantolama (EPS veya Taşyünü) ile kaplanacaktır.</li>
-                    <li>Belediye onaylı dış cephe renk ve kompozit/dekoratif kaplama alternatifleri uygulanarak üst segment dış cephe boyaları tercih edilecektir.</li>
+                    <li>{highlightText('Bina dış cepheleri ısı yalıtım projesi (BEP) değerlerini sağlayacak kalınlık ve yoğunlukta mantolama (EPS veya Taşyünü) ile kaplanacaktır.')}</li>
+                    <li>{highlightText('Belediye onaylı dış cephe renk ve kompozit/dekoratif kaplama alternatifleri uygulanarak üst segment dış cephe boyaları tercih edilecektir.')}</li>
                   </ul>
                 </div>
 
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Doğramalar ve Cam Sistemleri
+                    {highlightText('Doğramalar ve Cam Sistemleri')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Pencereler ve balkon kapıları projenin mimari rengine uyumlu üst segment PVC doğrama (Egepen, Fıratpen, Pimapen veya muadili) olacaktır.</li>
-                    <li>Camlar konfor ısıcam (çift cam kombinasyonları) olarak uygulanacak, Fransız balkon önlerinde projeye uygun lamine/temperli cam korkuluklar yer alacaktır.</li>
+                    <li>{highlightText('Pencereler ve balkon kapıları projenin mimari rengine uyumlu üst segment PVC doğrama (Egepen, Fıratpen, Pimapen veya muadili) olacaktır.')}</li>
+                    <li>{highlightText('Camlar konfor ısıcam (çift cam kombinasyonları) olarak uygulanacak, Fransız balkon önlerinde projeye uygun lamine/temperli cam korkuluklar yer alacaktır.')}</li>
                   </ul>
                 </div>
               </div>
@@ -679,30 +836,30 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* SECTION 04 */}
             <div className="space-y-4">
               <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">04.</span> İÇ MEKÂN, KAPLAMA VE DONATI SEÇENEKLERİ
+                <span className="text-amber-500 font-mono">04.</span> {highlightText('İÇ MEKÂN, KAPLAMA VE DONATI SEÇENEKLERİ')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Zeminler ve İç Yüzeyler
+                    {highlightText('Zeminler ve İç Yüzeyler')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Salon ve odalarda 1. sınıf laminat parke (AGT, Çamsan, Terraclick veya muadili), antre ve mutfakta 1. sınıf granit/seramik kaplama kullanılacaktır.</li>
-                    <li>Duvarlar alçı sıva üzeri su bazlı silinebilir saten boya ile tamamlanacak, ıslak hacimlerde 1. sınıf seramik kaplama tercih edilecektir.</li>
+                    <li>{highlightText('Salon ve odalarda 1. sınıf laminat parke (AGT, Çamsan, Terraclick veya muadili), antre ve mutfakta 1. sınıf granit/seramik kaplama kullanılacaktır.')}</li>
+                    <li>{highlightText('Duvarlar alçı sıva üzeri su bazlı silinebilir saten boya ile tamamlanacak, ıslak hacimlerde 1. sınıf seramik kaplama tercih edilecektir.')}</li>
                   </ul>
                   <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">Proje Çeşitliliği / Esneklik:</span> Daire sahiplerine sunulacak renk, ebat (örn. 60x60 veya 60x120 seramik) ve model alternatifleri; projenin konseptine ve o dönemsel üretici kataloglarına göre çeşitlilik arz edebilir.
+                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Daire sahiplerine sunulacak renk, ebat (örn. 60x60 veya 60x120 seramik) ve model alternatifleri; projenin konseptine ve o dönemsel üretici kataloglarına göre çeşitlilik arz edebilir.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Mutfak, Banyo ve İç Kapılar
+                    {highlightText('Mutfak, Banyo ve İç Kapılar')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Mutfak dolapları gövde MDF, kapaklar Highgloss veya Lake; tezgahlar ise 1. sınıf granit/kuvars esaslı malzemeden yapılacaktır.</li>
-                    <li>Banyolarda gömme rezervuar, TSE belgeli armatürler, duşakabin ve suya dayanıklı banyo dolabı uygulanacaktır. İç kapılar PVC kaplamalı veya Lake ahşap kapı olacaktır.</li>
+                    <li>{highlightText('Mutfak dolapları gövde MDF, kapaklar Highgloss veya Lake; tezgahlar ise 1. sınıf granit/kuvars esaslı malzemeden yapılacaktır.')}</li>
+                    <li>{highlightText('Banyolarda gömme rezervuar, TSE belgeli armatürler, duşakabin ve suya dayanıklı banyo dolabı uygulanacaktır. İç kapılar PVC kaplamalı veya Lake ahşap kapı olacaktır.')}</li>
                   </ul>
                 </div>
               </div>
@@ -711,30 +868,30 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* SECTION 05 */}
             <div className="space-y-4">
               <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">05.</span> MEKANİK, ELEKTRİK VE ASANSÖR STANDARTLARI
+                <span className="text-amber-500 font-mono">05.</span> {highlightText('MEKANİK, ELEKTRİK VE ASANSÖR STANDARTLARI')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Asansör Sistemlerinde Esneklik
+                    {highlightText('Asansör Sistemlerinde Esneklik')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Binaya tesis edilecek asansörler; ilgili belediye imar mevzuatına, Asansör Yönetmeliği'ne ve TSE standartlarına tam uygun, yeşil etiketli olacaktır.</li>
+                    <li>{highlightText('Binaya tesis edilecek asansörler; ilgili belediye imar mevzuatına, Asansör Yönetmeliği\'ne ve TSE standartlarına tam uygun, yeşil etiketli olacaktır.')}</li>
                   </ul>
                   <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">Proje Çeşitliliği / Esneklik:</span> Asansörün kişi kapasitesi, taşıma tonajı (örn. 630 kg / 8 kişilik veya parsele/binaya özel mimari kuyu boyutlarına göre 4-6 kişilik alternatifler) ve kabin tasarımı; her binanın arsa oturumuna, kat sayısına ve ruhsat projesine göre değişkenlik gösterir. Sabit bir kişi sayısı dayatılmaz.
+                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Asansörün kişi kapasitesi, taşıma tonajı (örn. 630 kg / 8 kişilik veya parsele/binaya özel mimari kuyu boyutlarına göre 4-6 kişilik alternatifler) ve kabin tasarımı; her binanın arsa oturumuna, kat sayısına ve ruhsat projesine göre değişkenlik gösterir. Sabit bir kişi sayısı dayatılmaz.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Isıtma, Elektrik ve Güvenlik Altyapısı
+                    {highlightText('Isıtma, Elektrik ve Güvenlik Altyapısı')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Her bağımsız bölümde bağımsız kombili doğalgaz ısıtma altyapısı, radyatörler ve klima tesisat altyapısı bulunacaktır.</li>
-                    <li>Tüm elektrik tesisatında TSE belgeli kablolar, kaçak akım röleleri, merkezi uydu ve fiber internet altyapısı kurulacaktır.</li>
-                    <li>Audio marka görüntülü diafon sistemi ve bina çevresi güvenlik kamera altyapısı tesis edilecektir.</li>
+                    <li>{highlightText('Her bağımsız bölümde bağımsız kombili doğalgaz ısıtma altyapısı, radyatörler ve klima tesisat altyapısı bulunacaktır.')}</li>
+                    <li>{highlightText('Tüm elektrik tesisatında TSE belgeli kablolar, kaçak akım röleleri, merkezi uydu ve fiber internet altyapısı kurulacaktır.')}</li>
+                    <li>{highlightText('Audio marka görüntülü diafon sistemi ve bina çevresi güvenlik kamera altyapısı tesis edilecektir.')}</li>
                   </ul>
                 </div>
               </div>
@@ -743,17 +900,17 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* SECTION 06 */}
             <div className="space-y-4">
               <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">06.</span> YIKIM VE UYGULAMA ESASLARI
+                <span className="text-amber-500 font-mono">06.</span> {highlightText('YIKIM VE UYGULAMA ESASLARI')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
                   <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
-                    Yıkım ve Proje Yönetimi
+                    {highlightText('Yıkım ve Proje Yönetimi')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                    <li>Eski binaların yıkımı, yasal ruhsatlar alındıktan sonra iş güvenliği kurallarına tam uygun olarak AB YAPI güvencesiyle gerçekleştirilecektir. Hafriyat ve yıkım maliyetleri yükleniciye aittir.</li>
-                    <li>Tüm imalatlar onaylı mimari, statik ve tesisat projeleri ile yapı denetim denetiminde yürütülecektir. Yüklenici, kalite standardından ödün vermemek şartıyla eşdeğer muadil malzeme uygulama hakkına sahiptir.</li>
+                    <li>{highlightText(`Eski binaların yıkımı, yasal ruhsatlar alındıktan sonra iş güvenliği kurallarına tam uygun olarak ${profile.companyName} güvencesiyle gerçekleştirilecektir. Hafriyat ve yıkım maliyetleri yükleniciye aittir.`)}</li>
+                    <li>{highlightText('Tüm imalatlar onaylı mimari, statik ve tesisat projeleri ile yapı denetim denetiminde yürütülecektir. Yüklenici, kalite standardından ödün vermemek şartıyla eşdeğer muadil malzeme uygulama hakkına sahiptir.')}</li>
                   </ul>
                 </div>
               </div>
@@ -765,69 +922,32 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 <ShieldCheck className="w-4 h-4 text-slate-600" />
                 Kurumsal Onay:
               </span>
-              İşbu Teknik Şartname, AB YAPI kentsel dönüşüm projelerinde uygulanacak asgari kalite standartlarını ve parsele özel projeye göre şekillenebilecek esnek yapısal çeşitlilikleri resmi olarak belirlemektedir.
+              İşbu Teknik Şartname, {profile.companyName} kentsel dönüşüm projelerinde uygulanacak asgari kalite standartlarını ve parsele özel projeye göre şekillenebilecek esnek yapısal çeşitlilikleri resmi olarak belirlemektedir.
             </div>
 
-            {/* Signature Blocks */}
-            <div className="flex justify-between pt-10 px-6 text-xs text-slate-700">
-              <div className="text-center">
-                <p className="font-semibold mb-14 text-slate-900">KAT MALİKLERİ ONAYI</p>
-                <p className="text-slate-500">.... / .... / 2026</p>
-              </div>
-              <div className="text-center">
-                <p className="font-semibold mb-14 text-slate-900">AB YAPI MÜTEAHHİTLİK ONAYI</p>
-                <p className="text-slate-500">.... / .... / 2026</p>
-              </div>
-            </div>
+            {/* Signature Block */}
+            {renderSignatureBlock()}
           </div>
         </div>
       ) : (
         /* PROJECT-SPECIFIC DYNAMIC SPECIFICATION */
         <div className="bg-white border border-slate-200 rounded-3xl shadow-md p-6 sm:p-10 text-xs leading-relaxed text-slate-800 print:border-none print:shadow-none print:p-0">
           
-          {/* Project Specific Blue Header Bar */}
-          <div className="bg-blue-950 text-white rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden border border-blue-900 shadow-sm print:bg-slate-900 print:text-white">
-            <div className="absolute right-0 top-0 opacity-10 translate-x-4 -translate-y-4">
-              <Logo size="xl" variant="icon" theme="dark" />
+          {/* Corporate Header Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 pb-5 mb-6 print:border-slate-300">
+            <div className="flex items-center gap-3">
+              <Logo size="lg" variant="full" theme={theme} />
             </div>
-            
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/30 text-blue-200 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                  <Building className="w-3.5 h-3.5" />
-                  PROJEYE ÖZEL YAPIM ŞARTNAMESİ
-                </span>
-                <h1 className="text-base sm:text-xl font-black tracking-wide text-white uppercase mt-1">
-                  {projectTitle}
-                </h1>
-                <p className="text-[11px] text-blue-200">
-                  {projectSubtitle}
-                </p>
-              </div>
-              
-              <div className="bg-white/10 p-2 rounded-xl border border-white/15 shrink-0 print:bg-slate-800">
-                <Logo size="md" variant="compact" theme="dark" />
-              </div>
-            </div>
-
-            {/* Metadata Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-white/10 text-[10px] text-blue-100 font-mono">
-              <div className="col-span-2 sm:col-span-1">
-                <span className="block text-blue-300 font-sans text-[9px] uppercase">PROJE ADRESİ</span>
-                <strong>{params.projectAddress || 'İstanbul'}</strong>
-              </div>
-              <div>
-                <span className="block text-blue-300 font-sans text-[9px] uppercase">TOPLAM BAĞIMSIZ BÖLÜM</span>
-                <strong>{totalUnitsDisplay}</strong>
-              </div>
-              <div>
-                <span className="block text-blue-300 font-sans text-[9px] uppercase">TAHMİNİ YAPIM SÜRESİ</span>
-                <strong>{results.finalMonths} Ay</strong>
-              </div>
-              <div>
-                <span className="block text-blue-300 font-sans text-[9px] uppercase">TAAHHÜT TARİHİ</span>
-                <strong>{new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</strong>
-              </div>
+            <div className="text-center sm:text-right">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 uppercase tracking-wide">
+                {highlightText(projectTitle)}
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                Tarih: {results.calculatedAt || new Date().toLocaleDateString('tr-TR')} | Belge No: {profile.companyName}-{new Date().getFullYear()}/TŞ-02
+              </p>
+              <p className="text-[10px] text-slate-600 font-medium mt-0.5">
+                {companyLegalName} | Adres: {highlightText(safeAddress)}
+              </p>
             </div>
           </div>
 
@@ -835,12 +955,12 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* C-01 */}
             <div>
               <h3 className="font-extrabold text-indigo-900 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-indigo-600 font-mono">01.</span> PROJE GENEL METRAJ KÜNYESİ
+                <span className="text-indigo-600 font-mono">01.</span> {highlightText('PROJE GENEL METRAJ KÜNYESİ')}
               </h3>
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Proje Konumu (Adres)</span>
-                  <p className="text-xs font-semibold text-slate-800">{params.projectAddress || 'İstanbul'}</p>
+                  <p className="text-xs font-semibold text-slate-800">{highlightText(safeAddress)}</p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Yapı Sınıfı ve Standart</span>
@@ -851,26 +971,26 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Bina Oturumu (Taban Alanı)</span>
                   <p className="text-xs font-semibold text-slate-800 font-mono">
-                    {results.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²
+                    {safeBaseArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²
                   </p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Toplam Kapalı İnşaat Alanı</span>
                   <p className="text-xs font-semibold text-slate-800 font-mono">
-                    {results.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²
+                    {safeTotalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²
                   </p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Kat Yapısı</span>
                   <p className="text-xs font-semibold text-slate-800">
-                    {params.floorCount} Normal Kat + {(params.basementCount ?? 1)} Bodrum Kat {params.hasGroundFloorShop ? `(Zemin Kat: ${params.shopCount || 1} Ticari Dükkan)` : "(Tamamı Konut)"}
+                    {safeFloorCount} Normal Kat + {safeBasementCount} Bodrum Kat {params.hasGroundFloorShop ? `(Zemin Kat: ${safeShopCount} Ticari Dükkan)` : "(Tamamı Konut)"}
                   </p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Bodrum Kat & Altyapı</span>
                   <p className="text-xs font-semibold text-slate-800">
-                    {(params.basementCount ?? 1) > 0 
-                      ? `${params.basementCount ?? 1} Kat Bodrum (Sığınak, Su Deposu, Otopark)` 
+                    {safeBasementCount > 0 
+                      ? `${safeBasementCount} Kat Bodrum (Sığınak, Su Deposu, Otopark)` 
                       : 'Bodrum Kat Planlanmamıştır'}
                   </p>
                 </div>
@@ -890,7 +1010,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* C-02 */}
             <div>
               <h3 className="font-extrabold text-indigo-900 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-indigo-600 font-mono">02.</span> TAŞIYICI SİSTEM MÜHENDİSLİK METRAJLARI
+                <span className="text-indigo-600 font-mono">02.</span> {highlightText('TAŞIYICI SİSTEM MÜHENDİSLİK METRAJLARI')}
               </h3>
               <p className="text-slate-600 text-xs mt-2">
                 Aşağıdaki değerler, binanın toplam kat alanı ve yapı geometrisine bağlı statik katsayılar göz önünde bulundurularak hesaplanan tahmini kaba yapı hakediş metrajlarıdır:
@@ -903,7 +1023,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   <div>
                     <span className="block text-[10px] font-bold text-indigo-400 uppercase">Tahmini Hazır Beton Hacmi</span>
                     <p className="text-sm font-bold text-indigo-950 font-mono">
-                      {results.concreteM3.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m³
+                      {safeConcrete.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m³
                     </p>
                     <span className="text-[10px] text-indigo-600 font-semibold">C30/35 Hazır Beton</span>
                   </div>
@@ -916,7 +1036,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   <div>
                     <span className="block text-[10px] font-bold text-blue-400 uppercase">Tahmini Sismik Demir Çelik</span>
                     <p className="text-sm font-bold text-blue-950 font-mono">
-                      {results.steelTon.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} Ton
+                      {safeSteel.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} Ton
                     </p>
                     <span className="text-[10px] text-blue-600 font-semibold">S420 Nervürlü Demir</span>
                   </div>
@@ -927,7 +1047,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* C-03 */}
             <div>
               <h3 className="font-extrabold text-indigo-900 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-indigo-600 font-mono">03.</span> CEPHE, DIŞ GEOMETRİ VE MİMARİ BİLEŞENLER
+                <span className="text-indigo-600 font-mono">03.</span> {highlightText('CEPHE, DIŞ GEOMETRİ VE MİMARİ BİLEŞENLER')}
               </h3>
               <div className="mt-3 space-y-3">
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-start justify-between gap-4">
@@ -942,7 +1062,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   {params.hasCantilever && (
                     <div className="text-right">
                       <span className="inline-block px-2.5 py-1 bg-indigo-100 text-indigo-700 font-semibold rounded-lg text-[10px] font-mono">
-                        Derinlik: {params.cantileverDepth}m
+                        Derinlik: {Math.max(0, params.cantileverDepth || 0)}m
                       </span>
                       <span className="block text-[10px] text-slate-500 mt-1 uppercase">
                         Yön: {params.cantileverDirection === 'front_back' ? 'Ön-Arka' : params.cantileverDirection === 'front' ? 'Ön Cephe' : 'Ayrık / Tüm Cepheler'}
@@ -978,8 +1098,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Bodrum Kat & Sığınak / Otopark Altyapısı</span>
                   <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                    {(params.basementCount ?? 1) > 0
-                      ? `${params.basementCount ?? 1} Kat Bodrum İmalatı: Deprem ve sığınak yönetmeliğine tam uyumlu sığınak, su deposu (hidroforlu), yangın tesisatı ve kapalı otopark alanları.`
+                    {safeBasementCount > 0
+                      ? `${safeBasementCount} Kat Bodrum İmalatı: Deprem ve sığınak yönetmeliğine tam uyumlu sığınak, su deposu (hidroforlu), yangın tesisatı ve kapalı otopark alanları.`
                       : 'Bodrum kat planlanmamış olup sığınak ve teknik hacimler zemin katta yönetmelik şartlarına göre ayrılacaktır.'}
                   </p>
                 </div>
@@ -989,7 +1109,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* C-04 */}
             <div>
               <h3 className="font-extrabold text-indigo-900 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-indigo-600 font-mono">04.</span> HAK SAHİBİ MALİKLER KATILIM TABLOSU
+                <span className="text-indigo-600 font-mono">04.</span> {highlightText('HAK SAHİBİ MALİKLER KATILIM TABLOSU')}
               </h3>
               <p className="text-slate-600 text-xs mt-2 mb-3">
                 Bu proje özel teknik şartnamesi, aşağıda hisseleri ve isimleri belirtilen bağımsız bölüm sahiplerinin ortak muvafakati ve onayı ile geçerlilik kazanır:
@@ -1009,9 +1129,9 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                     {results.flatResults.map((flat) => (
                       <tr key={flat.id} className="hover:bg-slate-50/50">
                         <td className="p-3 font-semibold text-slate-900">Daire {flat.id}</td>
-                        <td className="p-3 font-medium text-slate-900">{flat.name}</td>
-                        <td className="p-3 font-mono text-slate-500">{flat.tc}</td>
-                        <td className="p-3 text-right font-semibold font-mono">{flat.area} m²</td>
+                        <td className="p-3 font-medium text-slate-900">{highlightText(flat.name)}</td>
+                        <td className="p-3 font-mono text-slate-500">{highlightText(flat.tc)}</td>
+                        <td className="p-3 text-right font-semibold font-mono">{Math.max(0, flat.area || 0)} m²</td>
                         <td className="p-3 text-center">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-semibold border border-emerald-200">
                             <Check className="w-3 h-3" />
@@ -1025,17 +1145,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
               </div>
             </div>
 
-            {/* Signature Blocks */}
-            <div className="flex justify-between pt-10 px-6 text-xs text-slate-700">
-              <div className="text-center">
-                <p className="font-semibold mb-14 text-slate-900">KAT MALİKLERİ ONAYI</p>
-                <p className="text-slate-500">.... / .... / 2026</p>
-              </div>
-              <div className="text-center">
-                <p className="font-semibold mb-14 text-slate-900">AB YAPI MÜTEAHHİTLİK ONAYI</p>
-                <p className="text-slate-500">.... / .... / 2026</p>
-              </div>
-            </div>
+            {/* Signature Block */}
+            {renderSignatureBlock()}
 
           </div>
         </div>
