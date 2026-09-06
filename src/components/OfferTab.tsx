@@ -412,16 +412,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         </div>
 
-        {/* Dynamic Architectural Views Component with Predefined Orientations */}
+        {/* Dynamic Architectural Views Component with Predefined Orientations & CAD Drawings */}
         <div className={`mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-200 ${!showDrawingsInReport ? 'print:hidden border-dashed border-slate-300 opacity-80' : ''}`}>
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
             <div>
               <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
                 <Box className="w-4 h-4 text-indigo-600" />
-                <span>🏢 Dinamik Mimari 3D Canlı Bina Görünümleri (Ön Tanımlı Cephe Yönleri)</span>
+                <span>🏢 Dinamik Mimari 3D Canlı Bina & CAD Teknik Çizimleri</span>
               </h4>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Resmi teklif belgesinde sunulacak ön tanımlı pusula yönleri (Güney, Kuzey, Doğu, Batı, Kat Planı ve 3D İzometrik)
+                Resmi teklif belgesinde sunulacak mimari 3D modeller, 2D CAD kat planı ve bina ön cephe teknik çizimleri
               </p>
             </div>
 
@@ -458,7 +458,168 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               )}
             </div>
           </div>
+
+          {/* 2D CAD Architectural & Elevation Drawings Section */}
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 1. CAD 2D Kat Planı */}
+            <div className="bg-[#080e1a] rounded-2xl p-4 border border-slate-700 text-slate-200 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <LayoutGrid className="w-4 h-4 text-cyan-400" />
+                  <span className="text-xs font-bold text-cyan-300">2D CAD MİMARİ KAT PLANI</span>
+                </div>
+                <span className="text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 px-2 py-0.5 rounded-md font-mono">
+                  Ölçek: 1/100
+                </span>
+              </div>
+              
+              <div className="rounded-xl overflow-hidden border border-slate-800 bg-[#060a13] flex items-center justify-center p-1 min-h-[220px]">
+                <svg viewBox="0 0 240 240" className="w-full max-h-[230px] font-mono">
+                  <defs>
+                    <pattern id="offerPlanGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" strokeWidth="0.3" opacity="0.6"/>
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#offerPlanGrid)" />
+
+                  {/* North Arrow */}
+                  <g transform="translate(215, 25)">
+                    <circle cx="0" cy="0" r="9" fill="#0f172a" stroke="#38bdf8" strokeWidth="0.8" />
+                    <polygon points="0,-7 3,3 0,1 -3,3" fill="#38bdf8" />
+                    <text x="0" y="-9" fill="#38bdf8" fontSize="4.5" textAnchor="middle" fontWeight="bold">K</text>
+                  </g>
+
+                  {/* Building Outer Wall */}
+                  <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" strokeWidth="2" />
+                  <rect x="39" y="39" width="142" height="142" fill="none" stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="2,2" />
+
+                  {/* Elevator Core */}
+                  <g stroke="#f43f5e" strokeWidth="1" fill="none">
+                    <rect x="98" y="70" width="24" height="24" strokeWidth="1.2" fill="#0f172a" />
+                    <line x1="98" y1="70" x2="122" y2="94" strokeWidth="0.6" />
+                    <line x1="122" y1="70" x2="98" y2="94" strokeWidth="0.6" />
+                    <text x="110" y="84" fill="#f43f5e" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">ASANSÖR</text>
+                  </g>
+
+                  {/* Staircase Core */}
+                  <g stroke="#38bdf8" strokeWidth="1" fill="none">
+                    <rect x="98" y="94" width="24" height="36" strokeWidth="1.2" fill="#0f172a" />
+                    <line x1="110" y1="94" x2="110" y2="130" strokeWidth="0.8" />
+                    {[100, 106, 112, 118, 124].map((y) => (
+                      <g key={y}>
+                        <line x1="98" y1={y} x2="110" y2={y} stroke="#38bdf8" strokeWidth="0.5" />
+                        <line x1="110" y1={y} x2="122" y2={y} stroke="#38bdf8" strokeWidth="0.5" />
+                      </g>
+                    ))}
+                    <path d="M 104,126 L 104,98 L 116,98 L 116,115" stroke="#10b981" strokeWidth="0.8" fill="none" />
+                    <polygon points="114,113 116,117 118,113" fill="#10b981" stroke="none" />
+                    <text x="110" y="136" fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">MERDİVEN</text>
+                  </g>
+
+                  {/* Room Partitions */}
+                  {/* Flat Left */}
+                  <rect x="44" y="44" width="53" height="60" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.12" />
+                  <text x="70" y="70" fill="#38bdf8" fontSize="5" textAnchor="middle" fontWeight="bold">SALON</text>
+                  <text x="70" y="78" fill="#94a3b8" fontSize="3.8" textAnchor="middle">~26 m²</text>
+
+                  <rect x="44" y="105" width="53" height="42" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.08" />
+                  <text x="70" y="124" fill="#38bdf8" fontSize="4.5" textAnchor="middle" fontWeight="bold">YATAK ODASI</text>
+
+                  <rect x="44" y="148" width="32" height="29" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.08" />
+                  <text x="60" y="164" fill="#38bdf8" fontSize="3.8" textAnchor="middle">MUTFAK</text>
+
+                  <text x="70" y="98" fill="#a78bfa" fontSize="5.5" textAnchor="middle" fontWeight="bold">DAİRE 01 (SOL)</text>
+                  <text x="70" y="138" fill="#94a3b8" fontSize="4" textAnchor="middle">Net: {physicalNetArea} m²</text>
+
+                  {/* Flat Right */}
+                  <rect x="123" y="44" width="53" height="60" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.12" />
+                  <text x="150" y="70" fill="#38bdf8" fontSize="5" textAnchor="middle" fontWeight="bold">SALON</text>
+                  <text x="150" y="78" fill="#94a3b8" fontSize="3.8" textAnchor="middle">~26 m²</text>
+
+                  <rect x="123" y="105" width="53" height="42" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.08" />
+                  <text x="150" y="124" fill="#38bdf8" fontSize="4.5" textAnchor="middle" fontWeight="bold">YATAK ODASI</text>
+
+                  <rect x="144" y="148" width="32" height="29" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.08" />
+                  <text x="160" y="164" fill="#38bdf8" fontSize="3.8" textAnchor="middle">MUTFAK</text>
+
+                  <text x="150" y="98" fill="#a78bfa" fontSize="5.5" textAnchor="middle" fontWeight="bold">DAİRE 02 (SAĞ)</text>
+                  <text x="150" y="138" fill="#94a3b8" fontSize="4" textAnchor="middle">Net: {physicalNetArea} m²</text>
+
+                  {/* Center Hall */}
+                  <text x="110" y="58" fill="#10b981" fontSize="4.5" textAnchor="middle" fontWeight="bold">KAT HOLÜ</text>
+
+                  {/* Dimensions */}
+                  <g stroke="#10b981" strokeWidth="0.8" fill="none">
+                    <line x1="42" y1="23" x2="178" y2="23" />
+                    <line x1="42" y1="42" x2="42" y2="18" stroke="#475569" strokeWidth="0.5" />
+                    <line x1="178" y1="42" x2="178" y2="18" stroke="#475569" strokeWidth="0.5" />
+                    <line x1="39" y1="26" x2="45" y2="20" />
+                    <line x1="175" y1="26" x2="181" y2="20" />
+                    <text x="110" y="16" fill="#10b981" fontSize="5.5" textAnchor="middle" stroke="none" fontWeight="bold">
+                      {Math.max(8, Math.round(Math.sqrt(results.baseArea / 1.2) * 10) / 10).toFixed(1)} m (EN)
+                    </text>
+
+                    <line x1="20" y1="42" x2="20" y2="178" />
+                    <line x1="42" y1="42" x2="15" y2="42" stroke="#475569" strokeWidth="0.5" />
+                    <line x1="42" y1="178" x2="15" y2="178" stroke="#475569" strokeWidth="0.5" />
+                    <line x1="17" y1="45" x2="23" y2="39" />
+                    <line x1="17" y1="181" x2="23" y2="175" />
+                    <text x="12" y="110" fill="#10b981" fontSize="5.5" textAnchor="middle" stroke="none" fontWeight="bold" transform="rotate(-90, 12, 110)">
+                      {(Math.max(8, Math.round(Math.sqrt(results.baseArea / 1.2) * 10) / 10) * 1.2).toFixed(1)} m (BOY)
+                    </text>
+                  </g>
+                  <text x="110" y="200" fill="#38bdf8" fontSize="7" textAnchor="middle" fontWeight="bold">
+                    MİMARİ NORMAL KAT PLANI ({params.roomType || '3+1'} ODA)
+                  </text>
+                </svg>
+              </div>
+
+              <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between font-mono">
+                <span>Taban Oturumu: ~{results.baseArea.toFixed(1)} m²</span>
+                <span>Fiziki Daire Brütü: ~{physicalGrossArea} m²</span>
+              </div>
+            </div>
+
+            {/* 2. CAD Bina Ön Cephe Teknik Çizimi */}
+            <div className="bg-[#080e1a] rounded-2xl p-4 border border-slate-700 text-slate-200 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-300">BİNA ÖN CEPHE TEKNİK ÇİZİMİ (ELEVATION)</span>
+                </div>
+                <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded-md font-mono">
+                  {params.floorCount} Kat | Hmax: ~{(params.floorCount * 2.95 + (params.hasCommercial ? 0.55 : 0) + 2.0).toFixed(1)}m
+                </span>
+              </div>
+
+              <div className="rounded-xl overflow-hidden border border-slate-800 bg-[#060a13] flex items-center justify-center p-1 min-h-[220px]">
+                {/* Embedded SVG front elevation */}
+                <div 
+                  className="w-full"
+                  dangerouslySetInnerHTML={{
+                    __html: generateFrontViewSvgString(
+                      params.floorCount,
+                      params.hasCommercial,
+                      params.roofType,
+                      results.baseArea,
+                      profile.companyName || 'AB YAPI'
+                    )
+                  }}
+                />
+              </div>
+
+              <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between font-mono">
+                <span>Çatı Modeli: {getRoofTypeShortTitle(params.roofType)}</span>
+                <span>Kat Yüksekliği: 2.95 m (Net: 2.60 m)</span>
+              </div>
+            </div>
+          </div>
           
+          <h5 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Box className="w-3.5 h-3.5 text-indigo-600" />
+            <span>3D İnteraktif Model ve Pusula Görünümleri</span>
+          </h5>
+
           <div className={`grid grid-cols-1 ${viewDirections.length === 4 ? 'sm:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3'} gap-4`}>
             {viewDirections.map((dirKey, idx) => {
               const meta = DIRECTION_META[dirKey] || DIRECTION_META.front;
@@ -596,20 +757,22 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-100 text-slate-700">
               <tr>
-                <th className="p-3 border-b border-slate-200 font-semibold">Daire & Kat No</th>
+                <th className="p-3 border-b border-slate-200 font-semibold">Daire & Kat / Cephe</th>
                 <th className="p-3 border-b border-slate-200 font-semibold">Hak Sahibi & TC</th>
                 <th className="p-3 border-b border-slate-200 font-semibold">Özellikler (Oda / Alan)</th>
-                <th className="p-3 border-b border-slate-200 font-semibold">Daire İmalat Bedeli</th>
+                <th className="p-3 border-b border-slate-200 font-semibold text-center">Şerefiye</th>
+                <th className="p-3 border-b border-slate-200 font-semibold text-right">Arsa Mahsubu</th>
+                <th className="p-3 border-b border-slate-200 font-semibold text-right">Daire Bedeli</th>
                 {isContractorShareModel ? (
                   <>
-                    <th className="p-3 border-b border-slate-200 font-semibold">Kat Karşılığı İndirimi</th>
-                    <th className="p-3 border-b border-slate-200 font-semibold text-indigo-700">Net Malik Borcu</th>
+                    <th className="p-3 border-b border-slate-200 font-semibold text-right">Kat Karşılığı İndirimi</th>
+                    <th className="p-3 border-b border-slate-200 font-semibold text-right text-indigo-700">Net Malik Borcu</th>
                   </>
                 ) : (
                   <>
-                    <th className="p-3 border-b border-slate-200 font-semibold">Ödenen Peşinat</th>
-                    <th className="p-3 border-b border-slate-200 font-semibold">Dönüşüm Desteği</th>
-                    <th className="p-3 border-b border-slate-200 font-semibold text-indigo-700">Kalan Öz Kaynak</th>
+                    <th className="p-3 border-b border-slate-200 font-semibold text-right">Peşinat</th>
+                    <th className="p-3 border-b border-slate-200 font-semibold text-right">Dönüşüm Desteği</th>
+                    <th className="p-3 border-b border-slate-200 font-semibold text-right text-indigo-700">Kalan Borç</th>
                   </>
                 )}
               </tr>
@@ -621,10 +784,17 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 const totalFlats = results.flatCount || 10;
                 const totalFloors = params.floorCount || 5;
                 const flatsPerFloor = Math.max(1, Math.ceil(totalFlats / totalFloors));
-                const floorNo = Math.min(totalFloors, Math.ceil(flat.id / flatsPerFloor));
+                const floorNo = flat.floorNumber !== undefined ? flat.floorNumber : Math.min(totalFloors, Math.ceil(flat.id / flatsPerFloor));
+                const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
+                const facadeText = flat.facade ? (flat.facade.charAt(0).toUpperCase() + flat.facade.slice(1)) : 'Güney';
                 
                 // Determine room count
                 const roomCountText = params.roomType ? `${params.roomType} Oda` : (flat.area < 65 ? '1+1 Oda' : flat.area < 95 ? '2+1 Oda' : flat.area < 135 ? '3+1 Oda' : '4+1 Oda');
+
+                const serefiyeVal = flat.serefiyeMultiplier || 1.0;
+                const serefiyeDiff = Math.round((serefiyeVal - 1) * 100);
+
+                const landShareDiff = flat.landShareDifference || 0;
                 
                 return (
                   <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
@@ -643,7 +813,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         )}
                       </div>
                       <div className="text-[10px] text-indigo-600 font-normal">
-                        {floorNo}. Kat / {totalFloors} Kat
+                        {floorText} / {facadeText} Cephe
                       </div>
                     </td>
                     <td className="p-3">
@@ -656,30 +826,48 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         Brüt: {physicalGrossArea} m² <span className="text-[9px] text-slate-400 font-normal">(Pay: {flat.area} m²)</span> | Net: {physicalNetArea} m²
                       </div>
                     </td>
-                    <td className="p-3 text-slate-900 font-mono">
+                    <td className="p-3 text-center">
+                      {serefiyeDiff !== 0 ? (
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${serefiyeDiff > 0 ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                          x{serefiyeVal.toFixed(2)} ({serefiyeDiff > 0 ? '+' : ''}{serefiyeDiff}%)
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-mono">1.00 (%0)</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right font-mono text-[11px]">
+                      {landShareDiff !== 0 ? (
+                        <span className={`font-semibold ${landShareDiff > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                          {landShareDiff > 0 ? '+' : ''}{landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">0 TL</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right text-slate-900 font-mono">
                       {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                     </td>
                     {isContractorShareModel ? (
                       <>
-                        <td className="p-3 text-emerald-700 font-semibold font-mono">
+                        <td className="p-3 text-right text-emerald-700 font-semibold font-mono">
                           -{flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                           <span className="block text-[9px] text-slate-500 font-normal">
                             {isContractor ? "Müteahhit Payı Satış" : "Arsa Payı Mahsubu"}
                           </span>
                         </td>
-                        <td className="p-3 font-bold text-emerald-800 font-mono bg-emerald-50/40">
+                        <td className="p-3 text-right font-bold text-emerald-800 font-mono bg-emerald-50/40">
                           0 TL
                         </td>
                       </>
                     ) : (
                       <>
-                        <td className="p-3 text-slate-600 font-mono">
+                        <td className="p-3 text-right text-slate-600 font-mono">
                           -{flat.downPayment.toLocaleString('tr-TR')} TL
                         </td>
-                        <td className="p-3 text-indigo-700 font-mono">
+                        <td className="p-3 text-right text-indigo-700 font-mono">
                           -{flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                         </td>
-                        <td className="p-3 font-bold text-slate-900 font-mono bg-indigo-50/20">
+                        <td className="p-3 text-right font-bold text-slate-900 font-mono bg-indigo-50/20">
                           {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                         </td>
                       </>

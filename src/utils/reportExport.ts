@@ -51,7 +51,9 @@ export function generateOfferHtml(
   const flatRows = res.flatResults
     .map(
       (f) => {
-        const floorNo = Math.min(totalFloors, Math.ceil(f.id / flatsPerFloor));
+        const floorNo = f.floorNumber !== undefined ? f.floorNumber : Math.min(totalFloors, Math.ceil(f.id / flatsPerFloor));
+        const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
+        const facadeText = f.facade ? (f.facade.charAt(0).toUpperCase() + f.facade.slice(1)) : 'Güney';
         const roomCountText = params.roomType ? `${params.roomType} Oda` : (f.area < 65 ? '1+1 Oda' : f.area < 95 ? '2+1 Oda' : f.area < 135 ? '3+1 Oda' : '4+1 Oda');
         const netArea = physicalNetArea_rep;
         const flatBadge = f.flatType === 'mansard'
@@ -60,39 +62,52 @@ export function generateOfferHtml(
           ? `<span style="background:#d1fae5;color:#065f46;padding:2px 5px;border-radius:4px;font-size:8px;font-weight:bold;display:inline-block;margin-top:2px;">Çatı Dubleksi (Tek B.B.)</span>`
           : '';
 
+        const serefiyeText = f.serefiyeMultiplier && f.serefiyeMultiplier !== 1.0
+          ? `<span style="color:#b45309;font-weight:bold;font-size:10px;">x${f.serefiyeMultiplier.toFixed(2)} (${Math.round((f.serefiyeMultiplier - 1) * 100) > 0 ? '+' : ''}${Math.round((f.serefiyeMultiplier - 1) * 100)}%)</span>`
+          : `<span style="color:#64748b;font-size:10px;">1.00 (%0)</span>`;
+
+        const landShareDiff = f.landShareDifference || 0;
+        const landShareText = landShareDiff !== 0
+          ? `<span style="font-weight:bold;font-size:10px;color:${landShareDiff > 0 ? '#b45309' : '#047857'};">${landShareDiff > 0 ? '+' : ''}${landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</span>`
+          : `<span style="color:#64748b;font-size:10px;">Dengeli</span>`;
+
         if (isContractorShareModel) {
           const fundingType = f.isContractorShare ? 'Müteahhit Payı Satış' : 'Arsa Payı Mahsubu';
           return `
           <tr>
             <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">
               Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}<br>
-              <small style="color:#4f46e5;font-weight:normal;">${floorNo}. Kat / ${totalFloors} Kat</small>
+              <small style="color:#4f46e5;font-weight:normal;">${floorText} / ${facadeText}</small>
             </td>
             <td style="padding:8px;border:1px solid #ddd;">${f.name} <br><small style="color:#666;">TC: ${f.tc}</small></td>
             <td style="padding:8px;border:1px solid #ddd;">
               <strong>${roomCountText}</strong><br>
               <small style="color:#555;">Fiziki Brüt: ${physicalGrossArea_rep} m² <span style="font-size:8px;color:#888;">(Pay: ${f.area} m²)</span><br>Net: ${netArea} m²</small>
             </td>
-            <td style="padding:8px;border:1px solid #ddd;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;color:#047857;font-weight:bold;">-${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL<br><small style="color:#666;">${fundingType}</small></td>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;color:#047857;background-color:#f0fdf4;">0 TL</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:center;">${serefiyeText}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${landShareText}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;font-mono;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;color:#047857;font-weight:bold;text-align:right;">-${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL<br><small style="color:#666;">${fundingType}</small></td>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;color:#047857;background-color:#f0fdf4;text-align:right;">0 TL</td>
           </tr>`;
         } else {
           return `
           <tr>
             <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">
               Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}<br>
-              <small style="color:#4f46e5;font-weight:normal;">${floorNo}. Kat / ${totalFloors} Kat</small>
+              <small style="color:#4f46e5;font-weight:normal;">${floorText} / ${facadeText}</small>
             </td>
             <td style="padding:8px;border:1px solid #ddd;">${f.name} <br><small style="color:#666;">TC: ${f.tc}</small></td>
             <td style="padding:8px;border:1px solid #ddd;">
               <strong>${roomCountText}</strong><br>
               <small style="color:#555;">Fiziki Brüt: ${physicalGrossArea_rep} m² <span style="font-size:8px;color:#888;">(Pay: ${f.area} m²)</span><br>Net: ${netArea} m²</small>
             </td>
-            <td style="padding:8px;border:1px solid #ddd;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;">-${f.downPayment.toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;">-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:center;">${serefiyeText}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${landShareText}</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;font-mono;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#4f46e5;">-${f.downPayment.toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#047857;">-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;text-align:right;background-color:#faf5ff;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
           </tr>`;
         }
       }
@@ -100,8 +115,8 @@ export function generateOfferHtml(
     .join('');
 
   const table1Header = isContractorShareModel
-    ? `<tr><th>Daire & Kat No</th><th>Hak Sahibi & TC</th><th>Özellikler (Oda / Alan)</th><th>Daire Yapım Bedeli</th><th>Kat Karşılığı İndirimi</th><th style="color:#1e3a8a;">Net Malik Borcu</th></tr>`
-    : `<tr><th>Daire & Kat No</th><th>Hak Sahibi & TC</th><th>Özellikler (Oda / Alan)</th><th>Toplam Borç</th><th>Ödenen Peşinat</th><th>Dönüşüm Desteği</th><th style="color:#1e3a8a;">Kalan Borç</th></tr>`;
+    ? `<tr><th>Daire & Kat No</th><th>Hak Sahibi & TC</th><th>Özellikler (Oda / Alan)</th><th style="text-align:center;">Şerefiye</th><th style="text-align:right;">Arsa Mahsubu</th><th style="text-align:right;">İmalat Bedeli</th><th style="text-align:right;">Kat Karşılığı İndirimi</th><th style="color:#1e3a8a;text-align:right;">Net Malik Borcu</th></tr>`
+    : `<tr><th>Daire & Kat No</th><th>Hak Sahibi & TC</th><th>Özellikler (Oda / Alan)</th><th style="text-align:center;">Şerefiye</th><th style="text-align:right;">Arsa Mahsubu</th><th style="text-align:right;">Daire Bedeli</th><th style="text-align:right;">Peşinat</th><th style="text-align:right;">Dönüşüm Desteği</th><th style="color:#1e3a8a;text-align:right;">Kalan Borç</th></tr>`;
 
   let table2OrStatement = '';
   if (isContractorShareModel) {
@@ -438,114 +453,206 @@ function generateFrontViewSvgString(
   baseBuildArea: number = 120,
   compName: string = 'AB YAPI'
 ): string {
-  const N = floorCount || 5;
-  const floorHeight = 22;
-  const shopHeight = 32;
-  const estW = Math.sqrt(baseBuildArea / 1.2);
-  
-  const floors = [];
-  let currentY = 190;
-  
-  for (let f = 0; f < N; f++) {
-    const isShop = f === 0 && hasShop;
-    const h = isShop ? shopHeight : floorHeight;
-    floors.push({
-      index: f,
+  const N = Math.max(1, floorCount || 5);
+  const floorHeightM = 2.95;
+  const shopHeightM = 3.50;
+  const estW = Math.max(8, Math.round(Math.sqrt(baseBuildArea / 1.2) * 10) / 10);
+  const estD = Math.max(10, Math.round((estW * 1.2) * 10) / 10);
+  const totalBuildingHeightM = Math.round(((hasShop ? shopHeightM : floorHeightM) + (N - 1) * floorHeightM + (roofType === 'duplex' || roofType === 'mansard' ? 2.80 : 1.50)) * 10) / 10;
+
+  const groundY = 220;
+  const availableH = 160;
+  const scale = availableH / Math.max(12, totalBuildingHeightM);
+  const bldgWidthPx = 140;
+  const bldgLeftX = 75;
+  const bldgRightX = bldgLeftX + bldgWidthPx;
+
+  let currentElevation = 0;
+  let currentY = groundY;
+  const floorsList = [];
+
+  for (let i = 0; i < N; i++) {
+    const isShop = i === 0 && hasShop;
+    const hM = isShop ? shopHeightM : floorHeightM;
+    const hPx = hM * scale;
+    const floorTopY = currentY - hPx;
+    const elevationTop = currentElevation + hM;
+    
+    floorsList.push({
+      index: i,
+      name: isShop ? 'Zemin (Dükkan)' : `${i}. Kat`,
       isShop,
-      y: currentY - h,
-      h: h
+      bottomY: currentY,
+      topY: floorTopY,
+      hPx,
+      elevation: elevationTop,
     });
-    currentY -= h;
+
+    currentY = floorTopY;
+    currentElevation = elevationTop;
   }
-  
-  const topY = currentY;
-  const totalHeightM = (N * 3.0 + (hasShop ? 1.5 : 0)).toFixed(2);
 
-  const floorsMarkup = floors.map((fl) => `
-    <g>
-      <rect x="45" y="${fl.y}" width="130" height="${fl.h}" rx="1" />
-      ${fl.isShop ? `
-        <g stroke="#38bdf8" stroke-width="1" fill="#0f172a" fill-opacity="0.9">
-          <rect x="52" y="${fl.y + 10}" width="34" height="19" rx="1" />
-          <rect x="92" y="${fl.y + 10}" width="36" height="19" rx="1" />
-          <rect x="134" y="${fl.y + 10}" width="34" height="19" rx="1" />
-          <line x1="69" y1="${fl.y + 10}" x2="69" y2="${fl.y + 29}" stroke="#38bdf8" stroke-width="0.5" />
-          <line x1="110" y1="${fl.y + 10}" x2="110" y2="${fl.y + 29}" stroke="#38bdf8" stroke-width="0.5" />
-          <line x1="151" y1="${fl.y + 10}" x2="151" y2="${fl.y + 29}" stroke="#38bdf8" stroke-width="0.5" />
-          <rect x="48" y="${fl.y + 2}" width="124" height="6" fill="#38bdf8" fill-opacity="0.25" />
-          <text x="110" y="${fl.y + 7}" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${compName} TİCARET / TİCARİ MAĞAZA</text>
-        </g>
-      ` : `
-        <g stroke="#38bdf8" stroke-width="1" fill="none">
-          <rect x="54" y="${fl.y + 4}" width="18" height="12" rx="1" fill="#0f172a" />
-          <line x1="63" y1="${fl.y + 4}" x2="63" y2="${fl.y + 16}" stroke="#38bdf8" stroke-width="0.5" />
-          <line x1="54" y1="${fl.y + 10}" x2="72" y2="${fl.y + 10}" stroke="#38bdf8" stroke-width="0.5" />
-          
-          <rect x="100" y="${fl.y + 4}" width="20" height="14" rx="1" fill="#0f172a" />
-          <line x1="110" y1="${fl.y + 4}" x2="110" y2="${fl.y + 18}" stroke="#38bdf8" stroke-width="0.5" />
-          
-          <rect x="148" y="${fl.y + 4}" width="18" height="12" rx="1" fill="#0f172a" />
-          <line x1="157" y1="${fl.y + 4}" x2="157" y2="${fl.y + 16}" stroke="#38bdf8" stroke-width="0.5" />
-          <line x1="148" y1="${fl.y + 10}" x2="166" y2="${fl.y + 10}" stroke="#38bdf8" stroke-width="0.5" />
-          
-          ${fl.index >= 1 ? `<rect x="94" y="${fl.y + 11}" width="32" height="7" fill="#38bdf8" fill-opacity="0.3" rx="0.5" />` : ''}
-        </g>
-      `}
-      <text x="20" y="${fl.y + fl.h / 2 + 2}" fill="#64748b" font-size="6" stroke="none" font-weight="semibold">${fl.isShop ? "Zemin Kat" : `${fl.index}. Kat`}</text>
-    </g>
-  `).join('');
+  const topRoofY = currentY;
 
-  let roofMarkup = '';
+  // Axis bubbles
+  const axisA = bldgLeftX + 15;
+  const axisB = bldgLeftX + bldgWidthPx * 0.5;
+  const axisC = bldgRightX - 15;
+
+  let roofSvg = '';
   if (roofType === 'flat') {
-    roofMarkup = `
-      <rect x="45" y="${topY - 4}" width="130" height="4" stroke="#38bdf8" stroke-width="1.2" fill="#1e293b" />
-      <line x1="45" y1="${topY - 4}" x2="175" y2="${topY - 4}" stroke="#38bdf8" stroke-width="1" />
-      <text x="110" y="${topY - 6}" fill="#38bdf8" font-size="4" text-anchor="middle" stroke="none" font-weight="bold">TERASLI ÇATI</text>
+    roofSvg = `
+      <rect x="${bldgLeftX - 4}" y="${topRoofY - 6}" width="${bldgWidthPx + 8}" height="6" fill="#1e293b" stroke="#38bdf8" stroke-width="1.2" />
+      <line x1="${bldgLeftX - 4}" y1="${topRoofY - 2}" x2="${bldgRightX + 4}" y2="${topRoofY - 2}" stroke="#0284c7" stroke-width="0.6" />
+      <text x="${bldgLeftX + bldgWidthPx / 2}" y="${topRoofY - 9}" fill="#38bdf8" font-size="5" text-anchor="middle" font-weight="bold">PARAPET / TERAS ÇATI (+${currentElevation.toFixed(2)}m)</text>
     `;
   } else if (roofType === 'mansard') {
-    roofMarkup = `
-      <polygon points="45,${topY} 60,${topY - 14} 160,${topY - 14} 175,${topY}" fill="#1e293b" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1.2" />
-      <polygon points="60,${topY - 14} 110,${topY - 20} 160,${topY - 14}" fill="#0f172a" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1" />
-      <text x="110" y="${topY - 22}" fill="#38bdf8" font-size="4" text-anchor="middle" stroke="none" font-weight="bold">MANSART ÇATI</text>
+    const mHeightPx = 2.4 * scale;
+    roofSvg = `
+      <polygon points="${bldgLeftX - 2},${topRoofY} ${bldgLeftX + 18},${topRoofY - mHeightPx} ${bldgRightX - 18},${topRoofY - mHeightPx} ${bldgRightX + 2},${topRoofY}" fill="#1e293b" stroke="#38bdf8" stroke-width="1.2" />
+      <polygon points="${bldgLeftX + 18},${topRoofY - mHeightPx} ${bldgLeftX + bldgWidthPx / 2},${topRoofY - mHeightPx - 8} ${bldgRightX - 18},${topRoofY - mHeightPx}" fill="#0f172a" stroke="#38bdf8" stroke-width="1" />
+      <!-- Mansard Dormer Windows -->
+      <rect x="${bldgLeftX + 35}" y="${topRoofY - mHeightPx + 4}" width="16" height="12" fill="#0284c7" stroke="#38bdf8" stroke-width="0.8" rx="1" />
+      <rect x="${bldgRightX - 51}" y="${topRoofY - mHeightPx + 4}" width="16" height="12" fill="#0284c7" stroke="#38bdf8" stroke-width="0.8" rx="1" />
+      <text x="${bldgLeftX + bldgWidthPx / 2}" y="${topRoofY - mHeightPx - 11}" fill="#38bdf8" font-size="5" text-anchor="middle" font-weight="bold">MANSART ÇATI (+${(currentElevation + 2.4).toFixed(2)}m)</text>
     `;
   } else if (roofType === 'duplex') {
-    roofMarkup = `
-      <polygon points="45,${topY} 65,${topY - 18} 155,${topY - 18} 175,${topY}" fill="#1e293b" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1.2" />
-      <rect x="98" y="${topY - 13}" width="24" height="10" rx="1" fill="#0f172a" stroke="#38bdf8" stroke-width="1" />
-      <line x1="110" y1="${topY - 13}" x2="110" y2="${topY - 3}" stroke="#38bdf8" stroke-width="0.5" />
-      <text x="110" y="${topY - 15}" fill="#10b981" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">ÇATI DUBLEKSİ</text>
+    const dHeightPx = 2.6 * scale;
+    roofSvg = `
+      <polygon points="${bldgLeftX - 2},${topRoofY} ${bldgLeftX + 22},${topRoofY - dHeightPx} ${bldgRightX - 22},${topRoofY - dHeightPx} ${bldgRightX + 2},${topRoofY}" fill="#1e293b" stroke="#38bdf8" stroke-width="1.2" />
+      <rect x="${bldgLeftX + bldgWidthPx / 2 - 18}" y="${topRoofY - dHeightPx + 5}" width="36" height="14" fill="#0f172a" stroke="#10b981" stroke-width="1" rx="1" />
+      <line x1="${bldgLeftX + bldgWidthPx / 2}" y1="${topRoofY - dHeightPx + 5}" x2="${bldgLeftX + bldgWidthPx / 2}" y2="${topRoofY - dHeightPx + 19}" stroke="#10b981" stroke-width="0.6" />
+      <text x="${bldgLeftX + bldgWidthPx / 2}" y="${topRoofY - dHeightPx - 4}" fill="#10b981" font-size="5" text-anchor="middle" font-weight="bold">ÇATI DUBLEKSİ TERASI (+${(currentElevation + 2.6).toFixed(2)}m)</text>
     `;
   } else {
-    // Default: gable (Kırma Çatı)
-    roofMarkup = `
-      <polygon points="45,${topY} 110,${topY - 24} 175,${topY}" fill="#1e293b" fill-opacity="0.9" stroke="#38bdf8" stroke-width="1.2" />
-      <line x1="110" y1="${topY - 24}" x2="110" y2="${topY}" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="2,2" />
+    // Gable (Kırma Çatı)
+    const gHeightPx = 2.0 * scale;
+    roofSvg = `
+      <polygon points="${bldgLeftX - 4},${topRoofY} ${bldgLeftX + bldgWidthPx / 2},${topRoofY - gHeightPx} ${bldgRightX + 4},${topRoofY}" fill="#1e293b" stroke="#38bdf8" stroke-width="1.2" />
+      <line x1="${bldgLeftX + bldgWidthPx / 2}" y1="${topRoofY - gHeightPx}" x2="${bldgLeftX + bldgWidthPx / 2}" y2="${topRoofY}" stroke="#38bdf8" stroke-width="0.6" stroke-dasharray="2,2" />
+      <text x="${bldgLeftX + bldgWidthPx / 2}" y="${topRoofY - gHeightPx - 4}" fill="#38bdf8" font-size="5" text-anchor="middle" font-weight="bold">KIRMA ÇATI MAHYASI (+${(currentElevation + 2.0).toFixed(2)}m)</text>
     `;
   }
 
   return `
-    <svg viewBox="0 0 220 220" style="width:100%; max-height:220px; background:#0b1329;">
-      <line x1="10" y1="190" x2="210" y2="190" stroke="#475569" stroke-width="2.5" />
-      <g stroke="#38bdf8" stroke-width="1.2" fill="#1e293b" fill-opacity="0.75">
-        ${floorsMarkup}
-        ${roofMarkup}
-      </g>
-      <g stroke="#10b981" stroke-width="0.8" fill="none">
-        <line x1="45" y1="205" x2="175" y2="205" />
-        <line x1="45" y1="190" x2="45" y2="210" stroke="#475569" stroke-width="0.5" />
-        <line x1="175" y1="190" x2="175" y2="210" stroke="#475569" stroke-width="0.5" />
-        <line x1="42" y1="208" x2="48" y2="202" />
-        <line x1="172" y1="208" x2="178" y2="202" />
-        <text x="110" y="215" fill="#10b981" font-size="6.5" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">GENİŞLİK: \${estW.toFixed(2)} m</text>
+    <svg viewBox="0 0 300 270" style="width:100%; max-height:260px; background:#080e1a; font-family:monospace;">
+      <!-- Grid Lines Background -->
+      <defs>
+        <pattern id="cadGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+          <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" stroke-width="0.3" opacity="0.6"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#cadGrid)" />
 
-        <line x1="195" y1="${topY}" x2="195" y2="190" />
-        <line x1="175" y1="${topY}" x2="200" y2="${topY}" stroke="#475569" stroke-width="0.5" />
-        <line x1="175" y1="190" x2="200" y2="190" stroke="#475569" stroke-width="0.5" />
-        <line x1="192" y1="${topY + 3}" x2="198" y2="${topY - 3}" />
-        <line x1="192" y1="193" x2="198" y2="187" />
-        <text x="204" y="${(topY + 190) / 2}" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace" transform="rotate(90, 204, ${(topY + 190) / 2})">YÜKSEKLİK: ${totalHeightM} m</text>
+      <!-- North & CAD Stamp Header -->
+      <g stroke="none">
+        <text x="15" y="16" fill="#38bdf8" font-size="6.5" font-weight="bold">BİNA ÖN CEPHE TEKNİK ÇİZİMİ (GÜNEY ELEVATION)</text>
+        <text x="15" y="24" fill="#64748b" font-size="5">ÖLÇEK: 1/100 | Hmax: ${totalBuildingHeightM}m | Genişlik: ${estW.toFixed(1)}m</text>
       </g>
-      <text x="110" y="12" fill="#38bdf8" font-size="8" text-anchor="middle" stroke="none" font-weight="bold" letter-spacing="1">ÖN CEPHE GÖRÜNÜMÜ</text>
+
+      <!-- Structural Grid Axes (Vertical Lines & Top Bubbles) -->
+      <g stroke="#0284c7" stroke-width="0.5" stroke-dasharray="4,2" opacity="0.6">
+        <line x1="${axisA}" y1="30" x2="${axisA}" y2="${groundY + 15}" />
+        <line x1="${axisB}" y1="30" x2="${axisB}" y2="${groundY + 15}" />
+        <line x1="${axisC}" y1="30" x2="${axisC}" y2="${groundY + 15}" />
+      </g>
+      <!-- Axis Bubbles -->
+      <g stroke="#38bdf8" stroke-width="0.8" fill="#0f172a">
+        <circle cx="${axisA}" cy="28" r="5" />
+        <circle cx="${axisB}" cy="28" r="5" />
+        <circle cx="${axisC}" cy="28" r="5" />
+        <text x="${axisA}" y="30" fill="#38bdf8" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">A</text>
+        <text x="${axisB}" y="30" fill="#38bdf8" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">B</text>
+        <text x="${axisC}" y="30" fill="#38bdf8" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">C</text>
+      </g>
+
+      <!-- Ground Datum Line (±0.00 Kotu) -->
+      <line x1="20" y1="${groundY}" x2="280" y2="${groundY}" stroke="#e2e8f0" stroke-width="1.5" />
+      <!-- Earth Hatch Pattern under ground -->
+      <g stroke="#475569" stroke-width="0.6">
+        ${Array.from({ length: 25 }).map((_, i) => `<line x1="${25 + i * 10}" y1="${groundY}" x2="${15 + i * 10}" y2="${groundY + 10}" />`).join('')}
+      </g>
+      <text x="25" y="${groundY + 18}" fill="#94a3b8" font-size="5" font-weight="bold">TRETOVAR / TABİİ ZEMİN (±0.00 KOTU)</text>
+
+      <!-- Building Body & Floors -->
+      <g stroke="#38bdf8" stroke-width="1" fill="#0f172a">
+        ${floorsList.map((fl) => `
+          <g>
+            <rect x="${bldgLeftX}" y="${fl.topY}" width="${bldgWidthPx}" height="${fl.hPx}" fill="#0f172a" fill-opacity="0.85" />
+            <line x1="${bldgLeftX}" y1="${fl.topY}" x2="${bldgRightX}" y2="${fl.topY}" stroke="#38bdf8" stroke-width="0.8" />
+            
+            ${fl.isShop ? `
+              <!-- Commercial Shop Facade -->
+              <rect x="${bldgLeftX + 10}" y="${fl.topY + 8}" width="${bldgWidthPx - 20}" height="${fl.hPx - 10}" fill="#0284c7" fill-opacity="0.15" stroke="#38bdf8" stroke-width="0.8" rx="1" />
+              <line x1="${bldgLeftX + bldgWidthPx / 2}" y1="${fl.topY + 8}" x2="${bldgLeftX + bldgWidthPx / 2}" y2="${fl.bottomY - 2}" stroke="#38bdf8" stroke-width="0.6" />
+              <rect x="${bldgLeftX + 8}" y="${fl.topY + 2}" width="${bldgWidthPx - 16}" height="5" fill="#38bdf8" fill-opacity="0.3" />
+              <text x="${bldgLeftX + bldgWidthPx / 2}" y="${fl.topY + 6}" fill="#38bdf8" font-size="4" text-anchor="middle" stroke="none" font-weight="bold">${compName} TİCARİ MAĞAZA (GİRİŞ)</text>
+            ` : `
+              <!-- Residential Windows & Balconies -->
+              <!-- Left Window -->
+              <rect x="${bldgLeftX + 12}" y="${fl.topY + 6}" width="22" height="14" fill="#0284c7" fill-opacity="0.25" stroke="#38bdf8" stroke-width="0.7" rx="1" />
+              <line x1="${bldgLeftX + 23}" y1="${fl.topY + 6}" x2="${bldgLeftX + 23}" y2="${fl.topY + 20}" stroke="#38bdf8" stroke-width="0.4" />
+              <!-- Center French / Balcony -->
+              <rect x="${bldgLeftX + bldgWidthPx / 2 - 16}" y="${fl.topY + 4}" width="32" height="17" fill="#0284c7" fill-opacity="0.15" stroke="#38bdf8" stroke-width="0.7" rx="1" />
+              <line x1="${bldgLeftX + bldgWidthPx / 2}" y1="${fl.topY + 4}" x2="${bldgLeftX + bldgWidthPx / 2}" y2="${fl.topY + 21}" stroke="#38bdf8" stroke-width="0.4" />
+              <!-- Glass Balcony Railing -->
+              <rect x="${bldgLeftX + bldgWidthPx / 2 - 18}" y="${fl.topY + 12}" width="36" height="9" fill="#38bdf8" fill-opacity="0.35" stroke="#38bdf8" stroke-width="0.6" rx="1" />
+              <!-- Right Window -->
+              <rect x="${bldgRightX - 34}" y="${fl.topY + 6}" width="22" height="14" fill="#0284c7" fill-opacity="0.25" stroke="#38bdf8" stroke-width="0.7" rx="1" />
+              <line x1="${bldgRightX - 23}" y1="${fl.topY + 6}" x2="${bldgRightX - 23}" y2="${fl.topY + 20}" stroke="#38bdf8" stroke-width="0.4" />
+            `}
+          </g>
+        `).join('')}
+
+        <!-- Ground Floor Entrance Canopy -->
+        ${!hasShop ? `
+          <rect x="${bldgLeftX + bldgWidthPx / 2 - 14}" y="${groundY - 18}" width="28" height="18" fill="#0f172a" stroke="#10b981" stroke-width="1" rx="1" />
+          <line x1="${bldgLeftX + bldgWidthPx / 2}" y1="${groundY - 18}" x2="${bldgLeftX + bldgWidthPx / 2}" y2="${groundY}" stroke="#10b981" stroke-width="0.5" />
+          <!-- Canopy Roof -->
+          <polygon points="${bldgLeftX + bldgWidthPx / 2 - 18},${groundY - 21} ${bldgLeftX + bldgWidthPx / 2 + 18},${groundY - 21} ${bldgLeftX + bldgWidthPx / 2 + 14},${groundY - 18} ${bldgLeftX + bldgWidthPx / 2 - 14},${groundY - 18}" fill="#10b981" fill-opacity="0.7" stroke="#10b981" stroke-width="0.8" />
+          <text x="${bldgLeftX + bldgWidthPx / 2}" y="${groundY - 23}" fill="#10b981" font-size="4" text-anchor="middle" stroke="none" font-weight="bold">BİNA ANA GİRİŞİ</text>
+        ` : ''}
+
+        <!-- Roof Geometry -->
+        ${roofSvg}
+      </g>
+
+      <!-- Floor Datum Level Markers (Left Side Kot İşaretleri) -->
+      <g stroke="none" fill="#38bdf8">
+        <!-- Ground Level 0.00 -->
+        <polygon points="65,${groundY} 58,${groundY - 4} 58,${groundY + 4}" fill="#10b981" />
+        <line x1="58" y1="${groundY}" x2="35" y2="${groundY}" stroke="#10b981" stroke-width="0.5" />
+        <text x="32" y="${groundY + 2}" fill="#10b981" font-size="5" text-anchor="end" font-weight="bold">±0.00</text>
+
+        ${floorsList.map((fl) => `
+          <!-- Floor Level ${fl.elevation.toFixed(2)} -->
+          <polygon points="65,${fl.topY} 58,${fl.topY - 4} 58,${fl.topY + 4}" fill="#38bdf8" />
+          <line x1="58" y1="${fl.topY}" x2="35" y2="${fl.topY}" stroke="#38bdf8" stroke-width="0.5" />
+          <text x="32" y="${fl.topY + 2}" fill="#38bdf8" font-size="5" text-anchor="end" font-weight="bold">+${fl.elevation.toFixed(2)}</text>
+          <text x="32" y="${fl.topY - 4}" fill="#64748b" font-size="4" text-anchor="end">${fl.name}</text>
+        `).join('')}
+      </g>
+
+      <!-- Height Dimension Line (Right Side) -->
+      <g stroke="#10b981" stroke-width="0.8" fill="none">
+        <line x1="${bldgRightX + 15}" y1="${topRoofY}" x2="${bldgRightX + 15}" y2="${groundY}" />
+        <line x1="${bldgRightX + 5}" y1="${topRoofY}" x2="${bldgRightX + 20}" y2="${topRoofY}" stroke="#64748b" stroke-width="0.5" />
+        <line x1="${bldgRightX + 5}" y1="${groundY}" x2="${bldgRightX + 20}" y2="${groundY}" stroke="#64748b" stroke-width="0.5" />
+        <!-- Dimension Ticks -->
+        <line x1="${bldgRightX + 12}" y1="${topRoofY + 3}" x2="${bldgRightX + 18}" y2="${topRoofY - 3}" stroke="#10b981" stroke-width="0.8" />
+        <line x1="${bldgRightX + 12}" y1="${groundY + 3}" x2="${bldgRightX + 18}" y2="${groundY - 3}" stroke="#10b981" stroke-width="0.8" />
+        <text x="${bldgRightX + 24}" y="${(topRoofY + groundY) / 2 + 2}" fill="#10b981" font-size="5.5" stroke="none" font-weight="bold" font-family="monospace">H = ${totalBuildingHeightM}m</text>
+      </g>
+
+      <!-- Width Dimension Line (Bottom) -->
+      <g stroke="#10b981" stroke-width="0.8" fill="none">
+        <line x1="${bldgLeftX}" y1="${groundY + 28}" x2="${bldgRightX}" y2="${groundY + 28}" />
+        <line x1="${bldgLeftX}" y1="${groundY + 20}" x2="${bldgLeftX}" y2="${groundY + 33}" stroke="#64748b" stroke-width="0.5" />
+        <line x1="${bldgRightX}" y1="${groundY + 20}" x2="${bldgRightX}" y2="${groundY + 33}" stroke="#64748b" stroke-width="0.5" />
+        <line x1="${bldgLeftX - 3}" y1="${groundY + 31}" x2="${bldgLeftX + 3}" y2="${groundY + 25}" stroke="#10b981" stroke-width="0.8" />
+        <line x1="${bldgRightX - 3}" y1="${groundY + 31}" x2="${bldgRightX + 3}" y2="${groundY + 25}" stroke="#10b981" stroke-width="0.8" />
+        <text x="${bldgLeftX + bldgWidthPx / 2}" y="${groundY + 36}" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">ÖN CEPHE ENİ: ${estW.toFixed(2)} m</text>
+      </g>
     </svg>
   `;
 }
@@ -559,8 +666,8 @@ function generateGroundFloorPlanSvgString(
   flatsPerFloor = 2,
   shopCount = 1
 ): string {
-  const estW = Math.sqrt(baseBuildArea / 1.2);
-  const estD = estW * 1.2;
+  const estW = Math.max(8, Math.round(Math.sqrt(baseBuildArea / 1.2) * 10) / 10);
+  const estD = Math.max(10, Math.round((estW * 1.2) * 10) / 10);
 
   let contentMarkup = '';
 
@@ -569,122 +676,79 @@ function generateGroundFloorPlanSvgString(
     const shopGross = Math.round(((baseBuildArea * 0.85) / sCount) * 10) / 10;
     const shopNet = Math.round((shopGross * 0.8) * 10) / 10;
 
-    if (sCount === 1) {
-      contentMarkup = `
-        <g stroke="#34d399" stroke-width="1.2" fill="none">
-          <rect x="48" y="48" width="124" height="124" stroke-dasharray="3,3" />
-          <text x="110" y="105" fill="#34d399" font-size="6.5" text-anchor="middle" stroke="none" font-weight="bold">TİCARİ MAĞAZA / DÜKKAN</text>
-          <text x="110" y="116" fill="#64748b" font-size="5" text-anchor="middle" stroke="none">BRÜT: ~\\\${shopGross} m²</text>
-          <text x="110" y="123" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-        </g>
-      `;
-    } else if (sCount === 2) {
-      contentMarkup = `
-        <g stroke="#34d399" stroke-width="1.2" fill="none">
-          <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
-          <text x="71" y="105" fill="#34d399" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 01</text>
-          <text x="71" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~\\\${shopGross} m²</text>
-          <text x="71" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-
-          <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" />
-          <text x="148" y="105" fill="#34d399" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 02</text>
-          <text x="148" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~\\\${shopGross} m²</text>
-          <text x="148" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-          <text x="110" y="58" fill="#10b981" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">ORTAK HOL</text>
-        </g>
-      `;
-    } else if (sCount === 3) {
-      contentMarkup = `
-        <g stroke="#34d399" stroke-width="1.2" fill="none">
-          <line x1="88" y1="45" x2="88" y2="175" stroke-dasharray="3,3" />
-          <line x1="132" y1="45" x2="132" y2="175" stroke-dasharray="3,3" />
-          <text x="66" y="105" fill="#34d399" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 01</text>
-          <text x="66" y="115" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-
-          <text x="110" y="152" fill="#34d399" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 02</text>
-          <text x="110" y="161" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-
-          <text x="154" y="105" fill="#34d399" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 03</text>
-          <text x="154" y="115" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-          <text x="110" y="58" fill="#10b981" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">GİRİŞ / HOL</text>
-        </g>
-      `;
-    } else {
-      contentMarkup = `
-        <g stroke="#34d399" stroke-width="1.2" fill="none">
-          <line x1="110" y1="45" x2="110" y2="175" stroke-dasharray="3,3" />
-          <line x1="45" y1="110" x2="175" y2="110" stroke-dasharray="3,3" />
-          <text x="71" y="80" fill="#34d399" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 01</text>
-          <text x="71" y="89" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-
-          <text x="148" y="80" fill="#34d399" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 02</text>
-          <text x="148" y="89" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-
-          <text x="71" y="142" fill="#34d399" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 03</text>
-          <text x="71" y="151" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-
-          <text x="148" y="142" fill="#34d399" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DÜKKAN 04</text>
-          <text x="148" y="151" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~\\\${shopNet} m²</text>
-        </g>
-      `;
-    }
+    contentMarkup = `
+      <g stroke="#34d399" stroke-width="1.2" fill="none">
+        <rect x="52" y="52" width="116" height="116" stroke-dasharray="3,3" />
+        <rect x="56" y="56" width="108" height="108" fill="#047857" fill-opacity="0.1" />
+        <text x="110" y="98" fill="#34d399" font-size="7" text-anchor="middle" stroke="none" font-weight="bold">TİCARİ MAĞAZA / DÜKKAN</text>
+        <text x="110" y="108" fill="#94a3b8" font-size="5" text-anchor="middle" stroke="none">BRÜT: ~${shopGross} m² | NET: ~${shopNet} m²</text>
+        <text x="110" y="118" fill="#38bdf8" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">VİTRİN CEPHESİ & TİCARİ ALAN</text>
+      </g>
+    `;
   } else {
     return generateNormalFloorPlanSvgString(roomType, grossArea, netArea, baseBuildArea, flatsPerFloor);
   }
 
   return `
-    <svg viewBox="0 0 220 220" style="width:100%; max-height:220px; background:#060a13;">
-      <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" stroke-width="1.5" />
-      <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="1,2" />
+    <svg viewBox="0 0 240 240" style="width:100%; max-height:240px; background:#060a13; font-family:monospace;">
+      <defs>
+        <pattern id="planGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+          <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" stroke-width="0.3" opacity="0.6"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#planGrid)" />
 
-      <!-- Watermark -->
-      <g stroke="#ff0000" stroke-width="0.3" fill="none" opacity="0.06" style="pointer-events:none;">
-        <text x="110" y="110" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle" transform="rotate(-30, 110, 110)">ÖRNEK ÇİZİMDİR • KESİN DEĞİLDİR</text>
+      <!-- North Arrow -->
+      <g transform="translate(210, 30)">
+        <circle cx="0" cy="0" r="10" fill="#0f172a" stroke="#38bdf8" stroke-width="0.8" />
+        <polygon points="0,-8 3,3 0,1 -3,3" fill="#38bdf8" />
+        <text x="0" y="-10" fill="#38bdf8" font-size="4.5" text-anchor="middle" font-weight="bold">K</text>
       </g>
 
+      <!-- Building Boundary (Thick CAD Outer Wall) -->
+      <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" stroke-width="2" />
+      <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="2,2" />
+
+      <!-- Elevator Core -->
       <g stroke="#f43f5e" stroke-width="1" fill="none">
-        <rect x="98" y="70" width="24" height="24" stroke-width="1.2" />
+        <rect x="98" y="70" width="24" height="24" stroke-width="1.2" fill="#0f172a" />
         <line x1="98" y1="70" x2="122" y2="94" stroke-width="0.6" />
         <line x1="122" y1="70" x2="98" y2="94" stroke-width="0.6" />
-        <text x="110" y="84" fill="#f43f5e" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">ASANSÖR</text>
+        <text x="110" y="84" fill="#f43f5e" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">ASANSÖR</text>
       </g>
 
+      <!-- Staircase Core -->
       <g stroke="#38bdf8" stroke-width="1" fill="none">
-        <rect x="98" y="94" width="24" height="36" stroke-width="1.2" />
+        <rect x="98" y="94" width="24" height="36" stroke-width="1.2" fill="#0f172a" />
         <line x1="110" y1="94" x2="110" y2="130" stroke-width="0.8" />
-        <line x1="98" y1="100" x2="110" y2="100" />
-        <line x1="98" y1="106" x2="110" y2="106" />
-        <line x1="98" y1="112" x2="110" y2="112" />
-        <line x1="98" y1="118" x2="110" y2="118" />
-        <line x1="98" y1="124" x2="110" y2="124" />
-        <line x1="110" y1="100" x2="122" y2="100" />
-        <line x1="110" y1="106" x2="122" y2="106" />
-        <line x1="110" y1="112" x2="122" y2="112" />
-        <line x1="110" y1="118" x2="122" y2="118" />
-        <line x1="110" y1="124" x2="122" y2="124" />
+        ${[100, 106, 112, 118, 124].map(y => `
+          <line x1="98" y1="${y}" x2="110" y2="${y}" stroke="#38bdf8" stroke-width="0.5" />
+          <line x1="110" y1="${y}" x2="122" y2="${y}" stroke="#38bdf8" stroke-width="0.5" />
+        `).join('')}
         <path d="M 104,126 L 104,98 L 116,98 L 116,115" stroke="#10b981" stroke-width="0.8" fill="none" />
         <polygon points="114,113 116,117 118,113" fill="#10b981" stroke="none" />
         <text x="110" y="136" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">MERDİVEN</text>
       </g>
 
-      \${contentMarkup}
+      ${contentMarkup}
 
-      <g stroke="#e2e8f0" stroke-width="0.6" fill="none" opacity="0.8">
-        <line x1="45" y1="23" x2="175" y2="23" stroke="#10b981" stroke-width="0.8" />
+      <!-- Dimension Lines -->
+      <g stroke="#10b981" stroke-width="0.8" fill="none">
+        <line x1="45" y1="23" x2="175" y2="23" />
         <line x1="45" y1="45" x2="45" y2="18" stroke="#475569" stroke-width="0.5" />
         <line x1="175" y1="45" x2="175" y2="18" stroke="#475569" stroke-width="0.5" />
-        <line x1="42" y1="26" x2="48" y2="20" stroke="#10b981" stroke-width="0.8" />
-        <line x1="172" y1="26" x2="178" y2="20" stroke="#10b981" stroke-width="0.8" />
-        <text x="110" y="16" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">\${estW.toFixed(2)} m</text>
+        <line x1="42" y1="26" x2="48" y2="20" />
+        <line x1="172" y1="26" x2="178" y2="20" />
+        <text x="110" y="16" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">${estW.toFixed(2)} m (EN)</text>
 
-        <line x1="20" y1="45" x2="20" y2="175" stroke="#10b981" stroke-width="0.8" />
+        <line x1="20" y1="45" x2="20" y2="175" />
         <line x1="45" y1="45" x2="15" y2="45" stroke="#475569" stroke-width="0.5" />
         <line x1="45" y1="175" x2="15" y2="175" stroke="#475569" stroke-width="0.5" />
-        <line x1="17" y1="48" x2="23" y2="42" stroke="#10b981" stroke-width="0.8" />
-        <line x1="17" y1="178" x2="23" y2="172" stroke="#10b981" stroke-width="0.8" />
-        <text x="12" y="113" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace" transform="rotate(-90, 12, 113)">\${estD.toFixed(2)} m</text>
+        <line x1="17" y1="48" x2="23" y2="42" />
+        <line x1="17" y1="178" x2="23" y2="172" />
+        <text x="12" y="113" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace" transform="rotate(-90, 12, 113)">${estD.toFixed(2)} m (BOY)</text>
       </g>
-      <text x="110" y="202" fill="#38bdf8" font-size="8" text-anchor="middle" stroke="none" font-weight="bold" letter-spacing="1">ZEMİN KAT PLANI</text>
+      <text x="110" y="202" fill="#38bdf8" font-size="7.5" text-anchor="middle" stroke="none" font-weight="bold" letter-spacing="1">ZEMİN KAT PLANI (ÖLÇEK: 1/100)</text>
     </svg>
   `;
 }
@@ -696,8 +760,8 @@ function generateNormalFloorPlanSvgString(
   baseBuildArea = 120,
   flatsPerFloor = 2
 ): string {
-  const estW = Math.sqrt(baseBuildArea / 1.2);
-  const estD = estW * 1.2;
+  const estW = Math.max(8, Math.round(Math.sqrt(baseBuildArea / 1.2) * 10) / 10);
+  const estD = Math.max(10, Math.round((estW * 1.2) * 10) / 10);
 
   const fCount = Math.max(1, Math.min(4, flatsPerFloor));
   let flatLayoutMarkup = '';
@@ -706,49 +770,72 @@ function generateNormalFloorPlanSvgString(
     flatLayoutMarkup = `
       <g stroke="#a78bfa" stroke-width="1.2" fill="none">
         <rect x="48" y="48" width="124" height="124" stroke-dasharray="2,2" />
-        <text x="110" y="105" fill="#a78bfa" font-size="6.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (TAM KAT REZİDANS)</text>
-        <text x="110" y="116" fill="#64748b" font-size="5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
-        <text x="110" y="123" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
-        <text x="110" y="131" fill="#a78bfa" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
+        <!-- Room Divisions -->
+        <!-- Salon -->
+        <rect x="48" y="48" width="50" height="60" stroke="#38bdf8" stroke-width="0.8" fill="#0284c7" fill-opacity="0.1" />
+        <text x="73" y="75" fill="#38bdf8" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">SALON</text>
+        <text x="73" y="83" fill="#94a3b8" font-size="4" text-anchor="middle" stroke="none">~32 m²</text>
+        
+        <!-- Mutfak -->
+        <rect x="48" y="108" width="50" height="35" stroke="#38bdf8" stroke-width="0.8" fill="#0284c7" fill-opacity="0.08" />
+        <text x="73" y="126" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">MUTFAK</text>
+        
+        <!-- Ebeveyn Yatak Odası -->
+        <rect x="122" y="48" width="50" height="55" stroke="#38bdf8" stroke-width="0.8" fill="#0284c7" fill-opacity="0.1" />
+        <text x="147" y="75" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">E. YATAK ODASI</text>
+        <text x="147" y="83" fill="#94a3b8" font-size="4" text-anchor="middle" stroke="none">~18 m²</text>
+
+        <!-- Çocuk Odası -->
+        <rect x="122" y="103" width="50" height="40" stroke="#38bdf8" stroke-width="0.8" fill="#0284c7" fill-opacity="0.08" />
+        <text x="147" y="123" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">ÇOCUK ODASI</text>
+
+        <!-- Banyo -->
+        <rect x="48" y="143" width="35" height="29" stroke="#38bdf8" stroke-width="0.8" fill="#0284c7" fill-opacity="0.08" />
+        <text x="65" y="160" fill="#38bdf8" font-size="4" text-anchor="middle" stroke="none" font-weight="bold">BANYO</text>
+
+        <text x="110" y="160" fill="#a78bfa" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (TAM KAT REZİDANS)</text>
+        <text x="110" y="168" fill="#94a3b8" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m² | NET: ~${netArea} m² (${roomType})</text>
       </g>
     `;
   } else if (fCount === 2) {
     flatLayoutMarkup = `
       <g stroke="#a78bfa" stroke-width="1.2" fill="none">
-        <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
-        <text x="71" y="105" fill="#a78bfa" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (SOL)</text>
-        <text x="71" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
-        <text x="71" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
-        <text x="71" y="130" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
-
-        <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" />
-        <text x="148" y="105" fill="#a78bfa" font-size="6" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 02 (SAĞ)</text>
-        <text x="148" y="115" fill="#64748b" font-size="4.5" text-anchor="middle" stroke="none">BRÜT: ~${grossArea} m²</text>
-        <text x="148" y="122" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
-        <text x="148" y="130" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
-        <text x="110" y="58" fill="#10b981" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">KAT HOLÜ</text>
-      </g>
-    `;
-  } else if (fCount === 3) {
-    flatLayoutMarkup = `
-      <g stroke="#a78bfa" stroke-width="1.2" fill="none">
-        <line x1="98" y1="45" x2="98" y2="110" stroke-dasharray="3,3" />
-        <line x1="122" y1="45" x2="122" y2="110" stroke-dasharray="3,3" />
-        <line x1="45" y1="110" x2="175" y2="110" stroke-dasharray="3,3" />
+        <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" stroke="#a78bfa" />
+        <line x1="122" y1="45" x2="122" y2="175" stroke-dasharray="3,3" stroke="#a78bfa" />
         
-        <text x="71" y="75" fill="#a78bfa" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (ÖN SOL)</text>
-        <text x="71" y="84" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${Math.round(netArea * 0.95 * 10) / 10} m²</text>
+        <!-- Daire 01 Sol Odalar -->
+        <rect x="46" y="46" width="51" height="58" stroke="#38bdf8" stroke-width="0.6" fill="#0284c7" fill-opacity="0.1" />
+        <text x="71" y="72" fill="#38bdf8" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">SALON</text>
+        <text x="71" y="80" fill="#94a3b8" font-size="3.8" text-anchor="middle" stroke="none">~26 m²</text>
 
-        <text x="148" y="75" fill="#a78bfa" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 02 (ÖN SAĞ)</text>
-        <text x="148" y="84" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${Math.round(netArea * 0.95 * 10) / 10} m²</text>
+        <rect x="46" y="104" width="51" height="40" stroke="#38bdf8" stroke-width="0.6" fill="#0284c7" fill-opacity="0.08" />
+        <text x="71" y="122" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">Y. ODASI</text>
 
-        <text x="110" y="142" fill="#a78bfa" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 03 (ARKA BAHÇE)</text>
-        <text x="110" y="151" fill="#64748b" font-size="4" text-anchor="middle" stroke="none">NET: ~${Math.round(netArea * 1.1 * 10) / 10} m²</text>
-        <text x="110" y="158" fill="#a78bfa" font-size="4" text-anchor="middle" stroke="none" font-weight="bold">${roomType}</text>
-        <text x="110" y="58" fill="#10b981" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">HOL</text>
+        <rect x="46" y="144" width="30" height="30" stroke="#38bdf8" stroke-width="0.6" fill="#0284c7" fill-opacity="0.08" />
+        <text x="61" y="160" fill="#38bdf8" font-size="3.8" text-anchor="middle" stroke="none">MUTFAK</text>
+
+        <text x="71" y="100" fill="#a78bfa" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (SOL)</text>
+        <text x="71" y="138" fill="#94a3b8" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+
+        <!-- Daire 02 Sağ Odalar -->
+        <rect x="123" y="46" width="51" height="58" stroke="#38bdf8" stroke-width="0.6" fill="#0284c7" fill-opacity="0.1" />
+        <text x="148" y="72" fill="#38bdf8" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">SALON</text>
+        <text x="148" y="80" fill="#94a3b8" font-size="3.8" text-anchor="middle" stroke="none">~26 m²</text>
+
+        <rect x="123" y="104" width="51" height="40" stroke="#38bdf8" stroke-width="0.6" fill="#0284c7" fill-opacity="0.08" />
+        <text x="148" y="122" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">Y. ODASI</text>
+
+        <rect x="144" y="144" width="30" height="30" stroke="#38bdf8" stroke-width="0.6" fill="#0284c7" fill-opacity="0.08" />
+        <text x="159" y="160" fill="#38bdf8" font-size="3.8" text-anchor="middle" stroke="none">MUTFAK</text>
+
+        <text x="148" y="100" fill="#a78bfa" font-size="5.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 02 (SAĞ)</text>
+        <text x="148" y="138" fill="#94a3b8" font-size="4" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+        
+        <text x="110" y="58" fill="#10b981" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">KAT HOLÜ</text>
       </g>
     `;
   } else {
+    // 3 or 4 flats
     flatLayoutMarkup = `
       <g stroke="#a78bfa" stroke-width="1.2" fill="none">
         <line x1="98" y1="45" x2="98" y2="175" stroke-dasharray="3,3" />
@@ -756,51 +843,57 @@ function generateNormalFloorPlanSvgString(
         <line x1="45" y1="110" x2="175" y2="110" stroke-dasharray="3,3" />
         
         <text x="71" y="75" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 01 (ÖN SOL)</text>
-        <text x="71" y="84" fill="#64748b" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+        <text x="71" y="84" fill="#94a3b8" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
 
         <text x="148" y="75" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 02 (ÖN SAĞ)</text>
-        <text x="148" y="84" fill="#64748b" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+        <text x="148" y="84" fill="#94a3b8" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
 
         <text x="71" y="140" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 03 (ARKA SOL)</text>
-        <text x="71" y="149" fill="#64748b" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+        <text x="71" y="149" fill="#94a3b8" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
 
         <text x="148" y="140" fill="#a78bfa" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">DAİRE 04 (ARKA SAĞ)</text>
-        <text x="148" y="149" fill="#64748b" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
+        <text x="148" y="149" fill="#94a3b8" font-size="3.5" text-anchor="middle" stroke="none">NET: ~${netArea} m²</text>
         <text x="110" y="58" fill="#10b981" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">HOL</text>
       </g>
     `;
   }
 
   return `
-    <svg viewBox="0 0 220 220" style="width:100%; max-height:220px; background:#060a13;">
-      <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" stroke-width="1.5" />
-      <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="1,2" />
+    <svg viewBox="0 0 240 240" style="width:100%; max-height:240px; background:#060a13; font-family:monospace;">
+      <defs>
+        <pattern id="planGridNorm" width="10" height="10" patternUnits="userSpaceOnUse">
+          <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" stroke-width="0.3" opacity="0.6"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#planGridNorm)" />
 
-      <!-- Watermark -->
-      <g stroke="#ff0000" stroke-width="0.3" fill="none" opacity="0.06" style="pointer-events:none;">
-        <text x="110" y="110" fill="#f43f5e" font-size="11" font-weight="900" text-anchor="middle" transform="rotate(-30, 110, 110)">ÖRNEK ÇİZİMDİR • KESİN DEĞİLDİR</text>
+      <!-- North Arrow -->
+      <g transform="translate(210, 30)">
+        <circle cx="0" cy="0" r="10" fill="#0f172a" stroke="#38bdf8" stroke-width="0.8" />
+        <polygon points="0,-8 3,3 0,1 -3,3" fill="#38bdf8" />
+        <text x="0" y="-10" fill="#38bdf8" font-size="4.5" text-anchor="middle" font-weight="bold">K</text>
       </g>
 
+      <!-- Outer Boundary Wall -->
+      <rect x="45" y="45" width="130" height="130" fill="none" stroke="#38bdf8" stroke-width="2" />
+      <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" stroke-width="0.5" stroke-dasharray="2,2" />
+
+      <!-- Core: Elevator -->
       <g stroke="#f43f5e" stroke-width="1" fill="none">
-        <rect x="98" y="70" width="24" height="24" stroke-width="1.2" />
+        <rect x="98" y="70" width="24" height="24" stroke-width="1.2" fill="#0f172a" />
         <line x1="98" y1="70" x2="122" y2="94" stroke-width="0.6" />
         <line x1="122" y1="70" x2="98" y2="94" stroke-width="0.6" />
-        <text x="110" y="84" fill="#f43f5e" font-size="5" text-anchor="middle" stroke="none" font-weight="bold">ASANSÖR</text>
+        <text x="110" y="84" fill="#f43f5e" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">ASANSÖR</text>
       </g>
 
+      <!-- Core: Staircase -->
       <g stroke="#38bdf8" stroke-width="1" fill="none">
-        <rect x="98" y="94" width="24" height="36" stroke-width="1.2" />
+        <rect x="98" y="94" width="24" height="36" stroke-width="1.2" fill="#0f172a" />
         <line x1="110" y1="94" x2="110" y2="130" stroke-width="0.8" />
-        <line x1="98" y1="100" x2="110" y2="100" />
-        <line x1="98" y1="106" x2="110" y2="106" />
-        <line x1="98" y1="112" x2="110" y2="112" />
-        <line x1="98" y1="118" x2="110" y2="118" />
-        <line x1="98" y1="124" x2="110" y2="124" />
-        <line x1="110" y1="100" x2="122" y2="100" />
-        <line x1="110" y1="106" x2="122" y2="106" />
-        <line x1="110" y1="112" x2="122" y2="112" />
-        <line x1="110" y1="118" x2="122" y2="118" />
-        <line x1="110" y1="124" x2="122" y2="124" />
+        ${[100, 106, 112, 118, 124].map(y => `
+          <line x1="98" y1="${y}" x2="110" y2="${y}" stroke="#38bdf8" stroke-width="0.5" />
+          <line x1="110" y1="${y}" x2="122" y2="${y}" stroke="#38bdf8" stroke-width="0.5" />
+        `).join('')}
         <path d="M 104,126 L 104,98 L 116,98 L 116,115" stroke="#10b981" stroke-width="0.8" fill="none" />
         <polygon points="114,113 116,117 118,113" fill="#10b981" stroke="none" />
         <text x="110" y="136" fill="#38bdf8" font-size="4.5" text-anchor="middle" stroke="none" font-weight="bold">MERDİVEN</text>
@@ -808,22 +901,23 @@ function generateNormalFloorPlanSvgString(
 
       ${flatLayoutMarkup}
 
-      <g stroke="#e2e8f0" stroke-width="0.6" fill="none" opacity="0.8">
-        <line x1="45" y1="23" x2="175" y2="23" stroke="#10b981" stroke-width="0.8" />
+      <!-- Dimension Lines & Kot Axis -->
+      <g stroke="#10b981" stroke-width="0.8" fill="none">
+        <line x1="45" y1="23" x2="175" y2="23" />
         <line x1="45" y1="45" x2="45" y2="18" stroke="#475569" stroke-width="0.5" />
         <line x1="175" y1="45" x2="175" y2="18" stroke="#475569" stroke-width="0.5" />
-        <line x1="42" y1="26" x2="48" y2="20" stroke="#10b981" stroke-width="0.8" />
-        <line x1="172" y1="26" x2="178" y2="20" stroke="#10b981" stroke-width="0.8" />
-        <text x="110" y="16" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">\${estW.toFixed(2)} m</text>
+        <line x1="42" y1="26" x2="48" y2="20" />
+        <line x1="172" y1="26" x2="178" y2="20" />
+        <text x="110" y="16" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace">${estW.toFixed(2)} m (EN)</text>
 
-        <line x1="20" y1="45" x2="20" y2="175" stroke="#10b981" stroke-width="0.8" />
+        <line x1="20" y1="45" x2="20" y2="175" />
         <line x1="45" y1="45" x2="15" y2="45" stroke="#475569" stroke-width="0.5" />
         <line x1="45" y1="175" x2="15" y2="175" stroke="#475569" stroke-width="0.5" />
-        <line x1="17" y1="48" x2="23" y2="42" stroke="#10b981" stroke-width="0.8" />
-        <line x1="17" y1="178" x2="23" y2="172" stroke="#10b981" stroke-width="0.8" />
-        <text x="12" y="113" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace" transform="rotate(-90, 12, 113)">\${estD.toFixed(2)} m</text>
+        <line x1="17" y1="48" x2="23" y2="42" />
+        <line x1="17" y1="178" x2="23" y2="172" />
+        <text x="12" y="113" fill="#10b981" font-size="6" text-anchor="middle" stroke="none" font-weight="bold" font-family="monospace" transform="rotate(-90, 12, 113)">${estD.toFixed(2)} m (BOY)</text>
       </g>
-      <text x="110" y="202" fill="#38bdf8" font-size="8" text-anchor="middle" stroke="none" font-weight="bold" letter-spacing="1">NORMAL KAT PLANI</text>
+      <text x="110" y="202" fill="#38bdf8" font-size="7.5" text-anchor="middle" stroke="none" font-weight="bold" letter-spacing="1">MİMARİ NORMAL KAT PLANI (ÖLÇEK: 1/100)</text>
     </svg>
   `;
 }
