@@ -622,6 +622,39 @@ export default function App() {
     }
   };
 
+  const handleExportJson = () => {
+    const data = JSON.stringify({ params, buildingModelParams });
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `proje_${params.projectAddress?.replace(/[^a-zA-Z0-9]/g, '_') || 'export'}_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotification('success', 'Proje başarıyla dışa aktarıldı (JSON).');
+  };
+
+  const handleImportJson = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        if (data.params) {
+          setParams(data.params);
+          if (data.buildingModelParams) setBuildingModelParams(data.buildingModelParams);
+          showNotification('success', 'Proje başarıyla yüklendi.');
+          setActiveTab('hesapla');
+        } else {
+          throw new Error('Geçersiz dosya formatı.');
+        }
+      } catch (err: any) {
+        showNotification('error', 'Dosya okunamadı: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleLoadProject = (savedData: SavedProjectData) => {
     if (savedData && savedData.params) {
       setParams(savedData.params);
@@ -680,6 +713,8 @@ export default function App() {
           isSavingToDrive={isSavingToDrive}
           onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
           onQuickSave={handleQuickSave}
+          onExportJson={handleExportJson}
+          onImportJson={handleImportJson}
           theme={theme}
           onToggleTheme={toggleTheme}
           onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}

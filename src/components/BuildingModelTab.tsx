@@ -30,7 +30,8 @@ import {
   Milestone,
   Briefcase,
   RotateCcw,
-  Info
+  Info,
+  Layout
 } from 'lucide-react';
 import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig, FacadeStyleType, RoadConfig, RoadType } from '../types';
 import {

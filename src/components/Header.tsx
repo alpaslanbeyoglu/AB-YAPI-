@@ -1,5 +1,5 @@
-import React from 'react';
-import { Cloud, Save, HardDrive, Sun, Palette, Printer, FileDown } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Cloud, Save, HardDrive, Sun, Palette, Printer, FileDown, FileUp } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Logo } from './Logo';
 import { AppTheme } from '../types';
@@ -10,6 +10,8 @@ interface HeaderProps {
   isSavingToDrive: boolean;
   onOpenDrivePanel: () => void;
   onQuickSave: () => void;
+  onExportJson: () => void;
+  onImportJson: (file: File) => void;
   theme?: AppTheme;
   onToggleTheme?: () => void;
   onNavigateToCompletedProjects?: () => void;
@@ -21,11 +23,20 @@ export const Header: React.FC<HeaderProps> = ({
   isSavingToDrive,
   onOpenDrivePanel,
   onQuickSave,
+  onExportJson,
+  onImportJson,
   theme = 'light',
   onToggleTheme,
   onNavigateToCompletedProjects,
 }) => {
   const isGray = theme === 'gray';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      onImportJson(e.target.files[0]);
+    }
+  };
 
   return (
     <header
@@ -71,6 +82,35 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
+          {/* Local Import/Export */}
+          <button
+            type="button"
+            onClick={onExportJson}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+              isGray
+                ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-sm'
+            }`}
+            title="Projeyi Bilgisayara Kaydet (JSON)"
+          >
+            <FileDown className="w-3.5 h-3.5 text-slate-600" />
+            <span className="hidden sm:inline">Kaydet</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+              isGray
+                ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-sm'
+            }`}
+            title="Projeyi Bilgisayardan Yükle (JSON)"
+          >
+            <FileUp className="w-3.5 h-3.5 text-slate-600" />
+            <span className="hidden sm:inline">Yükle</span>
+          </button>
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
+
           {/* Quick Save to Drive button */}
           <button
             id="quick-save-drive-btn"
@@ -85,22 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <Save className="w-3.5 h-3.5" />
             )}
-            <span className="hidden sm:inline">Kaydet</span>
-          </button>
-
-          {/* New: Global Print/Export Button */}
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
-              isGray
-                ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-sm'
-            }`}
-            title="Tüm Raporu Yazdır / PDF Al"
-          >
-            <Printer className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden sm:inline">Yazdır</span>
+            <span className="hidden sm:inline">Drive Kayıt</span>
           </button>
 
           {/* Google Drive Status Pill */}

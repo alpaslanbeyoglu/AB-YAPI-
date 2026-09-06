@@ -77,6 +77,7 @@ export const DrivePanel: React.FC<DrivePanelProps> = ({
   };
 
   const handleSignIn = async () => {
+    console.log("handleSignIn clicked");
     setIsSigningIn(true);
     setActionMessage(null);
     try {
