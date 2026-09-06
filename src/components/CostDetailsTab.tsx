@@ -84,6 +84,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isCostSettingsOpen, setIsCostSettingsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<'kaba' | 'ince' | 'tesisat' | 'resmi'>('kaba');
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(true);
 
   // Live Market Data States (2026 Verified Market Baseline)
   const [usdTry, setUsdTry] = useState<number>(params.usdRate || 34.5);
@@ -1435,74 +1436,192 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         <div
           className={`p-5 rounded-2xl border ${
             isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'
-          } shadow-sm space-y-3`}
+          } shadow-sm transition-all duration-200 flex flex-col justify-between`}
         >
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-amber-500" />
-            <h3 className="text-sm font-bold text-slate-800">Bütçe & Sapma Simülatörü</h3>
-          </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            Döviz, malzeme veya işçilik fiyatlarındaki olası artışların projenize etkisini test edin.
-          </p>
+          {/* Header & Toggle Button */}
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <button
+              type="button"
+              onClick={() => setIsSimulatorOpen(!isSimulatorOpen)}
+              className="flex items-center gap-2 text-left cursor-pointer group select-none"
+              title={isSimulatorOpen ? 'Simülatörü Kapat' : 'Simülatörü Aç'}
+            >
+              <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600 group-hover:bg-amber-100 transition-colors">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                  <span>Bütçe & Sapma Simülatörü</span>
+                </h3>
+                <span className="text-[10px] text-slate-400 block font-medium">
+                  {isSimulatorOpen ? 'Fiyat risk simülasyonu açık' : 'Kapalı (Tıklayarak açın)'}
+                </span>
+              </div>
+            </button>
 
-          <div className="grid grid-cols-3 gap-2 pt-1">
-            <div>
-              <label className="block text-[9px] font-semibold text-slate-500 uppercase mb-1">Döviz (%)</label>
-              <input
-                type="number"
-                value={simFx}
-                onChange={(e) => setSimFx(Number(e.target.value) || 0)}
-                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-[9px] font-semibold text-slate-500 uppercase mb-1">Malzeme (%)</label>
-              <input
-                type="number"
-                value={simMat}
-                onChange={(e) => setSimMat(Number(e.target.value) || 0)}
-                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="block text-[9px] font-semibold text-slate-500 uppercase mb-1">İşçilik (%)</label>
-              <input
-                type="number"
-                value={simLab}
-                onChange={(e) => setSimLab(Number(e.target.value) || 0)}
-                className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-500"
-              />
+            <div className="flex items-center gap-1.5">
+              {(() => {
+                const deltaRate = (simFx * 0.2 + simMat * 0.55 + simLab * 0.25) / 100;
+                const hasDeviation = simFx > 0 || simMat > 0 || simLab > 0;
+                return (
+                  <span
+                    className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                      hasDeviation
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    {hasDeviation ? `+${(deltaRate * 100).toFixed(1)}% Sapma` : '%0 Standart'}
+                  </span>
+                );
+              })()}
+              <button
+                type="button"
+                onClick={() => setIsSimulatorOpen(!isSimulatorOpen)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title={isSimulatorOpen ? 'Simülatörü Kapat' : 'Simülatörü Aç'}
+              >
+                {isSimulatorOpen ? (
+                  <ChevronUp className="w-4 h-4 text-slate-600" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-600" />
+                )}
+              </button>
             </div>
           </div>
 
-          {/* Simulation Output */}
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
-            {(() => {
-              const deltaRate = (simFx * 0.2 + simMat * 0.55 + simLab * 0.25) / 100;
-              const newSimTotal = totalSum * (1 + deltaRate);
-              const diffVal = newSimTotal - totalSum;
-              return (
-                <>
-                  <div className="flex justify-between items-center text-[10px] text-slate-500">
-                    <span>Ağırlıklı Sapma Oranı:</span>
-                    <span className="font-bold text-rose-600 font-mono">+{(deltaRate * 100).toFixed(2)}%</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-slate-700">Yeni Tahmini Bütçe:</span>
-                    <span className="font-extrabold text-indigo-700 font-mono">
-                      {sym}{(newSimTotal * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] pt-1 border-t border-slate-200 text-slate-400">
-                    <span>Öngörülen Risk Farkı:</span>
-                    <span className="font-bold text-rose-600 font-mono">
-                      +{sym}{(diffVal * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
-                    </span>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
+          {isSimulatorOpen ? (
+            <div className="space-y-3 pt-3 animate-fade-in">
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Döviz, malzeme veya işçilik fiyatlarındaki olası artışların projenize etkisini test edin.
+              </p>
+
+              {/* Hızlı Senaryo Butonları */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[9px] font-bold uppercase text-slate-400 mr-1">Ön Tanım:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSimFx(0);
+                    setSimMat(0);
+                    setSimLab(0);
+                  }}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
+                >
+                  Sıfırla (%0)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSimFx(5);
+                    setSimMat(5);
+                    setSimLab(5);
+                  }}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors cursor-pointer"
+                >
+                  +%5
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSimFx(15);
+                    setSimMat(15);
+                    setSimLab(15);
+                  }}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 transition-colors cursor-pointer"
+                >
+                  +%15
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSimFx(30);
+                    setSimMat(35);
+                    setSimLab(25);
+                  }}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-colors cursor-pointer"
+                >
+                  +%30 Enflasyon
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <div>
+                  <label className="block text-[9px] font-semibold text-slate-500 uppercase mb-1">Döviz (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="500"
+                    value={simFx}
+                    onChange={(e) => setSimFx(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-semibold text-slate-500 uppercase mb-1">Malzeme (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="500"
+                    value={simMat}
+                    onChange={(e) => setSimMat(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-semibold text-slate-500 uppercase mb-1">İşçilik (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="500"
+                    value={simLab}
+                    onChange={(e) => setSimLab(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Simulation Output */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
+                {(() => {
+                  const deltaRate = (simFx * 0.2 + simMat * 0.55 + simLab * 0.25) / 100;
+                  const newSimTotal = totalSum * (1 + deltaRate);
+                  const diffVal = newSimTotal - totalSum;
+                  return (
+                    <>
+                      <div className="flex justify-between items-center text-[10px] text-slate-500">
+                        <span>Ağırlıklı Sapma Oranı:</span>
+                        <span className="font-bold text-rose-600 font-mono">+{(deltaRate * 100).toFixed(2)}%</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-slate-700">Yeni Tahmini Bütçe:</span>
+                        <span className="font-extrabold text-indigo-700 font-mono">
+                          {sym}{(newSimTotal * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] pt-1 border-t border-slate-200 text-slate-400">
+                        <span>Öngörülen Risk Farkı:</span>
+                        <span className="font-bold text-rose-600 font-mono">
+                          +{sym}{(diffVal * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          ) : (
+            <div className="py-2 flex items-center justify-between text-xs text-slate-500">
+              <span className="text-[11px]">Simülasyon parametrelerini görüntülemek için açın.</span>
+              <button
+                type="button"
+                onClick={() => setIsSimulatorOpen(true)}
+                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+              >
+                Genişlet
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
