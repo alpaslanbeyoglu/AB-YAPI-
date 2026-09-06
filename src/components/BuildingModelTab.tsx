@@ -191,6 +191,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         hasCantilever: modelParams.hasCantilever,
         cantileverDepth: modelParams.cantileverDepth,
         cantileverDirection: modelParams.cantileverDirection,
+        facadeCantilevers: modelParams.facadeCantilevers,
         facadeWidth: modelParams.facadeWidth,
         facadeDepth: modelParams.facadeDepth,
         flatsPerFloor: modelParams.flatsPerFloor,
@@ -1138,34 +1139,76 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       </label>
 
                       {modelParams.hasCantilever && (
-                        <div className="space-y-2 pt-1">
+                        <div className="space-y-4 pt-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-[11px] text-slate-600">Çıkma:</span>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                step="0.05"
-                                min="0.5"
-                                max="2.5"
-                                value={modelParams.cantileverDepth || 1.2}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value);
-                                  if (!isNaN(val) && val > 0) updateParams({ cantileverDepth: val });
-                                }}
-                                className={`w-16 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
-                              />
-                              <span className="text-xs text-slate-500">m</span>
+                            <span className="text-[11px] font-bold text-slate-700">Genel Çıkma Modu:</span>
+                            <select
+                              value={modelParams.cantileverDirection || 'front_back'}
+                              onChange={(e) => updateParams({ cantileverDirection: e.target.value as any })}
+                              className={`w-32 text-[10px] px-2 py-1 rounded-lg border focus:outline-hidden ${inputBg}`}
+                            >
+                              <option value="front_back">Ön ve Arka</option>
+                              <option value="front">Yalnız Ön</option>
+                              <option value="all">Dört Cephe</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-2.5 p-3 bg-white/50 rounded-2xl border border-slate-100">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <Layout className="w-3.5 h-3.5 text-indigo-600" />
+                              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-tight">Cephe Bazlı Çıkmalar (m)</span>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                              {[
+                                { label: 'Ön Cephe', idx: 0 },
+                                { label: 'Sağ Yan', idx: 1 },
+                                { label: 'Arka Cephe', idx: 2 },
+                                { label: 'Sol Yan', idx: 3 }
+                              ].map((f) => (
+                                <div key={f.idx} className="flex items-center justify-between">
+                                  <span className="text-[10px] text-slate-500">{f.label}:</span>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    max="2.5"
+                                    value={modelParams.facadeCantilevers?.[f.idx] !== undefined ? modelParams.facadeCantilevers[f.idx] : (
+                                      modelParams.cantileverDirection === 'all' ? (modelParams.cantileverDepth || 1.2) :
+                                      modelParams.cantileverDirection === 'front_back' && (f.idx === 0 || f.idx === 2) ? (modelParams.cantileverDepth || 1.2) :
+                                      modelParams.cantileverDirection === 'front' && f.idx === 0 ? (modelParams.cantileverDepth || 1.2) : 0
+                                    )}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      if (!isNaN(val) && val >= 0) {
+                                        const next = [...(modelParams.facadeCantilevers || [0,0,0,0])];
+                                        // Initialize if empty
+                                        if (next.length < 4) {
+                                          const base = modelParams.cantileverDepth || 1.2;
+                                          if (modelParams.cantileverDirection === 'all') next.splice(0, 4, base, base, base, base);
+                                          else if (modelParams.cantileverDirection === 'front_back') next.splice(0, 4, base, 0, base, 0);
+                                          else if (modelParams.cantileverDirection === 'front') next.splice(0, 4, base, 0, 0, 0);
+                                          else next.splice(0, 4, 0, 0, 0, 0);
+                                        }
+                                        next[f.idx] = val;
+                                        updateParams({ facadeCantilevers: next });
+                                      }
+                                    }}
+                                    className={`w-12 px-1.5 py-0.5 text-right font-mono font-bold text-[10px] rounded border ${inputBg}`}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                              <span className="text-[9px] text-slate-400 italic">Değerleri tek tek özelleştirebilirsiniz.</span>
+                              <button 
+                                onClick={() => updateParams({ facadeCantilevers: undefined })}
+                                className="text-[9px] text-indigo-600 font-bold hover:underline"
+                              >
+                                Sıfırla
+                              </button>
                             </div>
                           </div>
-                          <select
-                            value={modelParams.cantileverDirection || 'front_back'}
-                            onChange={(e) => updateParams({ cantileverDirection: e.target.value as any })}
-                            className={`w-full text-[11px] px-2 py-1 rounded-lg border focus:outline-hidden ${inputBg}`}
-                          >
-                            <option value="front_back">Ön ve Arka Cephe</option>
-                            <option value="front">Yalnız Ön Cephe</option>
-                            <option value="all">Dört Cephe Çıkmalı</option>
-                          </select>
                         </div>
                       )}
                     </div>

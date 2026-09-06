@@ -566,6 +566,21 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const hasCantilever = params?.hasCantilever ?? false;
     const cantileverDepth = safeNum(params?.cantileverDepth, 1.2, 0.2);
     const cantileverDirection = params?.cantileverDirection || 'front_back';
+    const facadeCantilevers = params?.facadeCantilevers;
+
+    // Helper to get cantilever depth for a specific facade (0:Front, 1:Right, 2:Back, 3:Left)
+    const getFacadeCantilever = (idx: number) => {
+      if (facadeCantilevers && facadeCantilevers[idx] !== undefined) return facadeCantilevers[idx];
+      if (cantileverDirection === 'all') return cantileverDepth;
+      if (cantileverDirection === 'front_back' && (idx === 0 || idx === 2)) return cantileverDepth;
+      if (cantileverDirection === 'front' && idx === 0) return cantileverDepth;
+      return 0;
+    };
+
+    const cF = getFacadeCantilever(0); // +Z
+    const cR = getFacadeCantilever(1); // +X
+    const cB = getFacadeCantilever(2); // -Z
+    const cL = getFacadeCantilever(3); // -X
 
     const isXRay = interiorCutMode === 'xray';
     const isCutaway = interiorCutMode === 'cutaway';
@@ -793,22 +808,15 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // Determine floor dimensions accounting for cantilevers on upper floors
       let floorW = W;
       let floorD = D;
+      let floorCenterX = 0;
       let floorCenterZ = 0;
 
       const isCantileverFloor = !isBasement && floorIndex >= 1 && hasCantilever;
       if (isCantileverFloor) {
-        if (cantileverDirection === 'front') {
-          floorD = D + cantileverDepth;
-          floorCenterZ = cantileverDepth / 2;
-        } else if (cantileverDirection === 'all') {
-          floorW = W + 2 * cantileverDepth;
-          floorD = D + 2 * cantileverDepth;
-          floorCenterZ = 0;
-        } else {
-          // 'front_back'
-          floorD = D + 2 * cantileverDepth;
-          floorCenterZ = 0;
-        }
+        floorW = W + cR + cL;
+        floorD = D + cF + cB;
+        floorCenterX = (cR - cL) / 2;
+        floorCenterZ = (cF - cB) / 2;
       }
 
       // 1. FLOOR SLAB (Döşeme Betonu)
@@ -826,7 +834,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       } else {
         slabGeo = safeBox(floorW, slabThickness, floorD);
         slabMesh = new THREE.Mesh(slabGeo, isShopFloor ? commercialFloorMat : slabMaterial);
-        slabMesh.position.set(0, baseY + slabThickness / 2, floorCenterZ);
+        slabMesh.position.set(floorCenterX, baseY + slabThickness / 2, floorCenterZ);
       }
       
       slabMesh.castShadow = true;
@@ -2550,20 +2558,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const isTopFloorCantilever = totalFloors >= 2 && hasCantilever;
       let topFloorW = W;
       let topFloorD = D;
+      let topFloorCenterX = 0;
       let topFloorCenterZ = 0;
       if (isTopFloorCantilever) {
-        if (cantileverDirection === 'front') {
-          topFloorD = D + cantileverDepth;
-          topFloorCenterZ = cantileverDepth / 2;
-        } else if (cantileverDirection === 'all') {
-          topFloorW = W + 2 * cantileverDepth;
-          topFloorD = D + 2 * cantileverDepth;
-          topFloorCenterZ = 0;
-        } else {
-          // front_back
-          topFloorD = D + 2 * cantileverDepth;
-          topFloorCenterZ = 0;
-        }
+        topFloorW = W + cR + cL;
+        topFloorD = D + cF + cB;
+        topFloorCenterX = (cR - cL) / 2;
+        topFloorCenterZ = (cF - cB) / 2;
       }
 
       // 50cm standard Turkish eaves overhang (Çatı Saçağı)
@@ -2604,7 +2605,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               side: THREE.DoubleSide,
             })
           );
-          roofMesh.position.set(0, topFloorY, topFloorCenterZ);
+          roofMesh.position.set(topFloorCenterX, topFloorY, topFloorCenterZ);
           roofMesh.castShadow = true;
           roofGroup.add(roofMesh);
         }
@@ -2656,14 +2657,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         } else {
           const lowerGeo = createRectangularHipRoofGeometry(topFloorW, topFloorD, mansardLowerH, eavesOverhang);
           const lowerMesh = new THREE.Mesh(lowerGeo, mansardMat);
-          lowerMesh.position.set(0, topFloorY, topFloorCenterZ);
+          lowerMesh.position.set(topFloorCenterX, topFloorY, topFloorCenterZ);
           lowerMesh.castShadow = true;
           roofGroup.add(lowerMesh);
 
           const setback = 0.8;
           const upperCapGeo = safeBox(Math.max(1, topFloorW - setback * 2), 0.15, Math.max(1, topFloorD - setback * 2));
           const upperCapMesh = new THREE.Mesh(upperCapGeo, mansardMat);
-          upperCapMesh.position.set(0, topFloorY + mansardLowerH + 0.08, topFloorCenterZ);
+          upperCapMesh.position.set(topFloorCenterX, topFloorY + mansardLowerH + 0.08, topFloorCenterZ);
           upperCapMesh.castShadow = true;
           roofGroup.add(upperCapMesh);
 
@@ -2695,7 +2696,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
           const crestGeo = safeBox(Math.max(1, topFloorW - setback * 2 + 0.1), 0.08, Math.max(1, topFloorD - setback * 2 + 0.1));
           const crestMesh = new THREE.Mesh(crestGeo, frameMaterial);
-          crestMesh.position.set(0, topFloorY + mansardLowerH + 0.2, topFloorCenterZ);
+          crestMesh.position.set(topFloorCenterX, topFloorY + mansardLowerH + 0.2, topFloorCenterZ);
           roofGroup.add(crestMesh);
         }
       } else if (roofType === 'duplex') {
@@ -2877,7 +2878,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const parapetGeo = safeBox(topFloorW, parapetHeight, topFloorD);
           const parapetEdges = new THREE.EdgesGeometry(parapetGeo);
           const parapetLine = new THREE.LineSegments(parapetEdges, parapetMat);
-          parapetLine.position.set(0, topFloorY + parapetHeight / 2, topFloorCenterZ);
+          parapetLine.position.set(topFloorCenterX, topFloorY + parapetHeight / 2, topFloorCenterZ);
           roofGroup.add(parapetLine);
         }
 
@@ -3008,20 +3009,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const isTopFloorCantilever = totalFloors >= 2 && hasCantilever;
       let topFloorW = W;
       let topFloorD = D;
+      let topFloorCenterX = 0;
       let topFloorCenterZ = 0;
       if (isTopFloorCantilever) {
-        if (cantileverDirection === 'front') {
-          topFloorD = D + cantileverDepth;
-          topFloorCenterZ = cantileverDepth / 2;
-        } else if (cantileverDirection === 'all') {
-          topFloorW = W + 2 * cantileverDepth;
-          topFloorD = D + 2 * cantileverDepth;
-          topFloorCenterZ = 0;
-        } else {
-          // front_back
-          topFloorD = D + 2 * cantileverDepth;
-          topFloorCenterZ = 0;
-        }
+        topFloorW = W + cR + cL;
+        topFloorD = D + cF + cB;
+        topFloorCenterX = (cR - cL) / 2;
+        topFloorCenterZ = (cF - cB) / 2;
       }
       const eavesOverhang = 0.5;
 
@@ -3051,17 +3045,17 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         debugGroup.add(pMesh);
       } else {
         const eaveNodes = [
-          [-topFloorW / 2 - eavesOverhang, topSlabY, topFloorCenterZ - topFloorD / 2 - eavesOverhang],
-          [topFloorW / 2 + eavesOverhang, topSlabY, topFloorCenterZ - topFloorD / 2 - eavesOverhang],
-          [-topFloorW / 2 - eavesOverhang, topSlabY, topFloorCenterZ + topFloorD / 2 + eavesOverhang],
-          [topFloorW / 2 + eavesOverhang, topSlabY, topFloorCenterZ + topFloorD / 2 + eavesOverhang],
+          [topFloorCenterX - topFloorW / 2 - eavesOverhang, topSlabY, topFloorCenterZ - topFloorD / 2 - eavesOverhang],
+          [topFloorCenterX + topFloorW / 2 + eavesOverhang, topSlabY, topFloorCenterZ - topFloorD / 2 - eavesOverhang],
+          [topFloorCenterX - topFloorW / 2 - eavesOverhang, topSlabY, topFloorCenterZ + topFloorD / 2 + eavesOverhang],
+          [topFloorCenterX + topFloorW / 2 + eavesOverhang, topSlabY, topFloorCenterZ + topFloorD / 2 + eavesOverhang],
         ];
 
-        let r1X = 0, r2X = 0, r1Z = topFloorCenterZ, r2Z = topFloorCenterZ;
+        let r1X = topFloorCenterX, r2X = topFloorCenterX, r1Z = topFloorCenterZ, r2Z = topFloorCenterZ;
         if (topFloorW >= topFloorD) {
           const ridgeHalfLen = Math.max(0.1, (topFloorW - topFloorD) / 2);
-          r1X = -ridgeHalfLen;
-          r2X = ridgeHalfLen;
+          r1X = topFloorCenterX - ridgeHalfLen;
+          r2X = topFloorCenterX + ridgeHalfLen;
         } else {
           const ridgeHalfLen = Math.max(0.1, (topFloorD - topFloorW) / 2);
           r1Z = topFloorCenterZ - ridgeHalfLen;
@@ -3105,7 +3099,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         });
         const limitLine = new THREE.LineSegments(limitEdges, limitLineMat);
         limitLine.computeLineDistances();
-        limitLine.position.set(0, (totalBuildingH + roofH) / 2, topFloorCenterZ);
+        limitLine.position.set(topFloorCenterX, (totalBuildingH + roofH) / 2, topFloorCenterZ);
         debugGroup.add(limitLine);
       }
 
@@ -3135,7 +3129,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           let posZ = 0;
           let rotY = 0;
           
-          const offset = 0.5; // Slight offset from the building lot boundary
+          const offset = 3.0; // Increased offset to accommodate sidewalks (swW = 2.5) without clipping
 
           if (isCustomPoly && activePolyPts) {
             const edges = getPolygonEdges(activePolyPts);
@@ -3155,22 +3149,22 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
               
               posX = midX + nx * (roadWidth / 2 + offset);
               posZ = midZ + nz * (roadWidth / 2 + offset);
-              rotY = Math.atan2(dx, dz);
+              rotY = Math.atan2(dz, dx);
             }
           } else {
             // Standard Box (W x D)
             if (road.facadeIndex === 0) { // Front (+Z)
               posZ = D / 2 + roadWidth / 2 + offset;
-              rotY = Math.PI / 2;
+              rotY = 0;
             } else if (road.facadeIndex === 1) { // Right (+X)
               posX = W / 2 + roadWidth / 2 + offset;
-              rotY = 0;
+              rotY = Math.PI / 2;
             } else if (road.facadeIndex === 2) { // Rear (-Z)
               posZ = -D / 2 - roadWidth / 2 - offset;
-              rotY = Math.PI / 2;
+              rotY = 0;
             } else if (road.facadeIndex === 3) { // Left (-X)
               posX = -W / 2 - roadWidth / 2 - offset;
-              rotY = 0;
+              rotY = Math.PI / 2;
             }
           }
 
@@ -3204,21 +3198,21 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const swGeo = new THREE.PlaneGeometry(roadLength, swW);
           const swMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.8 });
           
-          // Calculate sidewalk positions based on road normal
+          // Calculate sidewalk positions based on road normal (perpendicular to road direction)
           const s1Offset = (roadWidth / 2 + swW / 2);
-          const nx = Math.sin(rotY + Math.PI / 2);
-          const nz = Math.cos(rotY + Math.PI / 2);
+          const nx_sw = -Math.sin(rotY);
+          const nz_sw = Math.cos(rotY);
 
           const s1 = new THREE.Mesh(swGeo, swMat);
           s1.rotation.x = -Math.PI / 2;
           s1.rotation.z = rotY;
-          s1.position.set(posX + nx * s1Offset, 0.12, posZ + nz * s1Offset);
+          s1.position.set(posX + nx_sw * s1Offset, 0.12, posZ + nz_sw * s1Offset);
           roadsGroup.add(s1);
 
           const s2 = new THREE.Mesh(swGeo, swMat);
           s2.rotation.x = -Math.PI / 2;
           s2.rotation.z = rotY;
-          s2.position.set(posX - nx * s1Offset, 0.12, posZ - nz * s1Offset);
+          s2.position.set(posX - nx_sw * s1Offset, 0.12, posZ - nz_sw * s1Offset);
           roadsGroup.add(s2);
         });
       }

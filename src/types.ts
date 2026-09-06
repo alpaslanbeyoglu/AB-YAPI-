@@ -196,6 +196,7 @@ export interface ProjectParams {
   hasCantilever?: boolean;
   cantileverDepth?: number;
   cantileverDirection?: 'front_back' | 'front' | 'all';
+  facadeCantilevers?: number[]; // Her cephe için ayrı çıkma mesafesi (m)
 
   // Mimari Çatı ve Kütle Özellikleri
   roofType?: RoofType;
@@ -441,6 +442,7 @@ export interface BuildingModelParams {
   hasCantilever?: boolean;
   cantileverDepth?: number;
   cantileverDirection?: 'front_back' | 'front' | 'all';
+  facadeCantilevers?: number[]; // Her cephe için ayrı çıkma mesafesi (m)
   // Müteahhit Payı / Daire Paylaşımı
   contractorFlatIds?: number[];          // Müteahhite kalacak dairelerin ID listesi
   showContractorShare3D?: boolean;       // 3D model üzerinde müteahhit ve hak sahibi dairelerini görselleştirme seçeneği
