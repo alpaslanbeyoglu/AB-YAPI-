@@ -83,7 +83,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isCostSettingsOpen, setIsCostSettingsOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'kaba' | 'ince' | 'tesisat' | 'resmi'>('kaba');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'kaba' | 'ince' | 'tesisat' | 'resmi' | 'ortak'>('kaba');
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(true);
 
   // Live Market Data States (2026 Verified Market Baseline)
@@ -509,6 +509,17 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         unitPrice: effSalesMarketingPrice,
         total: Math.round(flatCount * effSalesMarketingPrice * 100) / 100,
         laborShare: 50,
+      },
+      // ORTAK EKSTRA MALİK GİDERLERİ
+      {
+        id: 'o1',
+        category: 'ortak',
+        name: params.manualEqualExtraCostLabel || 'Ortak Ekstra Malik Gideri',
+        unit: 'Lump-sum',
+        quantity: 1,
+        unitPrice: Math.max(0, params.manualEqualExtraCost || 0),
+        total: Math.max(0, params.manualEqualExtraCost || 0),
+        laborShare: 0,
       },
     ];
   }, [
@@ -1069,6 +1080,15 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
               >
                 Resmi/SGK
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveSettingsTab('ortak')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  activeSettingsTab === 'ortak' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Ortak Gider (Eşit Dağıtılan)
+              </button>
             </div>
           </div>
 
@@ -1359,6 +1379,36 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                     onChange={(e) => updateParam('costCompany', Math.max(0, Number(e.target.value) || 0))}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
                   />
+                </div>
+              </div>
+            )}
+
+            {activeSettingsTab === 'ortak' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                    Ortak Gider Açıklaması / Başlığı
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Örn: Yıkım, Enkaz Kaldırma, Zemin Etüdü"
+                    value={params.manualEqualExtraCostLabel || ''}
+                    onChange={(e) => updateParam('manualEqualExtraCostLabel', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold focus:outline-none focus:border-indigo-600"
+                  />
+                  <span className="text-[9px] text-slate-400 mt-0.5 block">Bu başlık sözleşme ve teklif sayfalarında gösterilecektir.</span>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                    Toplam Ekstra Ortak Gider Tutarı (₺)
+                  </label>
+                  <input
+                    type="number"
+                    value={params.manualEqualExtraCost || 0}
+                    onChange={(e) => updateParam('manualEqualExtraCost', Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                  />
+                  <span className="text-[9px] text-slate-400 mt-0.5 block">Tüm maliklere (müteahhit hariç arsa sahiplerine) eşit dağıtılır.</span>
                 </div>
               </div>
             )}
@@ -2079,6 +2129,15 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
               }`}
             >
               Resmi/SGK
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterCategory('ortak')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                filterCategory === 'ortak' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-indigo-700'
+              }`}
+            >
+              Ortak Gider
             </button>
           </div>
         </div>

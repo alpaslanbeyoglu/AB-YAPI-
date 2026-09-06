@@ -518,15 +518,28 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
               />
             </div>
 
-            <div>
-              <label className={`block text-xs ${labelColor} mb-1.5`}>Özel Teklif Birim m² Maliyeti (TL/m²):</label>
-              <input
-                type="number"
-                value={params.manualUnitPrice || ''}
-                onChange={(e) => updateParam('manualUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
-                placeholder="Otomatik (Boş Bırakılabilir)"
-                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold text-emerald-700 dark:text-emerald-400 ${inputBg}`}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-xs ${labelColor} mb-1.5`}>Daire Birim m² Maliyeti (TL):</label>
+                <input
+                  type="number"
+                  value={params.manualFlatUnitPrice || ''}
+                  onChange={(e) => updateParam('manualFlatUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
+                  placeholder="Otomatik (Boş Bırakılabilir)"
+                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold text-indigo-700 dark:text-indigo-400 ${inputBg}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-xs ${labelColor} mb-1.5`}>Dükkan Birim m² Maliyeti (TL):</label>
+                <input
+                  type="number"
+                  value={params.manualShopUnitPrice || ''}
+                  onChange={(e) => updateParam('manualShopUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
+                  placeholder="Otomatik (Boş Bırakılabilir)"
+                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold text-amber-700 dark:text-amber-400 ${inputBg}`}
+                  disabled={!params.hasGroundFloorShop}
+                />
+              </div>
             </div>
 
             <div>
@@ -890,7 +903,14 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           }`}
                         >
                           <td className="p-3 font-semibold text-slate-900">
-                            Daire {flat.id} ({flat.name})
+                            <div className="flex items-center gap-2">
+                              <span>Daire {flat.id} ({flat.name})</span>
+                              {flat.flatType === 'shop' && (
+                                <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md border border-amber-200">
+                                  DÜKKAN
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-3 text-right font-mono text-slate-700">
                             {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
@@ -957,7 +977,14 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         return (
                           <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
                             <td className="p-3 font-semibold text-slate-900">
-                              Daire {flat.id} ({flat.name})
+                              <div className="flex items-center gap-2">
+                                <span>Daire {flat.id} ({flat.name})</span>
+                                {flat.flatType === 'shop' && (
+                                  <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md border border-amber-200">
+                                    DÜKKAN
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="p-3 text-right font-mono text-slate-900 font-bold">
                               {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
@@ -1502,6 +1529,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     <tr>
                       <th className="p-3 w-16 text-center">Daire</th>
                       <th className="p-3 w-28 text-center">Kat / Cephe</th>
+                      <th className="p-3 w-24 text-center">Bölüm Tipi</th>
                       <th className="p-3 min-w-[150px]">Hak Sahibi Adı Soyadı</th>
                       <th className="p-3 w-24">T.C. Kimlik</th>
                       <th className="p-3 w-20 text-right">Brüt (m²)</th>
@@ -1603,6 +1631,22 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                   <option value="arka">Arka Cephe</option>
                                 </select>
                               </div>
+                            </td>
+
+                            {/* Bölüm Tipi Seçimi */}
+                            <td className="p-2 text-center">
+                              <select
+                                value={flat.flatType || 'standard'}
+                                onChange={(e) => handleFlatChange(originalIndex, 'flatType', e.target.value)}
+                                className={`text-[10px] px-1.5 py-1.5 rounded border font-bold ${
+                                  flat.flatType === 'shop' ? 'bg-amber-50 border-amber-300 text-amber-800' : inputBg
+                                } w-24 text-center`}
+                              >
+                                <option value="standard">🏠 Konut</option>
+                                <option value="shop">🏪 Dükkan</option>
+                                <option value="mansard">🏚️ Mansart</option>
+                                <option value="duplex">🏘️ Dubleks</option>
+                              </select>
                             </td>
 
                             {/* Malik Adı Soyadı (Inline Input) */}
@@ -2037,6 +2081,24 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                             <option value="arka">Arka Cephe</option>
                           </select>
                         </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                          Bağımsız Bölüm Tipi:
+                        </label>
+                        <select
+                          value={flat.flatType || 'standard'}
+                          onChange={(e) => handleFlatChange(originalIndex, 'flatType', e.target.value)}
+                          className={`w-full text-xs px-3 py-1.5 rounded-xl border font-bold ${
+                            flat.flatType === 'shop' ? 'bg-amber-50 border-amber-300 text-amber-800' : inputBg
+                          }`}
+                        >
+                          <option value="standard">🏠 Konut (Daire)</option>
+                          <option value="shop">🏪 Ticari (Dükkan/Mağaza)</option>
+                          <option value="mansard">🏚️ Mansart Katı</option>
+                          <option value="duplex">🏘️ Çatı Dubleksi</option>
+                        </select>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">

@@ -1164,21 +1164,41 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
 
-                {/* 19. Teklif Birim m2 Maliyet Fiyatı */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-indigo-700 uppercase">Teklif Birim m² Maliyeti (TL):</label>
-                    <span className="text-[10px] font-mono text-slate-400">Opsiyonel</span>
+                {/* 19. Teklif Birim m2 Maliyet Fiyatları (Daire ve Dükkan Ayrı) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-indigo-700 uppercase leading-tight">Daire Birim m² (TL):</label>
+                      <span className="text-[9px] font-mono text-slate-400">Opsiyonel</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={params.manualFlatUnitPrice || ''}
+                        onChange={(e) => updateParam('manualFlatUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder={`${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : ''} TL`}
+                        className={`w-full text-[13px] font-mono font-bold px-3 py-2 rounded-xl border border-indigo-200 ${inputBg}`}
+                      />
+                      <span className="absolute right-2.5 top-2 text-[10px] font-semibold text-slate-400">TL</span>
+                    </div>
                   </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={params.manualUnitPrice || ''}
-                      onChange={(e) => updateParam('manualUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder={`${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : ''} TL (Otomatik)`}
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-indigo-200 ${inputBg}`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">TL/m²</span>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-amber-700 uppercase leading-tight">Dükkan Birim m² (TL):</label>
+                      <span className="text-[9px] font-mono text-slate-400">Opsiyonel</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={params.manualShopUnitPrice || ''}
+                        onChange={(e) => updateParam('manualShopUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder={`${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : ''} TL`}
+                        className={`w-full text-[13px] font-mono font-bold px-3 py-2 rounded-xl border border-amber-200 ${inputBg}`}
+                        disabled={!params.hasGroundFloorShop}
+                      />
+                      <span className="absolute right-2.5 top-2 text-[10px] font-semibold text-slate-400">TL</span>
+                    </div>
                   </div>
                 </div>
 

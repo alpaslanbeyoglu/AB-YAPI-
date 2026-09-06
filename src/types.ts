@@ -153,7 +153,8 @@ export type FacadeStyleType =
 export interface ProjectParams {
   projectAddress: string;
   landArea?: number;           // Arsa m2
-  manualUnitPrice?: number;    // Manuel birim m2 maliyet fiyatı
+  manualFlatUnitPrice?: number;    // Manuel daire birim m2 maliyet fiyatı
+  manualShopUnitPrice?: number;    // Manuel dükkan birim m2 maliyet fiyatı
   durationOption: 'auto' | 'manual' | 'hide';
   manualMonths: number;
   transformationStatus: 'currentSupport' | 'futureSupport2027' | 'none';
@@ -214,6 +215,9 @@ export interface ProjectParams {
   priceSgk: number;
   costInsurance: number;
   costSalesMarketing: number;
+  manualEqualExtraCost?: number;
+  manualEqualExtraCostLabel?: string;
+  additionalOfferClauses?: string[];
 
   // Kaba insaat
   priceConcrete: number;

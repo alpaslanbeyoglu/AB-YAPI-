@@ -4,7 +4,8 @@ export function generateOfferHtml(
   params: ProjectParams,
   res: CalculationResult,
   showDrawings: boolean = false,
-  companyProfile?: CompanyProfile
+  companyProfile?: CompanyProfile,
+  uploadedImages?: Array<{ url: string; caption?: string }>
 ): string {
   const opts = companyProfile?.printOptions || {};
   const showLogo = opts.showLogo !== false;
@@ -519,6 +520,35 @@ export function generateOfferHtml(
     <strong>⚖️ Kurumsal Taahhütler ve Garanti Hükümleri:</strong>
     <p style="margin:2px 0 0 0;">Firmamız (TBK m. 478) uyarınca taşıyıcı betonarme karkas sistemde 20 Yıl, ince işçilik ve çatı/cephe imalatlarında 5 Yıl, mekanik/asansör donatılarında 2 Yıl resmi garanti taahhüt eder. Yapım süresince tüm süreç T.C. Çevre, Şehircilik ve İklim Değişikliği Bakanlığı onaylı Yapı Denetim Kuruluşu denetiminde yürütülür.</p>
   </div>
+
+  <!-- 6.2. ADDITIONAL CLAUSES / EK MADDELER -->
+  ${params.additionalOfferClauses && params.additionalOfferClauses.length > 0 ? `
+  <div class="avoid-break" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:10.5px;color:#334155;line-height:1.5;">
+    <strong>✍️ Teklif Ek Maddeleri ve Özel Hükümler:</strong>
+    <ol style="margin:4px 0 0 0; padding-left:16px; list-style-type: decimal;">
+      ${params.additionalOfferClauses.map(clause => `
+        <li style="margin-bottom:3px; padding-left:2px;">${clause}</li>
+      `).join('')}
+    </ol>
+  </div>
+  ` : ''}
+
+  <!-- 6.5. ATTACHMENTS / EKLER -->
+  ${uploadedImages && uploadedImages.length > 0 ? `
+  <div class="avoid-break" style="margin-top:20px;border-top:2px solid #0f172a;padding-top:14px;">
+    <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-bottom:12px;text-align:left;font-weight:bold;">
+      5. TEKLİF EKLERİ VE GÖRSELLERİ
+    </h3>
+    <div style="display:grid;grid-template-columns:${uploadedImages.length === 1 ? '1fr' : '1fr 1fr'};gap:16px;margin-bottom:16px;">
+      ${uploadedImages.map((img, idx) => `
+        <div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px;background:#ffffff;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.05);page-break-inside:avoid;break-inside:avoid;">
+          <img src="${img.url}" alt="${img.caption || 'Ek Belge'}" style="max-height:280px;max-width:100%;object-fit:contain;border-radius:4px;margin-bottom:8px;" />
+          <div style="font-size:10.5px;font-weight:bold;color:#334155;margin-top:4px;">Ek ${idx + 1}: ${img.caption || 'Belge / Görsel'}</div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  ` : ''}
 
   <!-- 7. SIGNATURES -->
   <div class="avoid-break" style="margin-top:20px;border-top:2px solid #0f172a;padding-top:14px;font-size:11px;">

@@ -4,7 +4,8 @@ import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint } from './footprintUtils';
 export const DEFAULT_PARAMS: ProjectParams = {
   projectAddress: 'İstanbul, Fatih Kocamustafapaşa Mah. 1024 Ada 15 Parsel',
   landArea: 250,
-  manualUnitPrice: 0,
+  manualFlatUnitPrice: 0,
+  manualShopUnitPrice: 0,
   durationOption: 'manual',
   manualMonths: 14,
   transformationStatus: 'currentSupport',
@@ -58,6 +59,12 @@ export const DEFAULT_PARAMS: ProjectParams = {
   priceSgk: 460,
   costInsurance: 35000,
   costSalesMarketing: 30000,
+  manualEqualExtraCost: 0,
+  manualEqualExtraCostLabel: 'Malik Ortak Ek Gideri',
+  additionalOfferClauses: [
+    'Teklifimiz, resmi onayların alınmasını müteakip başlanacak inşaat ruhsat tarihinden itibaren geçerlidir.',
+    'Sözleşme tarihinde yürürlükte olan resmi vergi ve harç oranlarındaki değişiklikler hakedişlere yansıtılacaktır.'
+  ],
 
   // Kaba insaat (2026 Güncel Piyasa & ÇŞİDB Rayiçleri)
   priceConcrete: 3850,
@@ -128,7 +135,9 @@ export function synchronizeFlats(
   roofType?: ProjectParams['roofType'],
   flatsPerFloor: number = 2,
   mansardFlatCount?: number,
-  roofAtticArea: number = 0
+  roofAtticArea: number = 0,
+  hasGroundFloorShop?: boolean,
+  shopCount: number = 1
 ): FlatItem[] {
   const newCount = Math.max(1, flatCount);
   const isMansard = roofType === 'mansard';
@@ -159,17 +168,24 @@ export function synchronizeFlats(
     const existing = flats[i];
     const isMansardFlat = isMansard && i >= normalFlatsCount;
     const isDuplexFlat = isDuplex && i >= newCount - duplexCount;
+    const isShopFlat = !!hasGroundFloorShop && i < (shopCount || 1);
 
     let area = normalAvg;
-    let flatType: FlatItem['flatType'] = 'standard';
+    let flatType: FlatItem['flatType'] = isShopFlat ? 'shop' : 'standard';
     let description: string | undefined;
+
+    if (isShopFlat) {
+      description = 'Zemin Kat Ticari Bağımsız Bölüm (Dükkan/Mağaza)';
+    }
 
     // Automatic floor calculation: 0 = Ground, 1 = 1st floor, etc.
     const calculatedFloor = Math.floor(i / Math.max(1, flatsPerFloor));
 
     // Default Serefiye based on floor & flat type
     let defaultSerefiye = 1.0;
-    if (isDuplexFlat) {
+    if (isShopFlat) {
+      defaultSerefiye = 1.25; // Dükkanlar genellikle daha değerlidir
+    } else if (isDuplexFlat) {
       defaultSerefiye = 1.18;
     } else if (isMansardFlat) {
       defaultSerefiye = 1.08;
@@ -206,12 +222,14 @@ export function synchronizeFlats(
         landShareNumerator: existing.landShareNumerator !== undefined ? existing.landShareNumerator : Math.round(area * 10),
         landShareDenominator: existing.landShareDenominator !== undefined ? existing.landShareDenominator : 1000,
         name: existing.name && existing.name.startsWith('Kat Maliki')
-          ? (isMansardFlat ? `Kat Maliki ${i + 1} (Mansart Çatı)` : isDuplexFlat ? `Kat Maliki ${i + 1} (Çatı Dubleksi)` : existing.name)
+          ? (isShopFlat ? `Dükkan ${i + 1}` : isMansardFlat ? `Kat Maliki ${i + 1} (Mansart Çatı)` : isDuplexFlat ? `Kat Maliki ${i + 1} (Çatı Dubleksi)` : existing.name)
           : existing.name,
       };
     }
 
-    const defaultName = isMansardFlat
+    const defaultName = isShopFlat
+      ? `Dükkan ${i + 1}`
+      : isMansardFlat
       ? `Kat Maliki ${i + 1} (Mansart Çatı)`
       : isDuplexFlat
       ? `Kat Maliki ${i + 1} (Çatı Dubleksi)`
@@ -485,21 +503,29 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const netCostPerSqM = totalArea > 0 ? Math.round((subTotalCost / totalArea) * 100) / 100 : 0;
   const calculatedGrossCostPerSqM = totalArea > 0 ? Math.round((calculatedGrandTotal / totalArea) * 100) / 100 : 0;
 
-  const hasManualUnitPrice = !!(params.manualUnitPrice && params.manualUnitPrice > 0);
+  const shopArea = params.hasGroundFloorShop ? activeBaseArea : 0;
+  const flatArea = Math.max(0, totalArea - shopArea);
 
-  const grossCostPerSqM = hasManualUnitPrice 
-    ? Math.max(0, params.manualUnitPrice!) 
-    : calculatedGrossCostPerSqM;
+  const hasManualFlatPrice = !!(params.manualFlatUnitPrice && params.manualFlatUnitPrice > 0);
+  const hasManualShopPrice = !!(params.manualShopUnitPrice && params.manualShopUnitPrice > 0);
+  const hasManualPrice = hasManualFlatPrice || hasManualShopPrice;
 
-  const grandTotal = hasManualUnitPrice
-    ? Math.round((grossCostPerSqM * Math.max(0, totalArea)) * 100) / 100
-    : calculatedGrandTotal;
+  const finalFlatPrice = hasManualFlatPrice ? params.manualFlatUnitPrice! : calculatedGrossCostPerSqM;
+  const finalShopPrice = hasManualShopPrice ? params.manualShopUnitPrice! : calculatedGrossCostPerSqM;
 
-  const profitAmount = hasManualUnitPrice
-    ? Math.max(0, Math.round((grandTotal - subTotalCost) * 100) / 100)
+  const safeManualExtraCost = Math.max(0, params.manualEqualExtraCost || 0);
+
+  const grandTotal = hasManualPrice
+    ? Math.round((finalFlatPrice * flatArea + finalShopPrice * shopArea + safeManualExtraCost) * 100) / 100
+    : Math.round((calculatedGrandTotal + safeManualExtraCost) * 100) / 100;
+
+  const grossCostPerSqM = totalArea > 0 ? Math.round((grandTotal / totalArea) * 100) / 100 : calculatedGrossCostPerSqM;
+
+  const profitAmount = hasManualPrice
+    ? Math.max(0, Math.round((grandTotal - subTotalCost - safeManualExtraCost) * 100) / 100)
     : calculatedProfitAmount;
 
-  const baseCostPerSqM = hasManualUnitPrice
+  const baseCostPerSqM = hasManualPrice
     ? grossCostPerSqM
     : (includeProfitOwner === 'yes' ? grossCostPerSqM : netCostPerSqM);
 
@@ -525,7 +551,9 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     roofType,
     flatsPerFloor,
     params.mansardFlatCount,
-    roofAtticArea
+    roofAtticArea,
+    params.hasGroundFloorShop,
+    params.shopCount || 1
   );
 
   // Şerefiye (Kat/Konum/Yön Çarpanı) Normalizasyon Hesabı:
@@ -541,6 +569,26 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
   // Arsa Payı Toplam Havuzu:
   const totalProjectValue = totalFlatsArea * baseCostPerSqM;
+
+  // Pre-calculate owner flats count to distribute equal share of manual equal extra cost
+  let ownerFlatsCountActual = 0;
+  synchronizedFlats.forEach((flat, idx) => {
+    let isContractor = false;
+    if (projectModel === 'contractorShare') {
+      if (flat.isContractorShare !== undefined) {
+        isContractor = flat.isContractorShare;
+      } else if (params.contractorFlatIds && params.contractorFlatIds.length > 0) {
+        isContractor = params.contractorFlatIds.includes(flat.id);
+      } else {
+        isContractor = idx + 1 > ownerFlatsCount;
+      }
+    }
+    if (!isContractor) {
+      ownerFlatsCountActual++;
+    }
+  });
+
+  const equalShareCost = ownerFlatsCountActual > 0 ? safeManualExtraCost / ownerFlatsCountActual : 0;
 
   const flatResults: FlatCalcResult[] = [];
   const totalStageIncomes = [0, 0, 0, 0, 0];
@@ -562,10 +610,18 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
     // Şerefiye ile düzeltilmiş birim maliyet & brüt maliyet
     const mult = flat.serefiyeMultiplier !== undefined ? flat.serefiyeMultiplier : 1.0;
+    
+    // Bağımsız bölüm tipine göre birim maliyet seçimi (Eğer manuel fiyat girilmişse)
+    let unitBaseCost = baseCostPerSqM;
+    if (hasManualPrice) {
+      unitBaseCost = flat.flatType === 'shop' ? finalShopPrice : finalFlatPrice;
+    }
+
     const effectiveUnitPrice = enableSerefiye
-      ? baseCostPerSqM * mult * serefiyeNormFactor
-      : baseCostPerSqM;
-    const grossPay = flat.area * effectiveUnitPrice;
+      ? unitBaseCost * mult * serefiyeNormFactor
+      : unitBaseCost;
+    const baseGrossPay = flat.area * effectiveUnitPrice;
+    const grossPay = baseGrossPay + (isOwner ? equalShareCost : 0);
     const serefiyeAdjustedCost = grossPay;
 
     // Arsa Payı Oranı ve Mahsuplaşma Farkı Hesabı
@@ -573,13 +629,21 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     const den = flat.landShareDenominator !== undefined ? flat.landShareDenominator : (params.totalLandShareDenominator || 1000);
     const landShareRatio = den > 0 ? (num / den) * 100 : 0;
     const ownerLandValueEntitlement = (num / (den || 1)) * totalProjectValue;
-    const landShareDifference = enableLandShare ? grossPay - ownerLandValueEntitlement : 0;
+    const landShareDifference = enableLandShare ? baseGrossPay - ownerLandValueEntitlement : 0;
 
     const paid = flat.downPayment || 0;
-    const remainingAfterDown = Math.max(0, grossPay - paid);
+    
+    // In contractorShare model, owners don't pay base grossPay, they only pay the equalShareCost
+    const baseDebtToPay = (projectModel === 'contractorShare' && isOwner)
+      ? equalShareCost
+      : isContractor
+      ? 0
+      : grossPay;
+
+    const remainingAfterDown = Math.max(0, baseDebtToPay - paid);
 
     let usedCredit = 0;
-    if (flat.useTransformationCredit && !isContractor && projectModel !== 'contractorShare') {
+    if (flat.useTransformationCredit && !isContractor && (projectModel !== 'contractorShare' || isOwner)) {
       if (transformationStatus === 'currentSupport') {
         usedCredit = Math.min(remainingAfterDown, 1750000);
       } else if (transformationStatus === 'futureSupport2027') {
@@ -587,10 +651,9 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       }
     }
 
-    const netRemainingDebt =
-      (projectModel === 'contractorShare' && isOwner) || isContractor
-        ? 0
-        : Math.max(0, remainingAfterDown - usedCredit);
+    const netRemainingDebt = isContractor
+      ? 0
+      : Math.max(0, remainingAfterDown - usedCredit);
 
     const p1 = Math.round(netRemainingDebt * s1 * 100) / 100;
     const p2 = Math.round(netRemainingDebt * s2 * 100) / 100;

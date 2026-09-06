@@ -730,39 +730,39 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
           <div className="space-y-8">
             {/* SECTION 01 */}
             <div className="space-y-4">
-              <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">01.</span> {highlightText('KABA YAPI, ZEMİN VE STATİK KRİTERLERİ')}
+              <h3 className="font-extrabold text-indigo-950 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="text-indigo-600 font-mono">01.</span> {highlightText('KABA YAPI, ZEMİN VE STATİK KRİTERLERİ')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Zemin Etüdü ve Statik Projelendirme')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
                     <li>{highlightText('Zemin etütleri ruhsat aşamasında yetkili zemin mekaniği firmalarına yaptırılarak ilgili belediyeye onaylattırılacaktır.')}</li>
                     <li>{highlightText('Statik hesaplamalar; zemin emniyet gerilmeleri ve yürürlükteki Deprem Yönetmeliği esas alınarak hazırlanacaktır.')}</li>
                   </ul>
-                  <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Parsel oturum alanına ve zemin sınıfına (Z1-Z5) bağlı olarak temel tipi (Radye Jeneral, İyileştirmeli veya projeye göre gerekli görüldüğünde kuyu temel sistemleri) statik gerekler doğrultusunda farklılık gösterebilir.')}
+                  <div className="bg-indigo-50/30 border border-slate-200 border-l-4 border-l-indigo-600 rounded-xl p-3 text-[11px] text-slate-800 leading-relaxed mt-2">
+                    <span className="font-bold text-indigo-900">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Parsel oturum alanına ve zemin sınıfına (Z1-Z5) bağlı olarak temel tipi (Radye Jeneral, İyileştirmeli veya projeye göre gerekli görüldüğünde kuyu temel sistemleri) statik gerekler doğrultusunda farklılık gösterebilir.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Betonarme Taşıyıcı Sistem ve Malzemeler')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
                     <li>{highlightText('Binanın taşıyıcı sistemi betonarme karkas olup, en son deprem yönetmeliğine uygun projelendirilecektir.')}</li>
                     <li>{highlightText('Hazır beton sınıfı asgari C30 standardında temin edilecek, demir donatı olarak S420 nervürlü TSE belgeli sismik çelik kullanılacaktır. Beton döküm test sonuçları paydaşlara sunulacaktır.')}</li>
                   </ul>
-                  <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Bodrum kat perdeleri ve bina yüksekliğine/statik hesaplara göre beton sınıfları (C30, C35 vb.) mühendislik hesapları baz alınarak projeye özel optimize edilir.')}
+                  <div className="bg-indigo-50/30 border border-slate-200 border-l-4 border-l-indigo-600 rounded-xl p-3 text-[11px] text-slate-800 leading-relaxed mt-2">
+                    <span className="font-bold text-indigo-900">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Bodrum kat perdeleri ve bina yüksekliğine/statik hesaplara göre beton sınıfları (C30, C35 vb.) mühendislik hesapları baz alınarak projeye özel optimize edilir.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Su Yalıtımı ve Drenaj Sistemleri')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
@@ -775,25 +775,25 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
             {/* SECTION 02 */}
             <div className="space-y-4">
-              <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">02.</span> {highlightText('DUVARLAR VE ÇATI İMALAT ÇEŞİTLİLİKLERİ')}
+              <h3 className="font-extrabold text-indigo-955 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="text-indigo-600 font-mono">02.</span> {highlightText('DUVARLAR VE ÇATI İMALAT ÇEŞİTLİLİKLERİ')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Bölücü Duvarlar ve Ses / Isı Yalıtımı')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
                     <li>{highlightText('Dış duvarlar ve ıslak hacim duvarları projesine uygun tuğla veya yalıtımlı blok elemanlarla örülecektir.')}</li>
                   </ul>
-                  <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Duvar kalınlıkları (8.5 cm, 13.5 cm) ve iki daire arası ses/ısı yalıtım detayları (çift duvar uygulaması veya akustik tuğla/taş yünü yalıtım katmanları); mimari akslara ve akustik yönetmelik gereksinimlerine göre her projede farklılık gösterebilir. Kesin bir tek tip duvar detayı dayatılmaz.')}
+                  <div className="bg-indigo-50/30 border border-slate-200 border-l-4 border-l-indigo-600 rounded-xl p-3 text-[11px] text-slate-800 leading-relaxed mt-2">
+                    <span className="font-bold text-indigo-900">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Duvar kalınlıkları (8.5 cm, 13.5 cm) ve iki daire arası ses/ısı yalıtım detayları (çift duvar uygulaması veya akustik tuğla/taş yünü yalıtım katmanları); mimari akslara ve akustik yönetmelik gereksinimlerine göre her projede farklılık gösterebilir. Kesin bir tek tip duvar detayı dayatılmaz.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Çatı Konstrüksiyonu ve Yalıtım Detayları')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
@@ -806,13 +806,13 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
             {/* SECTION 03 */}
             <div className="space-y-4">
-              <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">03.</span> {highlightText('DIŞ CEPHE VE DOĞRAMA ÇEŞİTLİLİKLERİ')}
+              <h3 className="font-extrabold text-indigo-950 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="text-indigo-600 font-mono">03.</span> {highlightText('DIŞ CEPHE VE DOĞRAMA ÇEŞİTLİLİKLERİ')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Dış Cephe Mantolama ve Tasarım')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
@@ -822,7 +822,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Doğramalar ve Cam Sistemleri')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
@@ -835,26 +835,26 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
             {/* SECTION 04 */}
             <div className="space-y-4">
-              <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">04.</span> {highlightText('İÇ MEKÂN, KAPLAMA VE DONATI SEÇENEKLERİ')}
+              <h3 className="font-extrabold text-indigo-950 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="text-indigo-600 font-mono">04.</span> {highlightText('İÇ MEKÂN, KAPLAMA VE DONATI SEÇENEKLERİ')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Zeminler ve İç Yüzeyler')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
                     <li>{highlightText('Salon ve odalarda 1. sınıf laminat parke (AGT, Çamsan, Terraclick veya muadili), antre ve mutfakta 1. sınıf granit/seramik kaplama kullanılacaktır.')}</li>
                     <li>{highlightText('Duvarlar alçı sıva üzeri su bazlı silinebilir saten boya ile tamamlanacak, ıslak hacimlerde 1. sınıf seramik kaplama tercih edilecektir.')}</li>
                   </ul>
-                  <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Daire sahiplerine sunulacak renk, ebat (örn. 60x60 veya 60x120 seramik) ve model alternatifleri; projenin konseptine ve o dönemsel üretici kataloglarına göre çeşitlilik arz edebilir.')}
+                  <div className="bg-indigo-50/30 border border-slate-200 border-l-4 border-l-indigo-600 rounded-xl p-3 text-[11px] text-slate-800 leading-relaxed mt-2">
+                    <span className="font-bold text-indigo-900">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Daire sahiplerine sunulacak renk, ebat (örn. 60x60 veya 60x120 seramik) ve model alternatifleri; projenin konseptine ve o dönemsel üretici kataloglarına göre çeşitlilik arz edebilir.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Mutfak, Banyo ve İç Kapılar')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
@@ -867,25 +867,25 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
             {/* SECTION 05 */}
             <div className="space-y-4">
-              <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">05.</span> {highlightText('MEKANİK, ELEKTRİK VE ASANSÖR STANDARTLARI')}
+              <h3 className="font-extrabold text-indigo-950 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="text-indigo-600 font-mono">05.</span> {highlightText('MEKANİK, ELEKTRİK VE ASANSÖR STANDARTLARI')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Asansör Sistemlerinde Esneklik')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
                     <li>{highlightText('Binaya tesis edilecek asansörler; ilgili belediye imar mevzuatına, Asansör Yönetmeliği\'ne ve TSE standartlarına tam uygun, yeşil etiketli olacaktır.')}</li>
                   </ul>
-                  <div className="bg-amber-50/70 border border-amber-100 border-l-4 border-l-amber-500 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed mt-2">
-                    <span className="font-bold text-amber-800">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Asansörün kişi kapasitesi, taşıma tonajı (örn. 630 kg / 8 kişilik veya parsele/binaya özel mimari kuyu boyutlarına göre 4-6 kişilik alternatifler) ve kabin tasarımı; her binanın arsa oturumuna, kat sayısına ve ruhsat projesine göre değişkenlik gösterir. Sabit bir kişi sayısı dayatılmaz.')}
+                  <div className="bg-indigo-50/30 border border-slate-200 border-l-4 border-l-indigo-600 rounded-xl p-3 text-[11px] text-slate-800 leading-relaxed mt-2">
+                    <span className="font-bold text-indigo-900">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Asansörün kişi kapasitesi, taşıma tonajı (örn. 630 kg / 8 kişilik veya parsele/binaya özel mimari kuyu boyutlarına göre 4-6 kişilik alternatifler) ve kabin tasarımı; her binanın arsa oturumuna, kat sayısına ve ruhsat projesine göre değişkenlik gösterir. Sabit bir kişi sayısı dayatılmaz.')}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Isıtma, Elektrik ve Güvenlik Altyapısı')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
@@ -899,13 +899,13 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
             {/* SECTION 06 */}
             <div className="space-y-4">
-              <h3 className="font-extrabold text-amber-800 text-xs sm:text-sm border-b-2 border-amber-100 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-amber-500 font-mono">06.</span> {highlightText('YIKIM VE UYGULAMA ESASLARI')}
+              <h3 className="font-extrabold text-indigo-950 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="text-indigo-600 font-mono">06.</span> {highlightText('YIKIM VE UYGULAMA ESASLARI')}
               </h3>
               
               <div className="pl-1 sm:pl-3 space-y-4">
                 <div className="space-y-1.5">
-                  <h4 className="font-bold text-slate-900 border-l-2 border-amber-500 pl-2.5 text-xs">
+                  <h4 className="font-bold text-slate-900 border-l-2 border-indigo-600 pl-2.5 text-xs">
                     {highlightText('Yıkım ve Proje Yönetimi')}
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">

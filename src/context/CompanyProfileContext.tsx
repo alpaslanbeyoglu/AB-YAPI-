@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CompanyProfile, CompanyProfilePrintOptions } from '../types';
 
 export const DEFAULT_PRINT_OPTIONS: CompanyProfilePrintOptions = {
@@ -54,9 +54,11 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
 };
 
 const STORAGE_KEY = 'ab_yapi_company_profile';
+const LIST_STORAGE_KEY = 'ab_yapi_company_profiles_list';
 
 interface CompanyProfileContextType {
   profile: CompanyProfile;
+  profiles: CompanyProfile[];
   updateProfile: (updated: Partial<CompanyProfile>) => void;
   updatePrintOptions: (updatedOptions: Partial<CompanyProfilePrintOptions>) => void;
   togglePrintOption: (key: keyof CompanyProfilePrintOptions) => void;
@@ -66,10 +68,16 @@ interface CompanyProfileContextType {
   removeStamp: () => void;
   resetToDefault: () => void;
   importProfile: (imported: CompanyProfile) => void;
+  
+  // Multi-profile Management
+  switchProfile: (companyName: string) => void;
+  createNewProfile: (newProfile: CompanyProfile) => void;
+  deleteProfile: (companyName: string) => void;
 }
 
 const CompanyProfileContext = createContext<CompanyProfileContextType>({
   profile: DEFAULT_COMPANY_PROFILE,
+  profiles: [DEFAULT_COMPANY_PROFILE],
   updateProfile: () => {},
   updatePrintOptions: () => {},
   togglePrintOption: () => {},
@@ -79,19 +87,18 @@ const CompanyProfileContext = createContext<CompanyProfileContextType>({
   removeStamp: () => {},
   resetToDefault: () => {},
   importProfile: () => {},
+  switchProfile: () => {},
+  createNewProfile: () => {},
+  deleteProfile: () => {},
 });
 
 export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // 1. Initialize Active Profile
   const [profile, setProfile] = useState<CompanyProfile>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.authorizedPerson2 === 'Mimar Zeynep Kaya') {
-          parsed.authorizedPerson2 = '';
-          parsed.authorizedTitle2 = '';
-          parsed.authorizedChamberNo2 = '';
-        }
         return {
           ...DEFAULT_COMPANY_PROFILE,
           ...parsed,
@@ -107,12 +114,43 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
     return DEFAULT_COMPANY_PROFILE;
   });
 
-  const saveToStorage = (newProfile: CompanyProfile) => {
-    setProfile(newProfile);
+  // 2. Initialize Profiles List
+  const [profiles, setProfiles] = useState<CompanyProfile[]>(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
+      const storedList = localStorage.getItem(LIST_STORAGE_KEY);
+      if (storedList) {
+        const parsedList = JSON.parse(storedList);
+        if (Array.isArray(parsedList) && parsedList.length > 0) {
+          return parsedList;
+        }
+      }
     } catch (e) {
-      console.error('Firma profili localStorage kaydedilemedi:', e);
+      console.warn('Firma profilleri listesi tarayıcı hafızasından okunurken hata oluştu:', e);
+    }
+    return [DEFAULT_COMPANY_PROFILE];
+  });
+
+  // Keep them synced if the list doesn't contain the loaded profile
+  useEffect(() => {
+    const exists = profiles.some(p => p.companyName === profile.companyName);
+    if (!exists) {
+      const updatedList = [...profiles, profile];
+      setProfiles(updatedList);
+      try {
+        localStorage.setItem(LIST_STORAGE_KEY, JSON.stringify(updatedList));
+      } catch (e) {}
+    }
+  }, [profile, profiles]);
+
+  // Helper to save both state
+  const saveAndSync = (updatedActive: CompanyProfile, updatedList: CompanyProfile[]) => {
+    setProfile(updatedActive);
+    setProfiles(updatedList);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedActive));
+      localStorage.setItem(LIST_STORAGE_KEY, JSON.stringify(updatedList));
+    } catch (e) {
+      console.error('Firma profilleri kaydedilemedi:', e);
     }
   };
 
@@ -126,7 +164,14 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
         ...(updated.printOptions || {}),
       },
     };
-    saveToStorage(next);
+
+    // Update in profiles array by matching the old companyName of the active profile
+    const updatedList = profiles.map(p => p.companyName === profile.companyName ? next : p);
+    if (!profiles.some(p => p.companyName === profile.companyName)) {
+      updatedList.push(next);
+    }
+
+    saveAndSync(next, updatedList);
   };
 
   const updatePrintOptions = (updatedOptions: Partial<CompanyProfilePrintOptions>) => {
@@ -140,32 +185,29 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
 
   const togglePrintOption = (key: keyof CompanyProfilePrintOptions) => {
     const currentOptions = profile.printOptions || DEFAULT_PRINT_OPTIONS;
-    const currentVal = currentOptions[key] !== false; // Default true
+    const currentVal = currentOptions[key] !== false;
     updatePrintOptions({ [key]: !currentVal });
   };
 
   const setLogo = (base64: string) => {
-    const next = { ...profile, logoBase64: base64 };
-    saveToStorage(next);
+    updateProfile({ logoBase64: base64 });
   };
 
   const removeLogo = () => {
-    const next = { ...profile, logoBase64: '' };
-    saveToStorage(next);
+    updateProfile({ logoBase64: '' });
   };
 
   const setStamp = (base64: string) => {
-    const next = { ...profile, stampBase64: base64 };
-    saveToStorage(next);
+    updateProfile({ stampBase64: base64 });
   };
 
   const removeStamp = () => {
-    const next = { ...profile, stampBase64: '' };
-    saveToStorage(next);
+    updateProfile({ stampBase64: '' });
   };
 
   const resetToDefault = () => {
-    saveToStorage(DEFAULT_COMPANY_PROFILE);
+    const updatedList = profiles.map(p => p.companyName === profile.companyName ? DEFAULT_COMPANY_PROFILE : p);
+    saveAndSync(DEFAULT_COMPANY_PROFILE, updatedList);
   };
 
   const importProfile = (imported: CompanyProfile) => {
@@ -177,13 +219,51 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
         ...(imported.printOptions || {}),
       },
     };
-    saveToStorage(merged);
+    const updatedList = profiles.map(p => p.companyName === profile.companyName ? merged : p);
+    if (!profiles.some(p => p.companyName === profile.companyName)) {
+      updatedList.push(merged);
+    }
+    saveAndSync(merged, updatedList);
+  };
+
+  // Multi-profile Management functions
+  const switchProfile = (companyName: string) => {
+    const target = profiles.find(p => p.companyName === companyName);
+    if (target) {
+      saveAndSync(target, profiles);
+    }
+  };
+
+  const createNewProfile = (newProf: CompanyProfile) => {
+    // Uniqueness boundary check
+    const exists = profiles.some(p => p.companyName.trim().toLowerCase() === newProf.companyName.trim().toLowerCase());
+    if (exists) {
+      alert(`"${newProf.companyName}" adında bir firma zaten mevcut! Lütfen farklı bir isim giriniz.`);
+      return;
+    }
+    const updatedList = [...profiles, newProf];
+    saveAndSync(newProf, updatedList);
+  };
+
+  const deleteProfile = (companyName: string) => {
+    // Size boundary check
+    if (profiles.length <= 1) {
+      alert("Sistemde en az bir firma profili kalmalıdır! Son firmayı silemezsiniz.");
+      return;
+    }
+    const updatedList = profiles.filter(p => p.companyName !== companyName);
+    let nextActive = profile;
+    if (profile.companyName === companyName) {
+      nextActive = updatedList[0];
+    }
+    saveAndSync(nextActive, updatedList);
   };
 
   return (
     <CompanyProfileContext.Provider
       value={{
         profile,
+        profiles,
         updateProfile,
         updatePrintOptions,
         togglePrintOption,
@@ -193,6 +273,9 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
         removeStamp,
         resetToDefault,
         importProfile,
+        switchProfile,
+        createNewProfile,
+        deleteProfile,
       }}
     >
       {children}
@@ -203,4 +286,3 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
 export const useCompanyProfile = () => {
   return useContext(CompanyProfileContext);
 };
-

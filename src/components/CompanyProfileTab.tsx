@@ -20,6 +20,8 @@ import {
   Award,
   ShieldCheck,
   Briefcase,
+  Plus,
+  AlertCircle,
 } from 'lucide-react';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { AppTheme, CompanyProfile, CompanyProfilePrintOptions } from '../types';
@@ -48,10 +50,30 @@ const SECOND_TITLE_PRESETS = [
 ];
 
 export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'light' }) => {
-  const { profile, updateProfile, setLogo, removeLogo, setStamp, removeStamp, resetToDefault, importProfile } =
-    useCompanyProfile();
+  const {
+    profile,
+    profiles,
+    updateProfile,
+    setLogo,
+    removeLogo,
+    setStamp,
+    removeStamp,
+    resetToDefault,
+    importProfile,
+    switchProfile,
+    createNewProfile,
+    deleteProfile
+  } = useCompanyProfile();
+  
   const [formData, setFormData] = useState<CompanyProfile>(profile);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // Multi-profile state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [newCompanyLegalName, setNewCompanyLegalName] = useState('');
+  const [newAuthorizedPerson, setNewAuthorizedPerson] = useState('');
+
   const logoInputRef = useRef<HTMLInputElement>(null);
   const stampInputRef = useRef<HTMLInputElement>(null);
   const jsonImportRef = useRef<HTMLInputElement>(null);
@@ -143,6 +165,39 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
     }
   };
 
+  const handleCreateNewProfileSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCompanyName.trim()) {
+      alert("Lütfen kısa firma adını giriniz.");
+      return;
+    }
+
+    const nameExists = profiles.some(
+      (p) => p.companyName.trim().toLowerCase() === newCompanyName.trim().toLowerCase()
+    );
+    if (nameExists) {
+      alert(`"${newCompanyName.trim()}" isminde bir firma zaten kayıtlı! Lütfen başka bir isim giriniz.`);
+      return;
+    }
+
+    const templateProfile: CompanyProfile = {
+      ...profile, // Copy printOptions and other static settings
+      companyName: newCompanyName.trim(),
+      legalName: newCompanyLegalName.trim() || `${newCompanyName.trim()} MÜTEAHHİTLİK VE MÜHENDİSLİK LTD. ŞTİ.`,
+      authorizedPerson: newAuthorizedPerson.trim() || 'Yeni Yetkili Kişi',
+      logoBase64: '', // Start with blank logo for new firm
+      stampBase64: '', // Start with blank stamp for new firm
+    };
+
+    createNewProfile(templateProfile);
+
+    // Reset fields & close modal
+    setNewCompanyName('');
+    setNewCompanyLegalName('');
+    setNewAuthorizedPerson('');
+    setShowCreateModal(false);
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-8">
       {/* HEADER & ACTIONS */}
@@ -205,6 +260,169 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-800 text-sm font-medium animate-fadeIn">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <span>Firma ve yetkili bilgileri başarıyla kaydedildi. Tüm teklif, rapor ve sözleşmeler otomatik güncellendi.</span>
+        </div>
+      )}
+
+      {/* ========================================================
+          MULTI-COMPANY PROFILE SWITCHING & REGISTRATION DECK
+         ======================================================== */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-600" />
+              <span>Firma Kayıt ve Geçiş Havuzu</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Farklı ticari unvanlar veya konsorsiyum ortaklıkları tanımlayıp aralarında anında geçiş yapabilirsiniz. Aktif seçilen firma tüm teklif, sözleşme ve raporlara otomatik yansır.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Yeni Firma Kaydet
+          </button>
+        </div>
+
+        {/* Profiles Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {profiles.map((p) => {
+            const isActive = p.companyName === profile.companyName;
+            return (
+              <div
+                key={p.companyName}
+                onClick={() => !isActive && switchProfile(p.companyName)}
+                className={`relative border-2 rounded-xl p-4 cursor-pointer transition-all flex flex-col justify-between group ${
+                  isActive
+                    ? 'border-indigo-600 bg-indigo-50/20 shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50/30'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2.5">
+                      {p.logoBase64 ? (
+                        <img src={p.logoBase64} alt={p.companyName} className="h-6 max-w-[60px] object-contain rounded" />
+                      ) : (
+                        <div className="p-1.5 bg-slate-100 rounded text-slate-500">
+                          <Building className="w-4 h-4" />
+                        </div>
+                      )}
+                      <span className="font-bold text-xs text-slate-800 line-clamp-1">{p.companyName}</span>
+                    </div>
+                    {isActive && (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-indigo-600 text-white font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Aktif
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 line-clamp-2 min-h-[30px] leading-relaxed">{p.legalName}</p>
+                </div>
+
+                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
+                  <span className="text-[10px] text-slate-400 font-mono">Temsilci: {p.authorizedPerson || 'Belirtilmedi'}</span>
+                  {profiles.length > 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`"${p.companyName}" firmasını silmek istediğinizden emin misiniz?`)) {
+                          deleteProfile(p.companyName);
+                        }
+                      }}
+                      className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                      title="Firmayı Sil"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* NEW COMPANY REGISTRATION MODAL/OVERLAY */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn print:hidden">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl w-full max-w-md space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Building className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-sm font-extrabold text-slate-900">Yeni Firma Profil Kaydı</h3>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-semibold"
+              >
+                Kapat
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewProfileSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">Kısa Firma Adı / Marka *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Örn: AB GÜVEN YAPI"
+                  value={newCompanyName}
+                  onChange={(e) => setNewCompanyName(e.target.value)}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-500 focus:outline-none bg-slate-50 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">Tam Resmî Şirket Ünvanı *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Örn: AB GÜVEN YAPI TAAHHÜT MÜHENDİSLİK A.Ş."
+                  value={newCompanyLegalName}
+                  onChange={(e) => setNewCompanyLegalName(e.target.value)}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-500 focus:outline-none bg-slate-50 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">İmza Yetkilisi / Temsilci Personel *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Örn: İnş. Müh. Alpaslan Beyoğlu"
+                  value={newAuthorizedPerson}
+                  onChange={(e) => setNewAuthorizedPerson(e.target.value)}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-500 focus:outline-none bg-slate-50 focus:bg-white transition"
+                />
+              </div>
+
+              <div className="p-3 bg-indigo-50/50 rounded-xl flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-indigo-600 mt-0.5" />
+                <p className="text-[10px] text-indigo-900 leading-relaxed font-medium">
+                  Yeni firma profili kaydedildiğinde mevcut adres, iletişim, banka ve vergi dairesi şablon bilgileri otomatik olarak kopyalanacaktır. Kayıt işleminden sonra bu alanları dilediğiniz gibi güncelleyebilirsiniz.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 bg-slate-100 rounded-lg transition"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition"
+                >
+                  Firma Kaydet ve Aktif Et
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

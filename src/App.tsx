@@ -842,6 +842,7 @@ export default function App() {
             results={results}
             hasToken={hasToken}
             onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
+            onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
             theme={theme}
           />
         )}
