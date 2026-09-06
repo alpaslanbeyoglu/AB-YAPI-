@@ -1419,14 +1419,6 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
     {/* Mevzuat Denetimi (Sayfa En Altı) */}
     <div className="mt-8 pt-6 border-t border-slate-200">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-          ⚖️ İmar & Yapı Mevzuatı Otomatik Uyum Denetimi
-        </span>
-        <span className="text-[10px] font-mono text-slate-400">
-          Tip İmar Yönetmeliği & Afet Bölgesi Standartları
-        </span>
-      </div>
       <ZoningAuditPanel params={params as any} theme={theme} />
     </div>
   </div>

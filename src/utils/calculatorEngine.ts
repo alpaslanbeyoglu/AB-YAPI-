@@ -213,16 +213,22 @@ export function synchronizeFlats(
       return {
         ...existing,
         id: i + 1,
-        area,
-        flatType,
-        description,
+        area: existing.area !== undefined && existing.area > 0 ? existing.area : area,
+        flatType: existing.flatType !== undefined ? existing.flatType : flatType,
+        description: existing.description !== undefined ? existing.description : description,
         floorNumber: existing.floorNumber !== undefined ? existing.floorNumber : calculatedFloor,
         facade: existing.facade || (i % 2 === 0 ? 'guney' : 'kuzey'),
         serefiyeMultiplier: existing.serefiyeMultiplier !== undefined ? existing.serefiyeMultiplier : defaultSerefiye,
         landShareNumerator: existing.landShareNumerator !== undefined ? existing.landShareNumerator : Math.round(area * 10),
         landShareDenominator: existing.landShareDenominator !== undefined ? existing.landShareDenominator : 1000,
-        name: existing.name && existing.name.startsWith('Kat Maliki')
-          ? (isShopFlat ? `Dükkan ${i + 1}` : isMansardFlat ? `Kat Maliki ${i + 1} (Mansart Çatı)` : isDuplexFlat ? `Kat Maliki ${i + 1} (Çatı Dubleksi)` : existing.name)
+        name: (existing.name && (existing.name.startsWith('Kat Maliki') || existing.name.startsWith('Dükkan')))
+          ? (existing.flatType === 'shop' || (existing.flatType === undefined && isShopFlat) 
+              ? `Dükkan ${i + 1}` 
+              : isMansardFlat 
+                ? `Kat Maliki ${i + 1} (Mansart Çatı)` 
+                : isDuplexFlat 
+                  ? `Kat Maliki ${i + 1} (Çatı Dubleksi)` 
+                  : `Kat Maliki ${i + 1}`)
           : existing.name,
       };
     }

@@ -278,7 +278,9 @@ export default function App() {
       roofType,
       flatsPerFloor,
       newParams.mansardFlatCount,
-      roofAtticArea
+      roofAtticArea,
+      newParams.hasGroundFloorShop,
+      newParams.shopCount || 1
     );
 
     const sanitizedContractorIds = (newParams.contractorFlatIds || []).filter(

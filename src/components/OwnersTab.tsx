@@ -1545,7 +1545,6 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         <th className="p-3 w-28 text-right text-emerald-800">Arsa Mahsubu</th>
                       )}
                       <th className="p-3 w-28 text-right text-slate-900">Kalan Net Borç</th>
-                      <th className="p-3 w-28 text-right text-emerald-800">Taksit / Aşama</th>
                       <th className="p-3 w-20 text-center">İşlem</th>
                     </tr>
                   </thead>
@@ -1553,7 +1552,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     {filteredFlats.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={15}
+                          colSpan={14}
                           className="p-8 text-center text-slate-400 font-medium"
                         >
                           Arama kriterlerine uygun kat maliki bulunamadı.
@@ -1882,29 +1881,6 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                               ) : (
                                 <span className="font-extrabold text-slate-900">
                                   {netDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                                </span>
-                              )}
-                            </td>
-
-                            {/* Taksit / Aşama Bilgisi */}
-                            <td className="p-2 text-right font-mono text-xs">
-                              {isContractor ? (
-                                <span className="text-slate-400">-</span>
-                              ) : netDebt <= 0 ? (
-                                <span className="text-emerald-600 font-semibold">Ödendi</span>
-                              ) : params.paymentPlanType === 'installments' ? (
-                                <span className="text-emerald-700 font-bold">
-                                  {(calc?.monthlyInstallment || 0).toLocaleString('tr-TR', {
-                                    maximumFractionDigits: 0,
-                                  })}{' '}
-                                  TL / Ay
-                                </span>
-                              ) : (
-                                <span className="text-indigo-700 font-semibold">
-                                  1. Aş: {(calc?.stagePayments?.[0] || 0).toLocaleString('tr-TR', {
-                                    maximumFractionDigits: 0,
-                                  })}{' '}
-                                  TL
                                 </span>
                               )}
                             </td>

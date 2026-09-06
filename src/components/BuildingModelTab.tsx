@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Compass,
@@ -106,6 +106,21 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   const [solarTimeHour, setSolarTimeHour] = useState<number>(13.5);
   const [solarBuildingRotation, setSolarBuildingRotation] = useState<number>(0);
   const [isSolarHeatmap, setIsSolarHeatmap] = useState<boolean>(false);
+  const [isPlayingSolar, setIsPlayingSolar] = useState<boolean>(false);
+
+  // Continuous play animation for solar simulation
+  useEffect(() => {
+    if (!isPlayingSolar) return;
+    const interval = setInterval(() => {
+      setSolarTimeHour((prev) => {
+        const next = prev + 0.15;
+        if (next > 20.0) return 6.0;
+        return Math.round(next * 100) / 100;
+      });
+    }, 60);
+
+    return () => clearInterval(interval);
+  }, [isPlayingSolar]);
 
   const solarPos = calculateSolarPosition(solarLocation.lat, solarSeasonId, solarTimeHour);
 
@@ -451,7 +466,15 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 <ThreeBuildingView
                   params={modelParams}
                   theme={theme}
+                  sunTimeHour={solarTimeHour}
+                  buildingRotation={solarBuildingRotation}
+                  sunAltitude={solarPos.altitude}
+                  sunAzimuth={solarPos.azimuth}
                   onUpdateFacadeStyle={(style) => updateParams({ facadeStyle: style })}
+                  onUpdateSunTimeHour={setSolarTimeHour}
+                  onUpdateBuildingRotation={setSolarBuildingRotation}
+                  isPlayingSun={isPlayingSolar}
+                  onToggleSunPlay={() => setIsPlayingSolar(!isPlayingSolar)}
                 />
 
                 {/* Görsel Karakter & Dış Cephe Stili Hızlı Seçim Şeridi (10 Mimari Seçenek) */}
@@ -521,9 +544,14 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   solarMode={true}
                   sunAltitude={solarPos.altitude}
                   sunAzimuth={solarPos.azimuth}
+                  sunTimeHour={solarTimeHour}
                   buildingRotation={solarBuildingRotation}
                   isSolarHeatmap={isSolarHeatmap}
                   onUpdateFacadeStyle={(style) => updateParams({ facadeStyle: style })}
+                  onUpdateSunTimeHour={setSolarTimeHour}
+                  onUpdateBuildingRotation={setSolarBuildingRotation}
+                  isPlayingSun={isPlayingSolar}
+                  onToggleSunPlay={() => setIsPlayingSolar(!isPlayingSolar)}
                 />
                 <SolarAnalysisPanel
                   location={solarLocation}

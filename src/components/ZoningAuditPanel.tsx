@@ -26,7 +26,7 @@ export const ZoningAuditPanel: React.FC<ZoningAuditPanelProps> = ({
   params,
   theme = 'light',
 }) => {
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState<boolean>(false);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState<boolean>(true);
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
   const metrics = calculateBuildingMetrics(params);
 
@@ -205,7 +205,7 @@ export const ZoningAuditPanel: React.FC<ZoningAuditPanelProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className={`text-base font-bold ${textTitle}`}>
-                İstanbul İmar & Mevzuat Denetim Raporu
+                ⚖️ İmar & Yapı Mevzuatı Otomatik Uyum Denetimi
               </h3>
               <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
                 Resmi Standartlar
