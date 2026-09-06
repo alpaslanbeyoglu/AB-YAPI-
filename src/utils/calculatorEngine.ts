@@ -333,14 +333,14 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const kabaDaysTotal = floorCount * kabaDaysPerFloor + 15;
   const inceDaysTotal = floorCount * inceDaysPerFloor + 30;
   const totalDaysAuto = permitDays + kabaDaysTotal + inceDaysTotal + iskanDays;
-  const autoDurationMonths = totalDaysAuto / 30;
+  const autoDurationMonths = Math.round((totalDaysAuto / 30) * 10) / 10;
 
   let finalMonths = autoDurationMonths;
   let totalDays = totalDaysAuto;
 
   if (durationOption === 'manual') {
-    finalMonths = manualMonths;
-    totalDays = manualMonths * 30;
+    finalMonths = Math.round((manualMonths || 0) * 10) / 10;
+    totalDays = finalMonths * 30;
   } else if (durationOption === 'hide') {
     finalMonths = 0;
     totalDays = 0;

@@ -214,9 +214,31 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
         <div className="lg:col-span-2 space-y-8">
           {/* 1. SECTION: RESMİ FİRMA BİLGİLERİ */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
-            <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-              <Building className="w-5 h-5 text-indigo-600" />
-              <h2 className="text-base font-bold text-slate-900">1. Resmî Ticari & Kurumsal Bilgiler</h2>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+              <div className="flex items-center gap-2.5">
+                <Building className="w-5 h-5 text-indigo-600" />
+                <h2 className="text-base font-bold text-slate-900">1. Resmî Ticari & Kurumsal Bilgiler</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 cursor-pointer bg-slate-100 px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={formData.printOptions?.showLegalName !== false}
+                    onChange={() => handlePrintOptionToggle('showLegalName')}
+                    className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300"
+                  />
+                  Unvan Göster
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer bg-slate-100 px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={formData.printOptions?.showTaxInfo !== false}
+                    onChange={() => handlePrintOptionToggle('showTaxInfo')}
+                    className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300"
+                  />
+                  Vergi Bilgisi
+                </label>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -364,14 +386,20 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
 
           {/* 2. SECTION: 1. YETKİLİ KİŞİ VE ÜNVANLARI */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
               <div className="flex items-center gap-2.5">
                 <UserCheck className="w-5 h-5 text-indigo-600" />
                 <h2 className="text-base font-bold text-slate-900">2. Birinci Yetkili & İmza Sahibi (Teklif / Sözleşme)</h2>
               </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md">
-                Asıl İmza Sahibi
-              </span>
+              <label className="flex items-center gap-2 cursor-pointer bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 text-indigo-800 text-xs font-bold">
+                <input
+                  type="checkbox"
+                  checked={formData.printOptions?.showFirstAuthorized !== false}
+                  onChange={() => handlePrintOptionToggle('showFirstAuthorized')}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                />
+                Çıktılarda Göster
+              </label>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -440,14 +468,20 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
 
           {/* 3. SECTION: 2. YETKİLİ / ŞANTİYE ŞEFİ */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
               <div className="flex items-center gap-2.5">
                 <Users className="w-5 h-5 text-emerald-600" />
                 <h2 className="text-base font-bold text-slate-900">3. İkinci Yetkili / Şantiye Şefi / Teknik Sorumlu (Opsiyonel)</h2>
               </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
-                2. İmza / Saha Yetkilisi
-              </span>
+              <label className="flex items-center gap-2 cursor-pointer bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-800 text-xs font-bold">
+                <input
+                  type="checkbox"
+                  checked={formData.printOptions?.showSecondAuthorized !== false}
+                  onChange={() => handlePrintOptionToggle('showSecondAuthorized')}
+                  className="w-4 h-4 text-emerald-600 rounded border-slate-300"
+                />
+                Çıktılarda Göster
+              </label>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -800,38 +834,48 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
             </div>
 
             <div className="bg-white text-slate-900 rounded-xl p-4 space-y-3 text-xs shadow-inner">
-              <div className="text-center font-bold text-slate-900 border-b border-slate-200 pb-2">
-                {formData.legalName || 'FİRMA ÜNVANI'}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="text-center border-r border-slate-200 pr-2">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase">1. İmza / Yetkili</p>
-                  <p className="font-bold text-slate-900 mt-1">{formData.authorizedPerson || 'Yetkili Adı'}</p>
-                  <p className="text-[10px] text-indigo-600 font-semibold leading-tight">{formData.authorizedTitle || 'Ünvan'}</p>
-                  {formData.authorizedChamberNo && (
-                    <p className="text-[9px] text-slate-400 font-mono mt-0.5">{formData.authorizedChamberNo}</p>
-                  )}
-                  {formData.stampBase64 ? (
-                    <img src={formData.stampBase64} alt="Kaşe" className="h-10 mx-auto mt-2 object-contain" />
-                  ) : (
-                    <div className="h-8 border-b border-dashed border-slate-300 mt-2 flex items-end justify-center text-[9px] text-slate-400">
-                      (İmza / Kaşe)
-                    </div>
-                  )}
+              {formData.printOptions?.showLegalName !== false && (
+                <div className="text-center font-bold text-slate-900 border-b border-slate-200 pb-2">
+                  {formData.legalName || 'FİRMA ÜNVANI'}
                 </div>
+              )}
 
-                <div className="text-center pl-2">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase">2. İmza / Teknik</p>
-                  <p className="font-bold text-slate-900 mt-1">{formData.authorizedPerson2 || '2. Yetkili Adı'}</p>
-                  <p className="text-[10px] text-emerald-600 font-semibold leading-tight">{formData.authorizedTitle2 || 'Teknik Ünvan'}</p>
-                  {formData.authorizedChamberNo2 && (
-                    <p className="text-[9px] text-slate-400 font-mono mt-0.5">{formData.authorizedChamberNo2}</p>
-                  )}
-                  <div className="h-8 border-b border-dashed border-slate-300 mt-2 flex items-end justify-center text-[9px] text-slate-400">
-                    (İmza)
+              <div className={`grid gap-3 pt-2 ${
+                (formData.printOptions?.showFirstAuthorized !== false) && (formData.printOptions?.showSecondAuthorized !== false) && formData.authorizedPerson2
+                  ? 'grid-cols-2'
+                  : 'grid-cols-1'
+              }`}>
+                {formData.printOptions?.showFirstAuthorized !== false && (
+                  <div className={`text-center ${formData.printOptions?.showSecondAuthorized !== false && formData.authorizedPerson2 ? 'border-r border-slate-200 pr-2' : ''}`}>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase">1. İmza / Yetkili</p>
+                    <p className="font-bold text-slate-900 mt-1">{formData.authorizedPerson || 'Yetkili Adı'}</p>
+                    <p className="text-[10px] text-indigo-600 font-semibold leading-tight">{formData.authorizedTitle || 'Ünvan'}</p>
+                    {formData.printOptions?.showFirstAuthorizedChamber !== false && formData.authorizedChamberNo && (
+                      <p className="text-[9px] text-slate-400 font-mono mt-0.5">{formData.authorizedChamberNo}</p>
+                    )}
+                    {formData.printOptions?.showStamp !== false && formData.stampBase64 ? (
+                      <img src={formData.stampBase64} alt="Kaşe" className="h-10 mx-auto mt-2 object-contain" />
+                    ) : (
+                      <div className="h-8 border-b border-dashed border-slate-300 mt-2 flex items-end justify-center text-[9px] text-slate-400">
+                        (İmza / Kaşe)
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
+
+                {formData.printOptions?.showSecondAuthorized !== false && formData.authorizedPerson2 && (
+                  <div className="text-center pl-2">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase">2. İmza / Teknik</p>
+                    <p className="font-bold text-slate-900 mt-1">{formData.authorizedPerson2}</p>
+                    <p className="text-[10px] text-emerald-600 font-semibold leading-tight">{formData.authorizedTitle2 || 'Teknik Ünvan'}</p>
+                    {formData.printOptions?.showSecondAuthorizedChamber !== false && formData.authorizedChamberNo2 && (
+                      <p className="text-[9px] text-slate-400 font-mono mt-0.5">{formData.authorizedChamberNo2}</p>
+                    )}
+                    <div className="h-8 border-b border-dashed border-slate-300 mt-2 flex items-end justify-center text-[9px] text-slate-400">
+                      (İmza)
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

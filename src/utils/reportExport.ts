@@ -202,35 +202,34 @@ export function generateOfferHtml(
     paymentScheduleBlock = `
     <div class="avoid-break">
       <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-top:16px;margin-bottom:8px;">
-        4. Aylık Eşit Taksitli Ödeme Takvimi (${params.installmentCount || 12} Ay Vadeli)
+        4. Aylık Eşit Taksitli Ödeme Takvimi (${params.installmentCount || 12} Ay Vadeli - Proje Geneli Özet Plan)
       </h3>
       <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10.5px;">
         <thead>
           <tr>
-            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Daire No / Hak Sahibi</th>
-            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Daire Payı Bedeli</th>
-            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Ödenen Peşinat</th>
-            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Devlet Desteği</th>
-            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Kalan Net Borç</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Proje Ödeme Kapsamı</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Daire Ortalama Bedeli</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Daire Başı Peşinat</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Daire Başı Destek</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Daire Başı Kalan Borç</th>
             <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:center;">Vade</th>
-            <th style="background:#065f46;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Aylık Taksit Tutarı</th>
+            <th style="background:#065f46;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Daire Başı Aylık Taksit</th>
           </tr>
         </thead>
         <tbody>
-          ${res.flatResults.map(f => `
           <tr>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;">Daire ${f.id} (${f.name})</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#4f46e5;font-family:monospace;">-${f.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">${f.usedCredit > 0 ? `-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '0 TL'}</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;">${f.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-'}</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${f.netRemainingDebt > 0 ? `${f.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}</td>
-          </tr>`).join('')}
+            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${res.flatResults.length} Adet Konut - Ortak Plan)</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.grossPay,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#4f46e5;font-family:monospace;">-${Math.round(res.flatResults.reduce((s,f)=>s+f.downPayment,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">-${Math.round(res.flatResults.reduce((s,f)=>s+f.usedCredit,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.netRemainingDebt,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:center;">${params.installmentCount || 12} Ay</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.monthlyInstallment,0)/res.flatResults.length).toLocaleString('tr-TR')} TL / Ay</td>
+          </tr>
         </tbody>
         <tfoot>
           <tr style="background:#f8fafc;font-weight:bold;border-top:2px solid #cbd5e1;">
-            <td colspan="4" style="padding:8px;border:1px solid #cbd5e1;">PROJE ŞANTİYESİ AYLIK TOPLAM HAKEDİŞ GİRİŞİ:</td>
+            <td colspan="4" style="padding:8px;border:1px solid #cbd5e1;">PROJE GENELİ TOPLAM HAKEDİŞ / BORÇ HACMİ:</td>
             <td style="padding:8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${res.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
             <td style="padding:8px;border:1px solid #cbd5e1;text-align:center;">${params.installmentCount || 12} Ay</td>
             <td style="padding:8px;border:1px solid #cbd5e1;text-align:right;color:#065f46;background:#d1fae5;font-size:11.5px;font-family:monospace;">${(res.totalMonthlyInstallments || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay</td>
@@ -242,68 +241,72 @@ export function generateOfferHtml(
     paymentScheduleBlock = `
     <div class="avoid-break">
       <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-top:16px;margin-bottom:8px;">
-        4. Karma Ödeme Takvimi (Peşinat + Ara Ödemeler + ${params.installmentCount || 12} Ay Taksit)
+        4. Karma Ödeme Takvimi (Peşinat + Ara Ödemeler + ${params.installmentCount || 12} Ay Taksit - Proje Geneli Özet Plan)
       </h3>
       <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10.5px;">
         <thead>
           <tr>
-            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Daire No / Hak Sahibi</th>
-            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Net Kalan Borç</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Proje Ödeme Kapsamı</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Daire Başı Net Borç</th>
             <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">1. Ara Ödeme (%25 Kaba)</th>
             <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">2. Ara Ödeme (%15 İskân)</th>
             <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Taksitlendirilen (%60)</th>
-            <th style="background:#065f46;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Aylık Taksit (${params.installmentCount || 12} Ay)</th>
+            <th style="background:#065f46;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Daire Başı Aylık (${params.installmentCount || 12} Ay)</th>
           </tr>
         </thead>
         <tbody>
-          ${res.flatResults.map(f => {
-            const interim1 = Math.round(f.netRemainingDebt * 0.25);
-            const interim2 = Math.round(f.netRemainingDebt * 0.15);
-            const rem = Math.max(0, f.netRemainingDebt - interim1 - interim2);
-            const monthly = Math.round(rem / Math.max(1, params.installmentCount || 12));
-            return `
-            <tr>
-              <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;">Daire ${f.id} (${f.name})</td>
-              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#4338ca;font-family:monospace;">${interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#7e22ce;font-family:monospace;">${interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${rem.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${f.netRemainingDebt > 0 ? `${monthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}</td>
-            </tr>`;
-          }).join('')}
+          <tr>
+            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${res.flatResults.length} Adet Konut - Karma Plan)</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.netRemainingDebt,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#4338ca;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+(f.netRemainingDebt*0.25),0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#7e22ce;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+(f.netRemainingDebt*0.15),0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+(f.netRemainingDebt*0.60),0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+(f.netRemainingDebt*0.60/Math.max(1, params.installmentCount || 12)),0)/res.flatResults.length).toLocaleString('tr-TR')} TL / Ay</td>
+          </tr>
         </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc;font-weight:bold;border-top:2px solid #cbd5e1;">
+            <td style="padding:8px;border:1px solid #cbd5e1;">PROJE GENELİ TOPLAM:</td>
+            <td colspan="5" style="padding:8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${res.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL Toplam Borç Hacmi</td>
+          </tr>
+        </tfoot>
       </table>
     </div>`;
   } else {
     paymentScheduleBlock = `
     <div class="avoid-break">
       <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-top:16px;margin-bottom:8px;">
-        4. Fiziki İlerleme Hakediş Takvimi (5 Aşamalı)
+        4. Fiziki İlerleme Hakediş Takvimi (5 Aşamalı - Proje Geneli Özet Plan)
       </h3>
       <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10.5px;">
         <thead>
           <tr>
-            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Daire No / Hak Sahibi</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Proje İlerleme Kapsamı</th>
             <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">1. Ruhsat (%${params.stage1Pay || 20})</th>
             <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">2. Temel (%${params.stage2Pay || 20})</th>
             <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">3. Kaba (%${params.stage3Pay || 30})</th>
             <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">4. İnce (%${params.stage4Pay || 20})</th>
             <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">5. İskân (%${params.stage5Pay || 10})</th>
-            <th style="background:#1e3a8a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Toplam Net Borç</th>
+            <th style="background:#1e3a8a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Ortalama Net Borç</th>
           </tr>
         </thead>
         <tbody>
-          ${res.flatResults.map(f => `
           <tr>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;">Daire ${f.id} (${f.name})</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#4f46e5;font-family:monospace;">${f.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;text-align:right;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          </tr>`).join('')}
+            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${res.flatResults.length} Adet Konut - Aşama Planı)</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[0],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[1],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[2],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#4f46e5;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[3],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[4],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.netRemainingDebt,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+          </tr>
         </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc;font-weight:bold;border-top:2px solid #cbd5e1;">
+            <td style="padding:8px;border:1px solid #cbd5e1;">PROJE GENELİ TOPLAM:</td>
+            <td colspan="6" style="padding:8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${res.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL Toplam Hakediş</td>
+          </tr>
+        </tfoot>
       </table>
     </div>`;
   }
@@ -316,7 +319,20 @@ export function generateOfferHtml(
   <style>
     @page {
       size: A4 portrait;
-      margin: 12mm 10mm 12mm 10mm;
+      margin: 12mm 10mm 15mm 10mm;
+      @bottom-right {
+        content: "Sayfa " counter(page) " / " counter(pages);
+        font-size: 9px;
+        color: #64748b;
+        font-weight: bold;
+        font-family: sans-serif;
+      }
+      @bottom-left {
+        content: "${compName} - Resmî Teklifname";
+        font-size: 9px;
+        color: #64748b;
+        font-family: sans-serif;
+      }
     }
     * { box-sizing: border-box; }
     body {
@@ -469,6 +485,20 @@ export function generateOfferHtml(
         ${table1Header}
       </thead>
       <tbody>${flatRows}</tbody>
+      <tfoot>
+        <tr style="background:#f8fafc;font-weight:bold;border-top:2px solid #cbd5e1;">
+          <td colspan="5" style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">TOPLAM (${res.flatResults.length} Bağımsız Bölüm):</td>
+          <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${res.flatResults.reduce((s, f) => s + f.grossPay, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          ${isContractorShareModel ? `
+          <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#047857;">-${res.flatResults.reduce((s, f) => s + f.grossPay, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;background:#f0fdf4;color:#047857;">0 TL</td>
+          ` : `
+          <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#4f46e5;">-${res.flatResults.reduce((s, f) => s + f.downPayment, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#047857;">-${res.flatResults.reduce((s, f) => s + f.usedCredit, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;background:#e0e7ff;color:#1e3a8a;">${res.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          `}
+        </tr>
+      </tfoot>
     </table>
   </div>
 
@@ -498,20 +528,22 @@ export function generateOfferHtml(
         <p style="font-size:9.5px;color:#475569;margin:0 0 6px 0;font-weight:600;">${compLegal}</p>
         
         <div style="display:flex;justify-content:center;gap:16px;align-items:center;min-height:50px;position:relative;">
-          ${compStamp ? `
+          ${showStamp && compStamp ? `
             <img src="${compStamp}" alt="Kaşe/İmza" style="max-height:55px;object-fit:contain;position:absolute;z-index:2;opacity:0.9;" />
           ` : ''}
+          ${showFirstAuth ? `
           <div style="position:relative;z-index:1;">
             <p style="font-weight:bold;color:#0f172a;font-size:11px;margin:0;">${compAuth}</p>
             <p style="font-size:9.5px;color:#4338ca;margin:0;font-weight:600;">${compAuthTitle}</p>
-            ${compAuthChamber ? `<p style="font-size:8.5px;color:#64748b;margin:0;font-family:monospace;">${compAuthChamber}</p>` : ''}
+            ${showFirstAuthChamber && compAuthChamber ? `<p style="font-size:8.5px;color:#64748b;margin:0;font-family:monospace;">${compAuthChamber}</p>` : ''}
           </div>
-          ${compAuth2 ? `
-            <div style="position:relative;z-index:1;border-left:1px solid #e2e8f0;padding-left:12px;">
-              <p style="font-weight:bold;color:#0f172a;font-size:11px;margin:0;">${compAuth2}</p>
-              <p style="font-size:9.5px;color:#065f46;margin:0;font-weight:600;">${compAuthTitle2}</p>
-              ${compAuthChamber2 ? `<p style="font-size:8.5px;color:#64748b;margin:0;font-family:monospace;">${compAuthChamber2}</p>` : ''}
-            </div>
+          ` : ''}
+          ${showSecondAuth && compAuth2 ? `
+          <div style="position:relative;z-index:1;border-left:1px solid #e2e8f0;padding-left:12px;">
+            <p style="font-weight:bold;color:#0f172a;font-size:11px;margin:0;">${compAuth2}</p>
+            <p style="font-size:9.5px;color:#065f46;margin:0;font-weight:600;">${compAuthTitle2}</p>
+            ${showSecondAuthChamber && compAuthChamber2 ? `<p style="font-size:8.5px;color:#64748b;margin:0;font-family:monospace;">${compAuthChamber2}</p>` : ''}
+          </div>
           ` : ''}
         </div>
         <div style="height:15px;border-bottom:1px solid #94a3b8;margin:4px 20px 6px 20px;"></div>
@@ -584,7 +616,23 @@ export function generateContractHtml(
   <meta charset="UTF-8">
   <title>${contractTitle}</title>
   <style>
-    @page { size: A4 portrait; margin: 12mm 10mm 12mm 10mm; }
+    @page {
+      size: A4 portrait;
+      margin: 12mm 10mm 15mm 10mm;
+      @bottom-right {
+        content: "Sayfa " counter(page) " / " counter(pages);
+        font-size: 9px;
+        color: #64748b;
+        font-weight: bold;
+        font-family: sans-serif;
+      }
+      @bottom-left {
+        content: "${compName} - Yapım Sözleşmesi";
+        font-size: 9px;
+        color: #64748b;
+        font-family: sans-serif;
+      }
+    }
     * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
