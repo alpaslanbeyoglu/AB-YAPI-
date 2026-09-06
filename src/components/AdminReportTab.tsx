@@ -191,6 +191,8 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
           <PrintAndPdfButtons
             onExportPdf={handleExportPdf}
             onPrint={handlePrint}
+            getHtmlContent={generateAdminReportHtml}
+            documentTitle="Müteahhit Özel / Finans Raporu"
             theme={theme}
           />
         </div>

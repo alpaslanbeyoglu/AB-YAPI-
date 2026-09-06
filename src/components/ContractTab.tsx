@@ -109,6 +109,8 @@ export const ContractTab: React.FC<ContractTabProps> = ({
           <PrintAndPdfButtons
             onExportPdf={handleExportPdf}
             onPrint={handlePrint}
+            getHtmlContent={() => generateContractHtml(params, results, profile)}
+            documentTitle={`${profile.companyName || 'AB YAPI'} - Yapım Sözleşmesi`}
             theme={theme}
           />
         </div>

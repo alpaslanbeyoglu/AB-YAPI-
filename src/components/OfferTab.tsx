@@ -182,6 +182,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           <PrintAndPdfButtons
             onExportPdf={handleExportPdf}
             onPrint={handlePrint}
+            getHtmlContent={() => generateOfferHtml(params, results, false, profile)}
+            documentTitle={`${compName} - Resmî Teklifname`}
             theme={theme}
           />
         </div>
@@ -327,7 +329,14 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Birim İmalat Maliyeti</span>
-              <div className="text-sm font-bold text-emerald-700 font-mono">{results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</div>
+              <div className="text-sm font-bold text-emerald-700 font-mono flex items-center gap-1.5">
+                <span>{results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</span>
+                {!!(params.manualUnitPrice && params.manualUnitPrice > 0) && (
+                  <span className="text-[9px] font-sans font-medium px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Özel Teklif Fiyatı
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] text-slate-400 font-mono">~{results.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²</span>
             </div>
 

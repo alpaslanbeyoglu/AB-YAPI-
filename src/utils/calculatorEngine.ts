@@ -479,17 +479,29 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     Math.round(
       (officialCost + sgkSalesCost + kabaTotalCost + systemsCost + finishingTotalCost) * 100
     ) / 100;
-  const profitAmount = Math.round(subTotalCost * (profitRate / 100) * 100) / 100;
-  const grandTotal = Math.round((subTotalCost + profitAmount) * 100) / 100;
+  const calculatedProfitAmount = Math.round(subTotalCost * (profitRate / 100) * 100) / 100;
+  const calculatedGrandTotal = Math.round((subTotalCost + calculatedProfitAmount) * 100) / 100;
 
-  const netCostPerSqM = Math.round((subTotalCost / totalArea) * 100) / 100;
-  const calculatedGrossCostPerSqM = Math.round((grandTotal / totalArea) * 100) / 100;
-  const grossCostPerSqM = (params.manualUnitPrice && params.manualUnitPrice > 0) 
-    ? params.manualUnitPrice 
+  const netCostPerSqM = totalArea > 0 ? Math.round((subTotalCost / totalArea) * 100) / 100 : 0;
+  const calculatedGrossCostPerSqM = totalArea > 0 ? Math.round((calculatedGrandTotal / totalArea) * 100) / 100 : 0;
+
+  const hasManualUnitPrice = !!(params.manualUnitPrice && params.manualUnitPrice > 0);
+
+  const grossCostPerSqM = hasManualUnitPrice 
+    ? Math.max(0, params.manualUnitPrice!) 
     : calculatedGrossCostPerSqM;
-    
-  const baseCostPerSqM =
-    includeProfitOwner === 'yes' ? grossCostPerSqM : netCostPerSqM;
+
+  const grandTotal = hasManualUnitPrice
+    ? Math.round((grossCostPerSqM * Math.max(0, totalArea)) * 100) / 100
+    : calculatedGrandTotal;
+
+  const profitAmount = hasManualUnitPrice
+    ? Math.max(0, Math.round((grandTotal - subTotalCost) * 100) / 100)
+    : calculatedProfitAmount;
+
+  const baseCostPerSqM = hasManualUnitPrice
+    ? grossCostPerSqM
+    : (includeProfitOwner === 'yes' ? grossCostPerSqM : netCostPerSqM);
 
   const netUsdPerSqM = usdRate > 0 ? Math.round((netCostPerSqM / usdRate) * 100) / 100 : 0;
   const grossUsdPerSqM = usdRate > 0 ? Math.round((grossCostPerSqM / usdRate) * 100) / 100 : 0;

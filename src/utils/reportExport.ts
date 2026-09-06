@@ -496,7 +496,7 @@ export function generateOfferHtml(
       <tbody>${flatRows}</tbody>
       <tfoot>
         <tr style="background:#f8fafc;font-weight:bold;border-top:2px solid #cbd5e1;">
-          <td colspan="5" style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">TOPLAM (${res.flatResults.length} Bağımsız Bölüm):</td>
+          <td colspan="${showLandSerefiye ? 5 : 3}" style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">TOPLAM (${res.flatResults.length} Bağımsız Bölüm):</td>
           <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${res.flatResults.reduce((s, f) => s + f.grossPay, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
           ${isContractorShareModel ? `
           <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#047857;">-${res.flatResults.reduce((s, f) => s + f.grossPay, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>

@@ -519,6 +519,17 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
             </div>
 
             <div>
+              <label className={`block text-xs ${labelColor} mb-1.5`}>Özel Teklif Birim m² Maliyeti (TL/m²):</label>
+              <input
+                type="number"
+                value={params.manualUnitPrice || ''}
+                onChange={(e) => updateParam('manualUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
+                placeholder="Otomatik (Boş Bırakılabilir)"
+                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold text-emerald-700 dark:text-emerald-400 ${inputBg}`}
+              />
+            </div>
+
+            <div>
               <label className={`block text-xs ${labelColor} mb-1.5`}>USD Dolar Kuru (₺):</label>
               <input
                 type="number"

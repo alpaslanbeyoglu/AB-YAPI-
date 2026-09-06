@@ -769,9 +769,9 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
     await exportElementToPdf(planRef.current, fileName, { landscape: true });
   };
 
-  const handlePrint = () => {
-    if (!planRef.current) return;
-    const planHtml = `
+  const getPlanHtml = () => {
+    if (!planRef.current) return '';
+    return `
       <!DOCTYPE html>
       <html lang="tr">
       <head>
@@ -791,6 +791,11 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
       </body>
       </html>
     `;
+  };
+
+  const handlePrint = () => {
+    const planHtml = getPlanHtml();
+    if (!planHtml) return;
     printHtmlContent(planHtml, `AB_YAPI_2D_Kat_Plani_${selectedFloorTab}`);
   };
 
@@ -1056,6 +1061,8 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
             <PrintAndPdfButtons
               onExportPdf={handleExportPdf}
               onPrint={handlePrint}
+              getHtmlContent={getPlanHtml}
+              documentTitle={`2D Mimari Kat Planı (${selectedFloorTab})`}
               theme={theme}
             />
           </div>

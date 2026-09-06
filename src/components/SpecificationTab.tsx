@@ -493,6 +493,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
           <PrintAndPdfButtons
             onExportPdf={handleExportPdf}
             onPrint={handlePrint}
+            getHtmlContent={generateSpecHtml}
+            documentTitle={activeTab === 'common' ? 'Ortak Teknik Şartname' : 'Projeye Özel Teknik Şartname'}
             theme={theme}
           />
         </div>
