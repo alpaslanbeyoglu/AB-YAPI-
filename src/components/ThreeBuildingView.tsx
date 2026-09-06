@@ -453,6 +453,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
   const sunSphereMeshRef = useRef<THREE.Mesh | null>(null);
   const compassGroupRef = useRef<THREE.Group | null>(null);
+  const roadsGroupRef = useRef<THREE.Group | null>(null);
 
   // View settings
   const [explodeRatio, setExplodeRatio] = useState<number>(0);
@@ -3111,6 +3112,118 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       buildingGroup.add(debugGroup);
     }
 
+    // 6.3 Render Roads
+    if (roadsGroupRef.current) {
+      const roadsGroup = roadsGroupRef.current;
+      // Clear existing roads
+      while (roadsGroup.children.length > 0) {
+        const child = roadsGroup.children[0];
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+          else child.material.dispose();
+        }
+        roadsGroup.remove(child);
+      }
+
+      if (params.roads && params.roads.length > 0) {
+        params.roads.forEach((road) => {
+          const roadWidth = road.width || 7;
+          const roadLength = 300; 
+          
+          let posX = 0;
+          let posZ = 0;
+          let rotY = 0;
+          
+          const offset = 0.5; // Slight offset from the building lot boundary
+
+          if (isCustomPoly && activePolyPts) {
+            const edges = getPolygonEdges(activePolyPts);
+            const edge = edges[road.facadeIndex % edges.length];
+            if (edge) {
+              const bounds = getPolygonBounds(activePolyPts);
+              const midX = (edge.start.x + edge.end.x) / 2 - bounds.centerX;
+              const midZ = (edge.start.y + edge.end.y) / 2 - bounds.centerY;
+              
+              const dx = edge.end.x - edge.start.x;
+              const dz = edge.end.y - edge.start.y;
+              const len = Math.sqrt(dx * dx + dz * dz) || 1;
+              
+              // Normal points outward
+              const nx = dz / len;
+              const nz = -dx / len;
+              
+              posX = midX + nx * (roadWidth / 2 + offset);
+              posZ = midZ + nz * (roadWidth / 2 + offset);
+              rotY = Math.atan2(dx, dz);
+            }
+          } else {
+            // Standard Box (W x D)
+            if (road.facadeIndex === 0) { // Front (+Z)
+              posZ = D / 2 + roadWidth / 2 + offset;
+              rotY = Math.PI / 2;
+            } else if (road.facadeIndex === 1) { // Right (+X)
+              posX = W / 2 + roadWidth / 2 + offset;
+              rotY = 0;
+            } else if (road.facadeIndex === 2) { // Rear (-Z)
+              posZ = -D / 2 - roadWidth / 2 - offset;
+              rotY = Math.PI / 2;
+            } else if (road.facadeIndex === 3) { // Left (-X)
+              posX = -W / 2 - roadWidth / 2 - offset;
+              rotY = 0;
+            }
+          }
+
+          // Road Surface
+          const roadGeo = new THREE.PlaneGeometry(roadLength, roadWidth);
+          const roadMat = new THREE.MeshStandardMaterial({ 
+            color: 0x334155, 
+            roughness: 0.9,
+            metalness: 0.05
+          });
+          const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+          roadMesh.rotation.x = -Math.PI / 2;
+          roadMesh.rotation.z = rotY;
+          roadMesh.position.set(posX, 0.01, posZ);
+          roadMesh.receiveShadow = true;
+          roadsGroup.add(roadMesh);
+
+          // Road Markings (Yellow/White center line)
+          if (road.type !== 'street') {
+            const lineGeo = new THREE.PlaneGeometry(roadLength, 0.15);
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
+            const lineMesh = new THREE.Mesh(lineGeo, lineMat);
+            lineMesh.rotation.x = -Math.PI / 2;
+            lineMesh.rotation.z = rotY;
+            lineMesh.position.set(posX, 0.02, posZ);
+            roadsGroup.add(lineMesh);
+          }
+          
+          // Side Curbs / Sidewalks (Tretuvar)
+          const swW = 2.5; // Sidewalk width
+          const swGeo = new THREE.PlaneGeometry(roadLength, swW);
+          const swMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.8 });
+          
+          // Calculate sidewalk positions based on road normal
+          const s1Offset = (roadWidth / 2 + swW / 2);
+          const nx = Math.sin(rotY + Math.PI / 2);
+          const nz = Math.cos(rotY + Math.PI / 2);
+
+          const s1 = new THREE.Mesh(swGeo, swMat);
+          s1.rotation.x = -Math.PI / 2;
+          s1.rotation.z = rotY;
+          s1.position.set(posX + nx * s1Offset, 0.12, posZ + nz * s1Offset);
+          roadsGroup.add(s1);
+
+          const s2 = new THREE.Mesh(swGeo, swMat);
+          s2.rotation.x = -Math.PI / 2;
+          s2.rotation.z = rotY;
+          s2.position.set(posX - nx * s1Offset, 0.12, posZ - nz * s1Offset);
+          roadsGroup.add(s2);
+        });
+      }
+    }
+
     // Center building at origin
     buildingGroup.position.set(0, 0, 0);
 
@@ -3267,6 +3380,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     compassGroup.add(southMesh);
 
     scene.add(compassGroup);
+    
+    // 6.2 Roads Group
+    const roadsGroup = new THREE.Group();
+    roadsGroup.position.y = -0.05;
+    roadsGroupRef.current = roadsGroup;
+    scene.add(roadsGroup);
 
     const planeGeo = new THREE.PlaneGeometry(200, 200);
     const planeMat = new THREE.ShadowMaterial({ opacity: isLight ? 0.25 : 0.4 });
@@ -3320,6 +3439,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     // 1. Rotate building group according to compass angle
     if (buildingGroupRef.current) {
       buildingGroupRef.current.rotation.y = (buildingRotation * Math.PI) / 180;
+    }
+    if (roadsGroupRef.current) {
+      roadsGroupRef.current.rotation.y = (buildingRotation * Math.PI) / 180;
     }
 
     // 2. Adjust Sun Position and Lighting when in solarMode or with custom angles
@@ -3917,22 +4039,22 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
           {/* Sun Hour Slider (Overlay) */}
           {onUpdateSunTimeHour && (
-            <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ${
+            <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ring-1 ring-amber-200/50 ${
               isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
             }`}>
-              <span className="text-[11px] font-semibold flex items-center gap-1.5 text-slate-700">
-                <Sun className="w-3.5 h-3.5 text-amber-500" />
-                <span>Güneş Saati:</span>
+              <span className="text-[11px] font-bold flex items-center gap-1.5 text-slate-700">
+                <Sun className="w-4 h-4 text-amber-500 animate-pulse" />
+                <span className="uppercase tracking-tight">Güneş Saati:</span>
               </span>
               
               <button
                 type="button"
                 onClick={onToggleSunPlay}
-                className={`p-1 rounded-lg transition-all ${
-                  isPlayingSun ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                className={`p-1.5 rounded-lg transition-all shadow-sm active:scale-95 ${
+                  isPlayingSun ? 'bg-amber-500 text-white shadow-amber-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {isPlayingSun ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                {isPlayingSun ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
               </button>
 
               <input
@@ -3942,9 +4064,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                 step="0.1"
                 value={sunTimeHour}
                 onChange={(e) => onUpdateSunTimeHour(parseFloat(e.target.value))}
-                className="w-24 sm:w-36 accent-amber-500 cursor-pointer"
+                className="w-24 sm:w-40 accent-amber-500 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
               />
-              <span className="font-mono text-[11px] text-amber-600 font-bold">
+              <span className="font-mono text-xs text-amber-600 font-black bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100">
                 {Math.floor(sunTimeHour).toString().padStart(2, '0')}:
                 {Math.round((sunTimeHour % 1) * 60).toString().padStart(2, '0')}
               </span>
@@ -3953,13 +4075,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
           {/* Building Rotation Slider (Overlay) */}
           {onUpdateBuildingRotation && (
-            <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ${
+            <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ring-1 ring-indigo-200/50 ${
               isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
             }`}>
-              <span className="text-[11px] font-semibold flex items-center gap-1.5 text-slate-700">
-                <Compass className="w-3.5 h-3.5 text-rose-500" />
-                <span>Yapı Rotasyonu:</span>
+              <span className="text-[11px] font-bold flex items-center gap-1.5 text-slate-700">
+                <RotateCcw className="w-4 h-4 text-indigo-600" />
+                <span className="uppercase tracking-tight">Yapı Rotasyonu:</span>
               </span>
+              
               <input
                 type="range"
                 min="0"
@@ -3967,9 +4090,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                 step="1"
                 value={buildingRotation}
                 onChange={(e) => onUpdateBuildingRotation(parseInt(e.target.value))}
-                className="w-24 sm:w-36 accent-rose-500 cursor-pointer"
+                className="w-24 sm:w-40 accent-indigo-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
               />
-              <span className="font-mono text-[11px] text-rose-600 font-bold">
+              <span className="font-mono text-xs text-indigo-700 font-black bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
                 {buildingRotation}°
               </span>
             </div>

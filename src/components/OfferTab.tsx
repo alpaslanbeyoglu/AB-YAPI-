@@ -762,7 +762,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   const floorNo = flat.floorNumber !== undefined ? flat.floorNumber : Math.min(totalFloors, Math.ceil(flat.id / flatsPerFloor));
                   const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
                   const facadeText = flat.facade ? (flat.facade.charAt(0).toUpperCase() + flat.facade.slice(1)) : 'Güney';
-                  const roomCountText = params.roomType ? `${params.roomType} Oda` : (flat.area < 65 ? '1+1' : flat.area < 95 ? '2+1' : flat.area < 135 ? '3+1' : '4+1');
+                  const roomCountText = flat.flatType === 'shop' 
+                    ? 'Ticari / Dükkan' 
+                    : params.roomType ? `${params.roomType} Oda` : (flat.area < 65 ? '1+1' : flat.area < 95 ? '2+1' : flat.area < 135 ? '3+1' : '4+1');
                   
                   const serefiyeVal = flat.serefiyeMultiplier || 1.0;
                   const serefiyeDiff = Math.round((serefiyeVal - 1) * 100);
@@ -967,12 +969,14 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                       </td>
                       <td className="p-3 text-center font-mono text-slate-600">
-                        {flat.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-'}
+                        {flat.flatType === 'shop' ? '-' : (flat.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-')}
                       </td>
                       <td className="p-3 text-right font-bold text-emerald-900 font-mono bg-emerald-50/50">
-                        {flat.netRemainingDebt > 0
-                          ? `${flat.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay`
-                          : '0 TL'}
+                        {flat.flatType === 'shop' 
+                          ? 'Dükkan Tek Sefer' 
+                          : (flat.netRemainingDebt > 0
+                            ? `${flat.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay`
+                            : '0 TL')}
                       </td>
                     </tr>
                   ))}
@@ -1029,16 +1033,18 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                           {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                         </td>
                         <td className="p-3 text-right text-indigo-700 font-mono">
-                          {interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          {flat.flatType === 'shop' ? '-' : interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
                         </td>
                         <td className="p-3 text-right text-purple-700 font-mono">
-                          {interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          {flat.flatType === 'shop' ? '-' : interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
                         </td>
                         <td className="p-3 text-right font-mono text-slate-700 font-semibold">
-                          {remainingToInstallments.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          {flat.flatType === 'shop' ? '-' : remainingToInstallments.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
                         </td>
                         <td className="p-3 text-right font-bold text-emerald-900 font-mono bg-emerald-50/50">
-                          {flat.netRemainingDebt > 0 ? `${hybridMonthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}
+                          {flat.flatType === 'shop' 
+                            ? 'Dükkan Tek Sefer' 
+                            : (flat.netRemainingDebt > 0 ? `${hybridMonthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL')}
                         </td>
                       </tr>
                     );
@@ -1067,19 +1073,19 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         Daire {flat.id} ({flat.name})
                       </td>
                       <td className="p-3 text-slate-700 font-mono">
-                        {flat.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
                       </td>
                       <td className="p-3 text-slate-700 font-mono">
-                        {flat.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
                       </td>
                       <td className="p-3 text-slate-700 font-mono">
-                        {flat.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
                       </td>
                       <td className="p-3 font-semibold text-indigo-700 font-mono">
-                        {flat.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
                       </td>
                       <td className="p-3 text-slate-700 font-mono">
-                        {flat.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
                       </td>
                       <td className="p-3 font-bold text-slate-950 font-mono text-right">
                         {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL

@@ -26,8 +26,13 @@ import {
   Sun,
   MapPin,
   Palette,
+  Navigation,
+  Milestone,
+  Briefcase,
+  RotateCcw,
+  Info
 } from 'lucide-react';
-import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig, FacadeStyleType } from '../types';
+import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig, FacadeStyleType, RoadConfig, RoadType } from '../types';
 import {
   DEFAULT_BUILDING_PARAMS,
   calculateBuildingMetrics,
@@ -67,6 +72,13 @@ interface BuildingModelTabProps {
   onNavigateToFloorPlan?: () => void;
   theme?: AppTheme;
 }
+
+const ROAD_TYPES_DATA: { id: RoadType; label: string; width: number; color: string }[] = [
+  { id: 'street', label: 'Sokak', width: 7, color: '#64748b' },
+  { id: 'road', label: 'Yol', width: 12, color: '#475569' },
+  { id: 'avenue', label: 'Cadde', width: 20, color: '#334155' },
+  { id: 'highway', label: 'Bulvar / Anayol', width: 35, color: '#1e293b' },
+];
 
 export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   params: propParams,
@@ -134,6 +146,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
     dimensions: false,
     typology: false,
     roof: false,
+    roads: false,
     shafts: false,
     contractorShare: false,
   });
@@ -454,6 +467,37 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                     </button>
                   </div>
                 )}
+
+                {/* Quick Solar & Rotation Controls (Moved inside 3D View for User Access) */}
+                <div className="flex items-center gap-2 p-1 rounded-xl border bg-amber-50/50 border-amber-200">
+                  <div className="flex items-center gap-1.5 px-2 py-1">
+                    <Sun className="w-3.5 h-3.5 text-amber-600" />
+                    <input
+                      type="range"
+                      min="6"
+                      max="20"
+                      step="0.5"
+                      value={solarTimeHour}
+                      onChange={(e) => setSolarTimeHour(parseFloat(e.target.value))}
+                      className="w-16 h-1 bg-amber-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
+                      title="Güneş Saati"
+                    />
+                  </div>
+                  <div className="w-px h-4 bg-amber-200" />
+                  <div className="flex items-center gap-1.5 px-2 py-1">
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                    <input
+                      type="range"
+                      min="0"
+                      max="360"
+                      step="1"
+                      value={solarBuildingRotation}
+                      onChange={(e) => setSolarBuildingRotation(parseInt(e.target.value))}
+                      className="w-16 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                      title="Yapı Rotasyonu"
+                    />
+                  </div>
+                </div>
 
                 <span className={`text-[11px] font-mono font-semibold px-2.5 py-1 rounded-xl border ${subCardBg} ${textMuted}`}>
                   Güneş Yönü & 360° Döndürme Aktif
@@ -1234,7 +1278,213 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               )}
             </div>
 
-            {/* CARD 3: CONTRACTOR SHARE (MÜTEAHHİT DAİRE PAYLAŞIMI) */}
+            {/* Card 2.5: Ground Floor Commercial Shops (Zemin Kat Dükkan Ayarları) */}
+            <div className={`border rounded-3xl overflow-hidden ${cardBg}`}>
+              <button
+                type="button"
+                onClick={() => toggleSection('typology')} // Reuse typology or create new state key if needed, but let's use typology toggle
+                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-amber-600" />
+                  <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
+                    2.5 Zemin Kat & Ticari Dükkanlar
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <span>
+                    {modelParams.hasGroundFloorShop ? `${modelParams.shopCount || 1} Dükkan` : 'Konut Girişi'}
+                  </span>
+                  {collapsedSections.typology ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </div>
+              </button>
+
+              {!collapsedSections.typology && (
+                <div className="p-5 pt-0 space-y-3.5 border-t border-slate-100">
+                  <div className="pt-3 space-y-3">
+                    <label className="flex items-center gap-2.5 p-3 rounded-2xl border border-amber-200 bg-amber-50/40 cursor-pointer group transition-all hover:bg-amber-50">
+                      <input
+                        type="checkbox"
+                        checked={modelParams.hasGroundFloorShop || false}
+                        onChange={(e) => updateParams({ hasGroundFloorShop: e.target.checked })}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                      />
+                      <div className="flex-1">
+                        <span className="text-xs font-bold text-amber-900 block group-hover:text-amber-700">Zemin Katta Ticari Dükkan Var</span>
+                        <span className="text-[10px] text-amber-700/70 block">Bina giriş katını ticari dükkan/mağaza olarak kurgular.</span>
+                      </div>
+                      <Store className={`w-5 h-5 transition-colors ${modelParams.hasGroundFloorShop ? 'text-amber-600' : 'text-slate-300'}`} />
+                    </label>
+
+                    {modelParams.hasGroundFloorShop && (
+                      <div className="space-y-4 animate-fade-in pl-1">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <label className="font-bold text-slate-700">Dükkan Sayısı (Zemin Kat):</label>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="1"
+                                max="12"
+                                value={modelParams.shopCount || 1}
+                                onChange={(e) => updateParams({ shopCount: parseInt(e.target.value) || 1 })}
+                                className={`w-14 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                              />
+                              <span className="text-xs text-slate-500 font-medium">Adet</span>
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min="1"
+                            max="8"
+                            step="1"
+                            value={modelParams.shopCount || 1}
+                            onChange={(e) => updateParams({ shopCount: parseInt(e.target.value) })}
+                            className="w-full accent-amber-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
+                          />
+                        </div>
+
+                        <div className="p-3 bg-amber-50/80 border border-amber-100 rounded-2xl space-y-2">
+                          <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+                            <Info className="w-3.5 h-3.5" />
+                            <span>Ticari Bölüm Kuralları</span>
+                          </div>
+                          <ul className="text-[10px] text-amber-800/80 space-y-1.5 list-disc pl-3.5">
+                            <li>Dükkanlar zemin kat yüksekliğini otomatik olarak <b>+1.0m</b> (asma kat payı) artırır.</li>
+                            <li>Teklif formunda dükkanlar için <b>"Ticari / Dükkan"</b> etiketi kullanılır.</li>
+                            <li>Dükkanlar için taksitli ödeme planı gizlenir, "Tek Sefer" kabul edilir.</li>
+                            <li>Dükkan m²'leri toplam inşaat alanına ticari emsal olarak yansır.</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Card 3: Roads & Environment (Yol & Çevre Bilgileri) */}
+            <div className={`border rounded-3xl overflow-hidden ${cardBg}`}>
+              <button
+                type="button"
+                onClick={() => toggleSection('roads')}
+                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Navigation className="w-4 h-4 text-indigo-600" />
+                  <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
+                    3. Yol & Çevre Bilgileri
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <span>{modelParams.roads?.length || 0} Yol</span>
+                  {collapsedSections.roads ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </div>
+              </button>
+
+              {!collapsedSections.roads && (
+                <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
+                  <div className="pt-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[11px] font-bold ${textTitle}`}>Mevcut Yollar:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentRoads = modelParams.roads || [];
+                          const newRoad: RoadConfig = {
+                            id: Math.random().toString(36).substr(2, 9),
+                            facadeIndex: 0,
+                            type: 'street',
+                            width: 7
+                          };
+                          updateParams({ roads: [...currentRoads, newRoad] });
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 transition-all shadow-xs"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Yeni Yol Ekle</span>
+                      </button>
+                    </div>
+
+                    {(modelParams.roads || []).length === 0 ? (
+                      <div className="p-4 border border-dashed border-slate-200 rounded-2xl text-center">
+                        <Milestone className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                        <p className="text-[10px] text-slate-400">Henüz yol tanımlanmadı. Binanın cephelerine yol ekleyerek vaziyet planını netleştirebilirsiniz.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {(modelParams.roads || []).map((road, idx) => (
+                          <div key={road.id} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-slate-100 rounded-lg">
+                                  <Navigation className="w-3.5 h-3.5 text-slate-600" />
+                                </div>
+                                <span className="text-[11px] font-bold text-slate-800">{idx + 1}. Yol Tanımı</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextRoads = (modelParams.roads || []).filter(r => r.id !== road.id);
+                                  updateParams({ roads: nextRoads });
+                                }}
+                                className="p-1 text-slate-300 hover:text-rose-500 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Cephe:</label>
+                                <select
+                                  value={road.facadeIndex}
+                                  onChange={(e) => {
+                                    const nextRoads = (modelParams.roads || []).map(r => 
+                                      r.id === road.id ? { ...r, facadeIndex: parseInt(e.target.value) } : r
+                                    );
+                                    updateParams({ roads: nextRoads });
+                                  }}
+                                  className={`w-full px-2 py-1.5 text-xs rounded-lg border focus:outline-hidden ${inputBg}`}
+                                >
+                                  {(modelParams.facadeConfigs || Array.from({ length: 4 })).map((_, fIdx) => (
+                                    <option key={fIdx} value={fIdx}>
+                                      {fIdx === 0 ? 'Ön Cephe' : fIdx === 1 ? 'Sağ Cephe' : fIdx === 2 ? 'Arka Cephe' : fIdx === 3 ? 'Sol Cephe' : `${fIdx + 1}. Cephe`}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Yol Tipi:</label>
+                                <select
+                                  value={road.type}
+                                  onChange={(e) => {
+                                    const typeId = e.target.value as RoadType;
+                                    const typeData = ROAD_TYPES_DATA.find(t => t.id === typeId);
+                                    const nextRoads = (modelParams.roads || []).map(r => 
+                                      r.id === road.id ? { ...r, type: typeId, width: typeData?.width || 7 } : r
+                                    );
+                                    updateParams({ roads: nextRoads });
+                                  }}
+                                  className={`w-full px-2 py-1.5 text-xs rounded-lg border focus:outline-hidden ${inputBg}`}
+                                >
+                                  {ROAD_TYPES_DATA.map(t => (
+                                    <option key={t.id} value={t.id}>{t.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* CARD 4: CONTRACTOR SHARE (MÜTEAHHİT DAİRE PAYLAŞIMI) */}
             <div className={`border rounded-3xl overflow-hidden ${cardBg}`}>
               <button
                 type="button"
@@ -1244,7 +1494,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-indigo-600" />
                   <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
-                    3. Daire Dağılımı & Paylaşım
+                    4. Daire Dağılımı & Paylaşım
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500">

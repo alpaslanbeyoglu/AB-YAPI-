@@ -46,7 +46,7 @@ interface OwnersTabProps {
   onCalculate?: () => void;
 }
 
-type FilterType = 'all' | 'owners' | 'contractor' | 'withDebt' | 'paid' | 'withCredit';
+type FilterType = 'all' | 'owners' | 'contractor' | 'withDebt' | 'paid' | 'withCredit' | 'shops';
 type SortType = 'id_asc' | 'id_desc' | 'name_asc' | 'area_desc' | 'area_asc' | 'debt_desc' | 'debt_asc';
 type ViewMode = 'grid' | 'table';
 
@@ -262,6 +262,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
       list = list.filter((item) => !item.isContractor);
     } else if (activeFilter === 'contractor') {
       list = list.filter((item) => item.isContractor);
+    } else if (activeFilter === 'shops') {
+      list = list.filter((item) => item.flat.flatType === 'shop');
     } else if (activeFilter === 'withDebt') {
       list = list.filter((item) => !item.isContractor && (item.calc?.netRemainingDebt || 0) > 0);
     } else if (activeFilter === 'paid') {
@@ -1404,6 +1406,17 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                       Müteahhit Payı ({contractorFlats.length})
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('shops')}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      activeFilter === 'shops'
+                        ? 'bg-orange-600 text-white shadow-xs'
+                        : 'bg-orange-50 hover:bg-orange-100 text-orange-700'
+                    }`}
+                  >
+                    Dükkanlar ({params.flats.filter(f => f.flatType === 'shop').length})
+                  </button>
                   <button
                     type="button"
                     onClick={() => setActiveFilter('withDebt')}

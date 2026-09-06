@@ -104,7 +104,9 @@ export function generateOfferHtml(
       const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
       const facadeText = f.facade ? (f.facade.charAt(0).toUpperCase() + f.facade.slice(1)) : 'Güney';
       const floorFacadeHtml = showFloorFacade ? `<div style="color:#4f46e5;font-weight:normal;font-size:9.5px;margin-top:1px;">${floorText} • ${facadeText}</div>` : '';
-      const roomCountText = params.roomType ? `${params.roomType} Oda` : (f.area < 65 ? '1+1' : f.area < 95 ? '2+1' : f.area < 135 ? '3+1' : '4+1');
+      const roomCountText = f.flatType === 'shop' 
+        ? 'Ticari / Dükkan' 
+        : params.roomType ? `${params.roomType} Oda` : (f.area < 65 ? '1+1' : f.area < 95 ? '2+1' : f.area < 135 ? '3+1' : '4+1');
       
       const flatBadge = f.flatType === 'mansard'
         ? `<span style="background:#e0e7ff;color:#3730a3;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Mansart Çatı</span>`

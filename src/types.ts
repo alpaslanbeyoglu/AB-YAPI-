@@ -263,6 +263,7 @@ export interface ProjectParams {
 
   // Flats
   flats: FlatItem[];
+  roads?: RoadConfig[];
 }
 
 export interface CashFlowRow {
@@ -381,6 +382,16 @@ export type RoomType = '1+1' | '2+1' | '3+1' | '4+1' | '5+1';
 
 export type RoofType = 'gable' | 'flat' | 'mansard' | 'duplex';
 
+export type RoadType = 'street' | 'road' | 'avenue' | 'highway';
+
+export interface RoadConfig {
+  id: string;
+  facadeIndex: number; // Hangi cephede olduğu (0: Ön, 1: Sağ, 2: Arka, 3: Sol vb.)
+  type: RoadType;
+  name?: string;
+  width?: number; // Yol genişliği (m)
+}
+
 export type PredefinedViewDirection = 'front' | 'rear' | 'right' | 'left' | 'top' | 'iso';
 export type CameraPresetType = PredefinedViewDirection | 'side';
 
@@ -436,4 +447,5 @@ export interface BuildingModelParams {
   projectModel?: 'cash' | 'contractorShare';
   contractorShareRate?: number;
   flatCount?: number;
+  roads?: RoadConfig[];
 }
