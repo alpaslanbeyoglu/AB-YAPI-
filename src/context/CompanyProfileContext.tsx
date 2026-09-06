@@ -21,6 +21,8 @@ export const DEFAULT_PRINT_OPTIONS: CompanyProfilePrintOptions = {
   showWebsite: true,
   showAddress: true,
   showBankInfo: true,
+  showFloorAndFacade: true,
+  showLandShareAndSerefiye: true,
 };
 
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {

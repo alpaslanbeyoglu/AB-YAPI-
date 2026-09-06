@@ -26,6 +26,8 @@ export function generateOfferHtml(
   const showSecondAuth = opts.showSecondAuthorized !== false;
   const showSecondAuthChamber = opts.showSecondAuthorizedChamber !== false;
   const showStamp = opts.showStamp !== false;
+  const showFloorFacade = opts.showFloorAndFacade !== false;
+  const showLandSerefiye = opts.showLandShareAndSerefiye !== false;
 
   const compName = companyProfile?.companyName || 'AB YAPI';
   const compLegal = companyProfile?.legalName || 'AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ.';
@@ -100,6 +102,7 @@ export function generateOfferHtml(
       const floorNo = f.floorNumber !== undefined ? f.floorNumber : Math.min(totalFloors, Math.ceil(f.id / flatsPerFloor));
       const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
       const facadeText = f.facade ? (f.facade.charAt(0).toUpperCase() + f.facade.slice(1)) : 'Güney';
+      const floorFacadeHtml = showFloorFacade ? `<div style="color:#4f46e5;font-weight:normal;font-size:9.5px;margin-top:1px;">${floorText} • ${facadeText}</div>` : '';
       const roomCountText = params.roomType ? `${params.roomType} Oda` : (f.area < 65 ? '1+1' : f.area < 95 ? '2+1' : f.area < 135 ? '3+1' : '4+1');
       
       const flatBadge = f.flatType === 'mansard'
@@ -117,13 +120,16 @@ export function generateOfferHtml(
         ? `<span style="font-weight:bold;font-size:10.5px;color:${landShareDiff > 0 ? '#b45309' : '#047857'};">${landShareDiff > 0 ? '+' : ''}${landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</span>`
         : `<span style="color:#64748b;font-size:10.5px;">0 TL</span>`;
 
+      const serefiyeCell = showLandSerefiye ? `<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;">${serefiyeText}</td>` : '';
+      const landShareCell = showLandSerefiye ? `<td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;">${landShareText}</td>` : '';
+
       if (isContractorShareModel) {
         const fundingType = f.isContractorShare ? 'Müteahhit Payı Satış' : 'Arsa Payı Mahsubu';
         return `
         <tr>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#0f172a;">
             Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}
-            <div style="color:#4f46e5;font-weight:normal;font-size:9.5px;margin-top:1px;">${floorText} • ${facadeText}</div>
+            ${floorFacadeHtml}
           </td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;">
             <strong>${f.name}</strong>
@@ -133,8 +139,8 @@ export function generateOfferHtml(
             <strong>${roomCountText}</strong>
             <div style="color:#475569;font-size:9.5px;">Brüt: ${physicalGrossArea_rep} m² | <span style="color:#047857;font-weight:bold;">Net: ${physicalNetArea_rep} m²</span></div>
           </td>
-          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;">${serefiyeText}</td>
-          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;">${landShareText}</td>
+          ${serefiyeCell}
+          ${landShareCell}
           <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:600;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;color:#047857;font-weight:bold;text-align:right;font-family:monospace;">
             -${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
@@ -147,7 +153,7 @@ export function generateOfferHtml(
         <tr>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#0f172a;">
             Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}
-            <div style="color:#4f46e5;font-weight:normal;font-size:9.5px;margin-top:1px;">${floorText} • ${facadeText}</div>
+            ${floorFacadeHtml}
           </td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;">
             <strong>${f.name}</strong>
@@ -157,8 +163,8 @@ export function generateOfferHtml(
             <strong>${roomCountText}</strong>
             <div style="color:#475569;font-size:9.5px;">Brüt: ${physicalGrossArea_rep} m² | <span style="color:#047857;font-weight:bold;">Net: ${physicalNetArea_rep} m²</span></div>
           </td>
-          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;">${serefiyeText}</td>
-          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;">${landShareText}</td>
+          ${serefiyeCell}
+          ${landShareCell}
           <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:600;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#4f46e5;font-family:monospace;">-${f.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
@@ -168,13 +174,16 @@ export function generateOfferHtml(
     })
     .join('');
 
+  const serefiyeHeader = showLandSerefiye ? `<th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:center;">Şerefiye</th>` : '';
+  const landShareHeader = showLandSerefiye ? `<th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Arsa Mahsubu</th>` : '';
+
   const table1Header = isContractorShareModel
     ? `<tr>
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Daire & Kat No</th>
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Hak Sahibi & TC</th>
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Oda & Alan</th>
-        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:center;">Şerefiye</th>
-        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Arsa Mahsubu</th>
+        ${serefiyeHeader}
+        ${landShareHeader}
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">İmalat Bedeli</th>
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Kat Karşılığı İndirimi</th>
         <th style="background:#065f46;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Net Malik Borcu</th>
@@ -183,8 +192,8 @@ export function generateOfferHtml(
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Daire & Kat No</th>
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Hak Sahibi & TC</th>
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Oda & Alan</th>
-        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:center;">Şerefiye</th>
-        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Arsa Mahsubu</th>
+        ${serefiyeHeader}
+        ${landShareHeader}
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Daire Bedeli</th>
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Ödenen Peşinat</th>
         <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Dönüşüm Desteği</th>

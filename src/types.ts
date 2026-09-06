@@ -20,6 +20,8 @@ export interface CompanyProfilePrintOptions {
   showWebsite?: boolean;
   showAddress?: boolean;
   showBankInfo?: boolean;
+  showFloorAndFacade?: boolean;
+  showLandShareAndSerefiye?: boolean;
 }
 
 export interface CompanyProfile {

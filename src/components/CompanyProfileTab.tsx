@@ -689,6 +689,8 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
                 { key: 'showWebsite', label: 'Web Sitesi' },
                 { key: 'showAddress', label: 'İş Adresi' },
                 { key: 'showBankInfo', label: 'Banka & IBAN Bilgileri' },
+                { key: 'showFloorAndFacade', label: 'Kat ve Cephe Bilgisi' },
+                { key: 'showLandShareAndSerefiye', label: 'Arsa Payı & Şerefiye' },
               ].map((item) => {
                 const isChecked = (formData.printOptions?.[item.key as keyof CompanyProfilePrintOptions] !== false);
                 return (
