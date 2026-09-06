@@ -1,14 +1,39 @@
 import React, { useState, useRef } from 'react';
-import { Cloud, CheckCircle2, AlertCircle, ShieldCheck, FileText, Compass, LayoutGrid, Calendar, Clock, Sparkles, Layers, Box } from 'lucide-react';
-import { ProjectParams, CalculationResult, AppTheme, BuildingModelParams, PredefinedViewDirection } from '../types';
+import { 
+  Building2, 
+  ShieldCheck, 
+  FileText, 
+  Calendar, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle, 
+  Cloud, 
+  Award, 
+  Scale, 
+  Phone, 
+  Mail, 
+  MapPin, 
+  Hash, 
+  UserCheck, 
+  Briefcase, 
+  FileSignature, 
+  Check, 
+  Layers, 
+  Sparkles,
+  HelpCircle,
+  Landmark,
+  BadgePercent,
+  TrendingUp,
+  Receipt
+} from 'lucide-react';
+import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { saveReportDocumentToDrive } from '../services/drive';
 import { generateOfferHtml } from '../utils/reportExport';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
-import { getRoofTypeShortTitle } from '../utils/roofUtils';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
-import { ThreeBuildingView } from './ThreeBuildingView';
+import { getRoofTypeShortTitle } from '../utils/roofUtils';
 
 interface OfferTabProps {
   params: ProjectParams;
@@ -17,114 +42,6 @@ interface OfferTabProps {
   onOpenDrivePanel: () => void;
   theme?: AppTheme;
 }
-
-interface DirectionMeta {
-  key: PredefinedViewDirection;
-  label: string;
-  compassName: string;
-  compassAngle: string;
-  shortTag: string;
-  description: string;
-  cutMode: 'solid' | 'cutaway' | 'xray';
-  showDimensions: boolean;
-  accentBg: string;
-  accentText: string;
-}
-
-const DIRECTION_META: Record<PredefinedViewDirection, DirectionMeta> = {
-  front: {
-    key: 'front',
-    label: 'Ön Cephe (Güney)',
-    compassName: 'Güney Cephe',
-    compassAngle: '180° G (Ön)',
-    shortTag: 'ÖN',
-    description: 'Bina ana girişi, ön cephe pencere/balkon ritmi ve kat yükseklikleri.',
-    cutMode: 'solid',
-    showDimensions: false,
-    accentBg: 'bg-blue-500/10 border-blue-500/30',
-    accentText: 'text-blue-700',
-  },
-  rear: {
-    key: 'rear',
-    label: 'Arka Cephe (Kuzey)',
-    compassName: 'Kuzey Cephe',
-    compassAngle: '0° K (Arka)',
-    shortTag: 'ARKA',
-    description: 'Arka bahçe cephesi, arka bağımsız bölümler ve bina gabarisi.',
-    cutMode: 'solid',
-    showDimensions: false,
-    accentBg: 'bg-indigo-500/10 border-indigo-500/30',
-    accentText: 'text-indigo-700',
-  },
-  right: {
-    key: 'right',
-    label: 'Sağ Yan Cephe (Doğu)',
-    compassName: 'Doğu Cephe',
-    compassAngle: '90° D (Sağ)',
-    shortTag: 'SAĞ',
-    description: 'Sağ yan bahçe mesafesi, bina derinliği ve konsol çıkıntıları.',
-    cutMode: 'solid',
-    showDimensions: false,
-    accentBg: 'bg-amber-500/10 border-amber-500/30',
-    accentText: 'text-amber-700',
-  },
-  left: {
-    key: 'left',
-    label: 'Sol Yan Cephe (Batı)',
-    compassName: 'Batı Cephe',
-    compassAngle: '270° B (Sol)',
-    shortTag: 'SOL',
-    description: 'Sol komşu parsel cephesi, merdiven kovası pencereleri ve düşey hatlar.',
-    cutMode: 'solid',
-    showDimensions: false,
-    accentBg: 'bg-orange-500/10 border-orange-500/30',
-    accentText: 'text-orange-700',
-  },
-  top: {
-    key: 'top',
-    label: 'Kuşbakışı (Kat Planı)',
-    compassName: 'Kuzey Yönlü Plan',
-    compassAngle: 'Üstten (Plan)',
-    shortTag: 'PLAN',
-    description: 'Daire ve bağımsız bölüm sınırları, oda dağılımı, asansör ve merdiven kurgusu.',
-    cutMode: 'cutaway',
-    showDimensions: true,
-    accentBg: 'bg-emerald-500/10 border-emerald-500/30',
-    accentText: 'text-emerald-700',
-  },
-  iso: {
-    key: 'iso',
-    label: '3D İzometrik Model',
-    compassName: 'Güneydoğu Perspektif',
-    compassAngle: '3D İzometrik',
-    shortTag: '3D',
-    description: 'Yapının tamamını şeffaf katmanlarla gösteren 3D perspektif aksonometrik görünüm.',
-    cutMode: 'xray',
-    showDimensions: false,
-    accentBg: 'bg-purple-500/10 border-purple-500/30',
-    accentText: 'text-purple-700',
-  },
-};
-
-const LAYOUT_PRESETS: { id: string; name: string; directions: PredefinedViewDirection[] }[] = [
-  {
-    id: 'standard',
-    name: 'Standart (Ön + Plan + 3D)',
-    directions: ['front', 'top', 'iso'],
-  },
-  {
-    id: 'four_facades',
-    name: 'Dört Cephe (Ön + Arka + Sağ + Sol)',
-    directions: ['front', 'rear', 'right', 'left'],
-  },
-  {
-    id: 'facades_iso',
-    name: 'Perspektif (Ön + Yan + 3D)',
-    directions: ['front', 'right', 'iso'],
-  },
-];
-
-const CARD_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 export const OfferTab: React.FC<OfferTabProps> = ({
   params,
@@ -136,49 +53,23 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const { profile } = useCompanyProfile();
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-  const [showDrawingsInReport, setShowDrawingsInReport] = useState(true);
-  const [viewDirections, setViewDirections] = useState<PredefinedViewDirection[]>(['front', 'top', 'iso']);
   const offerDocRef = useRef<HTMLDivElement>(null);
 
-  const handleExportPdf = async () => {
-    if (!offerDocRef.current) return;
-    const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
-    const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
-    const fileName = `${safeName}_Musteri_Teklifi_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
-    await exportElementToPdf(offerDocRef.current, fileName);
-  };
+  const compName = profile?.companyName || 'AB YAPI';
+  const compLegal = profile?.legalName || 'AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ.';
+  const compSlogan = profile?.slogan || 'Depreme Dayanıklı, Güvenli ve Modern Yaşam Alanları';
+  const compAddress = profile?.address || 'Kocamustafapaşa Mah. Org. Abdurrahman Nafiz Gürman Cad. No:45 Fatih / İstanbul';
+  const compPhone = profile?.phone || '+90 (212) 588 00 00';
+  const compEmail = profile?.email || 'info@abyapi.com.tr';
+  const compTax = profile?.taxOffice && profile?.taxNumber ? `${profile.taxOffice} V.D. / V.No: ${profile.taxNumber}` : 'Fatih V.D. / V.No: 1234567890';
+  const compAuth = profile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
+  const compAuthTitle = profile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
 
-  const handlePrint = () => {
-    const html = generateOfferHtml(params, results, showDrawingsInReport, profile);
-    const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
-    printHtmlContent(html, `${safeName}_Musteri_Teklifi_${params.projectAddress || 'Proje'}`);
-  };
-
-  // Copy protection side effects and handlers
-  React.useEffect(() => {
-    const blockShortcuts = (e: KeyboardEvent) => {
-      // Blocks Ctrl+C, Ctrl+X, Ctrl+A, Command+C, Command+X, Command+A
-      if ((e.ctrlKey || e.metaKey) && ['c', 'C', 'x', 'X', 'a', 'A'].includes(e.key)) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('keydown', blockShortcuts);
-    return () => window.removeEventListener('keydown', blockShortcuts);
-  }, []);
-
-  const handleCopyProtect = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-  };
-
-  const handleContextMenuProtect = (e: React.MouseEvent) => {
-    e.preventDefault();
-  };
-
-  // Upper floor area and physical gross/net area estimation for consistency
-  const upperFloorsCount = Math.max(0, params.floorCount - 1);
-  let upperFloorArea = params.baseBuildArea;
+  // Math safety & dimension boundaries
+  const upperFloorsCount = Math.max(0, (params.floorCount || 5) - 1);
+  let upperFloorArea = Math.max(10, params.baseBuildArea || 120);
   if (params.hasCantilever && params.cantileverDepth && params.cantileverDepth > 0) {
-    const estW = Math.sqrt(params.baseBuildArea / 1.2);
+    const estW = Math.max(5, Math.sqrt(upperFloorArea / 1.2));
     const estD = estW * 1.2;
     if (params.cantileverDirection === 'all') {
       upperFloorArea = (estW + 2 * params.cantileverDepth) * (estD + 2 * params.cantileverDepth);
@@ -188,19 +79,38 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       upperFloorArea = estW * (estD + 2 * params.cantileverDepth);
     }
   }
-  const residentialFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-  const flatsPerFloor = Math.max(1, Math.round(results.flatCount / residentialFloors));
-  const physicalGrossArea = Math.round((upperFloorArea / flatsPerFloor) * 10) / 10;
-  const physicalNetArea = Math.round((physicalGrossArea * 0.8) * 10) / 10;
+  const residentialFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : Math.max(1, params.floorCount || 5);
+  const flatsPerFloor = Math.max(1, Math.round((results.flatCount || 10) / residentialFloors));
+  const physicalGrossArea = Math.max(20, Math.round((upperFloorArea / flatsPerFloor) * 10) / 10);
+  const physicalNetArea = Math.max(15, Math.round((physicalGrossArea * 0.8) * 10) / 10);
+  const estimatedLandArea = params.landArea && params.landArea > 0 ? params.landArea : Math.round((params.baseBuildArea || 150) / 0.4);
 
-  const isGray = theme === 'gray';
+  const isContractorShareModel = params.projectModel === 'contractorShare';
 
-  const supportText =
+  const supportModelTitle =
     params.transformationStatus === 'currentSupport'
-      ? '2025/2026 Mevcut Model (875 Bin TL Hibe + 875 Bin TL Kredi)'
+      ? 'Yarısı Bizden (875 Bin TL Hibe + 875 Bin TL Kredi Desteği)'
       : params.transformationStatus === 'futureSupport2027'
-      ? '2027 Projeksiyon Modeli (3 Milyon TL Kredi / 180 Ay Vade)'
-      : 'Desteksiz / Öz Kaynaklı Yapım';
+      ? '2027 Kentsel Dönüşüm Kredi Modeli (3 Milyon TL / 180 Ay Vade)'
+      : 'Öz Kaynaklı / Desteksiz Yapım Modeli';
+
+  const proposalNumber = `${compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-${new Date().getFullYear()}-${String(results.flatCount || 10).padStart(3, '0')}`;
+  const proposalDate = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const validityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const handleExportPdf = async () => {
+    if (!offerDocRef.current) return;
+    const safeAddr = (params.projectAddress || 'Proje').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
+    const safeName = compName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+    const fileName = `${safeName}_Resmi_Musteri_Teklifi_${safeAddr}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    await exportElementToPdf(offerDocRef.current, fileName);
+  };
+
+  const handlePrint = () => {
+    const html = generateOfferHtml(params, results, false, profile);
+    const safeName = compName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+    printHtmlContent(html, `${safeName}_Teklif_${params.projectAddress || 'Proje'}`);
+  };
 
   const handleSaveToDrive = async () => {
     if (!hasToken) {
@@ -211,62 +121,60 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     setIsSaving(true);
     setSaveStatus(null);
     try {
-      const html = generateOfferHtml(params, results, showDrawingsInReport, profile);
-      const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
-      const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
+      const html = generateOfferHtml(params, results, false, profile);
+      const safeAddr = (params.projectAddress || 'Proje').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
+      const safeName = compName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
       const fileName = `${safeName}_Teklif_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
       const res = await saveReportDocumentToDrive(
         fileName,
         html,
-        `${profile.companyName} Müşteri Teklifi - ${params.projectAddress}`
+        `${compName} Müşteri Teklifi - ${params.projectAddress}`
       );
       setSaveStatus({
         type: 'success',
         msg: `Teklif belgesi Google Drive'a başarıyla kaydedildi: "${res.name}"`,
       });
     } catch (err: any) {
-      setSaveStatus({ type: 'error', msg: err.message || 'Drive kaydı başarısız oldu.' });
+      setSaveStatus({ type: 'error', msg: err?.message || 'Drive kaydı başarısız oldu.' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const isContractorShareModel = params.projectModel === 'contractorShare';
+  // Copy protection side effects and handlers
+  React.useEffect(() => {
+    const blockShortcuts = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && ['c', 'C', 'x', 'X', 'a', 'A'].includes(e.key)) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', blockShortcuts);
+    return () => window.removeEventListener('keydown', blockShortcuts);
+  }, []);
 
   return (
-    <div className="space-y-6">
-      {/* Top action bar */}
-      <div
-        className={`flex flex-wrap items-center justify-between gap-4 p-5 rounded-3xl border shadow-sm print:hidden ${
-          isGray ? 'bg-slate-100/90 border-slate-300' : 'bg-white border-slate-200'
-        }`}
-      >
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Top Action Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-slate-200 shadow-sm print:hidden">
         <div>
-          <h3 className={`font-semibold text-sm ${isGray ? 'text-slate-900' : 'text-slate-800'}`}>
-            Resmi Müşteri Teklif Çıktısı
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Hak sahipleri borçlanma tablosu ve hakediş vadeleri ile hazır teklif belgesi
-          </p>
-          <div className="mt-2.5 flex items-center gap-2">
-            <input
-              id="toggle-drawings-checkbox"
-              type="checkbox"
-              checked={showDrawingsInReport}
-              onChange={(e) => setShowDrawingsInReport(e.target.checked)}
-              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
-            />
-            <label htmlFor="toggle-drawings-checkbox" className="text-xs font-medium text-slate-600 cursor-pointer select-none">
-              3D Bina Modeli Görünümlerini Çıktıda ve Raporlarda Göster
-            </label>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <FileSignature className="w-3.5 h-3.5" />
+              Kurumsal Resmî Teklifname
+            </span>
+            <span className="text-xs text-slate-400 font-mono">Ref: {proposalNumber}</span>
           </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Kat maliklerine, genel kurula ve bina yönetimine sunulmak üzere hazırlanmış resmî maliyet, imalat ve ödeme protokolü
+          </p>
         </div>
+
         <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={handleSaveToDrive}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
           >
             <Cloud className="w-4 h-4" />
             <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
@@ -296,813 +204,685 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         </div>
       )}
 
-      {/* Offer Document */}
+      {/* Main Corporate Proposal Sheet */}
       <div
         ref={offerDocRef}
-        onCopy={handleCopyProtect}
-        onContextMenu={handleContextMenuProtect}
+        onCopy={(e) => e.preventDefault()}
+        onContextMenu={(e) => e.preventDefault()}
         onDragStart={(e) => e.preventDefault()}
-        className={`relative overflow-hidden select-none copy-protected border rounded-3xl p-6 sm:p-10 shadow-sm print:bg-white print:border-none print:shadow-none print:p-0 print:text-black ${
-          isGray ? 'bg-slate-50 border-slate-300' : 'bg-white border-slate-200'
-        }`}
+        className="relative overflow-hidden select-none copy-protected bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 shadow-sm text-slate-800 print:border-none print:shadow-none print:p-0 print:text-black"
       >
-        {/* Subtle Diagonal Security Watermark Overlay */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none opacity-[0.025] flex flex-wrap gap-16 justify-center items-center rotate-12 z-0">
-          {Array.from({ length: 48 }).map((_, i) => (
-            <span key={i} className="text-slate-900 font-extrabold text-[10px] tracking-widest whitespace-nowrap">
-              {profile.companyName} - KOPYALANMAZ / DIŞARI PAYLAŞILMAZ
+        {/* Subtle Watermark */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none opacity-[0.02] flex flex-wrap gap-20 justify-center items-center rotate-12 z-0">
+          {Array.from({ length: 36 }).map((_, i) => (
+            <span key={i} className="text-slate-900 font-extrabold text-xs tracking-widest whitespace-nowrap">
+              {compName} RESMİ TEKLİF VE TAAHHÜT BELGESİ
             </span>
           ))}
         </div>
 
-        {/* Title Header with Official Logo */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 pb-5 mb-6 print:border-slate-300">
-          <div className="flex items-center gap-3">
-            <Logo size="lg" variant="full" theme={theme} />
-          </div>
-          <div className="text-center sm:text-right">
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-wide">
-              İNŞAAT TEKLİF VE ÖDEME PLANI
-            </h2>
-            <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
-              Teklif No: {(profile.companyName || 'AB').replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-{new Date().getFullYear()}-{(results.flatCount || 10).toString().padStart(3, '0')} | Tarih: {new Date().toLocaleDateString('tr-TR')}
-            </p>
-          </div>
-        </div>
+        {/* ========================================================
+            1. CORPORATE HEADER & PROPOSAL METADATA
+           ======================================================== */}
+        <div className="relative z-10 border-b-2 border-slate-900 pb-6 mb-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            {/* Left: Brand / Logo / Legal */}
+            <div className="flex items-start gap-4">
+              <Logo size="lg" variant="full" theme={theme} />
+              <div className="space-y-0.5">
+                <h1 className="text-lg font-bold text-slate-950 tracking-tight leading-tight">
+                  {compLegal}
+                </h1>
+                <p className="text-xs text-indigo-700 font-medium">{compSlogan}</p>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 pt-1 font-mono">
+                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400" /> {compAddress}</span>
+                  <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-400" /> {compPhone}</span>
+                  <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" /> {compEmail}</span>
+                  <span className="flex items-center gap-1"><Hash className="w-3 h-3 text-slate-400" /> {compTax}</span>
+                </div>
+              </div>
+            </div>
 
-        {/* Project Meta Box (Proje Künyesi) */}
-        <div className="bg-slate-50 border-l-4 border-indigo-600 p-5 rounded-2xl mb-6 text-xs text-slate-700 leading-relaxed space-y-1.5 print:bg-slate-50 print:border-teal-800 print:text-slate-700">
-          <h4 className="font-semibold text-slate-900 text-sm mb-2">📍 PROJE KÜNYESİ & GENEL BİLGİLER</h4>
-          <p>
-            <strong className="text-slate-700">Proje Adresi:</strong>{' '}
-            <span className="text-indigo-700 font-bold">{params.projectAddress}</span>
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-1 gap-x-4 border-t border-slate-200/60 pt-2 mt-2">
-            <p>
-              <strong className="text-slate-700">Proje Arsa Alanı:</strong>{' '}
-              <span className="font-semibold text-slate-900 font-mono">
-                {Math.round(params.baseBuildArea / 0.4).toLocaleString('tr-TR')} m²
-              </span>
-              <span className="text-[9px] text-slate-400 font-normal ml-1">(Tahmini)</span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Proje Kat Alanı (Oturum):</strong>{' '}
-              <span className="font-semibold text-slate-900 font-mono">
-                {results.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²
-              </span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Toplam İnşaat Alanı:</strong>{' '}
-              <span className="font-semibold text-slate-900 font-mono">
-                {results.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²
-              </span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Normal Kat Sayısı:</strong>{' '}
-              <span className="font-semibold text-slate-900">{params.floorCount} Kat</span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Kattaki Daire Sayısı:</strong>{' '}
-              <span className="font-semibold text-slate-900">{params.flatsPerFloor || Math.max(1, Math.round(results.flatCount / (params.floorCount || 1)))} Adet</span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Toplam Daire Sayısı:</strong>{' '}
-              <span className="font-semibold text-slate-900">{results.flatCount} Adet</span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Daire İç Yerleşimi:</strong>{' '}
-              <span className="font-semibold text-indigo-600 font-mono">
-                {params.roomType || '3+1'} Oda
-              </span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Fiziki Daire Brüt Alanı:</strong>{' '}
-              <span className="font-semibold text-slate-900 font-mono text-indigo-600">
-                {physicalGrossArea} m²
-              </span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Daire Net Alanı (~%80):</strong>{' '}
-              <span className="font-semibold text-slate-900 font-mono">
-                {physicalNetArea} m²
-              </span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Birim m² Maliyet Bedeli:</strong>{' '}
-              <span className="font-mono font-bold text-indigo-700">
-                {results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²
-              </span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Dolar Kuru Karşılığı:</strong>{' '}
-              <span className="font-mono font-semibold text-slate-500">
-                {results.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²
-              </span>
-            </p>
-            <p>
-              <strong className="text-slate-700">Tahmini Teslim Süresi:</strong>{' '}
-              <span className="font-semibold text-slate-900">{results.finalMonths} Ay</span>
-            </p>
+            {/* Right: Proposal Document Card */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 min-w-[220px] text-right font-mono text-xs space-y-1 self-start md:self-auto">
+              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">RESMÎ BELGE KÜNYESİ</div>
+              <div className="text-slate-900 font-bold text-sm text-indigo-900">{proposalNumber}</div>
+              <div className="text-slate-600 text-[11px]">Tarih: <span className="font-semibold text-slate-900">{proposalDate}</span></div>
+              <div className="text-slate-600 text-[11px]">Geçerlilik: <span className="font-semibold text-emerald-700">{validityDate} (30 Gün)</span></div>
+              <div className="text-slate-500 text-[10px] pt-1 border-t border-slate-200">Yetkili: {compAuth}</div>
+            </div>
           </div>
-          <div className="border-t border-slate-200/60 pt-2 mt-2">
-            <p>
-              <strong className="text-slate-700">Kentsel Dönüşüm Destek Modeli:</strong>{' '}
-              <span className="font-semibold text-amber-700">{supportText}</span>
-            </p>
-          </div>
-        </div>
 
-        {/* Dynamic Architectural Views Component with Predefined Orientations & CAD Drawings */}
-        <div className={`mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-200 ${!showDrawingsInReport ? 'print:hidden border-dashed border-slate-300 opacity-80' : ''}`}>
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
+          {/* Centered Document Title Bar */}
+          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
-                <Box className="w-4 h-4 text-indigo-600" />
-                <span>🏢 Dinamik Mimari 3D Canlı Bina & CAD Teknik Çizimleri</span>
-              </h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Resmi teklif belgesinde sunulacak mimari 3D modeller, 2D CAD kat planı ve bina ön cephe teknik çizimleri
-              </p>
-            </div>
-
-            {/* Layout Presets & Status */}
-            <div className="flex items-center gap-1.5 flex-wrap print:hidden">
-              <span className="text-[11px] text-slate-500 font-medium mr-1 flex items-center gap-1">
-                <Compass className="w-3.5 h-3.5 text-slate-400" />
-                <span>Görünüm Düzeni:</span>
+              <span className="text-[10px] font-bold tracking-widest uppercase text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-md">
+                BİNA YAPIM VE KENTSEL DÖNÜŞÜM TEKLİFİ
               </span>
-              {LAYOUT_PRESETS.map((preset) => {
-                const isActive =
-                  viewDirections.length === preset.directions.length &&
-                  viewDirections.every((d, i) => d === preset.directions[i]);
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => setViewDirections(preset.directions)}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                    }`}
-                  >
-                    {preset.name}
-                  </button>
-                );
-              })}
-
-              {!showDrawingsInReport && (
-                <span className="text-[10px] bg-amber-500/10 text-amber-700 border border-amber-500/25 px-2.5 py-0.5 rounded-full font-semibold">
-                  Çıktıda Gizlenecek
-                </span>
-              )}
+              <h2 className="text-xl font-extrabold text-slate-900 mt-1">
+                {isContractorShareModel 
+                  ? 'Kat Karşılığı İnşaat ve Bağımsız Bölüm Paylaşım Teklifi' 
+                  : 'Anahtar Teslim Bina Yapım ve Hakedişli Finansman Teklifi'}
+              </h2>
             </div>
-          </div>
-
-          {/* 2D CAD Architectural & Elevation Drawings Section */}
-          <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* 1. CAD 2D Kat Planı */}
-            <div className="bg-[#080e1a] rounded-2xl p-4 border border-slate-700 text-slate-200 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <LayoutGrid className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-bold text-cyan-300">2D CAD MİMARİ KAT PLANI</span>
-                </div>
-                <span className="text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 px-2 py-0.5 rounded-md font-mono">
-                  Ölçek: 1/100
-                </span>
-              </div>
-              
-              <div className="rounded-xl overflow-hidden border border-slate-800 bg-[#060a13] flex items-center justify-center p-1 min-h-[220px]">
-                <svg viewBox="0 0 240 240" className="w-full max-h-[230px] font-mono">
-                  <defs>
-                    <pattern id="offerPlanGrid" width="10" height="10" patternUnits="userSpaceOnUse">
-                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" strokeWidth="0.3" opacity="0.6"/>
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#offerPlanGrid)" />
-
-                  {/* North Arrow */}
-                  <g transform="translate(215, 25)">
-                    <circle cx="0" cy="0" r="9" fill="#0f172a" stroke="#38bdf8" strokeWidth="0.8" />
-                    <polygon points="0,-7 3,3 0,1 -3,3" fill="#38bdf8" />
-                    <text x="0" y="-9" fill="#38bdf8" fontSize="4.5" textAnchor="middle" fontWeight="bold">K</text>
-                  </g>
-
-                  {/* Building Outer Wall */}
-                  <rect x="42" y="42" width="136" height="136" fill="none" stroke="#38bdf8" strokeWidth="2" />
-                  <rect x="39" y="39" width="142" height="142" fill="none" stroke="#38bdf8" strokeWidth="0.5" strokeDasharray="2,2" />
-
-                  {/* Elevator Core */}
-                  <g stroke="#f43f5e" strokeWidth="1" fill="none">
-                    <rect x="98" y="70" width="24" height="24" strokeWidth="1.2" fill="#0f172a" />
-                    <line x1="98" y1="70" x2="122" y2="94" strokeWidth="0.6" />
-                    <line x1="122" y1="70" x2="98" y2="94" strokeWidth="0.6" />
-                    <text x="110" y="84" fill="#f43f5e" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">ASANSÖR</text>
-                  </g>
-
-                  {/* Staircase Core */}
-                  <g stroke="#38bdf8" strokeWidth="1" fill="none">
-                    <rect x="98" y="94" width="24" height="36" strokeWidth="1.2" fill="#0f172a" />
-                    <line x1="110" y1="94" x2="110" y2="130" strokeWidth="0.8" />
-                    {[100, 106, 112, 118, 124].map((y) => (
-                      <g key={y}>
-                        <line x1="98" y1={y} x2="110" y2={y} stroke="#38bdf8" strokeWidth="0.5" />
-                        <line x1="110" y1={y} x2="122" y2={y} stroke="#38bdf8" strokeWidth="0.5" />
-                      </g>
-                    ))}
-                    <path d="M 104,126 L 104,98 L 116,98 L 116,115" stroke="#10b981" strokeWidth="0.8" fill="none" />
-                    <polygon points="114,113 116,117 118,113" fill="#10b981" stroke="none" />
-                    <text x="110" y="136" fill="#38bdf8" fontSize="4.5" textAnchor="middle" stroke="none" fontWeight="bold">MERDİVEN</text>
-                  </g>
-
-                  {/* Room Partitions */}
-                  {/* Flat Left */}
-                  <rect x="44" y="44" width="53" height="60" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.12" />
-                  <text x="70" y="70" fill="#38bdf8" fontSize="5" textAnchor="middle" fontWeight="bold">SALON</text>
-                  <text x="70" y="78" fill="#94a3b8" fontSize="3.8" textAnchor="middle">~26 m²</text>
-
-                  <rect x="44" y="105" width="53" height="42" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.08" />
-                  <text x="70" y="124" fill="#38bdf8" fontSize="4.5" textAnchor="middle" fontWeight="bold">YATAK ODASI</text>
-
-                  <rect x="44" y="148" width="32" height="29" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.08" />
-                  <text x="60" y="164" fill="#38bdf8" fontSize="3.8" textAnchor="middle">MUTFAK</text>
-
-                  <text x="70" y="98" fill="#a78bfa" fontSize="5.5" textAnchor="middle" fontWeight="bold">DAİRE 01 (SOL)</text>
-                  <text x="70" y="138" fill="#94a3b8" fontSize="4" textAnchor="middle">Net: {physicalNetArea} m²</text>
-
-                  {/* Flat Right */}
-                  <rect x="123" y="44" width="53" height="60" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.12" />
-                  <text x="150" y="70" fill="#38bdf8" fontSize="5" textAnchor="middle" fontWeight="bold">SALON</text>
-                  <text x="150" y="78" fill="#94a3b8" fontSize="3.8" textAnchor="middle">~26 m²</text>
-
-                  <rect x="123" y="105" width="53" height="42" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.08" />
-                  <text x="150" y="124" fill="#38bdf8" fontSize="4.5" textAnchor="middle" fontWeight="bold">YATAK ODASI</text>
-
-                  <rect x="144" y="148" width="32" height="29" stroke="#38bdf8" strokeWidth="0.6" fill="#0284c7" fillOpacity="0.08" />
-                  <text x="160" y="164" fill="#38bdf8" fontSize="3.8" textAnchor="middle">MUTFAK</text>
-
-                  <text x="150" y="98" fill="#a78bfa" fontSize="5.5" textAnchor="middle" fontWeight="bold">DAİRE 02 (SAĞ)</text>
-                  <text x="150" y="138" fill="#94a3b8" fontSize="4" textAnchor="middle">Net: {physicalNetArea} m²</text>
-
-                  {/* Center Hall */}
-                  <text x="110" y="58" fill="#10b981" fontSize="4.5" textAnchor="middle" fontWeight="bold">KAT HOLÜ</text>
-
-                  {/* Dimensions */}
-                  <g stroke="#10b981" strokeWidth="0.8" fill="none">
-                    <line x1="42" y1="23" x2="178" y2="23" />
-                    <line x1="42" y1="42" x2="42" y2="18" stroke="#475569" strokeWidth="0.5" />
-                    <line x1="178" y1="42" x2="178" y2="18" stroke="#475569" strokeWidth="0.5" />
-                    <line x1="39" y1="26" x2="45" y2="20" />
-                    <line x1="175" y1="26" x2="181" y2="20" />
-                    <text x="110" y="16" fill="#10b981" fontSize="5.5" textAnchor="middle" stroke="none" fontWeight="bold">
-                      {Math.max(8, Math.round(Math.sqrt(results.baseArea / 1.2) * 10) / 10).toFixed(1)} m (EN)
-                    </text>
-
-                    <line x1="20" y1="42" x2="20" y2="178" />
-                    <line x1="42" y1="42" x2="15" y2="42" stroke="#475569" strokeWidth="0.5" />
-                    <line x1="42" y1="178" x2="15" y2="178" stroke="#475569" strokeWidth="0.5" />
-                    <line x1="17" y1="45" x2="23" y2="39" />
-                    <line x1="17" y1="181" x2="23" y2="175" />
-                    <text x="12" y="110" fill="#10b981" fontSize="5.5" textAnchor="middle" stroke="none" fontWeight="bold" transform="rotate(-90, 12, 110)">
-                      {(Math.max(8, Math.round(Math.sqrt(results.baseArea / 1.2) * 10) / 10) * 1.2).toFixed(1)} m (BOY)
-                    </text>
-                  </g>
-                  <text x="110" y="200" fill="#38bdf8" fontSize="7" textAnchor="middle" fontWeight="bold">
-                    MİMARİ NORMAL KAT PLANI ({params.roomType || '3+1'} ODA)
-                  </text>
-                </svg>
-              </div>
-
-              <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between font-mono">
-                <span>Taban Oturumu: ~{results.baseArea.toFixed(1)} m²</span>
-                <span>Fiziki Daire Brütü: ~{physicalGrossArea} m²</span>
-              </div>
-            </div>
-
-            {/* 2. CAD Bina Ön Cephe Teknik Çizimi */}
-            <div className="bg-[#080e1a] rounded-2xl p-4 border border-slate-700 text-slate-200 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold text-emerald-300">BİNA ÖN CEPHE TEKNİK ÇİZİMİ (ELEVATION)</span>
-                </div>
-                <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded-md font-mono">
-                  {params.floorCount} Kat | Hmax: ~{(params.floorCount * 2.95 + (params.hasCommercial ? 0.55 : 0) + 2.0).toFixed(1)}m
-                </span>
-              </div>
-
-              <div className="rounded-xl overflow-hidden border border-slate-800 bg-[#060a13] flex items-center justify-center p-1 min-h-[220px]">
-                {/* Embedded SVG front elevation */}
-                <div 
-                  className="w-full"
-                  dangerouslySetInnerHTML={{
-                    __html: generateFrontViewSvgString(
-                      params.floorCount,
-                      params.hasCommercial,
-                      params.roofType,
-                      results.baseArea,
-                      profile.companyName || 'AB YAPI'
-                    )
-                  }}
-                />
-              </div>
-
-              <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between font-mono">
-                <span>Çatı Modeli: {getRoofTypeShortTitle(params.roofType)}</span>
-                <span>Kat Yüksekliği: 2.95 m (Net: 2.60 m)</span>
-              </div>
-            </div>
-          </div>
-          
-          <h5 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Box className="w-3.5 h-3.5 text-indigo-600" />
-            <span>3D İnteraktif Model ve Pusula Görünümleri</span>
-          </h5>
-
-          <div className={`grid grid-cols-1 ${viewDirections.length === 4 ? 'sm:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3'} gap-4`}>
-            {viewDirections.map((dirKey, idx) => {
-              const meta = DIRECTION_META[dirKey] || DIRECTION_META.front;
-              const letter = CARD_LETTERS[idx] || String(idx + 1);
-              return (
-                <div key={idx} className="space-y-2 bg-[#090f1d]/5 p-3 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between">
-                  <div>
-                    {/* Header: Title & Compass Badge */}
-                    <div className="flex items-center justify-between gap-1.5 mb-1.5 flex-wrap">
-                      <span className="text-xs font-bold text-indigo-700 tracking-wide uppercase">
-                        {letter}. {meta.label}
-                      </span>
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${meta.accentBg} ${meta.accentText}`}>
-                        <Compass className="w-3 h-3 shrink-0" />
-                        <span>{meta.compassAngle}</span>
-                      </span>
-                    </div>
-
-                    {/* Predefined Direction Switcher Pills (hidden in print) */}
-                    <div className="flex items-center gap-1 mb-2 overflow-x-auto pb-0.5 print:hidden" title="Ön tanımlı yön seçin">
-                      {(Object.keys(DIRECTION_META) as PredefinedViewDirection[]).map((key) => {
-                        const opt = DIRECTION_META[key];
-                        const isSelected = dirKey === key;
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={() => {
-                              setViewDirections((prev) => {
-                                const next = [...prev];
-                                next[idx] = key;
-                                return next;
-                              });
-                            }}
-                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold transition-all shrink-0 cursor-pointer ${
-                              isSelected
-                                ? 'bg-indigo-600 text-white shadow-xs'
-                                : 'bg-white/90 hover:bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
-                            }`}
-                            title={`${opt.label} (${opt.compassAngle})`}
-                          >
-                            {opt.shortTag}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 3D Canvas Container */}
-                  <div className="h-48 md:h-52 bg-slate-900 rounded-xl overflow-hidden border border-slate-700 shadow-inner group transition-transform duration-300 hover:scale-[1.01]">
-                    <ThreeBuildingView 
-                      params={{
-                        ...params,
-                        floorHeight: 2.95,
-                        stairWidth: 2.6,
-                        stairDepth: 4.8,
-                        elevatorWidth: 1.8,
-                        elevatorDepth: 2.0,
-                        wallThickness: 0.2,
-                        showFurniture: true,
-                        showDimensions: meta.showDimensions,
-                        showInteriorRooms: true,
-                        interiorCutMode: meta.cutMode,
-                      } as BuildingModelParams} 
-                      forcedCameraPreset={meta.key} 
-                      hideControls={true} 
-                      theme="dark"
-                    />
-                  </div>
-
-                  {/* Description Footer */}
-                  <p className="text-[10px] text-slate-500 italic mt-1 px-1 text-center min-h-[28px] flex items-center justify-center">
-                    {meta.description}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <p className="mt-4 text-[10px] text-slate-400 font-mono border-t border-slate-200 pt-3 italic text-center">
-            * Yukarıdaki 3D mimari model görünümleri, girdiğiniz verilere ({params.floorCount} Kat, {results.baseArea.toFixed(1)}m²) ve seçilen ön tanımlı pusula açılarına göre CAD motoru tarafından gerçek zamanlı oluşturulmuştur.
-          </p>
-        </div>
-
-        {/* Detailed Technical / Structural Specifications (Technical Spec Summary) */}
-        <div className="mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-200">
-          <h4 className="text-xs font-bold text-indigo-700 mb-3 uppercase tracking-wider flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4" />
-            <span>🏢 Yapısal Özellikler & Teknik Şartname Özeti</span>
-          </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-700">
-            <div className="space-y-2">
-              <p>
-                <strong className="text-slate-900 font-semibold">⚡ Yapı Strüktürü & Betonarme:</strong>
-                <br />
-                En son deprem yönetmeliğine uygun, deprem yük katsayıları hesaplanmış radye jeneral temel sistemi. İmalatta yüksek dayanımlı <span className="font-semibold text-indigo-700">C30/35 Hazır Beton</span> ve nervürlü demir donatılarla taşıyıcı karkas yapımı. Temel altı membran bohçalama su yalıtımı ve çevre drenajı standarttır.
-              </p>
-              <p>
-                <strong className="text-slate-900 font-semibold">🧱 Bölücü Duvarlar & Kaba Yapı:</strong>
-                <br />
-                Kat bölücü ve dış cephe duvarlarında yüksek ısı ve ses yalıtımlı Kilsan marka kilitli tuğlalar. İç mekanda kaba kara sıva üzeri pürüzsüz saten alçı sıva ve Jotun/Marshall su bazlı antibakteriyel iç boya uygulaması.
-              </p>
-              <p>
-                <strong className="text-slate-900 font-semibold">🌡️ Cephe Yalıtımı (Mantolama):</strong>
-                <br />
-                Isı yalıtım levhaları ile mantolanan karkas cephe elemanları. <span className="font-semibold text-slate-900">Minimum 5 cm kalınlığında Karbonlu EPS mantolama</span>, dış cephe dekoratif kaplamaları ve silikon esaslı nefes alan dış cephe boyası.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p>
-                <strong className="text-slate-900 font-semibold">🪟 İç & Dış Doğramalar:</strong>
-                <br />
-                Pimapen, Fıratpen veya Adopen marka PVC pencereler (70'lik seri, çift contalı). Tüm camlar <span className="font-semibold text-slate-900">Isıcam Konfor</span> serisi sinerji özellikli argon gazlı çift cam olacaktır. Monoblok kilitli 1. Sınıf çelik daire kapısı ve ahşap görünümlü lake kapılar.
-              </p>
-              <p>
-                <strong className="text-slate-900 font-semibold">🛋️ İç Mekan Kaplamaları:</strong>
-                <br />
-                Giriş holleri ve mutfak banyo zeminleri 1. sınıf Çanakkale/Ege Seramik. Salon ve yatak odalarında derzli AGT/Çamsan laminat parke. Vitra/Serel asma klozetler, gömme rezervuarlar ve E.C.A. bataryalar ile lüks banyo donanımları.
-              </p>
-              <p>
-                <strong className="text-slate-900 font-semibold">⚙️ Tesisat & Ortak Alanlar:</strong>
-                <br />
-                Doğalgaz kombili bireysel kalorifer tesisatı ve panel radyatörler. Audio marka renkli görüntülü diafon altyapısı. <span className="font-semibold text-slate-900">TSE ve CE standartlarına uygun</span> tam otomatik paslanmaz çelik kabinli kat kurtaran sistemli asansör.
-              </p>
+            <div className="text-left sm:text-right">
+              <span className="text-[11px] text-slate-500 block">Yapım Modeli</span>
+              <span className="text-xs font-bold text-slate-800">
+                {isContractorShareModel ? '🤝 Arsa Payı Kat Karşılığı' : '🏗️ Hak Sahipleri Öz Finansmanlı / Hakedişli'}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Table 1: Hak Sahipleri Özet */}
-        <h4 className="text-xs font-bold text-indigo-700 border-b border-slate-200 pb-2 mb-3 uppercase tracking-wider flex items-center gap-2">
-          <FileText className="w-4 h-4" />
-          <span>1. Hak Sahipleri Ödeme ve Borçlandırma Özeti</span>
-        </h4>
-        <div className="overflow-x-auto mb-6 rounded-2xl border border-slate-200">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-100 text-slate-700">
-              <tr>
-                <th className="p-3 border-b border-slate-200 font-semibold">Daire & Kat / Cephe</th>
-                <th className="p-3 border-b border-slate-200 font-semibold">Hak Sahibi & TC</th>
-                <th className="p-3 border-b border-slate-200 font-semibold">Özellikler (Oda / Alan)</th>
-                <th className="p-3 border-b border-slate-200 font-semibold text-center">Şerefiye</th>
-                <th className="p-3 border-b border-slate-200 font-semibold text-right">Arsa Mahsubu</th>
-                <th className="p-3 border-b border-slate-200 font-semibold text-right">Daire Bedeli</th>
-                {isContractorShareModel ? (
-                  <>
-                    <th className="p-3 border-b border-slate-200 font-semibold text-right">Kat Karşılığı İndirimi</th>
-                    <th className="p-3 border-b border-slate-200 font-semibold text-right text-indigo-700">Net Malik Borcu</th>
-                  </>
-                ) : (
-                  <>
-                    <th className="p-3 border-b border-slate-200 font-semibold text-right">Peşinat</th>
-                    <th className="p-3 border-b border-slate-200 font-semibold text-right">Dönüşüm Desteği</th>
-                    <th className="p-3 border-b border-slate-200 font-semibold text-right text-indigo-700">Kalan Borç</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {results.flatResults.map((flat) => {
-                const isContractor = flat.isContractorShare;
-                // Calculate approximate floor based on flat id and average flats per floor
-                const totalFlats = results.flatCount || 10;
-                const totalFloors = params.floorCount || 5;
-                const flatsPerFloor = Math.max(1, Math.ceil(totalFlats / totalFloors));
-                const floorNo = flat.floorNumber !== undefined ? flat.floorNumber : Math.min(totalFloors, Math.ceil(flat.id / flatsPerFloor));
-                const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
-                const facadeText = flat.facade ? (flat.facade.charAt(0).toUpperCase() + flat.facade.slice(1)) : 'Güney';
-                
-                // Determine room count
-                const roomCountText = params.roomType ? `${params.roomType} Oda` : (flat.area < 65 ? '1+1 Oda' : flat.area < 95 ? '2+1 Oda' : flat.area < 135 ? '3+1 Oda' : '4+1 Oda');
-
-                const serefiyeVal = flat.serefiyeMultiplier || 1.0;
-                const serefiyeDiff = Math.round((serefiyeVal - 1) * 100);
-
-                const landShareDiff = flat.landShareDifference || 0;
-                
-                return (
-                  <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 font-semibold text-slate-900">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>Daire {flat.id}</span>
-                        {flat.flatType === 'mansard' && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                            Mansart Çatı (Ayrı B.B.)
-                          </span>
-                        )}
-                        {flat.flatType === 'duplex' && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            Çatı Dubleksi (Tek B.B.)
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-indigo-600 font-normal">
-                        {floorText} / {facadeText} Cephe
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="font-semibold text-slate-900">{flat.name}</div>
-                      <div className="text-[10px] text-slate-500 font-mono">TC: {flat.tc}</div>
-                    </td>
-                    <td className="p-3 text-slate-700">
-                      <div className="font-semibold text-slate-800">{roomCountText}</div>
-                      <div className="text-[10px] text-slate-500 font-mono">
-                        Brüt: {physicalGrossArea} m² <span className="text-[9px] text-slate-400 font-normal">(Pay: {flat.area} m²)</span> | Net: {physicalNetArea} m²
-                      </div>
-                    </td>
-                    <td className="p-3 text-center">
-                      {serefiyeDiff !== 0 ? (
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold font-mono ${serefiyeDiff > 0 ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
-                          x{serefiyeVal.toFixed(2)} ({serefiyeDiff > 0 ? '+' : ''}{serefiyeDiff}%)
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 font-mono">1.00 (%0)</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-right font-mono text-[11px]">
-                      {landShareDiff !== 0 ? (
-                        <span className={`font-semibold ${landShareDiff > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-                          {landShareDiff > 0 ? '+' : ''}{landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">0 TL</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-right text-slate-900 font-mono">
-                      {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                    {isContractorShareModel ? (
-                      <>
-                        <td className="p-3 text-right text-emerald-700 font-semibold font-mono">
-                          -{flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                          <span className="block text-[9px] text-slate-500 font-normal">
-                            {isContractor ? "Müteahhit Payı Satış" : "Arsa Payı Mahsubu"}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right font-bold text-emerald-800 font-mono bg-emerald-50/40">
-                          0 TL
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="p-3 text-right text-slate-600 font-mono">
-                          -{flat.downPayment.toLocaleString('tr-TR')} TL
-                        </td>
-                        <td className="p-3 text-right text-indigo-700 font-mono">
-                          -{flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </td>
-                        <td className="p-3 text-right font-bold text-slate-900 font-mono bg-indigo-50/20">
-                          {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Table 2: Hakediş ve Ödeme Takvimi */}
-        <h4 className="text-xs font-bold text-indigo-700 border-b border-slate-200 pb-2 mb-3 uppercase tracking-wider flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {params.paymentPlanType === 'installments' ? (
-              <Calendar className="w-4 h-4 text-emerald-600" />
-            ) : params.paymentPlanType === 'hybrid' ? (
-              <Sparkles className="w-4 h-4 text-purple-600" />
-            ) : (
-              <LayoutGrid className="w-4 h-4 text-indigo-600" />
-            )}
-            <span>
-              2.{' '}
-              {params.paymentPlanType === 'installments'
-                ? `Aylık Eşit Taksitli Ödeme Takvimi (${params.installmentCount || 12} Ay Vadeli)`
-                : params.paymentPlanType === 'hybrid'
-                ? `Karma Ödeme Takvimi (Peşinat + Ara Ödemeler + ${params.installmentCount || 12} Ay Taksit)`
-                : `Fiziki İlerleme Hakediş Takvimi (5 Kademeli Aşama)`}
+        {/* ========================================================
+            2. PROJECT & LAND SPECIFICATION MATRIX (PROJE KÜNYESİ)
+           ======================================================== */}
+        <div className="relative z-10 mb-8 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-indigo-600" />
+              <span>1. PROJE VE TAŞINMAZ MİMARİ KÜNYESİ</span>
+            </h3>
+            <span className="text-[11px] text-indigo-700 font-semibold bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
+              {params.projectAddress || 'Belirtilmemiş Adres'}
             </span>
           </div>
-          <span className="text-[10px] font-normal text-slate-500 font-mono">
-            Model:{' '}
-            {params.paymentPlanType === 'installments'
-              ? 'Taksitli Ödeme'
-              : params.paymentPlanType === 'hybrid'
-              ? 'Karma (Hibrit)'
-              : 'Fiziki Hakediş'}
-          </span>
-        </h4>
-        
-        {isContractorShareModel ? (
-          <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-900 leading-relaxed mb-6">
-            <h5 className="font-semibold text-emerald-800 text-xs mb-1">
-              🤝 Kat Karşılığı Finansman Beyanı:
-            </h5>
-            <p>
-              Kat Karşılığı Yapım Modelinde, tüm yapı tasarım, ruhsat, malzeme ve yapım bedelleri müteahhite devredilen paylardan ({results.flatResults.filter(f => f.isContractorShare).length} adet Müteahhit Dairesi) finanse edilir. Bu nedenle arsa maliklerinin herhangi bir nakit borçlanma yükümlülüğü veya inşaat fiziki ilerlemesine bağlı hakediş ödeme takvimi bulunmamaktadır. Tüm yapım riski ve finansal yönetim AB YAPI tarafından üstlenilmiştir.
-            </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Arsa Alanı</span>
+              <div className="text-sm font-bold text-slate-900 font-mono">{estimatedLandArea.toLocaleString('tr-TR')} m²</div>
+              <span className="text-[10px] text-slate-400">Tahmini Parsel Yüzölçümü</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Taban Oturumu (TAKS)</span>
+              <div className="text-sm font-bold text-slate-900 font-mono">{results.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
+              <span className="text-[10px] text-slate-400">Zemin Taban İmarı</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Toplam İnşaat Alanı</span>
+              <div className="text-sm font-bold text-indigo-700 font-mono">{results.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
+              <span className="text-[10px] text-slate-400">Ruhsata Esas Toplam İmalat</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Kat / Blok Düzeni</span>
+              <div className="text-sm font-bold text-slate-900">{params.floorCount || 5} Normal Kat</div>
+              <span className="text-[10px] text-slate-400">{params.hasGroundFloorShop ? '+ 1 Zemin Ticari Kat' : 'Tamamı Konut'}</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Bağımsız Bölüm Sayısı</span>
+              <div className="text-sm font-bold text-slate-900 font-mono">{results.flatCount} Konut Dairesi</div>
+              <span className="text-[10px] text-slate-400">{params.hasGroundFloorShop ? `+ ${params.shopCount || 1} Dükkan/Mağaza` : 'Kat Başı ~' + flatsPerFloor + ' Daire'}</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Tip Daire Alanları</span>
+              <div className="text-sm font-bold text-slate-900 font-mono">Brüt: {physicalGrossArea} m²</div>
+              <span className="text-[10px] text-slate-500 font-mono">Net: {physicalNetArea} m² (~%80)</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Birim İmalat Maliyeti</span>
+              <div className="text-sm font-bold text-emerald-700 font-mono">{results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</div>
+              <span className="text-[10px] text-slate-400 font-mono">~{results.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Teslim Takvimi</span>
+              <div className="text-sm font-bold text-indigo-900 font-mono">{results.finalMonths} Ay (Net Süre)</div>
+              <span className="text-[10px] text-slate-400">Ruhsat + İskân Dahil</span>
+            </div>
           </div>
-        ) : params.paymentPlanType === 'installments' ? (
-          /* SEÇENEK A: SADECE AYLIK TAKSİT TABLOSU GÖSTERİLİR */
-          <div className="overflow-x-auto mb-6 rounded-2xl border border-slate-200">
+        </div>
+
+        {/* ========================================================
+            3. FINANCIAL EXECUTIVE OVERVIEW (MALİ ÇERÇEVE & BÜTÇE)
+           ======================================================== */}
+        <div className="relative z-10 mb-8 p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-2xl text-white shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-700">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider">FİNANSAL TEKLİF ÖZETİ</span>
+              <h4 className="text-lg font-bold text-white">Toplam Proje İmalat ve Finansman Hacmi</h4>
+            </div>
+            <div className="text-left md:text-right">
+              <span className="text-xs text-slate-400 block">Toplam Proje İmalat Bedeli</span>
+              <span className="text-2xl font-black text-emerald-400 font-mono">
+                {results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 text-xs">
+            <div className="space-y-1">
+              <span className="text-slate-400 font-medium">Uygulanan Finansman Modeli</span>
+              <div className="font-semibold text-slate-100 flex items-center gap-1.5">
+                <Landmark className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span>{supportModelTitle}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-slate-400 font-medium">Toplam Hak Sahibi Payı</span>
+              <div className="font-semibold text-slate-100 font-mono">
+                {isContractorShareModel
+                  ? `${results.flatResults.filter(f => !f.isContractorShare).length} Daire (%${Math.round((results.flatResults.filter(f => !f.isContractorShare).length / Math.max(1, results.flatCount)) * 100)})`
+                  : `${results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL (%100 Kat Malikleri)`}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-slate-400 font-medium">Müteahhit / Yüklenici Payı</span>
+              <div className="font-semibold text-emerald-300 font-mono">
+                {isContractorShareModel
+                  ? `${results.flatResults.filter(f => f.isContractorShare).length} Bağımsız Bölüm (Finansman Karşılığı)`
+                  : '0 Daire (Yalnızca Müteahhitlik Hizmet Bedeli)'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================
+            4. TECHNICAL SPECIFICATIONS & QUALITY ASSURANCE (TEKNİK ŞARTNAME)
+           ======================================================== */}
+        <div className="relative z-10 mb-8 border border-slate-200 rounded-2xl p-5 bg-slate-50/70">
+          <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2 mb-3">
+            <ShieldCheck className="w-4 h-4 text-indigo-600" />
+            <span>2. YAPISAL TEKNİK ŞARTNAME & İMALAT STANDARTLARI</span>
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-700 leading-relaxed">
+            <div className="space-y-2.5">
+              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Taşıyıcı Sistem, Beton & Temel İzolasyonu</span>
+                </div>
+                <p className="text-slate-600 text-[11px]">
+                  TBDY-2018 Türkiye Bina Deprem Yönetmeliği'ne tam uyumlu <strong className="text-slate-900">C30/35 veya C35/40 Hazır Beton</strong> ve B420C nervürlü demir donatı. Zemin etüt raporuna göre boyutlandırılmış radye jeneral temel ve temel altında çift kat membranlı su bohçalama ve drenaj sistemi.
+                </p>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Dış Cephe Yalıtımı (Mantolama) & Çatı</span>
+                </div>
+                <p className="text-slate-600 text-[11px]">
+                  Bina dış cephesinde minimum <strong className="text-slate-900">5 cm Karbonlu EPS veya Taşyünü</strong> ısı yalıtım mantolaması, fileli sıva ve Jotun/Filli Boya silikonlu dış cephe boyası. Çatıda su ve ısı yalıtımlı {getRoofTypeShortTitle(params.roofType)} sistem imalatı.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Pencere Doğramaları & Daire Kapıları</span>
+                </div>
+                <p className="text-slate-600 text-[11px]">
+                  70-76 mm serisi 5 odacıklı çift contalı PVC doğrama (Pimapen / Fıratpen / Egepen) ve <strong className="text-slate-900">Isıcam Konfor Sinerji</strong> serisi argon gazlı çift camlar. Daire girişlerinde monoblok kilit sistemli 1. Sınıf çelik kapı ve CNC lakeli iç oda kapıları.
+                </p>
+              </div>
+
+              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Mekanik Tesisat, Asansör & İç Mekan Donatısı</span>
+                </div>
+                <p className="text-slate-600 text-[11px]">
+                  Bireysel doğalgaz kombili kalorifer / yerden ısıtma altyapısı. <strong className="text-slate-900">TSE ve CE onaylı</strong> tam otomatik paslanmaz kabinli, kat kurtaranlı asansör. 1. Sınıf Çanakkale/Ege seramikler, AGT derzli parkeler ve Vitra/E.C.A. banyo vitrifiye ürünleri.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================
+            5. INDIVIDUAL UNIT ALLOCATION & COST BREAKDOWN TABLE
+           ======================================================== */}
+        <div className="relative z-10 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2 mb-3">
+            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <FileText className="w-4 h-4 text-indigo-600" />
+              <span>3. HAK SAHİPLERİ BAĞIMSIZ BÖLÜM DAĞILIM VE BORÇLANDIRMA TABLOSU</span>
+            </h3>
+            <span className="text-[11px] text-slate-500 font-mono">
+              Toplam {results.flatCount} Bağımsız Bölüm
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-100 text-slate-700">
+              <thead className="bg-slate-100 text-slate-700 font-semibold">
                 <tr>
-                  <th className="p-3 border-b border-slate-200 font-semibold">Daire / Malik</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right">Daire Payı Bedeli</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-indigo-700">Ödenen Peşinat</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-emerald-700">Devlet Desteği</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right">Kalan Net Borç</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-center">Vade</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-emerald-800 bg-emerald-50/50">
-                    Aylık Taksit Tutarı
-                  </th>
+                  <th className="p-3 border-b border-slate-200">No & Kat / Cephe</th>
+                  <th className="p-3 border-b border-slate-200">Hak Sahibi / T.C.</th>
+                  <th className="p-3 border-b border-slate-200">Oda & Alan</th>
+                  <th className="p-3 border-b border-slate-200 text-center">Şerefiye</th>
+                  <th className="p-3 border-b border-slate-200 text-right">Arsa Mahsubu</th>
+                  <th className="p-3 border-b border-slate-200 text-right">İmalat Bedeli</th>
+                  {isContractorShareModel ? (
+                    <>
+                      <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Kat Karşılığı Mahsubu</th>
+                      <th className="p-3 border-b border-slate-200 text-right text-indigo-900 bg-indigo-50/60">Net Malik Borcu</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="p-3 border-b border-slate-200 text-right text-indigo-700">Ödenen Peşinat</th>
+                      <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Dönüşüm Desteği</th>
+                      <th className="p-3 border-b border-slate-200 text-right text-indigo-900 bg-indigo-50/60">Kalan Net Borç</th>
+                    </>
+                  )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {results.flatResults.map((flat) => (
-                  <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 font-semibold text-slate-900">
-                      Daire {flat.id} ({flat.name})
-                    </td>
-                    <td className="p-3 text-right font-mono text-slate-700">
-                      {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                    <td className="p-3 text-right font-mono text-indigo-700">
-                      -{flat.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                    <td className="p-3 text-right font-mono text-emerald-700 font-semibold">
-                      {flat.usedCredit > 0 ? `-${flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '-'}
-                    </td>
-                    <td className="p-3 text-right font-bold text-slate-900 font-mono">
-                      {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                    <td className="p-3 text-center font-mono text-slate-600">
-                      {flat.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-'}
-                    </td>
-                    <td className="p-3 text-right font-bold text-emerald-800 font-mono bg-emerald-50/50">
-                      {flat.netRemainingDebt > 0
-                        ? `${flat.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay`
-                        : '0 TL'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-slate-50 border-t border-slate-200 font-bold">
-                <tr>
-                  <td colSpan={4} className="p-3 text-slate-800">
-                    PROJE AYLIK TOPLAM ŞANTİYE KASA GİRİŞİ:
-                  </td>
-                  <td className="p-3 text-right font-mono text-slate-900">
-                    {results.flatResults
-                      .reduce((sum, f) => sum + f.netRemainingDebt, 0)
-                      .toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
-                    TL
-                  </td>
-                  <td className="p-3 text-center font-mono text-slate-700">
-                    {params.installmentCount || 12} Ay
-                  </td>
-                  <td className="p-3 text-right font-mono text-emerald-800 text-sm bg-emerald-100/60">
-                    {(results.totalMonthlyInstallments || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        ) : params.paymentPlanType === 'hybrid' ? (
-          /* SEÇENEK B: SADECE KARMA / HİBRİT TABLOSU GÖSTERİLİR */
-          <div className="overflow-x-auto mb-6 rounded-2xl border border-slate-200">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-100 text-slate-700">
-                <tr>
-                  <th className="p-3 border-b border-slate-200 font-semibold">Daire / Malik</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right">Net Kalan Borç</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-indigo-700">1. Ara Ödeme (%25 Kaba)</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-purple-700">2. Ara Ödeme (%15 İskân)</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right">Taksitlendirilen Tutar (%60)</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold text-right text-emerald-800 bg-emerald-50/50">
-                    Aylık Taksit ({params.installmentCount || 12} Ay)
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 text-slate-800">
                 {results.flatResults.map((flat) => {
-                  const interim1 = Math.round(flat.netRemainingDebt * 0.25);
-                  const interim2 = Math.round(flat.netRemainingDebt * 0.15);
-                  const remainingToInstallments = Math.max(0, flat.netRemainingDebt - interim1 - interim2);
-                  const hybridMonthly = Math.round(remainingToInstallments / Math.max(1, params.installmentCount || 12));
+                  const totalFlats = results.flatCount || 10;
+                  const totalFloors = params.floorCount || 5;
+                  const flatsPerFloor = Math.max(1, Math.ceil(totalFlats / totalFloors));
+                  const floorNo = flat.floorNumber !== undefined ? flat.floorNumber : Math.min(totalFloors, Math.ceil(flat.id / flatsPerFloor));
+                  const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
+                  const facadeText = flat.facade ? (flat.facade.charAt(0).toUpperCase() + flat.facade.slice(1)) : 'Güney';
+                  const roomCountText = params.roomType ? `${params.roomType} Oda` : (flat.area < 65 ? '1+1' : flat.area < 95 ? '2+1' : flat.area < 135 ? '3+1' : '4+1');
+                  
+                  const serefiyeVal = flat.serefiyeMultiplier || 1.0;
+                  const serefiyeDiff = Math.round((serefiyeVal - 1) * 100);
+                  const landShareDiff = flat.landShareDifference || 0;
 
                   return (
                     <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-3 font-semibold text-slate-900">
-                        Daire {flat.id} ({flat.name})
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-indigo-900">Daire {flat.id}</span>
+                          {flat.flatType === 'mansard' && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                              Mansart Çatı
+                            </span>
+                          )}
+                          {flat.flatType === 'duplex' && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              Çatı Dubleksi
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          {floorText} • {facadeText}
+                        </div>
                       </td>
-                      <td className="p-3 text-right font-bold text-slate-900 font-mono">
-                        {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+
+                      <td className="p-3">
+                        <div className="font-semibold text-slate-900">{flat.name}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">TC: {flat.tc}</div>
                       </td>
-                      <td className="p-3 text-right text-indigo-700 font-mono">
-                        {interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+
+                      <td className="p-3">
+                        <div className="font-semibold text-slate-800">{roomCountText}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          Brüt: {physicalGrossArea} m² <span className="text-[9px] text-slate-400">(Pay: {flat.area} m²)</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-700 font-mono font-medium">Net: {physicalNetArea} m²</div>
                       </td>
-                      <td className="p-3 text-right text-purple-700 font-mono">
-                        {interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+
+                      <td className="p-3 text-center font-mono">
+                        {serefiyeDiff !== 0 ? (
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${serefiyeDiff > 0 ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                            x{serefiyeVal.toFixed(2)} ({serefiyeDiff > 0 ? '+' : ''}{serefiyeDiff}%)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">1.00 (Standart)</span>
+                        )}
                       </td>
-                      <td className="p-3 text-right font-mono text-slate-700 font-semibold">
-                        {remainingToInstallments.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+
+                      <td className="p-3 text-right font-mono text-[11px]">
+                        {landShareDiff !== 0 ? (
+                          <span className={`font-semibold ${landShareDiff > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                            {landShareDiff > 0 ? '+' : ''}{landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">0 TL</span>
+                        )}
                       </td>
-                      <td className="p-3 text-right font-bold text-emerald-800 font-mono bg-emerald-50/50">
-                        {flat.netRemainingDebt > 0 ? `${hybridMonthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}
+
+                      <td className="p-3 text-right font-mono text-slate-900 font-semibold">
+                        {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                       </td>
+
+                      {isContractorShareModel ? (
+                        <>
+                          <td className="p-3 text-right text-emerald-700 font-semibold font-mono">
+                            -{flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            <span className="block text-[9px] text-slate-400">
+                              {flat.isContractorShare ? 'Müteahhit Payı Satış' : 'Arsa Payı Mahsubu'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-black text-emerald-800 font-mono bg-emerald-50/50">
+                            0 TL
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3 text-right text-indigo-700 font-mono">
+                            -{flat.downPayment.toLocaleString('tr-TR')} TL
+                          </td>
+                          <td className="p-3 text-right text-emerald-700 font-mono font-semibold">
+                            {flat.usedCredit > 0 ? `-${flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '0 TL'}
+                          </td>
+                          <td className="p-3 text-right font-bold text-slate-950 font-mono bg-indigo-50/40">
+                            {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </td>
+                        </>
+                      )}
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
-          </div>
-        ) : (
-          /* SEÇENEK C: SADECE 5 KADEMELİ FİZİKİ HAKEDİŞ TABLOSU GÖSTERİLİR */
-          <div className="overflow-x-auto mb-6 rounded-2xl border border-slate-200">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-100 text-slate-700">
+              <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold text-xs text-slate-900">
                 <tr>
-                  <th className="p-3 border-b border-slate-200 font-semibold">Daire / Malik</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold">1. Aşama (%{params.stage1Pay})</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold">2. Aşama (%{params.stage2Pay})</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold">3. Aşama (%{params.stage3Pay})</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold">4. Aşama (%{params.stage4Pay})</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold">5. Aşama (%{params.stage5Pay})</th>
-                  <th className="p-3 border-b border-slate-200 font-semibold">Toplam Malik Borcu</th>
+                  <td colSpan={3} className="p-3">GENEL PROJE TOPLAMI:</td>
+                  <td className="p-3 text-center font-mono">-</td>
+                  <td className="p-3 text-right font-mono">0 TL</td>
+                  <td className="p-3 text-right font-mono text-indigo-900">
+                    {results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                  </td>
+                  {isContractorShareModel ? (
+                    <>
+                      <td className="p-3 text-right font-mono text-emerald-700">
+                        -{results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-right font-mono text-emerald-800 bg-emerald-100/50">
+                        0 TL
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3 text-right font-mono text-indigo-700">
+                        -{results.flatResults.reduce((s, f) => s + f.downPayment, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-right font-mono text-emerald-700">
+                        -{results.flatResults.reduce((s, f) => s + f.usedCredit, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-right font-mono text-indigo-950 bg-indigo-100/60 font-black">
+                        {results.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                    </>
+                  )}
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {results.flatResults.map((flat) => (
-                  <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 font-semibold text-slate-900">
-                      Daire {flat.id} ({flat.name})
-                    </td>
-                    <td className="p-3 text-slate-700 font-mono">
-                      {flat.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                    <td className="p-3 text-slate-700 font-mono">
-                      {flat.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                    <td className="p-3 text-slate-700 font-mono">
-                      {flat.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                    <td className="p-3 font-semibold text-indigo-700 font-mono">
-                      {flat.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                    <td className="p-3 text-slate-700 font-mono">
-                      {flat.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                    <td className="p-3 font-bold text-slate-900 font-mono">
-                      {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              </tfoot>
             </table>
           </div>
-        )}
-
-        {/* Notice Box */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 leading-relaxed mb-8">
-          <h5 className="font-semibold text-amber-800 text-xs mb-1">
-            📌 Önemli Bilgilendirme ve Teslim Koşulları:
-          </h5>
-          <p>
-            Yukarıda belirtilen proje süresine mimari, statik ve altyapı projelerinin hazırlanması, ilgili belediyeden yapı ruhsatı alma ve inşaat bitimi yapı kullanım izin belgesi (iskân) onay süreçleri dahildir. İnşaat imalatı süresince olumsuz hava koşulları, resmi kurum onay/vize süreçlerindeki gecikmeler veya altyapı sağlayıcı kurumlardan (İSKİ, İGDAŞ, BEDAŞ vb.) kaynaklanan firmamız kontrolü dışındaki gecikmeler proje teslim süresine ilave edilir.
-          </p>
         </div>
 
-        {/* Signature Blocks */}
-        <div className="flex justify-between pt-6 px-6 text-xs text-slate-700">
-          <div className="text-center">
-            <p className="font-semibold mb-1 text-slate-900">MÜŞTERİ / KAT MALİKİ İMZA</p>
-            <p className="text-[11px] text-slate-500 mb-10 leading-tight">Kat Maliki / Hak Sahibi</p>
-            <p className="text-slate-400">.... / .... / 2026</p>
+        {/* ========================================================
+            6. PAYMENT SCHEDULE & MILESTONES (HAKEDİŞ & ÖDEME PLANI)
+           ======================================================== */}
+        <div className="relative z-10 mb-8">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-3">
+            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-indigo-600" />
+              <span>
+                4.{' '}
+                {isContractorShareModel
+                  ? 'KAT KARŞILIĞI FİNANSMAN VE YAPIM BEYANI'
+                  : params.paymentPlanType === 'installments'
+                  ? `AYLIK EŞİT TAKSİTLİ ÖDEME TAKVİMİ (${params.installmentCount || 12} AY)`
+                  : params.paymentPlanType === 'hybrid'
+                  ? `KARMA ÖDEME TAKVİMİ (PEŞİNAT + ARA ÖDEMELER + ${params.installmentCount || 12} AY TAKSİT)`
+                  : 'FİZİKİ İLERLEME HAKEDİŞ TAKVİMİ (5 AŞAMALI)'}
+              </span>
+            </h3>
+            <span className="text-[11px] text-slate-500 font-mono">
+              Model: {isContractorShareModel ? 'Kat Karşılığı' : params.paymentPlanType === 'installments' ? 'Eşit Taksitli' : params.paymentPlanType === 'hybrid' ? 'Hibrit Ödeme' : 'Aşamalı Hakediş'}
+            </span>
           </div>
-          <div className="text-center">
-            <p className="font-semibold mb-1 text-slate-900">YÜKLENİCİ İMZA / KAŞE</p>
-            <p className="text-[11px] text-slate-500 mb-10 leading-tight">
-              {profile.legalName}
-              {profile.authorizedPerson ? <><br />Yetkili: {profile.authorizedPerson}</> : null}
-            </p>
-            <p className="text-slate-400">.... / .... / 2026</p>
+
+          {isContractorShareModel ? (
+            <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-5 text-xs text-emerald-950 leading-relaxed space-y-2">
+              <div className="font-bold text-emerald-900 flex items-center gap-2 text-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Kat Karşılığı Yapım Modeli Finansman Güvencesi</span>
+              </div>
+              <p>
+                Bu yapım modelinde, yapının projelendirilmesi, şantiye kurulumu, malzeme tedariği, kaba ve ince imalat ile iskân alımına kadar olan <strong>tüm maliyetler {compLegal} tarafından üstlenilmiştir</strong>. Arsa maliklerinin herhangi bir nakit borçlanması, ara ödeme veya aylık taksit yükümlülüğü bulunmamaktadır.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-[11px] text-emerald-900">
+                <div className="p-2.5 bg-white/70 rounded-lg border border-emerald-200">
+                  <strong>🏢 Malik Daireleri:</strong> Hak sahiplerine anahtar teslim olarak bedelsiz teslim edilir.
+                </div>
+                <div className="p-2.5 bg-white/70 rounded-lg border border-emerald-200">
+                  <strong>📜 Teminat & Güvence:</strong> İnşaat ilerleme seviyelerine göre tapu devirleri kademeli olarak yapılır.
+                </div>
+              </div>
+            </div>
+          ) : params.paymentPlanType === 'installments' ? (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-100 text-slate-700 font-semibold">
+                  <tr>
+                    <th className="p-3 border-b border-slate-200">Daire / Malik</th>
+                    <th className="p-3 border-b border-slate-200 text-right">Daire Payı Bedeli</th>
+                    <th className="p-3 border-b border-slate-200 text-right text-indigo-700">Ödenen Peşinat</th>
+                    <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Devlet Desteği</th>
+                    <th className="p-3 border-b border-slate-200 text-right font-bold">Kalan Net Borç</th>
+                    <th className="p-3 border-b border-slate-200 text-center">Vade</th>
+                    <th className="p-3 border-b border-slate-200 text-right text-emerald-900 bg-emerald-50 font-bold">
+                      Aylık Taksit Tutarı
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {results.flatResults.map((flat) => (
+                    <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3 font-semibold text-slate-900">
+                        Daire {flat.id} ({flat.name})
+                      </td>
+                      <td className="p-3 text-right font-mono text-slate-700">
+                        {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-right font-mono text-indigo-700">
+                        -{flat.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-right font-mono text-emerald-700 font-semibold">
+                        {flat.usedCredit > 0 ? `-${flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '0 TL'}
+                      </td>
+                      <td className="p-3 text-right font-bold text-slate-900 font-mono">
+                        {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-center font-mono text-slate-600">
+                        {flat.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-'}
+                      </td>
+                      <td className="p-3 text-right font-bold text-emerald-900 font-mono bg-emerald-50/50">
+                        {flat.netRemainingDebt > 0
+                          ? `${flat.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay`
+                          : '0 TL'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold">
+                  <tr>
+                    <td colSpan={4} className="p-3 text-slate-800">
+                      PROJE ŞANTİYESİ AYLIK TOPLAM HAKEDİŞ GİRİŞİ:
+                    </td>
+                    <td className="p-3 text-right font-mono text-slate-900">
+                      {results.flatResults
+                        .reduce((sum, f) => sum + f.netRemainingDebt, 0)
+                        .toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
+                      TL
+                    </td>
+                    <td className="p-3 text-center font-mono text-slate-700">
+                      {params.installmentCount || 12} Ay
+                    </td>
+                    <td className="p-3 text-right font-mono text-emerald-900 text-sm bg-emerald-100/70 font-black">
+                      {(results.totalMonthlyInstallments || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          ) : params.paymentPlanType === 'hybrid' ? (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-100 text-slate-700 font-semibold">
+                  <tr>
+                    <th className="p-3 border-b border-slate-200">Daire / Malik</th>
+                    <th className="p-3 border-b border-slate-200 text-right">Net Kalan Borç</th>
+                    <th className="p-3 border-b border-slate-200 text-right text-indigo-700">1. Ara Ödeme (%25 Kaba)</th>
+                    <th className="p-3 border-b border-slate-200 text-right text-purple-700">2. Ara Ödeme (%15 İskân)</th>
+                    <th className="p-3 border-b border-slate-200 text-right">Taksitlendirilen (%60)</th>
+                    <th className="p-3 border-b border-slate-200 text-right text-emerald-900 bg-emerald-50 font-bold">
+                      Aylık Taksit ({params.installmentCount || 12} Ay)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {results.flatResults.map((flat) => {
+                    const interim1 = Math.round(flat.netRemainingDebt * 0.25);
+                    const interim2 = Math.round(flat.netRemainingDebt * 0.15);
+                    const remainingToInstallments = Math.max(0, flat.netRemainingDebt - interim1 - interim2);
+                    const hybridMonthly = Math.round(remainingToInstallments / Math.max(1, params.installmentCount || 12));
+
+                    return (
+                      <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-semibold text-slate-900">
+                          Daire {flat.id} ({flat.name})
+                        </td>
+                        <td className="p-3 text-right font-bold text-slate-900 font-mono">
+                          {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-3 text-right text-indigo-700 font-mono">
+                          {interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-3 text-right text-purple-700 font-mono">
+                          {interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-3 text-right font-mono text-slate-700 font-semibold">
+                          {remainingToInstallments.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-3 text-right font-bold text-emerald-900 font-mono bg-emerald-50/50">
+                          {flat.netRemainingDebt > 0 ? `${hybridMonthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-100 text-slate-700 font-semibold">
+                  <tr>
+                    <th className="p-3 border-b border-slate-200">Daire / Malik</th>
+                    <th className="p-3 border-b border-slate-200">1. Ruhsat (%{params.stage1Pay || 20})</th>
+                    <th className="p-3 border-b border-slate-200">2. Temel (%{params.stage2Pay || 20})</th>
+                    <th className="p-3 border-b border-slate-200">3. Kaba (%{params.stage3Pay || 30})</th>
+                    <th className="p-3 border-b border-slate-200">4. İnce (%{params.stage4Pay || 20})</th>
+                    <th className="p-3 border-b border-slate-200">5. İskân (%{params.stage5Pay || 10})</th>
+                    <th className="p-3 border-b border-slate-200 font-bold text-right">Toplam Net Borç</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {results.flatResults.map((flat) => (
+                    <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3 font-semibold text-slate-900">
+                        Daire {flat.id} ({flat.name})
+                      </td>
+                      <td className="p-3 text-slate-700 font-mono">
+                        {flat.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-slate-700 font-mono">
+                        {flat.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-slate-700 font-mono">
+                        {flat.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 font-semibold text-indigo-700 font-mono">
+                        {flat.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 text-slate-700 font-mono">
+                        {flat.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                      <td className="p-3 font-bold text-slate-950 font-mono text-right">
+                        {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================
+            7. CORPORATE GUARANTEES & LEGAL COMMITMENTS
+           ======================================================== */}
+        <div className="relative z-10 mb-8 border border-slate-200 rounded-2xl p-5 bg-slate-50/50">
+          <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2 mb-3">
+            <Award className="w-4 h-4 text-indigo-600" />
+            <span>5. KURUMSAL TAAHHÜTLER VE YASAL GARANTİ PROTOKOLÜ</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+              <span className="font-bold text-slate-900 block">🏛️ Yasal Garanti (TBK m. 478)</span>
+              <p className="text-[11px] text-slate-600">
+                Taşıyıcı betonarme karkas sistemde <strong>20 Yıl</strong>, ince işçilik ve cephe imalatlarında <strong>5 Yıl</strong>, mekanik/asansör donatılarında <strong>2 Yıl</strong> resmi yüklenici garantisi.
+              </p>
+            </div>
+
+            <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+              <span className="font-bold text-slate-900 block">⏱️ Kesin Teslim & Kira Desteği</span>
+              <p className="text-[11px] text-slate-600">
+                İnşaat süresinin aşılması durumunda, gecikilen her ay için kat maliklerine emsal kira bedeli üzerinden <strong>gecikme tazminatı</strong> nakden ve defaten ödenir.
+              </p>
+            </div>
+
+            <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+              <span className="font-bold text-slate-900 block">📑 Noter Onaylı Sözleşme</span>
+              <p className="text-[11px] text-slate-600">
+                Bu teklifname kabul edildiğinde, taraflar arasında ilgili Noterlik nezdinde resmî <strong>Düzenleme Şeklinde İnşaat Yapım Sözleşmesi</strong> akdedilecektir.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+            <strong>📌 Mücbir Sebep & Resmi Süreç Bilgilendirmesi:</strong> Belirtilen teslim süresi, belediye yapı ruhsatının kesinleştiği tarihten itibaren başlar. Doğal afetler, resmî kurum izinlerindeki gecikmeler veya altyapı sağlayıcı kurumların (İSKİ, İGDAŞ vb.) süreçleri yasal olarak süreye ilave edilir.
+          </div>
+        </div>
+
+        {/* ========================================================
+            8. MUTUAL SIGNATURE & CORPORATE SEAL BLOCKS
+           ======================================================== */}
+        <div className="relative z-10 pt-6 border-t-2 border-slate-900">
+          <div className="grid grid-cols-2 gap-8 text-center text-xs">
+            {/* Left Block: Client / Owner Committee */}
+            <div className="space-y-1">
+              <div className="font-extrabold text-slate-950 uppercase tracking-wide">
+                ARSA SAHİPLERİ / BİNA YÖNETİMİ
+              </div>
+              <p className="text-[11px] text-slate-500">Kat Malikleri Kurulu / Temsilci Heyeti</p>
+              <div className="h-20 flex items-center justify-center text-slate-300 italic text-[11px]">
+                (İmza / Tarih / T.C. Kimlik)
+              </div>
+              <div className="text-slate-400 font-mono text-[11px]">Tarih: ..... / ..... / 2026</div>
+            </div>
+
+            {/* Right Block: Contractor / Corporate Seal */}
+            <div className="space-y-1">
+              <div className="font-extrabold text-slate-950 uppercase tracking-wide">
+                YÜKLENİCİ FİRMA KAŞE / İMZA
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium">{compLegal}</p>
+              <div className="h-20 flex flex-col items-center justify-center text-slate-600">
+                <span className="font-bold text-xs text-indigo-900">{compAuth}</span>
+                <span className="text-[10px] text-slate-500">{compAuthTitle}</span>
+              </div>
+              <div className="text-slate-400 font-mono text-[11px]">Tarih: ..... / ..... / 2026</div>
+            </div>
           </div>
         </div>
       </div>

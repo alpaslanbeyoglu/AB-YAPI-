@@ -1,12 +1,38 @@
 export type AppTheme = 'light' | 'gray';
 
+export interface CompanyProfilePrintOptions {
+  showLogo?: boolean;
+  showLegalName?: boolean;
+  showSlogan?: boolean;
+  showTagline?: boolean;
+  showTaxInfo?: boolean;
+  showTradeRegistry?: boolean;
+  showMersis?: boolean;
+  showContractorLicence?: boolean;
+  showChamberNo?: boolean;
+  showFirstAuthorized?: boolean;
+  showFirstAuthorizedChamber?: boolean;
+  showSecondAuthorized?: boolean;
+  showSecondAuthorizedChamber?: boolean;
+  showStamp?: boolean;
+  showPhone?: boolean;
+  showEmail?: boolean;
+  showWebsite?: boolean;
+  showAddress?: boolean;
+  showBankInfo?: boolean;
+}
+
 export interface CompanyProfile {
   companyName: string;          // Örn: "AB YAPI"
-  legalName: string;            // Örn: "AB YAPI MÜTEAHHİTLİK LİMİTED ŞİRKETİ"
+  legalName: string;            // Örn: "AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ."
   slogan: string;               // Örn: "Güvene Yükselen Yapılar"
-  tagline: string;              // Örn: "Kentsel Dönüşüm & Danışmanlık"
+  tagline: string;              // Örn: "Kentsel Dönüşüm, Mühendislik ve Kat Karşılığı Projeler"
   authorizedPerson: string;     // Örn: "Müh. Alpaslan Beyoğlu"
-  authorizedTitle: string;      // Örn: "Müteahhit / Genel Müdür"
+  authorizedTitle: string;      // Örn: "Genel Müdür / İnşaat Mühendisi"
+  authorizedChamberNo?: string; // Örn: "İMO-74120"
+  authorizedPerson2?: string;   // Örn: "Mimar Zeynep Kaya"
+  authorizedTitle2?: string;    // Örn: "Şantiye Şefi / Mimar"
+  authorizedChamberNo2?: string;// Örn: "MO-55210"
   phone: string;                // Örn: "+90 (212) 585 10 20"
   email: string;                // Örn: "info@abyapi.com.tr"
   website: string;              // Örn: "www.abyapi.com.tr"
@@ -15,9 +41,13 @@ export interface CompanyProfile {
   taxNumber: string;            // Örn: "0010523491"
   tradeRegistryNo?: string;     // Örn: "İTO-412580"
   mersisNo?: string;            // Örn: "0001052349100012"
+  contractorLicenceNo?: string; // Örn: "YAMBİS: 0034125890" (Müteahhitlik Yetki Belge No)
+  chamberNo?: string;           // Örn: "İTO Sicil: 412580"
   iban?: string;                // Örn: "TR42 0001 0002 1234 5678 9050 01"
   bankName?: string;            // Örn: "Ziraat Bankası A.Ş."
   logoBase64?: string;          // Yüklenen özel firma logosu (Base64 dataURL formatında)
+  stampBase64?: string;         // Yüklenen dijital kaşe ve imza görseli (Base64 dataURL formatında)
+  printOptions?: CompanyProfilePrintOptions; // Çıktılarda hangi alanların görüneceği tercihleri
 }
 
 export type FootprintInputMode = 'directArea' | 'dimensions' | 'customFacades' | 'lShape' | 'polygonDraw';

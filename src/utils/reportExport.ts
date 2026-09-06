@@ -3,31 +3,75 @@ import { ProjectParams, CalculationResult, CompanyProfile } from '../types';
 export function generateOfferHtml(
   params: ProjectParams,
   res: CalculationResult,
-  showDrawings: boolean = true,
+  showDrawings: boolean = false,
   companyProfile?: CompanyProfile
 ): string {
+  const opts = companyProfile?.printOptions || {};
+  const showLogo = opts.showLogo !== false;
+  const showLegal = opts.showLegalName !== false;
+  const showSlogan = opts.showSlogan !== false;
+  const showTagline = opts.showTagline !== false;
+  const showPhone = opts.showPhone !== false;
+  const showEmail = opts.showEmail !== false;
+  const showWeb = opts.showWebsite !== false;
+  const showAddr = opts.showAddress !== false;
+  const showTax = opts.showTaxInfo !== false;
+  const showTrade = opts.showTradeRegistry !== false;
+  const showMersis = opts.showMersis !== false;
+  const showLicence = opts.showContractorLicence !== false;
+  const showChamber = opts.showChamberNo !== false;
+  const showBank = opts.showBankInfo !== false;
+  const showFirstAuth = opts.showFirstAuthorized !== false;
+  const showFirstAuthChamber = opts.showFirstAuthorizedChamber !== false;
+  const showSecondAuth = opts.showSecondAuthorized !== false;
+  const showSecondAuthChamber = opts.showSecondAuthorizedChamber !== false;
+  const showStamp = opts.showStamp !== false;
+
   const compName = companyProfile?.companyName || 'AB YAPI';
-  const compLegal = companyProfile?.legalName || 'AB YAPI MÜTEAHHİTLİK LİMİTED ŞİRKETİ';
-  const compSlogan = companyProfile?.slogan || 'Güvene Yükselen Yapılar';
-  const compAddress = companyProfile?.address || 'İstanbul';
-  const compPhone = companyProfile?.phone || '';
-  const compEmail = companyProfile?.email || '';
-  const compWeb = companyProfile?.website || '';
-  const compAuth = companyProfile?.authorizedPerson || '';
+  const compLegal = companyProfile?.legalName || 'AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ.';
+  const compSlogan = companyProfile?.slogan || 'Depreme Dayanıklı, Güvenli ve Modern Yaşam Alanları';
+  const compTagline = companyProfile?.tagline || 'Kentsel Dönüşüm, Statik & Mimari Projelendirme, Kat Karşılığı İnşaat';
+  const compAddress = companyProfile?.address || 'Kocamustafapaşa Mah. Orgeneral Abdurrahman Nafiz Gürman Cad. No:42 Fatih / İSTANBUL';
+  const compPhone = companyProfile?.phone || '+90 (212) 585 10 20';
+  const compEmail = companyProfile?.email || 'info@abyapi.com.tr';
+  const compWeb = companyProfile?.website || 'www.abyapi.com.tr';
+  
+  // 1st Authorized
+  const compAuth = companyProfile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
+  const compAuthTitle = companyProfile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
+  const compAuthChamber = companyProfile?.authorizedChamberNo || 'İMO-74120';
+
+  // 2nd Authorized (Technical / Site Chief)
+  const compAuth2 = companyProfile?.authorizedPerson2 || '';
+  const compAuthTitle2 = companyProfile?.authorizedTitle2 || '';
+  const compAuthChamber2 = companyProfile?.authorizedChamberNo2 || '';
+
+  // Legal & Tax registry
+  const compTax = companyProfile?.taxOffice && companyProfile?.taxNumber ? `${companyProfile.taxOffice} / V.No: ${companyProfile.taxNumber}` : '';
+  const compTrade = companyProfile?.tradeRegistryNo ? `Tic. Sicil: ${companyProfile.tradeRegistryNo}` : '';
+  const compMersis = companyProfile?.mersisNo ? `MERSİS: ${companyProfile.mersisNo}` : '';
+  const compLicence = companyProfile?.contractorLicenceNo ? `Müteahhitlik Yetki: ${companyProfile.contractorLicenceNo}` : '';
+  const compChamber = companyProfile?.chamberNo ? `Oda Sicil: ${companyProfile.chamberNo}` : '';
+  const compBank = companyProfile?.bankName || '';
+  const compIban = companyProfile?.iban || '';
+
   const compLogo = companyProfile?.logoBase64 || '';
+  const compStamp = companyProfile?.stampBase64 || '';
 
   const supportText =
     params.transformationStatus === 'currentSupport'
-      ? '2025/2026 Mevcut Model (875 Bin TL Hibe + 875 Bin TL Kredi)'
+      ? 'Yarısı Bizden Modeli (875.000 TL Hibe + 875.000 TL Kredi Desteği)'
       : params.transformationStatus === 'futureSupport2027'
-      ? '2027 Projeksiyon Modeli (3 Milyon TL Kredi / 180 Ay Vade)'
-      : 'Desteksiz / Öz Kaynaklı Yapım';
+      ? '2027 Kentsel Dönüşüm Kredi Modeli (3 Milyon TL / 180 Ay Vade)'
+      : 'Öz Kaynaklı / Desteksiz Yapım Modeli';
 
-  // Upper floor area and physical gross/net area estimation for consistency
-  const upperFloorsCount_rep = Math.max(0, params.floorCount - 1);
-  let upperFloorArea_rep = params.baseBuildArea;
+  const isContractorShareModel = params.projectModel === 'contractorShare';
+
+  // Physical gross and net area calculation
+  const upperFloorsCount_rep = Math.max(0, (params.floorCount || 5) - 1);
+  let upperFloorArea_rep = Math.max(10, params.baseBuildArea || 120);
   if (params.hasCantilever && params.cantileverDepth && params.cantileverDepth > 0) {
-    const estW = Math.sqrt(params.baseBuildArea / 1.2);
+    const estW = Math.max(5, Math.sqrt(upperFloorArea_rep / 1.2));
     const estD = estW * 1.2;
     if (params.cantileverDirection === 'all') {
       upperFloorArea_rep = (estW + 2 * params.cantileverDepth) * (estD + 2 * params.cantileverDepth);
@@ -37,289 +81,442 @@ export function generateOfferHtml(
       upperFloorArea_rep = estW * (estD + 2 * params.cantileverDepth);
     }
   }
-  const residentialFloors_rep = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-  const flatsPerFloor_rep = Math.max(1, Math.round(res.flatCount / residentialFloors_rep));
-  const physicalGrossArea_rep = Math.round((upperFloorArea_rep / flatsPerFloor_rep) * 10) / 10;
-  const physicalNetArea_rep = Math.round((physicalGrossArea_rep * 0.8) * 10) / 10;
+  const residentialFloors_rep = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : Math.max(1, params.floorCount || 5);
+  const flatsPerFloor_rep = Math.max(1, Math.round((res.flatCount || 10) / residentialFloors_rep));
+  const physicalGrossArea_rep = Math.max(20, Math.round((upperFloorArea_rep / flatsPerFloor_rep) * 10) / 10);
+  const physicalNetArea_rep = Math.max(15, Math.round((physicalGrossArea_rep * 0.8) * 10) / 10);
+  const estimatedLandArea_rep = params.landArea && params.landArea > 0 ? params.landArea : Math.round((params.baseBuildArea || 150) / 0.4);
 
-  const isContractorShareModel = params.projectModel === 'contractorShare';
+  const proposalNumber = `${compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-${new Date().getFullYear()}-${String(res.flatCount || 10).padStart(3, '0')}`;
+  const proposalDate = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const validityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const totalFlats = res.flatCount || 10;
   const totalFloors = params.floorCount || 5;
   const flatsPerFloor = Math.max(1, Math.ceil(totalFlats / totalFloors));
 
   const flatRows = res.flatResults
-    .map(
-      (f) => {
-        const floorNo = f.floorNumber !== undefined ? f.floorNumber : Math.min(totalFloors, Math.ceil(f.id / flatsPerFloor));
-        const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
-        const facadeText = f.facade ? (f.facade.charAt(0).toUpperCase() + f.facade.slice(1)) : 'Güney';
-        const roomCountText = params.roomType ? `${params.roomType} Oda` : (f.area < 65 ? '1+1 Oda' : f.area < 95 ? '2+1 Oda' : f.area < 135 ? '3+1 Oda' : '4+1 Oda');
-        const netArea = physicalNetArea_rep;
-        const flatBadge = f.flatType === 'mansard'
-          ? `<span style="background:#e0e7ff;color:#3730a3;padding:2px 5px;border-radius:4px;font-size:8px;font-weight:bold;display:inline-block;margin-top:2px;">Mansart Çatı (Ayrı B.B.)</span>`
-          : f.flatType === 'duplex'
-          ? `<span style="background:#d1fae5;color:#065f46;padding:2px 5px;border-radius:4px;font-size:8px;font-weight:bold;display:inline-block;margin-top:2px;">Çatı Dubleksi (Tek B.B.)</span>`
-          : '';
+    .map((f) => {
+      const floorNo = f.floorNumber !== undefined ? f.floorNumber : Math.min(totalFloors, Math.ceil(f.id / flatsPerFloor));
+      const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
+      const facadeText = f.facade ? (f.facade.charAt(0).toUpperCase() + f.facade.slice(1)) : 'Güney';
+      const roomCountText = params.roomType ? `${params.roomType} Oda` : (f.area < 65 ? '1+1' : f.area < 95 ? '2+1' : f.area < 135 ? '3+1' : '4+1');
+      
+      const flatBadge = f.flatType === 'mansard'
+        ? `<span style="background:#e0e7ff;color:#3730a3;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Mansart Çatı</span>`
+        : f.flatType === 'duplex'
+        ? `<span style="background:#d1fae5;color:#065f46;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Çatı Dubleksi</span>`
+        : '';
 
-        const serefiyeText = f.serefiyeMultiplier && f.serefiyeMultiplier !== 1.0
-          ? `<span style="color:#b45309;font-weight:bold;font-size:10px;">x${f.serefiyeMultiplier.toFixed(2)} (${Math.round((f.serefiyeMultiplier - 1) * 100) > 0 ? '+' : ''}${Math.round((f.serefiyeMultiplier - 1) * 100)}%)</span>`
-          : `<span style="color:#64748b;font-size:10px;">1.00 (%0)</span>`;
+      const serefiyeText = f.serefiyeMultiplier && f.serefiyeMultiplier !== 1.0
+        ? `<span style="color:#b45309;font-weight:bold;font-size:10.5px;">x${f.serefiyeMultiplier.toFixed(2)} (${Math.round((f.serefiyeMultiplier - 1) * 100) > 0 ? '+' : ''}${Math.round((f.serefiyeMultiplier - 1) * 100)}%)</span>`
+        : `<span style="color:#64748b;font-size:10.5px;">1.00 (%0)</span>`;
 
-        const landShareDiff = f.landShareDifference || 0;
-        const landShareText = landShareDiff !== 0
-          ? `<span style="font-weight:bold;font-size:10px;color:${landShareDiff > 0 ? '#b45309' : '#047857'};">${landShareDiff > 0 ? '+' : ''}${landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</span>`
-          : `<span style="color:#64748b;font-size:10px;">Dengeli</span>`;
+      const landShareDiff = f.landShareDifference || 0;
+      const landShareText = landShareDiff !== 0
+        ? `<span style="font-weight:bold;font-size:10.5px;color:${landShareDiff > 0 ? '#b45309' : '#047857'};">${landShareDiff > 0 ? '+' : ''}${landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</span>`
+        : `<span style="color:#64748b;font-size:10.5px;">0 TL</span>`;
 
-        if (isContractorShareModel) {
-          const fundingType = f.isContractorShare ? 'Müteahhit Payı Satış' : 'Arsa Payı Mahsubu';
-          return `
-          <tr>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">
-              Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}<br>
-              <small style="color:#4f46e5;font-weight:normal;">${floorText} / ${facadeText}</small>
-            </td>
-            <td style="padding:8px;border:1px solid #ddd;">${f.name} <br><small style="color:#666;">TC: ${f.tc}</small></td>
-            <td style="padding:8px;border:1px solid #ddd;">
-              <strong>${roomCountText}</strong><br>
-              <small style="color:#555;">Fiziki Brüt: ${physicalGrossArea_rep} m² <span style="font-size:8px;color:#888;">(Pay: ${f.area} m²)</span><br>Net: ${netArea} m²</small>
-            </td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:center;">${serefiyeText}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${landShareText}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;font-mono;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;color:#047857;font-weight:bold;text-align:right;">-${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL<br><small style="color:#666;">${fundingType}</small></td>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;color:#047857;background-color:#f0fdf4;text-align:right;">0 TL</td>
-          </tr>`;
-        } else {
-          return `
-          <tr>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">
-              Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}<br>
-              <small style="color:#4f46e5;font-weight:normal;">${floorText} / ${facadeText}</small>
-            </td>
-            <td style="padding:8px;border:1px solid #ddd;">${f.name} <br><small style="color:#666;">TC: ${f.tc}</small></td>
-            <td style="padding:8px;border:1px solid #ddd;">
-              <strong>${roomCountText}</strong><br>
-              <small style="color:#555;">Fiziki Brüt: ${physicalGrossArea_rep} m² <span style="font-size:8px;color:#888;">(Pay: ${f.area} m²)</span><br>Net: ${netArea} m²</small>
-            </td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:center;">${serefiyeText}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${landShareText}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;font-mono;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#4f46e5;">-${f.downPayment.toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#047857;">-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;text-align:right;background-color:#faf5ff;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          </tr>`;
-        }
+      if (isContractorShareModel) {
+        const fundingType = f.isContractorShare ? 'Müteahhit Payı Satış' : 'Arsa Payı Mahsubu';
+        return `
+        <tr>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#0f172a;">
+            Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}
+            <div style="color:#4f46e5;font-weight:normal;font-size:9.5px;margin-top:1px;">${floorText} • ${facadeText}</div>
+          </td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;">
+            <strong>${f.name}</strong>
+            <div style="color:#64748b;font-size:9.5px;font-family:monospace;">TC: ${f.tc}</div>
+          </td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;">
+            <strong>${roomCountText}</strong>
+            <div style="color:#475569;font-size:9.5px;">Brüt: ${physicalGrossArea_rep} m² | <span style="color:#047857;font-weight:bold;">Net: ${physicalNetArea_rep} m²</span></div>
+          </td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;">${serefiyeText}</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;">${landShareText}</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:600;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;color:#047857;font-weight:bold;text-align:right;font-family:monospace;">
+            -${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+            <div style="color:#64748b;font-size:8.5px;font-weight:normal;">${fundingType}</div>
+          </td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#047857;background-color:#f0fdf4;text-align:right;font-family:monospace;">0 TL</td>
+        </tr>`;
+      } else {
+        return `
+        <tr>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#0f172a;">
+            Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}
+            <div style="color:#4f46e5;font-weight:normal;font-size:9.5px;margin-top:1px;">${floorText} • ${facadeText}</div>
+          </td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;">
+            <strong>${f.name}</strong>
+            <div style="color:#64748b;font-size:9.5px;font-family:monospace;">TC: ${f.tc}</div>
+          </td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;">
+            <strong>${roomCountText}</strong>
+            <div style="color:#475569;font-size:9.5px;">Brüt: ${physicalGrossArea_rep} m² | <span style="color:#047857;font-weight:bold;">Net: ${physicalNetArea_rep} m²</span></div>
+          </td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;">${serefiyeText}</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;">${landShareText}</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:600;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#4f46e5;font-family:monospace;">-${f.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;text-align:right;background-color:#f8fafc;color:#0f172a;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+        </tr>`;
       }
-    )
+    })
     .join('');
 
   const table1Header = isContractorShareModel
-    ? `<tr><th>Daire & Kat No</th><th>Hak Sahibi & TC</th><th>Özellikler (Oda / Alan)</th><th style="text-align:center;">Şerefiye</th><th style="text-align:right;">Arsa Mahsubu</th><th style="text-align:right;">İmalat Bedeli</th><th style="text-align:right;">Kat Karşılığı İndirimi</th><th style="color:#1e3a8a;text-align:right;">Net Malik Borcu</th></tr>`
-    : `<tr><th>Daire & Kat No</th><th>Hak Sahibi & TC</th><th>Özellikler (Oda / Alan)</th><th style="text-align:center;">Şerefiye</th><th style="text-align:right;">Arsa Mahsubu</th><th style="text-align:right;">Daire Bedeli</th><th style="text-align:right;">Peşinat</th><th style="text-align:right;">Dönüşüm Desteği</th><th style="color:#1e3a8a;text-align:right;">Kalan Borç</th></tr>`;
+    ? `<tr>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Daire & Kat No</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Hak Sahibi & TC</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Oda & Alan</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:center;">Şerefiye</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Arsa Mahsubu</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">İmalat Bedeli</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Kat Karşılığı İndirimi</th>
+        <th style="background:#065f46;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Net Malik Borcu</th>
+      </tr>`
+    : `<tr>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Daire & Kat No</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Hak Sahibi & TC</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:left;">Oda & Alan</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:center;">Şerefiye</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Arsa Mahsubu</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Daire Bedeli</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Ödenen Peşinat</th>
+        <th style="background:#0f172a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Dönüşüm Desteği</th>
+        <th style="background:#1e3a8a;color:#fff;padding:8px;border:1px solid #cbd5e1;text-align:right;">Net Kalan Borç</th>
+      </tr>`;
 
-  let table2OrStatement = '';
+  let paymentScheduleBlock = '';
   if (isContractorShareModel) {
-    table2OrStatement = `
-    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:16px;margin-bottom:20px;font-size:13px;color:#065f46;line-height:1.6;">
-      <strong>🤝 Kat Karşılığı Finansman Beyanı:</strong>
-      <p style="margin:4px 0 0 0;">Kat Karşılığı Yapım Modelinde, tüm imalat ve yapım maliyetleri müteahhite devredilen paylar ile finanse edildiğinden, arsa maliklerinin herhangi bir nakit borçlanması veya inşaat fiziki ilerlemesine bağlı hakediş takvimi bulunmamaktadır.</p>
+    paymentScheduleBlock = `
+    <div class="avoid-break" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:11px;color:#065f46;line-height:1.5;">
+      <strong style="font-size:12px;display:block;margin-bottom:3px;">🤝 Kat Karşılığı Yapım Modeli Finansman Beyanı:</strong>
+      <p style="margin:0;">Kat Karşılığı Yapım Modelinde, yapının tasarım, mimari/statik proje, ruhsat harçları, zemin güçlendirme, malzeme ve şantiye yapım maliyetlerinin tamamı yüklenici firma tarafından üstlenilmiştir. Arsa maliklerinin herhangi bir nakit borçlanması, ara ödeme veya taksit yükümlülüğü bulunmamaktadır.</p>
     </div>`;
   } else if (params.paymentPlanType === 'installments') {
-    table2OrStatement = `
-    <h3>2. Aylık Eşit Taksitli Ödeme Takvimi (${params.installmentCount || 12} Ay Vadeli)</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Daire No / Hak Sahibi</th>
-          <th style="text-align:right;">Daire Payı Bedeli</th>
-          <th style="text-align:right;">Ödenen Peşinat</th>
-          <th style="text-align:right;">Dönüşüm Desteği</th>
-          <th style="text-align:right;">Kalan Net Borç</th>
-          <th style="text-align:center;">Vade</th>
-          <th style="text-align:right;background:#ecfdf5;color:#065f46;">Aylık Taksit Tutarı</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${res.flatResults.map(f => `
-        <tr>
-          <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id} (${f.name})</td>
-          <td style="padding:8px;border:1px solid #ddd;text-align:right;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#4f46e5;">-${f.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#047857;">${f.usedCredit > 0 ? `-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '-'}</td>
-          <td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:8px;border:1px solid #ddd;text-align:center;">${f.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-'}</td>
-          <td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;">${f.netRemainingDebt > 0 ? `${f.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}</td>
-        </tr>`).join('')}
-      </tbody>
-      <tfoot>
-        <tr style="background:#f8fafc;font-weight:bold;border-top:2px solid #cbd5e1;">
-          <td colspan="4" style="padding:10px;border:1px solid #ddd;">PROJE TOPLAM AYLIK ŞANTİYE KASA GİRİŞİ:</td>
-          <td style="padding:10px;border:1px solid #ddd;text-align:right;">${res.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:10px;border:1px solid #ddd;text-align:center;">${params.installmentCount || 12} Ay</td>
-          <td style="padding:10px;border:1px solid #ddd;text-align:right;color:#065f46;background:#d1fae5;font-size:14px;">${(res.totalMonthlyInstallments || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay</td>
-        </tr>
-      </tfoot>
-    </table>`;
-  } else if (params.paymentPlanType === 'hybrid') {
-    table2OrStatement = `
-    <h3>2. Karma Ödeme Takvimi (Peşinat + Ara Ödemeler + ${params.installmentCount || 12} Ay Taksit)</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Daire No / Hak Sahibi</th>
-          <th style="text-align:right;">Kalan Net Borç</th>
-          <th style="text-align:right;color:#4338ca;">1. Ara Ödeme (%25 Kaba)</th>
-          <th style="text-align:right;color:#7e22ce;">2. Ara Ödeme (%15 İskân)</th>
-          <th style="text-align:right;">Taksitlendirilen (%60)</th>
-          <th style="text-align:right;background:#ecfdf5;color:#065f46;">Aylık Taksit (${params.installmentCount || 12} Ay)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${res.flatResults.map(f => {
-          const interim1 = Math.round(f.netRemainingDebt * 0.25);
-          const interim2 = Math.round(f.netRemainingDebt * 0.15);
-          const rem = Math.max(0, f.netRemainingDebt - interim1 - interim2);
-          const monthly = Math.round(rem / Math.max(1, params.installmentCount || 12));
-          return `
+    paymentScheduleBlock = `
+    <div class="avoid-break">
+      <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-top:16px;margin-bottom:8px;">
+        4. Aylık Eşit Taksitli Ödeme Takvimi (${params.installmentCount || 12} Ay Vadeli)
+      </h3>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10.5px;">
+        <thead>
           <tr>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id} (${f.name})</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#4338ca;">${interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;color:#7e22ce;">${interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;">${rem.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;">${f.netRemainingDebt > 0 ? `${monthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>`;
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Daire No / Hak Sahibi</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Daire Payı Bedeli</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Ödenen Peşinat</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Devlet Desteği</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Kalan Net Borç</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:center;">Vade</th>
+            <th style="background:#065f46;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Aylık Taksit Tutarı</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${res.flatResults.map(f => `
+          <tr>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;">Daire ${f.id} (${f.name})</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#4f46e5;font-family:monospace;">-${f.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">${f.usedCredit > 0 ? `-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '0 TL'}</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:center;">${f.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-'}</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${f.netRemainingDebt > 0 ? `${f.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc;font-weight:bold;border-top:2px solid #cbd5e1;">
+            <td colspan="4" style="padding:8px;border:1px solid #cbd5e1;">PROJE ŞANTİYESİ AYLIK TOPLAM HAKEDİŞ GİRİŞİ:</td>
+            <td style="padding:8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${res.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:8px;border:1px solid #cbd5e1;text-align:center;">${params.installmentCount || 12} Ay</td>
+            <td style="padding:8px;border:1px solid #cbd5e1;text-align:right;color:#065f46;background:#d1fae5;font-size:11.5px;font-family:monospace;">${(res.totalMonthlyInstallments || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+  } else if (params.paymentPlanType === 'hybrid') {
+    paymentScheduleBlock = `
+    <div class="avoid-break">
+      <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-top:16px;margin-bottom:8px;">
+        4. Karma Ödeme Takvimi (Peşinat + Ara Ödemeler + ${params.installmentCount || 12} Ay Taksit)
+      </h3>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10.5px;">
+        <thead>
+          <tr>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Daire No / Hak Sahibi</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Net Kalan Borç</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">1. Ara Ödeme (%25 Kaba)</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">2. Ara Ödeme (%15 İskân)</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Taksitlendirilen (%60)</th>
+            <th style="background:#065f46;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Aylık Taksit (${params.installmentCount || 12} Ay)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${res.flatResults.map(f => {
+            const interim1 = Math.round(f.netRemainingDebt * 0.25);
+            const interim2 = Math.round(f.netRemainingDebt * 0.15);
+            const rem = Math.max(0, f.netRemainingDebt - interim1 - interim2);
+            const monthly = Math.round(rem / Math.max(1, params.installmentCount || 12));
+            return `
+            <tr>
+              <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;">Daire ${f.id} (${f.name})</td>
+              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#4338ca;font-family:monospace;">${interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#7e22ce;font-family:monospace;">${interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${rem.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+              <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${f.netRemainingDebt > 0 ? `${monthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
   } else {
-    table2OrStatement = `
-    <h3>2. Fiziki İlerleme Hakediş Takvimi (5 Aşamalı TL)</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Daire No / Hak Sahibi</th>
-          <th>1. Aşama (%${params.stage1Pay})</th>
-          <th>2. Aşama (%${params.stage2Pay})</th>
-          <th>3. Aşama (%${params.stage3Pay})</th>
-          <th>4. Aşama (%${params.stage4Pay})</th>
-          <th>5. Aşama (%${params.stage5Pay})</th>
-          <th>Toplam Malik Borcu</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${res.flatResults.map(f => `
-        <tr>
-          <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id} (${f.name})</td>
-          <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:8px;border:1px solid #ddd;font-weight:bold;color:#4f46e5;">${f.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:8px;border:1px solid #ddd;">${f.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
+    paymentScheduleBlock = `
+    <div class="avoid-break">
+      <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-top:16px;margin-bottom:8px;">
+        4. Fiziki İlerleme Hakediş Takvimi (5 Aşamalı)
+      </h3>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10.5px;">
+        <thead>
+          <tr>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:left;">Daire No / Hak Sahibi</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">1. Ruhsat (%${params.stage1Pay || 20})</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">2. Temel (%${params.stage2Pay || 20})</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">3. Kaba (%${params.stage3Pay || 30})</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">4. İnce (%${params.stage4Pay || 20})</th>
+            <th style="background:#0f172a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">5. İskân (%${params.stage5Pay || 10})</th>
+            <th style="background:#1e3a8a;color:#fff;padding:6px 8px;border:1px solid #cbd5e1;text-align:right;">Toplam Net Borç</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${res.flatResults.map(f => `
+          <tr>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;">Daire ${f.id} (${f.name})</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#4f46e5;font-family:monospace;">${f.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${f.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+            <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;text-align:right;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
   }
 
   return `<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>${compName} - Teklif ve Ödeme Planı</title>
+  <title>${compName} - Resmî Bina Yapım ve Kentsel Dönüşüm Teklifnamesi</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; color: #333; max-width: 1000px; margin: 0 auto; }
-    h2, h3, h4 { color: #1f7a7a; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; font-size: 13px; }
-    th { background: #37474f; color: white; padding: 8px; border: 1px solid #ddd; text-align: left; }
-    .box { background: #f8f9fa; border-left: 4px solid #1f7a7a; padding: 15px; margin-bottom: 20px; font-size: 13px; }
+    @page {
+      size: A4 portrait;
+      margin: 12mm 10mm 12mm 10mm;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 0;
+      margin: 0 auto;
+      color: #0f172a;
+      max-width: 960px;
+      line-height: 1.45;
+      font-size: 11px;
+      background: #ffffff;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    h1, h2, h3, h4 { color: #0f172a; margin: 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 14px; font-size: 10.5px; page-break-inside: auto; }
+    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    .meta-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; }
+    .spec-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; }
+    .highlight-box { background: #0f172a; color: #ffffff; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+    .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
+    .no-print { display: none !important; }
   </style>
 </head>
 <body>
-  <div class="print-header" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f7a7a;padding-bottom:15px;margin-bottom:20px;">
+  <!-- HEADER -->
+  <div class="avoid-break" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:14px;">
     <div style="display:flex;align-items:center;gap:12px;">
-      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:55px;max-width:140px;object-fit:contain;" />` : ''}
+      ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
       <div>
-        <h2 style="margin:0;color:#37474f;font-size:18px;">${compLegal}</h2>
-        <p style="margin:3px 0 0 0;font-size:11px;color:#556068;">${compSlogan} - Resmi Müşteri Bilgilendirme ve Teklif Formu</p>
+        <h1 style="font-size:15px;font-weight:bold;color:#0f172a;letter-spacing:-0.2px;">${showLegal ? compLegal : compName}</h1>
+        ${showSlogan && compSlogan ? `<p style="margin:2px 0 0 0;font-size:11px;color:#4338ca;font-weight:600;">${compSlogan}</p>` : ''}
+        ${showTagline && compTagline ? `<p style="margin:1px 0 0 0;font-size:9.5px;color:#475569;">${compTagline}</p>` : ''}
+        <div style="font-size:9.5px;color:#64748b;margin-top:3px;line-height:1.3;">
+          ${showAddr && compAddress ? `${compAddress} <br>` : ''}
+          ${showPhone && compPhone ? `Tel: ${compPhone} ` : ''}
+          ${showPhone && compPhone && showEmail && compEmail ? '| ' : ''}
+          ${showEmail && compEmail ? `E-posta: ${compEmail} ` : ''}
+          ${(showPhone || showEmail) && showWeb && compWeb ? '| ' : ''}
+          ${showWeb && compWeb ? `Web: ${compWeb}` : ''}
+          ${(showTax && compTax) || (showLicence && compLicence) || (showTrade && compTrade) || (showMersis && compMersis) || (showChamber && compChamber) ? '<br>' : ''}
+          ${showTax && compTax ? `<strong>${compTax}</strong> ` : ''}
+          ${showTrade && compTrade ? `| <strong>${compTrade}</strong> ` : ''}
+          ${showMersis && compMersis ? `| <strong>${compMersis}</strong> ` : ''}
+          ${showLicence && compLicence ? `| <strong>${compLicence}</strong> ` : ''}
+          ${showChamber && compChamber ? `| <strong>${compChamber}</strong>` : ''}
+        </div>
       </div>
     </div>
-    <div style="text-align:right;font-size:11px;color:#666;">
-      ${compPhone ? `<div>📞 ${compPhone}</div>` : ''}
-      ${compEmail ? `<div>✉️ ${compEmail}</div>` : ''}
-      ${compAddress ? `<div>📍 ${compAddress}</div>` : ''}
-    </div>
-  </div>
-  <div class="box">
-    <h4>📍 PROJE KÜNYESİ & GENEL BİLGİLER</h4>
-    <p><strong>Proje Adresi:</strong> ${params.projectAddress}</p>
-    <div style="display:grid;grid-template-columns: 1fr 1fr;gap: 8px;margin-top:10px;border-top:1px solid #ddd;padding-top:10px;">
-      <div><strong>Proje Arsa Alanı:</strong> ${(params.landArea || Math.round(params.baseBuildArea / 0.4)).toLocaleString('tr-TR')} m²</div>
-      <div><strong>Proje Kat Alanı (Oturum):</strong> ${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
-      <div><strong>Toplam İnşaat Alanı:</strong> ${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
-      <div><strong>Normal Kat Sayısı:</strong> ${params.floorCount} Kat</div>
-      <div><strong>Kattaki Daire Sayısı:</strong> ${params.flatsPerFloor || 2} Adet</div>
-      <div><strong>Toplam Daire Sayısı:</strong> ${res.flatCount} Adet</div>
-      <div><strong>Daire İç Yerleşimi:</strong> ${params.roomType || '3+1'} Oda</div>
-      <div><strong>Fiziki Daire Brüt Alanı:</strong> ${physicalGrossArea_rep} m²</div>
-      <div><strong>Daire Net Alanı (~%80):</strong> ${physicalNetArea_rep} m²</div>
-      <div><strong>Birim m² Maliyet Bedeli:</strong> <strong style="color:#1f7a7a;">${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong></div>
-      <div><strong>Dolar Kuru Karşılığı:</strong> ${res.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²</div>
-      <div><strong>Tahmini Teslim Süresi:</strong> ${res.finalMonths} Ay</div>
-    </div>
-    <div style="margin-top:10px;border-top:1px solid #ddd;padding-top:10px;">
-      <p style="margin: 2px 0;"><strong>Kentsel Dönüşüm Destek Modeli:</strong> ${supportText}</p>
+    <div style="text-align:right;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-family:monospace;font-size:9.5px;min-width:160px;">
+      <div style="color:#64748b;font-weight:bold;text-transform:uppercase;font-size:9px;">RESMÎ TEKLİFNAME</div>
+      <div style="color:#0f172a;font-weight:bold;font-size:11px;margin:1px 0;">${proposalNumber}</div>
+      <div>Tarih: <strong>${proposalDate}</strong></div>
+      <div>Geçerlilik: <strong style="color:#047857;">${validityDate}</strong></div>
     </div>
   </div>
 
-  ${showDrawings ? `
-  <div style="margin-top: 25px; margin-bottom: 25px; page-break-inside: avoid;">
-    <h3 style="border-bottom: 2px solid #1f7a7a; padding-bottom: 4px; color: #1f7a7a; text-transform: uppercase; font-size:14px; margin-bottom: 12px;">📐 Dinamik Mimari 3D Bina Görünümleri (Ön Tanımlı Cephe Yönleri)</h3>
-    <div style="display: table; width: 100%; table-layout: fixed; border-spacing: 12px;">
-      <div style="display: table-cell; background: #0b1329; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
-        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 2px; text-transform: uppercase;">A. Ön Cephe (Güney)</span>
-        <span style="font-size: 8.5px; color: #94a3b8; display: block; margin-bottom: 6px; font-weight: 600;">🧭 180° G (Front Elevation)</span>
-        ${generateFrontViewSvgString(params.floorCount || 5, !!params.hasGroundFloorShop, params.roofType || 'gable', params.baseBuildArea, compName)}
-        <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Dış ölçüler (Yükseklik/Genişlik) ve kat seviyeleri</span>
-      </div>
-      <div style="display: table-cell; background: #060a13; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
-        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 2px; text-transform: uppercase;">B. Kuşbakışı Kat Planı</span>
-        <span style="font-size: 8.5px; color: #94a3b8; display: block; margin-bottom: 6px; font-weight: 600;">🧭 Üstten / Kuzey Açılı (Top Plan)</span>
-        ${generateGroundFloorPlanSvgString(!!params.hasGroundFloorShop, `${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep, params.baseBuildArea)}
-        <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Daire ve bağımsız bölüm sınırları, asansör ve merdiven kurgusu</span>
-      </div>
-      <div style="display: table-cell; background: #060a13; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; text-align: center; vertical-align: top;">
-        <span style="font-size: 10px; font-weight: bold; color: #38bdf8; display: block; margin-bottom: 2px; text-transform: uppercase;">C. 3D İzometrik Model</span>
-        <span style="font-size: 8.5px; color: #94a3b8; display: block; margin-bottom: 6px; font-weight: 600;">🧭 Güneydoğu Aksonometrik (3D ISO)</span>
-        ${generateNormalFloorPlanSvgString(`${params.roomType || '3+1'} ODA`, physicalGrossArea_rep, physicalNetArea_rep, params.baseBuildArea)}
-        <span style="font-size: 8.5px; color: #8892b0; display: block; margin-top: 6px; font-style: italic;">Yapının tamamını şeffaf katmanlarla gösteren 3D perspektif</span>
-      </div>
-    </div>
-    <p style="text-align:center; font-size:9px; color:#777; margin-top:8px; font-style:italic;">* Yukarıdaki görünümler, PDF çıktısında canlı 3D model olarak, statik raporlarda şematik CAD çizimi olarak sunulmaktadır.</p>
-  </div>` : ''}
-
-  <h3>1. Hak Sahipleri Ödeme ve Borçlandırma Özeti</h3>
-  <table>
-    <thead>
-      ${table1Header}
-    </thead>
-    <tbody>${flatRows}</tbody>
-  </table>
-  ${table2OrStatement}
-  <div style="background:#fff8e6;border:1px solid #ffeeba;border-radius:6px;padding:12px;margin-top:20px;font-size:12px;color:#856404;line-height:1.5;">
-    <strong>📌 Önemli Bilgilendirme ve Teslim Koşulları:</strong>
-    <p style="margin:4px 0 0 0;">Yukarıda belirtilen proje süresine ruhsat alma ve iskân süreçleri dahildir. Firmamız kontrolü dışındaki gecikmeler proje süresine eklenir.</p>
+  <!-- PROPOSAL TITLE -->
+  <div class="avoid-break" style="margin-bottom:14px;">
+    <span style="background:#e0e7ff;color:#3730a3;font-size:8.5px;font-weight:bold;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px;">
+      ${isContractorShareModel ? 'KAT KARŞILIĞI İNŞAAT PROTOKOLÜ' : 'KENTSEL DÖNÜŞÜM & BİNA YAPIM TEKLİFİ'}
+    </span>
+    <h2 style="font-size:14px;font-weight:bold;margin-top:4px;color:#0f172a;">
+      ${params.projectAddress || 'Taşınmaz Malikleri'} - Resmî Yapım ve Ödeme Protokolü
+    </h2>
   </div>
-  <div style="display:flex;justify-content:space-between;margin-top:40px;font-size:13px;">
-    <div style="text-align:center;">
-      <p style="font-weight:bold;margin-bottom:40px;">MÜŞTERİ / KAT MALİKİ İMZA</p>
-      <p>.... / .... / 2026</p>
+
+  <!-- 1. PROJECT META -->
+  <div class="avoid-break">
+    <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-bottom:8px;">
+      1. Proje ve Taşınmaz Mimari Künyesi
+    </h3>
+    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;margin-bottom:14px;">
+      <div class="meta-card">
+        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Arsa Alanı</div>
+        <div style="font-size:12px;font-weight:bold;color:#0f172a;font-family:monospace;">${estimatedLandArea_rep.toLocaleString('tr-TR')} m²</div>
+      </div>
+      <div class="meta-card">
+        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Taban Oturumu</div>
+        <div style="font-size:12px;font-weight:bold;color:#0f172a;font-family:monospace;">${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
+      </div>
+      <div class="meta-card">
+        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Toplam İnşaat Alanı</div>
+        <div style="font-size:12px;font-weight:bold;color:#1e3a8a;font-family:monospace;">${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
+      </div>
+      <div class="meta-card">
+        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Kat ve Daire Sayısı</div>
+        <div style="font-size:12px;font-weight:bold;color:#0f172a;">${params.floorCount || 5} Kat / ${res.flatCount} Daire</div>
+      </div>
+      <div class="meta-card">
+        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Tipik Daire Alanı</div>
+        <div style="font-size:11px;font-weight:bold;color:#0f172a;font-family:monospace;">Brüt: ${physicalGrossArea_rep} m² | Net: ${physicalNetArea_rep} m²</div>
+      </div>
+      <div class="meta-card">
+        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Birim İmalat Fiyatı</div>
+        <div style="font-size:12px;font-weight:bold;color:#047857;font-family:monospace;">${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</div>
+      </div>
+      <div class="meta-card">
+        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Teslim Süresi</div>
+        <div style="font-size:12px;font-weight:bold;color:#0f172a;font-family:monospace;">${res.finalMonths} Ay</div>
+      </div>
+      <div class="meta-card">
+        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Dönüşüm Modeli</div>
+        <div style="font-size:10.5px;font-weight:bold;color:#b45309;">${params.transformationStatus === 'currentSupport' ? 'Yarısı Bizden Hibe/Kredi' : 'Öz Kaynaklı'}</div>
+      </div>
     </div>
-    <div style="text-align:center;">
-      <p style="font-weight:bold;margin-bottom:6px;">YÜKLENİCİ İMZA / KAŞE</p>
-      <p style="font-size:11px;color:#555;margin:0 0 40px 0;">${compLegal}${compAuth ? `<br>Yetkili: ${compAuth}` : ''}</p>
-      <p>.... / .... / 2026</p>
+  </div>
+
+  <!-- 2. FINANCIAL SUMMARY -->
+  <div class="highlight-box avoid-break">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:6px;margin-bottom:8px;">
+      <span style="font-size:10.5px;color:#94a3b8;font-weight:bold;text-transform:uppercase;">TOPLAM PROJE İMALAT HACMİ</span>
+      <span style="font-size:16px;font-weight:bold;color:#34d399;font-family:monospace;">${res.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</span>
+    </div>
+    <div style="font-size:10.5px;color:#cbd5e1;line-height:1.5;">
+      <strong>Finansman ve Teşvik:</strong> ${supportText}<br>
+      <strong>Taahhüt Modeli:</strong> ${isContractorShareModel ? 'Kat Karşılığı Yapım (Maliklere 0 TL Borç)' : 'Hak Sahipleri Hakedişli Yapım'}
+      ${compBank && compIban ? `<br><strong>Resmî Proje Hesabı:</strong> ${compBank} - IBAN: <span style="font-family:monospace;color:#ffffff;font-weight:bold;">${compIban}</span>` : ''}
+    </div>
+  </div>
+
+  <!-- 3. TECHNICAL SPECIFICATIONS -->
+  <div class="avoid-break">
+    <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-bottom:8px;">
+      2. Yapısal Teknik Şartname ve Standartlar
+    </h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;font-size:10.5px;">
+      <div class="spec-card">
+        <strong>🏗️ Taşıyıcı Karkas & Temel:</strong> TBDY-2018 standartlarında C30/35 & C35/40 Hazır Beton, B420C Nervürlü Çelik Donatı, Radye Temel ve Çift Kat Membranlı Su Yalıtımı.
+      </div>
+      <div class="spec-card">
+        <strong>🌡️ Dış Cephe & Yalıtım:</strong> Minimum 5 cm Karbonlu EPS Mantolama, Dekoratif Sıva, Nefes Alan Silikon Esaslı Boya ve Çatı Su/Isı Yalıtımı.
+      </div>
+      <div class="spec-card">
+        <strong>🪟 Doğrama & Cam:</strong> 70-76 mm Seri PVC Doğramalar, Argon Gazlı Isıcam Konfor Sinerji Çift Cam ve Monoblok Kilitli 1. Sınıf Çelik Daire Kapısı.
+      </div>
+      <div class="spec-card">
+        <strong>⚙️ Tesisat & Donanım:</strong> Bireysel Doğalgaz Kombili Kalorifer Altyapısı, Tam Otomatik Paslanmaz Kabinli Asansör, 1. Sınıf Seramik ve Parke Kaplamaları.
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. ALLOCATION TABLE -->
+  <div>
+    <h3 style="color:#0f172a;font-size:12px;text-transform:uppercase;border-bottom:2px solid #cbd5e1;padding-bottom:4px;margin-bottom:8px;">
+      3. Hak Sahipleri Bağımsız Bölüm Dağılım ve Borçlandırma Tablosu
+    </h3>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:10.5px;">
+      <thead>
+        ${table1Header}
+      </thead>
+      <tbody>${flatRows}</tbody>
+    </table>
+  </div>
+
+  <!-- 5. PAYMENT SCHEDULE -->
+  ${paymentScheduleBlock}
+
+  <!-- 6. GUARANTEES -->
+  <div class="avoid-break" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:10.5px;color:#334155;line-height:1.5;">
+    <strong>⚖️ Kurumsal Taahhütler ve Garanti Hükümleri:</strong>
+    <p style="margin:2px 0 0 0;">Firmamız (TBK m. 478) uyarınca taşıyıcı betonarme karkas sistemde 20 Yıl, ince işçilik ve çatı/cephe imalatlarında 5 Yıl, mekanik/asansör donatılarında 2 Yıl resmi garanti taahhüt eder. Yapım süresince tüm süreç T.C. Çevre, Şehircilik ve İklim Değişikliği Bakanlığı onaylı Yapı Denetim Kuruluşu denetiminde yürütülür.</p>
+  </div>
+
+  <!-- 7. SIGNATURES -->
+  <div class="avoid-break" style="margin-top:20px;border-top:2px solid #0f172a;padding-top:14px;font-size:11px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <!-- CLIENTS SIGNATURE -->
+      <div style="text-align:center;border-right:1px dashed #cbd5e1;padding-right:16px;">
+        <p style="font-weight:bold;margin:0 0 2px 0;color:#0f172a;font-size:11.5px;">ARSA SAHİPLERİ / BİNA YÖNETİMİ</p>
+        <p style="color:#64748b;font-size:10px;margin:0 0 30px 0;">Kat Malikleri Kurulu / Temsilci Heyeti</p>
+        <div style="height:35px;border-bottom:1px solid #94a3b8;margin:0 20px 6px 20px;"></div>
+        <p style="color:#64748b;font-size:9.5px;margin:0;">(İmza / Tarih / TC)</p>
+      </div>
+
+      <!-- CONTRACTOR SIGNATURE -->
+      <div style="text-align:center;padding-left:16px;position:relative;">
+        <p style="font-weight:bold;margin:0 0 2px 0;color:#0f172a;font-size:11.5px;">YÜKLENİCİ FİRMA KAŞE / İMZA</p>
+        <p style="font-size:9.5px;color:#475569;margin:0 0 6px 0;font-weight:600;">${compLegal}</p>
+        
+        <div style="display:flex;justify-content:center;gap:16px;align-items:center;min-height:50px;position:relative;">
+          ${compStamp ? `
+            <img src="${compStamp}" alt="Kaşe/İmza" style="max-height:55px;object-fit:contain;position:absolute;z-index:2;opacity:0.9;" />
+          ` : ''}
+          <div style="position:relative;z-index:1;">
+            <p style="font-weight:bold;color:#0f172a;font-size:11px;margin:0;">${compAuth}</p>
+            <p style="font-size:9.5px;color:#4338ca;margin:0;font-weight:600;">${compAuthTitle}</p>
+            ${compAuthChamber ? `<p style="font-size:8.5px;color:#64748b;margin:0;font-family:monospace;">${compAuthChamber}</p>` : ''}
+          </div>
+          ${compAuth2 ? `
+            <div style="position:relative;z-index:1;border-left:1px solid #e2e8f0;padding-left:12px;">
+              <p style="font-weight:bold;color:#0f172a;font-size:11px;margin:0;">${compAuth2}</p>
+              <p style="font-size:9.5px;color:#065f46;margin:0;font-weight:600;">${compAuthTitle2}</p>
+              ${compAuthChamber2 ? `<p style="font-size:8.5px;color:#64748b;margin:0;font-family:monospace;">${compAuthChamber2}</p>` : ''}
+            </div>
+          ` : ''}
+        </div>
+        <div style="height:15px;border-bottom:1px solid #94a3b8;margin:4px 20px 6px 20px;"></div>
+        <p style="color:#64748b;font-size:9.5px;margin:0;">Tarih: ${proposalDate}</p>
+      </div>
     </div>
   </div>
 </body>
@@ -331,13 +528,33 @@ export function generateContractHtml(
   res: CalculationResult,
   companyProfile?: CompanyProfile
 ): string {
+  const opts = companyProfile?.printOptions || {};
+  const showLogo = opts.showLogo !== false;
+  const showLegal = opts.showLegalName !== false;
+  const showAddr = opts.showAddress !== false;
+  const showTax = opts.showTaxInfo !== false;
+  const showBank = opts.showBankInfo !== false;
+  const showFirstAuth = opts.showFirstAuthorized !== false;
+  const showFirstAuthChamber = opts.showFirstAuthorizedChamber !== false;
+  const showSecondAuth = opts.showSecondAuthorized !== false;
+  const showSecondAuthChamber = opts.showSecondAuthorizedChamber !== false;
+  const showStamp = opts.showStamp !== false;
+
   const compName = companyProfile?.companyName || 'AB YAPI';
-  const compLegal = companyProfile?.legalName || 'AB YAPI MÜTEAHHİTLİK LİMİTED ŞİRKETİ';
-  const compAddress = companyProfile?.address || 'Fatih Kocamustafapaşa Mah. İstanbul';
+  const compLegal = companyProfile?.legalName || 'AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ.';
+  const compAddress = companyProfile?.address || 'Kocamustafapaşa Mah. Orgeneral Abdurrahman Nafiz Gürman Cad. No:42 Fatih / İSTANBUL';
+  const compPhone = companyProfile?.phone || '+90 (212) 585 10 20';
   const compAuth = companyProfile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
-  const compAuthTitle = companyProfile?.authorizedTitle || 'Genel Müdür';
+  const compAuthTitle = companyProfile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
+  const compAuthChamber = companyProfile?.authorizedChamberNo || 'İMO-74120';
+  const compAuth2 = companyProfile?.authorizedPerson2 || '';
+  const compAuthTitle2 = companyProfile?.authorizedTitle2 || '';
+  const compAuthChamber2 = companyProfile?.authorizedChamberNo2 || '';
   const compLogo = companyProfile?.logoBase64 || '';
-  const compTax = companyProfile?.taxOffice && companyProfile?.taxNumber ? `(${companyProfile.taxOffice} - V.No: ${companyProfile.taxNumber})` : '';
+  const compStamp = companyProfile?.stampBase64 || '';
+  const compTax = companyProfile?.taxOffice && companyProfile?.taxNumber ? `${companyProfile.taxOffice} - V.No: ${companyProfile.taxNumber}` : '';
+  const compBank = companyProfile?.bankName || '';
+  const compIban = companyProfile?.iban || '';
 
   const contractTitle =
     params.projectModel === 'contractorShare'
@@ -350,13 +567,13 @@ export function generateContractHtml(
     .map(
       (f) => `
     <tr>
-      <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">Daire ${f.id}</td>
-      <td style="padding:8px;border:1px solid #ddd;">${f.name}</td>
-      <td style="padding:8px;border:1px solid #ddd;">${f.tc}</td>
-      <td style="padding:8px;border:1px solid #ddd;">${f.area} m²</td>
-      <td style="padding:8px;border:1px solid #ddd;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-      <td style="padding:8px;border:1px solid #ddd;">${f.downPayment.toLocaleString('tr-TR')} TL</td>
-      <td style="padding:8px;border:1px solid #ddd;font-weight:bold;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:bold;">Daire ${f.id}</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;">${f.name}</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;">${f.tc}</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;">${f.area} m²</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${f.downPayment.toLocaleString('tr-TR')} TL</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:bold;text-align:right;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
     </tr>`
     )
     .join('');
@@ -367,78 +584,124 @@ export function generateContractHtml(
   <meta charset="UTF-8">
   <title>${contractTitle}</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; color: #111; max-width: 1000px; margin: 0 auto; line-height: 1.7; font-size: 13px; }
-    h2 { color: #37474f; text-align: center; font-size: 18px; margin-bottom: 5px; }
-    h3 { color: #1f7a7a; border-bottom: 2px solid #1f7a7a; padding-bottom: 4px; margin-top: 25px; font-size: 14px; text-transform: uppercase; }
-    h4 { color: #37474f; margin-top: 15px; margin-bottom: 5px; font-size: 13px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-    th { background: #37474f; color: white; padding: 8px; border: 1px solid #ddd; text-align: left; }
+    @page { size: A4 portrait; margin: 12mm 10mm 12mm 10mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 0;
+      color: #0f172a;
+      max-width: 960px;
+      margin: 0 auto;
+      line-height: 1.5;
+      font-size: 11px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    h2 { color: #0f172a; text-align: center; font-size: 15px; margin-bottom: 4px; font-weight: bold; }
+    h3 { color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 3px; margin-top: 16px; font-size: 12px; text-transform: uppercase; }
+    h4 { color: #1e293b; margin-top: 10px; margin-bottom: 3px; font-size: 11px; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10.5px; }
+    th { background: #0f172a; color: white; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; }
+    .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
+    .no-print { display: none !important; }
   </style>
 </head>
 <body>
-  <div class="print-header" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f7a7a;padding-bottom:12px;margin-bottom:20px;">
+  <div class="avoid-break" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:14px;">
     <div style="display:flex;align-items:center;gap:12px;">
-      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:80px;max-width:200px;object-fit:contain;" />` : ''}
+      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
       <div>
-        <h2 style="margin:0;color:#37474f;text-align:left;">${contractTitle}</h2>
-        <p style="margin:3px 0 0 0;font-size:11px;color:#556068;">Düzenleme Tarihi: ${new Date().toLocaleDateString('tr-TR')} | Belge No: ${compName}-2026/SÖZ-01</p>
+        <h2 style="margin:0;color:#0f172a;text-align:left;font-size:14px;">${contractTitle}</h2>
+        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;">Düzenleme Tarihi: ${new Date().toLocaleDateString('tr-TR')} | Belge No: ${compName}-2026/SÖZ-01</p>
       </div>
     </div>
   </div>
-  <h3>BÖLÜM I: TARAFLAR VE PROJE TANIMI</h3>
-  <h4>MADDE 1: TARAFLAR</h4>
-  <p><strong>1. YÜKLENİCİ (MÜTEAHHİT):</strong> ${compLegal} (${compAddress}) ${compTax} - Yetkili Temsilci: ${compAuth} (${compAuthTitle})<br>
-  <strong>2. İŞ SAHİBİ / KAT MALİKLERİ:</strong> Ek-1 Hak Sahipleri Listesinde isim ve TC kimlikleri bulunan taşınmaz malikleri.</p>
-  <h4>MADDE 2: SÖZLEŞME KONUSU VE GAYRİMENKUL</h4>
-  <p>Tapuda <strong>${params.projectAddress}</strong> adresinde kayıtlı taşınmazın yıkılarak yerine taban oturumu <strong>${res.baseArea} m²</strong>, toplam brüt inşaat alanı <strong>${res.totalArea} m²</strong> olan ve toplam <strong>${res.flatCount} adet bağımsız bölümden</strong> oluşan yeni binanın yapılmasıdır.</p>
-  <h3>BÖLÜM II: MALİ HÜKÜMLER VE HAKEDİŞLER</h3>
-  <h4>MADDE 3: PROJE İMALAT BEDELİ</h4>
-  <p>Birim imalat fiyatı <strong>${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>, toplam bedel <strong>${res.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong> olarak belirlenmiştir.</p>
-  ${params.paymentPlanType === 'installments' ? `
-  <h4>MADDE 4: AYLIK EŞİT TAKSİTLİ ÖDEME PLANI VE VADE ESASLARI</h4>
-  <p>Maliklerin peşinat ve kentsel dönüşüm destekleri düşüldükten sonra kalan net borç tutarları toplam <strong>${params.installmentCount || 12} eşit aylık taksite</strong> bölünmüştür. Taksitler her ayın ilk 5 iş günü içerisinde yüklenici firma banka hesabına ödenecektir.</p>
-  ` : params.paymentPlanType === 'hybrid' ? `
-  <h4>MADDE 4: KARMA (HİBRİT) ÖDEME PLANI VE HAKEDİŞ ESASLARI</h4>
-  <ul>
-    <li>1. Peşinat: Sözleşme imzasında kararlaştırılan tutar.</li>
-    <li>2. Kaba İnşaat Ara Ödemesi (%25): Kaba inşaat ve tuğla duvarların tamamlanmasında.</li>
-    <li>3. İskân Ara Ödemesi (%15): İskân ve anahtar teslim aşamasında.</li>
-    <li>4. Aylık Taksitler (%60): Kalan bakiye ${params.installmentCount || 12} eşit aylık taksite bölünerek tahsil edilir.</li>
-  </ul>
-  ` : `
-  <h4>MADDE 4: DİNAMİK FİZİKİ İLERLEME HAKEDİŞ ORANLARI</h4>
-  <ul>
-    <li>1. Hakediş (%${params.stage1Pay}): Sözleşme imzası ve ruhsat projelerinin hazırlanması.</li>
-    <li>2. Hakediş (%${params.stage2Pay}): Hafriyat ve radye temel / subasman seviyesi betonarme vizesi.</li>
-    <li>3. Hakediş (%${params.stage3Pay}): Kaba inşaat ve tuğla duvarların tamamlanması.</li>
-    <li>4. Hakediş (%${params.stage4Pay}): İnce inşaat, tesisatlar ve cephe mantolama (Varsa kentsel dönüşüm kredi/hibe aktarımı bu aşamada gerçekleşir).</li>
-    <li>5. Hakediş (%${params.stage5Pay}): İskân belgesinin alınması ve anahtar teslimi.</li>
-  </ul>
-  `}
-  <h3>BÖLÜM III: SÜRE VE İŞ GÜVENLİĞİ</h3>
-  <p>Proje ve inşaat süresi <strong>${res.finalMonths} Ay</strong> olarak kararlaştırılmıştır. Mücbir sebepler ve kurum onay gecikmeleri süreye ilave edilir.</p>
-  <h3>BÖLÜM IV: GARANTİ SÜRELERİ (TBK m. 478)</h3>
-  <ul>
-    <li>Ağır Kusur ve Gizli Ayıplar (Taşıyıcı Sistem): 20 Yıl Garanti.</li>
-    <li>Açık Ayıplar ve İmalat Kusurları: 5 Yıl Garanti.</li>
-    <li>Mekanik & Elektrik Donanım, Cihazlar: 2 Yıl Garanti.</li>
-  </ul>
-  <h3>BÖLÜM V: EK-1 HAK SAHİPLERİ VE BAĞIMSIZ BÖLÜM DAĞILIMI</h3>
-  <table>
-    <thead>
-      <tr><th>Daire No</th><th>Hak Sahibi</th><th>T.C. No</th><th>Alan</th><th>Toplam Bedel</th><th>Peşinat</th><th>Kalan Borç</th></tr>
-    </thead>
-    <tbody>${flatRows}</tbody>
-  </table>
-  <div style="display:flex;justify-content:space-between;margin-top:50px;font-size:13px;">
-    <div style="text-align:center;">
-      <p style="font-weight:bold;margin-bottom:50px;">ARSA SAHİPLERİ / KAT MALİKLERİ</p>
-      <p>.... / .... / 2026</p>
+
+  <div class="avoid-break">
+    <h3>BÖLÜM I: TARAFLAR VE PROJE TANIMI</h3>
+    <h4>MADDE 1: TARAFLAR</h4>
+    <p><strong>1. YÜKLENİCİ (MÜTEAHHİT):</strong> ${showLegal ? compLegal : compName} ${showAddr && compAddress ? `(${compAddress})` : ''} ${showTax && compTax ? `[${compTax}]` : ''}<br>
+    ${showFirstAuth || showSecondAuth ? `Yetkili Temsilci: ${showFirstAuth ? `${compAuth} (${compAuthTitle}${showFirstAuthChamber && compAuthChamber ? ` - ${compAuthChamber}` : ''})` : ''}${showFirstAuth && showSecondAuth && compAuth2 ? ' / ' : ''}${showSecondAuth && compAuth2 ? `${compAuth2} (${compAuthTitle2}${showSecondAuthChamber && compAuthChamber2 ? ` - ${compAuthChamber2}` : ''})` : ''}<br>` : ''}
+    ${showBank && compBank && compIban ? `Resmî Hesap: ${compBank} - IBAN: ${compIban}<br>` : ''}
+    <strong>2. İŞ SAHİBİ / KAT MALİKLERİ:</strong> Ek-1 Hak Sahipleri Listesinde isim ve TC kimlikleri bulunan taşınmaz malikleri.</p>
+    
+    <h4>MADDE 2: SÖZLEŞME KONUSU VE GAYRİMENKUL</h4>
+    <p>Tapuda <strong>${params.projectAddress || 'Belirtilen Adres'}</strong> adresinde kayıtlı taşınmazın yıkılarak yerine taban oturumu <strong>${res.baseArea} m²</strong>, toplam brüt inşaat alanı <strong>${res.totalArea} m²</strong> olan ve toplam <strong>${res.flatCount} adet bağımsız bölümden</strong> oluşan yeni binanın yapılmasıdır.</p>
+  </div>
+
+  <div class="avoid-break">
+    <h3>BÖLÜM II: MALİ HÜKÜMLER VE HAKEDİŞLER</h3>
+    <h4>MADDE 3: PROJE İMALAT BEDELİ</h4>
+    <p>Birim imalat fiyatı <strong>${res.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>, toplam bedel <strong>${res.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong> olarak belirlenmiştir.</p>
+    ${params.paymentPlanType === 'installments' ? `
+    <h4>MADDE 4: AYLIK EŞİT TAKSİTLİ ÖDEME PLANI VE VADE ESASLARI</h4>
+    <p>Maliklerin peşinat ve kentsel dönüşüm destekleri düşüldükten sonra kalan net borç tutarları toplam <strong>${params.installmentCount || 12} eşit aylık taksite</strong> bölünmüştür. Taksitler her ayın ilk 5 iş günü içerisinde yüklenici firma banka hesabına ödenecektir.</p>
+    ` : params.paymentPlanType === 'hybrid' ? `
+    <h4>MADDE 4: KARMA (HİBRİT) ÖDEME PLANI VE HAKEDİŞ ESASLARI</h4>
+    <ul>
+      <li>1. Peşinat: Sözleşme imzasında kararlaştırılan tutar.</li>
+      <li>2. Kaba İnşaat Ara Ödemesi (%25): Kaba inşaat ve tuğla duvarların tamamlanmasında.</li>
+      <li>3. İskân Ara Ödemesi (%15): İskân ve anahtar teslim aşamasında.</li>
+      <li>4. Aylık Taksitler (%60): Kalan bakiye ${params.installmentCount || 12} eşit aylık taksite bölünerek tahsil edilir.</li>
+    </ul>
+    ` : `
+    <h4>MADDE 4: DİNAMİK FİZİKİ İLERLEME HAKEDİŞ ORANLARI</h4>
+    <ul>
+      <li>1. Hakediş (%${params.stage1Pay}): Sözleşme imzası ve ruhsat projelerinin hazırlanması.</li>
+      <li>2. Hakediş (%${params.stage2Pay}): Hafriyat ve radye temel / subasman seviyesi betonarme vizesi.</li>
+      <li>3. Hakediş (%${params.stage3Pay}): Kaba inşaat ve tuğla duvarların tamamlanması.</li>
+      <li>4. Hakediş (%${params.stage4Pay}): İnce inşaat, tesisatlar ve cephe mantolama (Varsa kentsel dönüşüm kredi/hibe aktarımı bu aşamada gerçekleşir).</li>
+      <li>5. Hakediş (%${params.stage5Pay}): İskân belgesinin alınması ve anahtar teslimi.</li>
+    </ul>
+    `}
+  </div>
+
+  <div class="avoid-break">
+    <h3>BÖLÜM III: SÜRE, İŞ GÜVENLİĞİ VE GARANTİLER (TBK m. 478)</h3>
+    <p>Proje ve inşaat süresi <strong>${res.finalMonths} Ay</strong> olarak kararlaştırılmıştır. Taşıyıcı betonarme sistemde 20 Yıl, ince işçilikte 5 Yıl, mekanik/asansör donatılarında 2 Yıl garanti geçerlidir.</p>
+  </div>
+
+  <div class="avoid-break">
+    <h3>BÖLÜM IV: EK-1 HAK SAHİPLERİ VE BAĞIMSIZ BÖLÜM DAĞILIMI</h3>
+    <table>
+      <thead>
+        <tr><th>Daire No</th><th>Hak Sahibi</th><th>T.C. No</th><th>Alan</th><th>Toplam Bedel</th><th>Peşinat</th><th>Kalan Borç</th></tr>
+      </thead>
+      <tbody>${flatRows}</tbody>
+    </table>
+  </div>
+
+  <div class="avoid-break" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;border-top:2px solid #0f172a;padding-top:14px;font-size:11px;">
+    <div style="text-align:center;border-right:1px dashed #cbd5e1;padding-right:16px;">
+      <p style="font-weight:bold;margin-bottom:30px;color:#0f172a;">ARSA SAHİPLERİ / KAT MALİKLERİ</p>
+      <div style="height:35px;border-bottom:1px solid #94a3b8;margin:0 20px 6px 20px;"></div>
+      <p style="color:#64748b;font-size:9.5px;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</p>
     </div>
-    <div style="text-align:center;">
-      <p style="font-weight:bold;margin-bottom:6px;">YÜKLENİCİ KAŞE / İMZA</p>
-      <p style="font-size:11px;color:#555;margin:0 0 40px 0;">${compLegal}<br>${compAuth} (${compAuthTitle})</p>
-      <p>.... / .... / 2026</p>
+    <div style="text-align:center;padding-left:16px;position:relative;">
+      <p style="font-weight:bold;margin:0 0 4px 0;color:#0f172a;">YÜKLENİCİ FİRMA KAŞE / İMZA</p>
+      <p style="font-size:9.5px;color:#475569;margin:0 0 6px 0;">${showLegal ? compLegal : compName}</p>
+      
+      <div style="display:flex;justify-content:center;gap:16px;align-items:center;min-height:50px;position:relative;">
+        ${showStamp && compStamp ? `
+          <img src="${compStamp}" alt="Kaşe/İmza" style="max-height:50px;object-fit:contain;position:absolute;z-index:2;opacity:0.9;" />
+        ` : ''}
+        ${showFirstAuth ? `
+        <div style="position:relative;z-index:1;">
+          <p style="font-weight:bold;color:#0f172a;font-size:11px;margin:0;">${compAuth}</p>
+          <p style="font-size:9.5px;color:#4338ca;margin:0;">${compAuthTitle}</p>
+          ${showFirstAuthChamber && compAuthChamber ? `<p style="font-size:8.5px;color:#64748b;margin:0;font-family:monospace;">${compAuthChamber}</p>` : ''}
+        </div>
+        ` : ''}
+        ${showSecondAuth && compAuth2 ? `
+        <div style="position:relative;z-index:1;border-left:1px solid #e2e8f0;padding-left:12px;">
+          <p style="font-weight:bold;color:#0f172a;font-size:11px;margin:0;">${compAuth2}</p>
+          <p style="font-size:9.5px;color:#065f46;margin:0;">${compAuthTitle2}</p>
+          ${showSecondAuthChamber && compAuthChamber2 ? `<p style="font-size:8.5px;color:#64748b;margin:0;font-family:monospace;">${compAuthChamber2}</p>` : ''}
+        </div>
+        ` : ''}
+      </div>
+      <div style="height:15px;border-bottom:1px solid #94a3b8;margin:4px 20px 6px 20px;"></div>
+      <p style="color:#64748b;font-size:9.5px;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</p>
     </div>
   </div>
 </body>
@@ -446,7 +709,7 @@ export function generateContractHtml(
 }
 
 // CAD SVG helpers for report exports
-function generateFrontViewSvgString(
+export function generateFrontViewSvgString(
   floorCount: number,
   hasShop: boolean,
   roofType: string,
@@ -657,7 +920,7 @@ function generateFrontViewSvgString(
   `;
 }
 
-function generateGroundFloorPlanSvgString(
+export function generateGroundFloorPlanSvgString(
   hasShop: boolean,
   roomType = '3+1 ODA',
   grossArea = 120,
@@ -753,7 +1016,7 @@ function generateGroundFloorPlanSvgString(
   `;
 }
 
-function generateNormalFloorPlanSvgString(
+export function generateNormalFloorPlanSvgString(
   roomType = '3+1 ODA',
   grossArea = 120,
   netArea = 96,

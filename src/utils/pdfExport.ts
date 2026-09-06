@@ -29,24 +29,31 @@ export function downloadHtmlFile(htmlContent: string, filename: string): void {
  * or falling back to invisible iframe and direct download if blocked.
  */
 export function printHtmlContent(htmlContent: string, documentTitle: string): void {
-  // Inject auto-print script and print styling into the HTML if not present
+  // Clean, standard A4 print styling that avoids excessive margins and gaps
   const printStyle = `
     <style media="print">
       @page {
-        size: A4;
-        margin: 20mm;
-        margin-top: 50mm;
+        size: A4 portrait;
+        margin: 12mm 10mm 12mm 10mm;
       }
-      .print-header {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        z-index: 1000;
-        margin-bottom: 0 !important;
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
-      body { margin-top: 40mm; }
       .no-print { display: none !important; }
+      .avoid-break {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      table {
+        page-break-inside: auto;
+      }
+      tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
     </style>
   `;
   const printScript = `
@@ -59,15 +66,15 @@ export function printHtmlContent(htmlContent: string, documentTitle: string): vo
           } catch(e) {
             console.error('Auto print failed:', e);
           }
-        }, 500);
+        }, 300);
       });
     </script>
-    <div class="no-print" style="position:fixed; top:20px; right:20px; display:flex; flex-direction:column; align-items:flex-end; gap:6px; z-index:9999; font-family:sans-serif;">
-      <button onclick="window.close(); setTimeout(function() { window.history.back(); }, 300);" style="padding:12px 24px; background:#0284c7; color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; font-weight:bold; box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1); transition: background 0.2s;" onmouseover="this.style.background='#0369a1'" onmouseout="this.style.background='#0284c7'">
-        ← Ana Uygulamaya Geri Dön / Sekmeyi Kapat
+    <div class="no-print" style="position:fixed; top:16px; right:16px; display:flex; flex-direction:column; align-items:flex-end; gap:6px; z-index:9999; font-family:sans-serif;">
+      <button onclick="window.close(); setTimeout(function() { window.history.back(); }, 300);" style="padding:10px 20px; background:#4338ca; color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:bold; box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1); transition: background 0.2s;" onmouseover="this.style.background='#3730a3'" onmouseout="this.style.background='#4338ca'">
+        ← Sekmeyi Kapat / Geri Dön
       </button>
-      <span style="font-size:11px; color:#475569; background:rgba(255,255,255,0.95); padding:4px 8px; border-radius:4px; border:1px solid #e2e8f0; box-shadow:0 2px 4px rgb(0 0 0 / 0.05);">
-        Not: Bu sekme otomatik açılmıştır. İade için buraya tıklayabilir veya sekmeyi kapatabilirsiniz.
+      <span style="font-size:11px; color:#475569; background:rgba(255,255,255,0.95); padding:4px 8px; border-radius:4px; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgb(0 0 0 / 0.05);">
+        Yazdırma / PDF Kaydetme Penceresi
       </span>
     </div>
   `;
