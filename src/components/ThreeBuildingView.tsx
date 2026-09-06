@@ -22,7 +22,7 @@ import {
   Bug,
 } from 'lucide-react';
 import { BuildingModelParams, CameraPresetType } from '../types';
-import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid } from '../utils/footprintUtils';
+import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon } from '../utils/footprintUtils';
 
 // Safe geometry constructors to completely prevent any NaN/null/zero bounding sphere errors in Three.js
 function safeBox(w: number, h: number, d: number, ws: number = 1, hs: number = 1, ds: number = 1): THREE.BoxGeometry {
@@ -524,6 +524,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const isPolygonDraw = params.footprintInputMode === 'polygonDraw' && !!params.polygonPoints && params.polygonPoints.length >= 3;
     const isLShapeMode = params.footprintInputMode === 'lShape';
 
+    // Check if 4 facades form a non-rectangular / skewed quadrilateral
+    const quadInfo = buildQuadrilateralPolygon(
+      params.facadeWidth || 10.0,
+      params.facadeDepth || 10.0,
+      params.backFacadeLength,
+      params.leftFacadeLength
+    );
+
     let activePolyPts: Array<{ id?: string; x: number; y: number }> | null = null;
     if (isPolygonDraw) {
       activePolyPts = params.polygonPoints!;
@@ -541,6 +549,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         { id: 'l5', x: front / 2 - recFront, y: depth / 2 },
         { id: 'l6', x: -front / 2, y: depth / 2 },
       ];
+    } else if (quadInfo.isSkewed) {
+      // Skewed 4-facade geometry (trapezoid / non-rectangular building mass)
+      activePolyPts = (params.polygonPoints && params.polygonPoints.length >= 3)
+        ? params.polygonPoints
+        : quadInfo.polygonPoints;
+    } else if (params.polygonPoints && params.polygonPoints.length >= 3 && params.footprintInputMode === 'customFacades') {
+      activePolyPts = params.polygonPoints;
     }
 
     const isCustomPoly = !!activePolyPts && activePolyPts.length >= 3;
@@ -626,6 +641,29 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const frameMaterial = new THREE.MeshStandardMaterial({
       color: 0x18181b,
       roughness: 0.4,
+    });
+
+    // Turkish Architectural Balcony Materials
+    const glassBalconyMat = new THREE.MeshPhysicalMaterial({
+      color: 0x38bdf8,
+      roughness: 0.15,
+      metalness: 0.2,
+      transmission: 0.78,
+      thickness: 0.3,
+      transparent: true,
+      opacity: isXRay ? 0.3 : 0.72,
+      wireframe: isWireframe,
+    });
+
+    const antraciteAluminumMat = new THREE.MeshStandardMaterial({
+      color: 0x27272a, // RAL 7016 Antrasit profil
+      roughness: 0.35,
+      metalness: 0.6,
+    });
+
+    const cumbaTrimMat = new THREE.MeshStandardMaterial({
+      color: 0x78350f, // Sıcak ahşap / kompozit detay
+      roughness: 0.55,
     });
 
     // Interior Partition Walls Material (Solid and crisp!)
@@ -2098,25 +2136,271 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           }
 
           if (hasBalc && bD > 0.3) {
-            const balcWidth = Math.min(localW * 0.4, 4.5);
-            const balcOffsetZ = bD / 2 + wallThick / 2; // offset outside wall
+            const rawType = (cfg.balconyType || 'standard').toLowerCase();
+            const balcType = rawType === 'cantilever' ? 'standard' : rawType;
+            const balcWidth = Math.min(localW * 0.45, 4.5);
             
             for (let b = 0; b < balcCount; b++) {
               const balcX = balcCount === 1 ? -localW * 0.22 : (b === 0 ? -localW * 0.25 : localW * 0.25);
-              const balcSlab = new THREE.Mesh(safeBox(balcWidth, 0.2, bD), slabMaterial);
-              balcSlab.position.set(balcX, baseY + 0.1, balcOffsetZ);
-              balcSlab.castShadow = true;
-              wallGroup.add(balcSlab);
 
-              const railH = 1.05;
-              const railZ = balcOffsetZ + bD / 2;
-              const railMesh = new THREE.Mesh(safeBox(balcWidth, railH, 0.05), glassMaterial);
-              railMesh.position.set(balcX, baseY + 0.2 + railH / 2, railZ);
-              wallGroup.add(railMesh);
+              if (balcType === 'french') {
+                // ================= 1. FRANSIZ BALKON (Minimal Emniyet Korkuluklu Zemin Balkonu) =================
+                const fDepth = 0.24;
+                const fWidth = Math.min(balcWidth * 0.75, 2.2);
+                const fOffsetZ = fDepth / 2 + wallThick / 2;
 
-              const handrail = new THREE.Mesh(safeBox(balcWidth + 0.04, 0.06, 0.08), frameMaterial);
-              handrail.position.set(balcX, baseY + 0.2 + railH, railZ);
-              wallGroup.add(handrail);
+                // Mermer / beton denizlik bazası
+                const sillMesh = new THREE.Mesh(safeBox(fWidth, 0.08, fDepth), slabMaterial);
+                sillMesh.position.set(balcX, baseY + slabThickness + 0.04, fOffsetZ);
+                wallGroup.add(sillMesh);
+
+                // Antrasit şık emniyet korkuluğu (1.10m standart yönetmelik yüksekliği)
+                const railH = 1.1;
+                const railZ = fOffsetZ + fDepth / 2;
+                const glassRail = new THREE.Mesh(safeBox(fWidth, railH, 0.03), glassMaterial);
+                glassRail.position.set(balcX, baseY + slabThickness + railH / 2 + 0.05, railZ);
+                wallGroup.add(glassRail);
+
+                // Üst küpeşte ve 2 adet yatay antrasit güvenlik emniyet mili
+                const handrail = new THREE.Mesh(safeBox(fWidth + 0.04, 0.04, 0.06), antraciteAluminumMat);
+                handrail.position.set(balcX, baseY + slabThickness + railH + 0.05, railZ);
+                wallGroup.add(handrail);
+
+                for (const hFrac of [0.35, 0.7]) {
+                  const bar = new THREE.Mesh(safeBox(fWidth, 0.025, 0.025), antraciteAluminumMat);
+                  bar.position.set(balcX, baseY + slabThickness + railH * hFrac, railZ);
+                  wallGroup.add(bar);
+                }
+
+                // Dikey yan sabitleme profilleri
+                for (const sideSign of [-1, 1]) {
+                  const post = new THREE.Mesh(safeBox(0.04, railH, 0.04), antraciteAluminumMat);
+                  post.position.set(balcX + sideSign * (fWidth / 2 - 0.02), baseY + slabThickness + railH / 2 + 0.05, railZ);
+                  wallGroup.add(post);
+                }
+
+              } else if (balcType === 'glass_enclosed') {
+                // ================= 2. KATLANIR CAM BALKON (Türkiye'de En Yaygın Kış Bahçesi / Camlama) =================
+                const balcOffsetZ = bD / 2 + wallThick / 2;
+
+                // Betonarme konsol döşeme
+                const balcSlab = new THREE.Mesh(safeBox(balcWidth, 0.22, bD), slabMaterial);
+                balcSlab.position.set(balcX, baseY + 0.11, balcOffsetZ);
+                balcSlab.castShadow = true;
+                wallGroup.add(balcSlab);
+
+                // Üst tavan saçağı ve kılavuz profili
+                const topSoffit = new THREE.Mesh(safeBox(balcWidth + 0.04, 0.1, bD + 0.04), antraciteAluminumMat);
+                topSoffit.position.set(balcX, baseY + slabThickness + roomHeight - 0.05, balcOffsetZ);
+                wallGroup.add(topSoffit);
+
+                // Alt mermer küpeşte bazası / parapet
+                const parapetH = 0.35;
+                const parapetMesh = new THREE.Mesh(safeBox(balcWidth, parapetH, 0.08), currentMat);
+                parapetMesh.position.set(balcX, baseY + slabThickness + parapetH / 2, balcOffsetZ + bD / 2 - 0.04);
+                wallGroup.add(parapetMesh);
+
+                // Yan parapetler
+                for (const sideSign of [-1, 1]) {
+                  const sideParapet = new THREE.Mesh(safeBox(0.08, parapetH, bD), currentMat);
+                  sideParapet.position.set(balcX + sideSign * (balcWidth / 2 - 0.04), baseY + slabThickness + parapetH / 2, balcOffsetZ);
+                  wallGroup.add(sideParapet);
+                }
+
+                // Katlanır camlama yüksekliği (alt parapetten tavana kadar)
+                const glassHeight = roomHeight - parapetH - 0.12;
+                const glassCenterY = baseY + slabThickness + parapetH + glassHeight / 2;
+
+                // Ön katlanır cam panelleri (4 adet temperli katlanır kanat)
+                const glassFrontZ = balcOffsetZ + bD / 2 - 0.04;
+                const frontGlass = new THREE.Mesh(safeBox(balcWidth - 0.08, glassHeight, 0.03), glassBalconyMat);
+                frontGlass.position.set(balcX, glassCenterY, glassFrontZ);
+                wallGroup.add(frontGlass);
+
+                // Dikey katlanır antrasit alüminyum profil çizgileri / fitilleri
+                const panelCount = 4;
+                const panelStep = (balcWidth - 0.1) / panelCount;
+                for (let pi = 1; pi < panelCount; pi++) {
+                  const px = balcX - balcWidth / 2 + 0.05 + pi * panelStep;
+                  const jointProfile = new THREE.Mesh(safeBox(0.025, glassHeight, 0.04), antraciteAluminumMat);
+                  jointProfile.position.set(px, glassCenterY, glassFrontZ);
+                  wallGroup.add(jointProfile);
+                }
+
+                // İki yan katlanır cam panelleri
+                for (const sideSign of [-1, 1]) {
+                  const sideGlass = new THREE.Mesh(safeBox(0.03, glassHeight, bD - 0.08), glassBalconyMat);
+                  sideGlass.position.set(balcX + sideSign * (balcWidth / 2 - 0.04), glassCenterY, balcOffsetZ);
+                  wallGroup.add(sideGlass);
+
+                  // Yan köşe dikey antrasit profil
+                  const cornerPost = new THREE.Mesh(safeBox(0.05, glassHeight + parapetH, 0.05), antraciteAluminumMat);
+                  cornerPost.position.set(balcX + sideSign * (balcWidth / 2 - 0.025), baseY + slabThickness + (glassHeight + parapetH) / 2, glassFrontZ);
+                  wallGroup.add(cornerPost);
+                }
+
+              } else if (balcType === 'recessed') {
+                // ================= 3. GÖMME / LOJYA BALKON (İki Yanı Masif Duvarlı Mahremiyetli İç Balkon) =================
+                const recDepth = bD * 0.85;
+                const balcOffsetZ = recDepth / 2 + wallThick / 2;
+
+                // Masif döşeme
+                const balcSlab = new THREE.Mesh(safeBox(balcWidth, 0.22, recDepth), slabMaterial);
+                balcSlab.position.set(balcX, baseY + 0.11, balcOffsetZ);
+                balcSlab.castShadow = true;
+                wallGroup.add(balcSlab);
+
+                // İki yanda masif cephe duvarı kanatları (mahremiyet sağlayan lojya yan duvarları)
+                const wingThick = 0.25;
+                for (const sideSign of [-1, 1]) {
+                  const sideWall = new THREE.Mesh(safeBox(wingThick, roomHeight, recDepth), currentMat);
+                  sideWall.position.set(balcX + sideSign * (balcWidth / 2 - wingThick / 2), midY, balcOffsetZ);
+                  sideWall.castShadow = true;
+                  wallGroup.add(sideWall);
+                }
+
+                // Ön cam veya dikey antrasit emniyet korkuluğu
+                const railH = 1.05;
+                const railZ = balcOffsetZ + recDepth / 2;
+                const railWidth = balcWidth - wingThick * 2;
+                const railMesh = new THREE.Mesh(safeBox(railWidth, railH, 0.04), glassMaterial);
+                railMesh.position.set(balcX, baseY + slabThickness + railH / 2, railZ);
+                wallGroup.add(railMesh);
+
+                const handrail = new THREE.Mesh(safeBox(railWidth + 0.02, 0.05, 0.08), antraciteAluminumMat);
+                handrail.position.set(balcX, baseY + slabThickness + railH, railZ);
+                wallGroup.add(handrail);
+
+                // Üst tavan örtüsü
+                const ceilingSlab = new THREE.Mesh(safeBox(balcWidth, 0.12, recDepth), slabMaterial);
+                ceilingSlab.position.set(balcX, baseY + slabThickness + roomHeight - 0.06, balcOffsetZ);
+                wallGroup.add(ceilingSlab);
+
+              } else if (balcType === 'cumba') {
+                // ================= 4. CUMBA / KAPALI ÇIKMA (Pencereli Kapalı Yaşam Alanı) =================
+                const cDepth = bD * 0.9;
+                const balcOffsetZ = cDepth / 2 + wallThick / 2;
+
+                // Cumba alt konsol tabliyesi
+                const baseSlab = new THREE.Mesh(safeBox(balcWidth, 0.22, cDepth), slabMaterial);
+                baseSlab.position.set(balcX, baseY + 0.11, balcOffsetZ);
+                baseSlab.castShadow = true;
+                wallGroup.add(baseSlab);
+
+                // Taşıyıcı mimari payandalar / konsol pahları
+                const corbelW = 0.18;
+                const corbelH = 0.55;
+                for (const sideSign of [-1, 1]) {
+                  const corbel = new THREE.Mesh(safeBox(corbelW, corbelH, cDepth * 0.8), cumbaTrimMat);
+                  corbel.position.set(balcX + sideSign * (balcWidth * 0.35), baseY - corbelH / 2 + 0.05, balcOffsetZ);
+                  corbel.castShadow = true;
+                  wallGroup.add(corbel);
+                }
+
+                // 0.85m Masif alt parapet duvarı
+                const parapetH = 0.85;
+                const parapetFront = new THREE.Mesh(safeBox(balcWidth, parapetH, 0.12), currentMat);
+                parapetFront.position.set(balcX, baseY + slabThickness + parapetH / 2, balcOffsetZ + cDepth / 2 - 0.06);
+                wallGroup.add(parapetFront);
+
+                // Yan parapetler
+                for (const sideSign of [-1, 1]) {
+                  const sideP = new THREE.Mesh(safeBox(0.12, parapetH, cDepth), currentMat);
+                  sideP.position.set(balcX + sideSign * (balcWidth / 2 - 0.06), baseY + slabThickness + parapetH / 2, balcOffsetZ);
+                  wallGroup.add(sideP);
+                }
+
+                // Cumba geniş pencereleri
+                const winH = roomHeight - parapetH - 0.15;
+                const winY = baseY + slabThickness + parapetH + winH / 2;
+
+                const cWindowFront = new THREE.Mesh(safeBox(balcWidth - 0.1, winH, 0.04), glassMaterial);
+                cWindowFront.position.set(balcX, winY, balcOffsetZ + cDepth / 2 - 0.06);
+                wallGroup.add(cWindowFront);
+
+                for (const sideSign of [-1, 1]) {
+                  const cWinSide = new THREE.Mesh(safeBox(0.04, winH, cDepth - 0.1), glassMaterial);
+                  cWinSide.position.set(balcX + sideSign * (balcWidth / 2 - 0.06), winY, balcOffsetZ);
+                  wallGroup.add(cWinSide);
+                }
+
+                // Üst tavan saçağı ve ahşap/antrasit silme taç
+                const roofTrim = new THREE.Mesh(safeBox(balcWidth + 0.1, 0.14, cDepth + 0.1), cumbaTrimMat);
+                roofTrim.position.set(balcX, baseY + slabThickness + roomHeight - 0.07, balcOffsetZ);
+                wallGroup.add(roofTrim);
+
+              } else if (balcType === 'corner') {
+                // ================= 5. KÖŞE / L-TİPİ BALKON (Panoramik Köşe Balkonu) =================
+                const balcOffsetZ = bD / 2 + wallThick / 2;
+                const cornerWidth = balcWidth * 1.15;
+
+                const balcSlab = new THREE.Mesh(safeBox(cornerWidth, 0.22, bD), slabMaterial);
+                balcSlab.position.set(balcX, baseY + 0.11, balcOffsetZ);
+                balcSlab.castShadow = true;
+                wallGroup.add(balcSlab);
+
+                // Köşe aksında silindirik antrasit taşıyıcı kolon
+                const colRadius = 0.08;
+                const colMesh = new THREE.Mesh(safeCylinder(colRadius, colRadius, roomHeight, 16), antraciteAluminumMat);
+                colMesh.position.set(balcX + cornerWidth / 2 - colRadius - 0.05, midY, balcOffsetZ + bD / 2 - colRadius - 0.05);
+                colMesh.castShadow = true;
+                wallGroup.add(colMesh);
+
+                // Ön ve yan cam korkuluk
+                const railH = 1.05;
+                const railZ = balcOffsetZ + bD / 2;
+                const railMesh = new THREE.Mesh(safeBox(cornerWidth, railH, 0.04), glassMaterial);
+                railMesh.position.set(balcX, baseY + slabThickness + railH / 2, railZ);
+                wallGroup.add(railMesh);
+
+                // Yan cam korkuluk
+                const sideRail = new THREE.Mesh(safeBox(0.04, railH, bD), glassMaterial);
+                sideRail.position.set(balcX + cornerWidth / 2, baseY + slabThickness + railH / 2, balcOffsetZ);
+                wallGroup.add(sideRail);
+
+                // Üst antrasit alüminyum küpeşteler
+                const handrail = new THREE.Mesh(safeBox(cornerWidth + 0.05, 0.06, 0.08), antraciteAluminumMat);
+                handrail.position.set(balcX, baseY + slabThickness + railH, railZ);
+                wallGroup.add(handrail);
+
+                const sideHandrail = new THREE.Mesh(safeBox(0.08, 0.06, bD + 0.05), antraciteAluminumMat);
+                sideHandrail.position.set(balcX + cornerWidth / 2, baseY + slabThickness + railH, balcOffsetZ);
+                wallGroup.add(sideHandrail);
+
+              } else {
+                // ================= 6. AÇIK KONSOL BALKON (Klasik Çıkma - Standard) =================
+                const balcOffsetZ = bD / 2 + wallThick / 2;
+
+                const balcSlab = new THREE.Mesh(safeBox(balcWidth, 0.2, bD), slabMaterial);
+                balcSlab.position.set(balcX, baseY + 0.1, balcOffsetZ);
+                balcSlab.castShadow = true;
+                wallGroup.add(balcSlab);
+
+                const railH = 1.05;
+                const railZ = balcOffsetZ + bD / 2;
+
+                // Ön cam korkuluk
+                const railMesh = new THREE.Mesh(safeBox(balcWidth, railH, 0.04), glassMaterial);
+                railMesh.position.set(balcX, baseY + slabThickness + railH / 2, railZ);
+                wallGroup.add(railMesh);
+
+                // İki yan kenar güvenlik korkulukları
+                for (const sideSign of [-1, 1]) {
+                  const sideRail = new THREE.Mesh(safeBox(0.04, railH, bD), glassMaterial);
+                  sideRail.position.set(balcX + sideSign * (balcWidth / 2), baseY + slabThickness + railH / 2, balcOffsetZ);
+                  wallGroup.add(sideRail);
+
+                  // Yan küpeşte
+                  const sideHandrail = new THREE.Mesh(safeBox(0.06, 0.05, bD + 0.04), antraciteAluminumMat);
+                  sideHandrail.position.set(balcX + sideSign * (balcWidth / 2), baseY + slabThickness + railH, balcOffsetZ);
+                  wallGroup.add(sideHandrail);
+                }
+
+                // Ön üst küpeşte
+                const handrail = new THREE.Mesh(safeBox(balcWidth + 0.04, 0.05, 0.08), antraciteAluminumMat);
+                handrail.position.set(balcX, baseY + slabThickness + railH, railZ);
+                wallGroup.add(handrail);
+              }
             }
           }        });
       } else {

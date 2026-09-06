@@ -201,7 +201,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         </button>
 
         {isPolicyOpen && (
-          <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
             <div>
               <label className={`block text-xs ${labelColor} mb-1.5`}>Proje Yapım Modeli:</label>
               <select
@@ -223,7 +223,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                   max="100"
                   value={params.contractorShareRate}
                   onChange={(e) => updateParam('contractorShareRate', parseFloat(e.target.value) || 0)}
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border ${inputBg}`}
+                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold ${inputBg}`}
                 />
               </div>
             )}
@@ -246,7 +246,18 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                 type="number"
                 value={params.profitRate}
                 onChange={(e) => updateParam('profitRate', parseFloat(e.target.value) || 0)}
-                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border ${inputBg}`}
+                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold ${inputBg}`}
+              />
+            </div>
+
+            <div>
+              <label className={`block text-xs ${labelColor} mb-1.5`}>USD Dolar Kuru (₺):</label>
+              <input
+                type="number"
+                step="0.1"
+                value={params.usdRate || 36.5}
+                onChange={(e) => updateParam('usdRate', parseFloat(e.target.value) || 1)}
+                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold ${inputBg}`}
               />
             </div>
           </div>

@@ -3,7 +3,9 @@ import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint } from './footprintUtils';
 
 export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   facadeWidth: 14.0,       // Ön cephe 14 metre
-  facadeDepth: 18.0,       // Yan cephe derinlik 18 metre
+  facadeDepth: 18.0,       // Sağ yan cephe derinlik 18 metre
+  backFacadeLength: 14.0,  // Arka cephe 14 metre
+  leftFacadeLength: 18.0,  // Sol yan cephe 18 metre
   footprintInputMode: 'directArea',
   customFacadeCount: 4,
   customFacades: DEFAULT_CUSTOM_FACADES_4,

@@ -722,18 +722,396 @@ export function generateFacadeConfigs(
   });
 }
 
-export function getDefaultCustomFacades(count: number, width = 14, depth = 18): CustomFacadeSide[] {
+/**
+ * Synchronizes polygon edges to custom facades dynamically when polygon has N vertices/edges.
+ */
+export function syncPolygonToCustomFacades(
+  points: PolygonPoint[],
+  existingFacades?: CustomFacadeSide[],
+  facadeConfigs?: FacadeDetailConfig[],
+  mainEntranceIndex = 0
+): CustomFacadeSide[] {
+  if (!points || points.length < 3) return existingFacades || [];
+  const edges = getPolygonEdges(points);
+  return edges.map((edge, idx) => {
+    const existingSide = existingFacades?.[idx];
+    const existingCfg = facadeConfigs?.[idx];
+    const isEntrance = (existingCfg?.isEntrance !== undefined)
+      ? existingCfg.isEntrance
+      : (existingSide?.isEntrance !== undefined ? existingSide.isEntrance : idx === mainEntranceIndex);
+
+    let defaultName = `${idx + 1}. Cephe (${edge.length}m)`;
+    if (idx === 0) defaultName = `1. Ön Cephe (Yol / Giriş - ${edge.length}m)`;
+    else if (idx === 1) defaultName = `2. Sağ Yan Cephe (${edge.length}m)`;
+    else if (idx === 2 && edges.length === 4) defaultName = `3. Arka Cephe (Bahçe - ${edge.length}m)`;
+    else if (idx === 3 && edges.length === 4) defaultName = `4. Sol Yan Cephe (${edge.length}m)`;
+    else if (idx === 2) defaultName = `3. Arka Cephe (${edge.length}m)`;
+
+    const defaultWindows = Math.max(1, Math.min(6, Math.floor(edge.length / 3.5)));
+
+    return {
+      id: idx + 1,
+      name: existingSide?.name || defaultName,
+      length: edge.length,
+      windowCountPerFloor: existingCfg?.windowCountPerFloor ?? existingSide?.windowCountPerFloor ?? defaultWindows,
+      hasBalcony: existingCfg?.hasBalcony ?? existingSide?.hasBalcony ?? (idx === 0 || edge.length >= 6),
+      balconyCountPerFloor: existingCfg?.balconyCountPerFloor ?? existingSide?.balconyCountPerFloor ?? 1,
+      balconyType: existingCfg?.balconyType ?? existingSide?.balconyType ?? 'standard',
+      isEntrance,
+    };
+  });
+}
+
+/**
+ * Mathematically scales an edge's length by moving the target vertex along edge vector
+ */
+export function updatePolygonEdgeLength(
+  points: PolygonPoint[],
+  edgeIndex: number,
+  newLength: number
+): PolygonPoint[] {
+  if (!points || points.length < 3 || edgeIndex < 0 || edgeIndex >= points.length) {
+    return points;
+  }
+  const safeLen = Math.max(1.0, Math.min(80.0, typeof newLength === 'number' && !isNaN(newLength) ? newLength : 10.0));
+  const n = points.length;
+  const p1 = points[edgeIndex];
+  const p2 = points[(edgeIndex + 1) % n];
+
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const curLen = Math.hypot(dx, dy);
+
+  if (curLen < 0.001) return points;
+
+  const scale = safeLen / curLen;
+  const deltaX = dx * (scale - 1);
+  const deltaY = dy * (scale - 1);
+
+  const updated = points.map((p, idx) => {
+    if (idx === (edgeIndex + 1) % n) {
+      return {
+        ...p,
+        x: Math.round((p.x + deltaX) * 10) / 10,
+        y: Math.round((p.y + deltaY) * 10) / 10,
+      };
+    }
+    return p;
+  });
+
+  return updated;
+}
+
+export function getDefaultCustomFacades(count: number, width = 14, depth = 18, backWidth?: number, leftDepth?: number): CustomFacadeSide[] {
   if (count === 5) return DEFAULT_CUSTOM_FACADES_5;
   if (count === 6) return DEFAULT_CUSTOM_FACADES_6;
   if (count === 8) return DEFAULT_CUSTOM_FACADES_8;
+
+  const bw = backWidth !== undefined && backWidth > 0 ? backWidth : (width > 0 ? width : 14.0);
+  const ld = leftDepth !== undefined && leftDepth > 0 ? leftDepth : (depth > 0 ? depth : 18.0);
 
   // Default 4 sides
   return [
     { id: 1, name: '1. Ön Cephe (Yol / Giriş)', length: width > 0 ? width : 14.0, windowCountPerFloor: 3, hasBalcony: true, balconyCountPerFloor: 1, isEntrance: true },
     { id: 2, name: '2. Sağ Yan Cephe (Komşu/Çekme)', length: depth > 0 ? depth : 18.0, windowCountPerFloor: 4, hasBalcony: true, balconyCountPerFloor: 1, isEntrance: false },
-    { id: 3, name: '3. Arka Cephe (Bahçe)', length: width > 0 ? width : 14.0, windowCountPerFloor: 3, hasBalcony: true, balconyCountPerFloor: 1, isEntrance: false },
-    { id: 4, name: '4. Sol Yan Cephe (Komşu/Çekme)', length: depth > 0 ? depth : 18.0, windowCountPerFloor: 4, hasBalcony: false, balconyCountPerFloor: 0, isEntrance: false },
+    { id: 3, name: '3. Arka Cephe (Bahçe)', length: bw, windowCountPerFloor: 3, hasBalcony: true, balconyCountPerFloor: 1, isEntrance: false },
+    { id: 4, name: '4. Sol Yan Cephe (Komşu/Çekme)', length: ld, windowCountPerFloor: 4, hasBalcony: false, balconyCountPerFloor: 0, isEntrance: false },
   ];
+}
+
+export interface QuadrilateralResult {
+  polygonPoints: PolygonPoint[];
+  front: number;
+  right: number;
+  back: number;
+  left: number;
+  area: number;
+  perimeter: number;
+  angles: { p1: number; p2: number; p3: number; p4: number };
+  isSkewed: boolean;
+  statusText: string;
+}
+
+/**
+ * Calculates exact 2D quadrilateral polygon points (centered around origin)
+ * and geometric properties from 4 facade edge lengths: front, right, back, left.
+ * Applies strict boundary checks to prevent negative/NaN dimensions and enforce polygon closure rules.
+ */
+export function buildQuadrilateralPolygon(
+  frontInput: number,
+  rightInput: number,
+  backInput?: number,
+  leftInput?: number
+): QuadrilateralResult {
+  // Sınır kontrolü (QA kuralı: negatif ve aşırı değerler engellenir [1.0m - 150.0m])
+  const L1 = Math.max(1.0, Math.min(150.0, typeof frontInput === 'number' && !isNaN(frontInput) && Number.isFinite(frontInput) ? frontInput : 10.0));
+  const L2 = Math.max(1.0, Math.min(150.0, typeof rightInput === 'number' && !isNaN(rightInput) && Number.isFinite(rightInput) ? rightInput : 10.0));
+  const L4 = Math.max(1.0, Math.min(150.0, typeof leftInput === 'number' && !isNaN(leftInput) && Number.isFinite(leftInput) ? leftInput : L2));
+
+  // Dik açılı baz düzlemine göre doğal geometrik arka cephe uzunluğu:
+  const defaultBack = Math.round(Math.sqrt(L1 * L1 + (L4 - L2) * (L4 - L2)) * 10) / 10;
+
+  let L3 = backInput !== undefined && typeof backInput === 'number' && !isNaN(backInput) && Number.isFinite(backInput) && backInput > 0
+    ? backInput
+    : defaultBack;
+
+  // Poligon eşitsizliği (bir kenar diğer üç kenarın toplamından küçük olmalıdır)
+  const maxL3 = Math.max(1.0, L1 + L2 + L4 - 0.5);
+  const minL3 = 1.0;
+  L3 = Math.max(minL3, Math.min(maxL3, L3));
+
+  let rawPoints: { x: number; y: number }[] = [];
+  let actualL3 = L3;
+  let isSkewed = false;
+
+  const isRectangular = Math.abs(L1 - L3) < 0.1 && Math.abs(L2 - L4) < 0.1;
+  const isRightTrapezoid = !isRectangular && Math.abs(L3 - defaultBack) < 0.15 && Math.abs(L2 - L4) >= 0.1;
+  const isSymmetricTrapezoid = !isRectangular && Math.abs(L2 - L4) < 0.2 && Math.abs(L1 - L3) >= 0.1;
+
+  if (isRectangular) {
+    // 1. Düzenli Dikdörtgen veya Kare
+    actualL3 = L3;
+    isSkewed = false;
+    rawPoints = [
+      { x: 0, y: 0 },
+      { x: L1, y: 0 },
+      { x: L1, y: L2 },
+      { x: 0, y: L4 },
+    ];
+  } else if (isRightTrapezoid) {
+    // 2. Dik Açılı Yamuk (Yan cepheler öne dik, arka cephe hipotenüs düzleminde)
+    actualL3 = L3;
+    isSkewed = true;
+    rawPoints = [
+      { x: 0, y: 0 },
+      { x: L1, y: 0 },
+      { x: L1, y: L2 },
+      { x: 0, y: L4 },
+    ];
+  } else if (isSymmetricTrapezoid) {
+    // 3. Simetrik Yamuk (Arkaya daralan veya genişleyen form; örn: Ön=10m, Arka=8m, Yanlar=10m)
+    actualL3 = L3;
+    isSkewed = true;
+    const deltaX = (L1 - L3) / 2;
+    const sideLen = (L2 + L4) / 2;
+    const hSq = Math.max(1.0, sideLen * sideLen - deltaX * deltaX);
+    const H = Math.sqrt(hSq);
+    rawPoints = [
+      { x: 0, y: 0 },
+      { x: L1, y: 0 },
+      { x: L1 - deltaX, y: H },
+      { x: deltaX, y: H },
+    ];
+  } else {
+    // 4. Genel Asimetrik 4-Gen: Çember kesişimi veya orantılı daralma
+    const d = Math.sqrt(L1 * L1 + L4 * L4);
+    const minCircleL3 = Math.abs(d - L2);
+    const maxCircleL3 = d + L2;
+
+    if (L3 >= minCircleL3 && L3 <= maxCircleL3 && L4 > 0.5) {
+      const k = L1 / L4;
+      const C = (L2 * L2 - L3 * L3 + L4 * L4 - L1 * L1) / (2 * L4);
+      const A = 1 + k * k;
+      const B = 2 * (k * C - L1);
+      const D_coef = L1 * L1 + C * C - L2 * L2;
+      const delta = B * B - 4 * A * D_coef;
+
+      if (delta >= 0) {
+        const root1 = (-B + Math.sqrt(delta)) / (2 * A);
+        const root2 = (-B - Math.sqrt(delta)) / (2 * A);
+        const x3 = Math.max(root1, root2);
+        const y3 = k * x3 + C;
+        actualL3 = Math.round(Math.sqrt(x3 * x3 + (y3 - L4) * (y3 - L4)) * 10) / 10;
+        isSkewed = true;
+        rawPoints = [
+          { x: 0, y: 0 },
+          { x: L1, y: 0 },
+          { x: x3, y: y3 },
+          { x: 0, y: L4 },
+        ];
+      } else {
+        const deltaX = (L1 - L3) / 2;
+        const H = Math.sqrt(Math.max(1.0, L2 * L2 - deltaX * deltaX));
+        actualL3 = L3;
+        isSkewed = true;
+        rawPoints = [
+          { x: 0, y: 0 },
+          { x: L1, y: 0 },
+          { x: L1 - deltaX, y: H },
+          { x: deltaX, y: H },
+        ];
+      }
+    } else {
+      const deltaX_L = (L1 - L3) * (L4 / (L2 + L4));
+      const deltaX_R = (L1 - L3) - deltaX_L;
+      const y4 = Math.sqrt(Math.max(1.0, L4 * L4 - deltaX_L * deltaX_L));
+      const y3 = Math.sqrt(Math.max(1.0, L2 * L2 - deltaX_R * deltaX_R));
+      actualL3 = L3;
+      isSkewed = true;
+      rawPoints = [
+        { x: 0, y: 0 },
+        { x: L1, y: 0 },
+        { x: L1 - deltaX_R, y: y3 },
+        { x: deltaX_L, y: y4 },
+      ];
+    }
+  }
+
+  const bounds = getPolygonBounds(rawPoints);
+  const centerX = bounds.centerX;
+  const centerY = bounds.centerY;
+
+  const polygonPoints: PolygonPoint[] = rawPoints.map((p, idx) => ({
+    id: `p${idx + 1}`,
+    x: Math.round((p.x - centerX) * 10) / 10,
+    y: Math.round((p.y - centerY) * 10) / 10,
+  }));
+
+  const area = Math.round(calculatePolygonArea(polygonPoints) * 10) / 10;
+  const perimeter = Math.round(calculatePolygonPerimeter(polygonPoints) * 10) / 10;
+
+  // Vector based interior angles calculation:
+  const getAngleBetween = (v1: { x: number; y: number }, v2: { x: number; y: number }) => {
+    const dot = v1.x * v2.x + v1.y * v2.y;
+    const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+    const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+    if (mag1 < 0.001 || mag2 < 0.001) return 90.0;
+    const cosVal = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
+    return Math.round(Math.acos(cosVal) * (180 / Math.PI) * 10) / 10;
+  };
+
+  const p1 = rawPoints[0];
+  const p2 = rawPoints[1];
+  const p3 = rawPoints[2];
+  const p4 = rawPoints[3];
+
+  const angleP1 = getAngleBetween({ x: p2.x - p1.x, y: p2.y - p1.y }, { x: p4.x - p1.x, y: p4.y - p1.y });
+  const angleP2 = getAngleBetween({ x: p1.x - p2.x, y: p1.y - p2.y }, { x: p3.x - p2.x, y: p3.y - p2.y });
+  const angleP3 = getAngleBetween({ x: p2.x - p3.x, y: p2.y - p3.y }, { x: p4.x - p3.x, y: p4.y - p3.y });
+  const angleP4 = Math.round(Math.max(10, 360.0 - angleP1 - angleP2 - angleP3) * 10) / 10;
+
+  return {
+    polygonPoints,
+    front: L1,
+    right: L2,
+    back: actualL3,
+    left: L4,
+    area: Math.max(1.0, area),
+    perimeter,
+    angles: { 
+      p1: angleP1, 
+      p2: angleP2, 
+      p3: angleP3, 
+      p4: angleP4 
+    },
+    isSkewed,
+    statusText: isSkewed 
+      ? `Asimetrik / Yamuk Kütle (Ön: ${L1}m, Sağ: ${L2}m, Arka: ${actualL3}m, Sol: ${L4}m)` 
+      : (Math.abs(L1 - L2) < 0.1 
+          ? `Düzenli Kare Form (${L1}m × ${L2}m)` 
+          : `Düzenli Dikdörtgen Form (${L1}m × ${L2}m)`),
+  };
+}
+
+export interface InteractiveFacadeInput {
+  front: number;
+  right: number;
+  back?: number;
+  left?: number;
+}
+
+export interface InteractiveFacadeUpdateResult {
+  front: number;
+  right: number;
+  back: number;
+  left: number;
+  quadrilateral: QuadrilateralResult;
+  customFacades: CustomFacadeSide[];
+  explanation: string;
+}
+
+/**
+ * Interactively recalculates the 4 facades (front, right, back, left) in the 2D plane
+ * when any one of the facade edge lengths changes.
+ */
+export function calculateInteractiveQuadrilateral(
+  changedSide: 'front' | 'right' | 'back' | 'left',
+  rawNewValue: number,
+  current: InteractiveFacadeInput
+): InteractiveFacadeUpdateResult {
+  // Sınır kontrolü: [1.0m - 60.0m] (QA kuralı)
+  const val = Math.max(1.0, Math.min(60.0, typeof rawNewValue === 'number' && !isNaN(rawNewValue) && Number.isFinite(rawNewValue) ? rawNewValue : 10.0));
+  
+  const curFront = Math.max(1.0, Math.min(60.0, typeof current.front === 'number' && !isNaN(current.front) ? current.front : 10.0));
+  const curRight = Math.max(1.0, Math.min(60.0, typeof current.right === 'number' && !isNaN(current.right) ? current.right : 10.0));
+  const curBack = Math.max(1.0, Math.min(60.0, current.back !== undefined && typeof current.back === 'number' && !isNaN(current.back) ? current.back : curFront));
+  const curLeft = Math.max(1.0, Math.min(60.0, current.left !== undefined && typeof current.left === 'number' && !isNaN(current.left) ? current.left : curRight));
+
+  let nextFront = curFront;
+  let nextRight = curRight;
+  let nextBack = curBack;
+  let nextLeft = curLeft;
+  let explanation = '';
+
+  const wasRectangular = Math.abs(curLeft - curRight) < 0.1 && Math.abs(curFront - curBack) < 0.1;
+
+  if (changedSide === 'front') {
+    nextFront = val;
+    const deltaY = Math.abs(nextLeft - nextRight);
+    if (wasRectangular || deltaY < 0.1) {
+      nextBack = val;
+      explanation = `Ön cephe ${val}m yapıldı. Yan cepheler eşit olduğundan arka cephe de ${val}m olarak güncellendi.`;
+    } else {
+      nextBack = Math.round(Math.sqrt(nextFront * nextFront + deltaY * deltaY) * 10) / 10;
+      explanation = `Ön cephe ${val}m yapıldı. Sol (${nextLeft}m) ve Sağ (${nextRight}m) cephe farkından dolayı arka cephe ${nextBack}m olarak hesaplandı.`;
+    }
+  } else if (changedSide === 'right') {
+    nextRight = val;
+    const deltaY = Math.abs(nextLeft - nextRight);
+    if (deltaY < 0.1) {
+      nextBack = nextFront;
+      explanation = `Sağ cephe ${val}m yapıldı. Sol cephe ile eşitlendiğinden arka cephe ön cepheye (${nextFront}m) eşitlendi.`;
+    } else {
+      nextBack = Math.round(Math.sqrt(nextFront * nextFront + deltaY * deltaY) * 10) / 10;
+      explanation = `Sağ cephe ${val}m yapıldı. Sol (${nextLeft}m) ve Sağ (${nextRight}m) farkı nedeniyle arka cephe ${nextBack}m oldu. Yapı yamuk forma geçti.`;
+    }
+  } else if (changedSide === 'left') {
+    nextLeft = val;
+    const deltaY = Math.abs(nextLeft - nextRight);
+    if (deltaY < 0.1) {
+      nextBack = nextFront;
+      explanation = `Sol cephe ${val}m yapıldı. Sağ cephe ile eşitlendiğinden arka cephe ön cepheye (${nextFront}m) eşitlendi.`;
+    } else {
+      nextBack = Math.round(Math.sqrt(nextFront * nextFront + deltaY * deltaY) * 10) / 10;
+      explanation = `Sol cephe ${val}m yapıldı. Sol (${nextLeft}m) ve Sağ (${nextRight}m) farkı nedeniyle arka cephe ${nextBack}m oldu. Yapı yamuk forma geçti.`;
+    }
+  } else if (changedSide === 'back') {
+    nextBack = val;
+    if (Math.abs(val - nextFront) < 0.1 && Math.abs(nextLeft - nextRight) < 0.1) {
+      const avgD = Math.round(((nextLeft + nextRight) / 2) * 10) / 10;
+      nextLeft = avgD;
+      nextRight = avgD;
+      nextBack = nextFront;
+      explanation = `Arka cephe ön cepheye (${nextFront}m) eşitlendi. Düzgün dikdörtgen/kare forma hizalandı.`;
+    } else if (val > nextFront) {
+      explanation = `Arka cephe (Bahçe) ${val}m yapıldı. Arkaya genişleyen yamuk kütle formu uygulandı.`;
+    } else {
+      explanation = `Arka cephe (Bahçe) ${val}m yapıldı. Arkaya daralan yamuk kütle formu uygulandı.`;
+    }
+  }
+
+  const quad = buildQuadrilateralPolygon(nextFront, nextRight, nextBack, nextLeft);
+  const customFacades = getDefaultCustomFacades(4, quad.front, quad.right, quad.back, quad.left);
+
+  return {
+    front: quad.front,
+    right: quad.right,
+    back: quad.back,
+    left: quad.left,
+    quadrilateral: quad,
+    customFacades,
+    explanation,
+  };
 }
 
 export interface FootprintCalculationResult {
@@ -755,6 +1133,8 @@ export function calculateFootprint(
     baseBuildArea?: number;
     facadeWidth?: number;
     facadeDepth?: number;
+    backFacadeLength?: number;
+    leftFacadeLength?: number;
     customFacadeCount?: number;
     customFacades?: CustomFacadeSide[];
     lShapeFrontMain?: number;
@@ -766,6 +1146,8 @@ export function calculateFootprint(
 ): FootprintCalculationResult {
   const w = params.facadeWidth && params.facadeWidth > 0 ? params.facadeWidth : 14.0;
   const d = params.facadeDepth && params.facadeDepth > 0 ? params.facadeDepth : 18.0;
+  const backW = params.backFacadeLength !== undefined && params.backFacadeLength > 0 ? params.backFacadeLength : w;
+  const leftD = params.leftFacadeLength !== undefined && params.leftFacadeLength > 0 ? params.leftFacadeLength : d;
 
   if (mode === 'polygonDraw') {
     const pts = params.polygonPoints && params.polygonPoints.length >= 3
@@ -815,19 +1197,33 @@ export function calculateFootprint(
   }
 
   if (mode === 'dimensions') {
-    const area = Math.round(w * d * 100) / 100;
-    const perimeter = Math.round(2 * (w + d) * 10) / 10;
+    const isSymmetric = Math.abs(w - backW) < 0.05 && Math.abs(d - leftD) < 0.05;
+    let area = 0;
+    let desc = '';
+    const effW = Math.round(((w + backW) / 2) * 10) / 10;
+    const effD = Math.round(((d + leftD) / 2) * 10) / 10;
+
+    if (isSymmetric) {
+      area = Math.round(w * d * 100) / 100;
+      desc = `Ön Cephe (${w}m) × Sağ Yan Cephe (${d}m) = ${area} m²`;
+    } else {
+      area = Math.round(effW * effD * 100) / 100;
+      desc = `4 Cepheli Oturum: Ön (${w}m), Sağ (${d}m), Arka (${backW}m), Sol (${leftD}m) → Ort. (${effW.toFixed(1)}m × ${effD.toFixed(1)}m) = ${area} m²`;
+    }
+
+    const perimeter = Math.round((w + d + backW + leftD) * 10) / 10;
+
     return {
       area,
-      effectiveWidth: w,
-      effectiveDepth: d,
+      effectiveWidth: effW,
+      effectiveDepth: effD,
       perimeter,
-      description: `Ön Cephe (${w}m) × Yan Cephe (${d}m) = ${area} m²`,
+      description: desc,
       sidesList: [
         { name: '1. Ön Cephe', length: w },
         { name: '2. Sağ Yan Cephe', length: d },
-        { name: '3. Arka Cephe', length: w },
-        { name: '4. Sol Yan Cephe', length: d },
+        { name: '3. Arka Cephe', length: backW },
+        { name: '4. Sol Yan Cephe', length: leftD },
       ],
     };
   }
@@ -863,7 +1259,7 @@ export function calculateFootprint(
   if (mode === 'customFacades') {
     const facades = params.customFacades && params.customFacades.length >= 3
       ? params.customFacades
-      : getDefaultCustomFacades(params.customFacadeCount || 4, w, d);
+      : getDefaultCustomFacades(params.customFacadeCount || 4, w, d, backW, leftD);
 
     const perimeter = Math.round(facades.reduce((sum, f) => sum + (f.length || 0), 0) * 10) / 10;
     const count = facades.length;

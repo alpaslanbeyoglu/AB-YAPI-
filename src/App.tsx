@@ -156,6 +156,8 @@ export default function App() {
           facadeStyle: params.facadeStyle || 'wood_anthracite',
           facadeWidth: params.facadeWidth || 14.0,
           facadeDepth: params.facadeDepth || 18.0,
+          backFacadeLength: params.backFacadeLength !== undefined ? params.backFacadeLength : (params.facadeWidth || 14.0),
+          leftFacadeLength: params.leftFacadeLength !== undefined ? params.leftFacadeLength : (params.facadeDepth || 18.0),
           baseBuildArea: params.baseBuildArea,
           basementCount: params.basementCount !== undefined ? params.basementCount : 1,
           elevatorCount: params.elevatorCount !== undefined ? params.elevatorCount : 1,
@@ -194,6 +196,8 @@ export default function App() {
       facadeStyle: params.facadeStyle || 'wood_anthracite',
       facadeWidth: params.facadeWidth || 14.0,
       facadeDepth: params.facadeDepth || 18.0,
+      backFacadeLength: params.backFacadeLength !== undefined ? params.backFacadeLength : (params.facadeWidth || 14.0),
+      leftFacadeLength: params.leftFacadeLength !== undefined ? params.leftFacadeLength : (params.facadeDepth || 18.0),
       baseBuildArea: params.baseBuildArea,
       basementCount: params.basementCount !== undefined ? params.basementCount : 1,
       elevatorCount: params.elevatorCount !== undefined ? params.elevatorCount : 1,
@@ -298,12 +302,16 @@ export default function App() {
     setBuildingModelParams((prevModel) => {
       let newW = sanitizedParams.facadeWidth || prevModel.facadeWidth;
       let newD = sanitizedParams.facadeDepth || prevModel.facadeDepth;
+      let newBackW = sanitizedParams.backFacadeLength !== undefined ? sanitizedParams.backFacadeLength : (prevModel.backFacadeLength ?? newW);
+      let newLeftD = sanitizedParams.leftFacadeLength !== undefined ? sanitizedParams.leftFacadeLength : (prevModel.leftFacadeLength ?? newD);
 
       const nextModel: BuildingModelParams = {
         ...prevModel,
         footprintInputMode: sanitizedParams.footprintInputMode || prevModel.footprintInputMode,
         facadeWidth: newW,
         facadeDepth: newD,
+        backFacadeLength: newBackW,
+        leftFacadeLength: newLeftD,
         baseBuildArea: sanitizedParams.baseBuildArea,
         customFacadeCount: sanitizedParams.customFacadeCount || prevModel.customFacadeCount,
         customFacades: sanitizedParams.customFacades || prevModel.customFacades,
@@ -361,6 +369,8 @@ export default function App() {
         footprintInputMode: updates.footprintInputMode !== undefined ? updates.footprintInputMode : prev.footprintInputMode,
         facadeWidth: updates.facadeWidth !== undefined ? updates.facadeWidth : prev.facadeWidth,
         facadeDepth: updates.facadeDepth !== undefined ? updates.facadeDepth : prev.facadeDepth,
+        backFacadeLength: updates.backFacadeLength !== undefined ? updates.backFacadeLength : prev.backFacadeLength,
+        leftFacadeLength: updates.leftFacadeLength !== undefined ? updates.leftFacadeLength : prev.leftFacadeLength,
         customFacadeCount: updates.customFacadeCount !== undefined ? updates.customFacadeCount : prev.customFacadeCount,
         customFacades: updates.customFacades !== undefined ? updates.customFacades : prev.customFacades,
         lShapeFrontMain: updates.lShapeFrontMain !== undefined ? updates.lShapeFrontMain : prev.lShapeFrontMain,
@@ -454,6 +464,8 @@ export default function App() {
         ...(updates.footprintInputMode !== undefined && { footprintInputMode: updates.footprintInputMode }),
         ...(updates.facadeWidth !== undefined && { facadeWidth: updates.facadeWidth }),
         ...(updates.facadeDepth !== undefined && { facadeDepth: updates.facadeDepth }),
+        ...(updates.backFacadeLength !== undefined && { backFacadeLength: updates.backFacadeLength }),
+        ...(updates.leftFacadeLength !== undefined && { leftFacadeLength: updates.leftFacadeLength }),
         ...(updates.customFacadeCount !== undefined && { customFacadeCount: updates.customFacadeCount }),
         ...(updates.customFacades !== undefined && { customFacades: updates.customFacades }),
         ...(updates.lShapeFrontMain !== undefined && { lShapeFrontMain: updates.lShapeFrontMain }),

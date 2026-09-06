@@ -26,7 +26,7 @@ import {
   Sun,
   MapPin,
 } from 'lucide-react';
-import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide } from '../types';
+import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig } from '../types';
 import {
   DEFAULT_BUILDING_PARAMS,
   calculateBuildingMetrics,
@@ -37,7 +37,13 @@ import {
   POLYGON_PRESETS,
   calculatePolygonArea,
   getPolygonBounds,
+  generateFacadeConfigs,
+  calculateInteractiveQuadrilateral,
+  getPolygonEdges,
+  updatePolygonEdgeLength,
+  syncPolygonToCustomFacades,
 } from '../utils/footprintUtils';
+import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel';
 import {
   SolarLocation,
   TURKEY_CITIES,
@@ -472,9 +478,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               <FloorPlan2DView params={modelParams} theme={theme} />
             )}
           </div>
-
-          {/* İmar & Yangın Mevzuatı Otomatik Denetim Paneli */}
-          <ZoningAuditPanel params={modelParams} theme={theme} />
         </div>
 
         {/* BOTTOM SECTION: Dimension & Structural Parameter Input Cards */}
@@ -508,329 +511,408 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                     <label className={`block text-[11px] font-bold uppercase tracking-wider ${textTitle}`}>
                       Taban Oturumu & Cephe Modu:
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 gap-2 max-w-md">
                       <button
                         type="button"
                         onClick={() => updateParams({ footprintInputMode: 'dimensions' })}
-                        className={`py-2 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
-                          (modelParams.footprintInputMode || 'dimensions') === 'dimensions' || modelParams.footprintInputMode === 'directArea'
+                        className={`py-2 px-3 text-center rounded-xl text-[11px] font-semibold border transition-all ${
+                          (modelParams.footprintInputMode || 'dimensions') === 'dimensions' || modelParams.footprintInputMode === 'directArea' || modelParams.footprintInputMode === 'customFacades' || modelParams.footprintInputMode === 'lShape'
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                             : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        📏 Ön × Yan
+                        📐 Cephe Ölçüleri (4 Cephe)
                       </button>
                       <button
                         type="button"
                         onClick={() => updateParams({ footprintInputMode: 'polygonDraw' })}
-                        className={`py-2 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
+                        className={`py-2 px-3 text-center rounded-xl text-[11px] font-semibold border transition-all ${
                           modelParams.footprintInputMode === 'polygonDraw'
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-400'
                             : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        ✏️ Nokta Çizim
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateParams({ footprintInputMode: 'customFacades' })}
-                        className={`py-2 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
-                          modelParams.footprintInputMode === 'customFacades'
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        🧱 Çoklu Cephe
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateParams({ footprintInputMode: 'lShape' })}
-                        className={`py-2 px-2 text-center rounded-xl text-[11px] font-semibold border transition-all ${
-                          modelParams.footprintInputMode === 'lShape'
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        🔲 L-Tipi
+                        ✏️ Çizim Modu (Serbest Poligon)
                       </button>
                     </div>
                   </div>
 
-                  {/* Mode 1 & Default: Dimensions (Ön × Yan) */}
-                  {(modelParams.footprintInputMode === 'dimensions' || modelParams.footprintInputMode === 'directArea' || !modelParams.footprintInputMode) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50/80 rounded-2xl border border-slate-200">
-                      {/* Facade Width */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <label className={`font-semibold ${textTitle}`}>Ön Cephe (Genişlik):</label>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="6"
-                              max="60"
-                              value={modelParams.facadeWidth}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value);
-                                if (!isNaN(val) && val > 0) updateParams({ facadeWidth: val });
-                              }}
-                              className={`w-20 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
-                            />
-                            <span className={`text-xs font-medium ${textMuted}`}>m</span>
-                          </div>
-                        </div>
-                        <input
-                          type="range"
-                          min="8"
-                          max="40"
-                          step="0.5"
-                          value={modelParams.facadeWidth}
-                          onChange={(e) => updateParams({ facadeWidth: parseFloat(e.target.value) })}
-                          className="w-full accent-indigo-600 cursor-pointer"
-                        />
-                      </div>
+                  {/* Dynamic Facade Measurement & Architectural Details (Supports 4 Sides & N Polygon Edges) */}
+                  {(() => {
+                    const isPolyDrawMode = modelParams.footprintInputMode === 'polygonDraw' || (modelParams.polygonPoints && modelParams.polygonPoints.length > 4);
+                    const polygonEdges = (modelParams.polygonPoints && modelParams.polygonPoints.length >= 3)
+                      ? getPolygonEdges(modelParams.polygonPoints)
+                      : [];
 
-                      {/* Facade Depth */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <label className={`font-semibold ${textTitle}`}>Yan Cephe (Derinlik):</label>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="6"
-                              max="60"
-                              value={modelParams.facadeDepth}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value);
-                                if (!isNaN(val) && val > 0) updateParams({ facadeDepth: val });
-                              }}
-                              className={`w-20 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
-                            />
-                            <span className={`text-xs font-medium ${textMuted}`}>m</span>
-                          </div>
-                        </div>
-                        <input
-                          type="range"
-                          min="8"
-                          max="40"
-                          step="0.5"
-                          value={modelParams.facadeDepth}
-                          onChange={(e) => updateParams({ facadeDepth: parseFloat(e.target.value) })}
-                          className="w-full accent-indigo-600 cursor-pointer"
-                        />
-                      </div>
-                    </div>
-                  )}
+                    const facadeItems = isPolyDrawMode && polygonEdges.length > 0
+                      ? polygonEdges.map((edge, idx) => ({
+                          id: idx + 1,
+                          key: `edge_${idx}`,
+                          label: idx === 0 ? '1. Ön Cephe (Yol/Giriş)'
+                            : idx === 1 ? '2. Sağ Yan Cephe'
+                            : idx === 2 && polygonEdges.length === 4 ? '3. Arka Cephe (Bahçe)'
+                            : idx === 3 && polygonEdges.length === 4 ? '4. Sol Yan Cephe'
+                            : `${idx + 1}. Kırık Cephe`,
+                          value: edge.length,
+                          isMain: idx === (modelParams.mainEntranceFacadeIndex || 0),
+                        }))
+                      : [
+                          { id: 1, key: 'front', label: '1. Ön Cephe (Yol/Giriş)', value: modelParams.facadeWidth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 0 },
+                          { id: 2, key: 'right', label: '2. Sağ Yan Cephe', value: modelParams.facadeDepth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 1 },
+                          { id: 3, key: 'back', label: '3. Arka Cephe (Bahçe)', value: modelParams.backFacadeLength !== undefined ? modelParams.backFacadeLength : modelParams.facadeWidth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 2 },
+                          { id: 4, key: 'left', label: '4. Sol Yan Cephe', value: modelParams.leftFacadeLength !== undefined ? modelParams.leftFacadeLength : modelParams.facadeDepth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 3 },
+                        ];
 
-                  {/* Mode: Freehand Polygon Point Drawing (Nokta & Çizgi Çizimi) */}
-                  {modelParams.footprintInputMode === 'polygonDraw' && (
-                    <div className="space-y-3 p-3 bg-slate-50/80 rounded-2xl border border-indigo-200 shadow-sm">
-                      <InteractiveFootprintCanvas
-                        points={modelParams.polygonPoints}
-                        onChangePoints={(newPoints) => {
-                          const bounds = getPolygonBounds(newPoints);
-                          updateParams({
-                            polygonPoints: newPoints,
-                            facadeWidth: Math.round(bounds.width * 10) / 10,
-                            facadeDepth: Math.round(bounds.depth * 10) / 10,
-                          });
-                        }}
-                        facadeConfigs={modelParams.facadeConfigs}
-                        onChangeFacadeConfigs={(newConfigs) => {
-                          updateParams({ facadeConfigs: newConfigs });
-                        }}
-                        mainEntranceIndex={modelParams.mainEntranceFacadeIndex || 0}
-                        onChangeMainEntranceIndex={(idx) => {
-                          updateParams({ mainEntranceFacadeIndex: idx });
-                        }}
-                        flatsPerFloor={modelParams.flatsPerFloor || 2}
-                        theme={theme}
-                        compact
-                      />
-                    </div>
-                  )}
+                    const activeCfgs = generateFacadeConfigs(
+                      isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3
+                        ? modelParams.polygonPoints
+                        : (modelParams.customFacades && modelParams.customFacades.length > 4 ? modelParams.customFacades.length : 4),
+                      modelParams.facadeConfigs,
+                      modelParams.mainEntranceFacadeIndex || 0
+                    );
 
-                  {/* Mode 2: Custom Facades (Çoklu Cephe) */}
-                  {modelParams.footprintInputMode === 'customFacades' && (
-                    <div className="space-y-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
-                      <div className="flex items-center justify-between gap-1 flex-wrap pb-2 border-b border-slate-200">
-                        <span className="text-[11px] font-bold text-slate-800">Cephe Sayısı:</span>
-                        <div className="flex items-center gap-1">
-                          {[4, 5, 6, 8].map((cnt) => (
-                            <button
-                              key={cnt}
-                              type="button"
-                              onClick={() => {
-                                const newSides = getDefaultCustomFacades(cnt, modelParams.facadeWidth, modelParams.facadeDepth);
-                                const calc = calculateFootprint('customFacades', {
-                                  customFacadeCount: cnt,
-                                  customFacades: newSides,
-                                });
+                    const updateFacadeDetail = (fIdx: number, updates: Partial<FacadeDetailConfig>) => {
+                      const newCfgs = [...activeCfgs];
+                      newCfgs[fIdx] = {
+                        ...newCfgs[fIdx],
+                        ...updates,
+                      };
+
+                      if (updates.windowCountPerFloor === 0) {
+                        newCfgs[fIdx].hasBalcony = false;
+                        newCfgs[fIdx].balconyCountPerFloor = 0;
+                      }
+
+                      if (updates.isEntrance) {
+                        newCfgs.forEach((c, i) => {
+                          if (i !== fIdx) c.isEntrance = false;
+                        });
+                      }
+
+                      let customList: CustomFacadeSide[] = [];
+                      if (isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3) {
+                        customList = syncPolygonToCustomFacades(
+                          modelParams.polygonPoints,
+                          modelParams.customFacades,
+                          newCfgs,
+                          updates.isEntrance ? fIdx : (modelParams.mainEntranceFacadeIndex || 0)
+                        );
+                      } else {
+                        customList = [...(modelParams.customFacades || getDefaultCustomFacades(4, modelParams.facadeWidth, modelParams.facadeDepth, modelParams.backFacadeLength, modelParams.leftFacadeLength))];
+                        if (customList[fIdx]) {
+                          customList[fIdx] = {
+                            ...customList[fIdx],
+                            windowCountPerFloor: newCfgs[fIdx].windowCountPerFloor,
+                            hasBalcony: newCfgs[fIdx].hasBalcony,
+                            balconyCountPerFloor: newCfgs[fIdx].balconyCountPerFloor,
+                            balconyType: newCfgs[fIdx].balconyType,
+                            isEntrance: newCfgs[fIdx].isEntrance,
+                          };
+                        }
+                      }
+
+                      updateParams({
+                        facadeConfigs: newCfgs,
+                        customFacades: customList,
+                        ...(updates.isEntrance ? { mainEntranceFacadeIndex: fIdx } : {}),
+                      });
+                    };
+
+                    const handleLengthChange = (fIdx: number, val: number) => {
+                      if (isNaN(val) || val < 1.0) return;
+                      const safeVal = Math.round(val * 10) / 10;
+                      if (isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3) {
+                        const newPts = updatePolygonEdgeLength(modelParams.polygonPoints, fIdx, safeVal);
+                        const bounds = getPolygonBounds(newPts);
+                        const syncedConfigs = generateFacadeConfigs(newPts, activeCfgs, modelParams.mainEntranceFacadeIndex || 0);
+                        const syncedCustom = syncPolygonToCustomFacades(newPts, modelParams.customFacades, syncedConfigs, modelParams.mainEntranceFacadeIndex || 0);
+                        updateParams({
+                          polygonPoints: newPts,
+                          facadeWidth: Math.round(bounds.width * 10) / 10,
+                          facadeDepth: Math.round(bounds.depth * 10) / 10,
+                          facadeConfigs: syncedConfigs,
+                          customFacades: syncedCustom,
+                        });
+                      } else {
+                        const sideKey = fIdx === 0 ? 'front' : fIdx === 1 ? 'right' : fIdx === 2 ? 'back' : 'left';
+                        const res = calculateInteractiveQuadrilateral(sideKey, safeVal, {
+                          front: modelParams.facadeWidth,
+                          right: modelParams.facadeDepth,
+                          back: modelParams.backFacadeLength,
+                          left: modelParams.leftFacadeLength,
+                        });
+                        updateParams({
+                          facadeWidth: res.front,
+                          facadeDepth: res.right,
+                          backFacadeLength: res.back,
+                          leftFacadeLength: res.left,
+                          polygonPoints: res.quadrilateral.polygonPoints,
+                          customFacades: res.customFacades,
+                        });
+                      }
+                    };
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Mode 1: 4 Cepheli Canlı Geometri ve Cephe Ölçüleri (Eğer Serbest Çizim değilse) */}
+                        {!isPolyDrawMode && (
+                          <InteractiveFacadeGeometryPanel
+                            facadeWidth={modelParams.facadeWidth || 10.0}
+                            facadeDepth={modelParams.facadeDepth || 10.0}
+                            backFacadeLength={modelParams.backFacadeLength}
+                            leftFacadeLength={modelParams.leftFacadeLength}
+                            theme={theme}
+                            title="4 Cepheli Canlı Geometri & 3D Kütle Şekillendirme"
+                            onUpdateFacades={(res) => {
+                              updateParams({
+                                facadeWidth: res.front,
+                                facadeDepth: res.right,
+                                backFacadeLength: res.back,
+                                leftFacadeLength: res.left,
+                                polygonPoints: res.quadrilateral.polygonPoints,
+                                customFacades: res.customFacades,
+                              });
+                            }}
+                          />
+                        )}
+
+                        {/* Mode: Freehand Polygon Point Drawing (Eğer Serbest Çizim modundaysa) */}
+                        {modelParams.footprintInputMode === 'polygonDraw' && (
+                          <div className="space-y-3 p-3 bg-slate-50/80 rounded-2xl border border-indigo-200 shadow-sm">
+                            <InteractiveFootprintCanvas
+                              points={modelParams.polygonPoints}
+                              onChangePoints={(newPoints) => {
+                                const bounds = getPolygonBounds(newPoints);
+                                const syncedConfigs = generateFacadeConfigs(newPoints, modelParams.facadeConfigs, modelParams.mainEntranceFacadeIndex || 0);
+                                const syncedCustom = syncPolygonToCustomFacades(newPoints, modelParams.customFacades, syncedConfigs, modelParams.mainEntranceFacadeIndex || 0);
                                 updateParams({
-                                  customFacadeCount: cnt,
-                                  customFacades: newSides,
-                                  facadeWidth: calc.effectiveWidth,
-                                  facadeDepth: calc.effectiveDepth,
+                                  polygonPoints: newPoints,
+                                  facadeWidth: Math.round(bounds.width * 10) / 10,
+                                  facadeDepth: Math.round(bounds.depth * 10) / 10,
+                                  facadeConfigs: syncedConfigs,
+                                  customFacades: syncedCustom,
                                 });
                               }}
-                              className={`px-2 py-0.5 text-[11px] font-bold rounded-lg border transition-all ${
-                                (modelParams.customFacadeCount || (modelParams.customFacades || []).length || 4) === cnt
-                                  ? 'bg-indigo-600 text-white border-indigo-600'
-                                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                              }`}
-                            >
-                              {cnt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
-                        {(modelParams.customFacades && modelParams.customFacades.length >= 3
-                          ? modelParams.customFacades
-                          : getDefaultCustomFacades(modelParams.customFacadeCount || 4, modelParams.facadeWidth, modelParams.facadeDepth)
-                        ).map((side, sIdx, allSides) => (
-                          <div key={side.id || sIdx} className="flex items-center justify-between gap-2 p-2 bg-white rounded-xl border border-slate-200">
-                            <input
-                              type="text"
-                              value={side.name}
-                              onChange={(e) => {
-                                const updated = [...allSides];
-                                updated[sIdx] = { ...updated[sIdx], name: e.target.value };
-                                updateParams({ customFacades: updated });
+                              facadeConfigs={modelParams.facadeConfigs}
+                              onChangeFacadeConfigs={(newConfigs) => {
+                                updateParams({ facadeConfigs: newConfigs });
                               }}
-                              className="text-[11px] font-medium text-slate-700 bg-transparent border-none p-0 focus:ring-0 w-28 truncate"
+                              mainEntranceIndex={modelParams.mainEntranceFacadeIndex || 0}
+                              onChangeMainEntranceIndex={(idx) => {
+                                updateParams({ mainEntranceFacadeIndex: idx });
+                              }}
+                              flatsPerFloor={modelParams.flatsPerFloor || 2}
+                              theme={theme}
+                              compact
                             />
-                            <div className="flex items-center gap-1 font-mono font-bold text-xs text-indigo-700">
-                              <input
-                                type="number"
-                                step="0.5"
-                                min="1"
-                                max="80"
-                                value={side.length}
-                                onChange={(e) => {
-                                  const updated = [...allSides];
-                                  updated[sIdx] = { ...updated[sIdx], length: parseFloat(e.target.value) || 0 };
-                                  const calc = calculateFootprint('customFacades', {
-                                    customFacadeCount: updated.length,
-                                    customFacades: updated,
-                                  });
-                                  updateParams({
-                                    customFacades: updated,
-                                    facadeWidth: calc.effectiveWidth,
-                                    facadeDepth: calc.effectiveDepth,
-                                  });
-                                }}
-                                className={`w-16 px-1.5 py-0.5 text-right rounded-lg border ${inputBg}`}
-                              />
-                              <span className="text-[10px] text-slate-500 font-normal">m</span>
-                            </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        )}
 
-                  {/* Mode 3: L-Shape / Kademeli */}
-                  {modelParams.footprintInputMode === 'lShape' && (
-                    <div className="space-y-2.5 p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                        <div>
-                          <label className="text-[10px] font-semibold text-slate-700">Ana Ön Eni (m):</label>
-                          <input
-                            type="number"
-                            step="0.5"
-                            value={modelParams.lShapeFrontMain || 16.0}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 16.0;
-                              const calc = calculateFootprint('lShape', {
-                                lShapeFrontMain: val,
-                                lShapeDepthMain: modelParams.lShapeDepthMain || 20.0,
-                                lShapeRecessFront: modelParams.lShapeRecessFront || 6.0,
-                                lShapeRecessDepth: modelParams.lShapeRecessDepth || 8.0,
-                              });
-                              updateParams({
-                                lShapeFrontMain: val,
-                                facadeWidth: calc.effectiveWidth,
-                                facadeDepth: calc.effectiveDepth,
-                              });
-                            }}
-                            className={`w-full px-2 py-1 text-xs rounded-lg border font-mono font-bold ${inputBg}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-semibold text-slate-700">Ana Derinlik (m):</label>
-                          <input
-                            type="number"
-                            step="0.5"
-                            value={modelParams.lShapeDepthMain || 20.0}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 20.0;
-                              const calc = calculateFootprint('lShape', {
-                                lShapeFrontMain: modelParams.lShapeFrontMain || 16.0,
-                                lShapeDepthMain: val,
-                                lShapeRecessFront: modelParams.lShapeRecessFront || 6.0,
-                                lShapeRecessDepth: modelParams.lShapeRecessDepth || 8.0,
-                              });
-                              updateParams({
-                                lShapeDepthMain: val,
-                                facadeWidth: calc.effectiveWidth,
-                                facadeDepth: calc.effectiveDepth,
-                              });
-                            }}
-                            className={`w-full px-2 py-1 text-xs rounded-lg border font-mono font-bold ${inputBg}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-semibold text-slate-700">Girinti Önü (m):</label>
-                          <input
-                            type="number"
-                            step="0.5"
-                            value={modelParams.lShapeRecessFront || 6.0}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 6.0;
-                              const calc = calculateFootprint('lShape', {
-                                lShapeFrontMain: modelParams.lShapeFrontMain || 16.0,
-                                lShapeDepthMain: modelParams.lShapeDepthMain || 20.0,
-                                lShapeRecessFront: val,
-                                lShapeRecessDepth: modelParams.lShapeRecessDepth || 8.0,
-                              });
-                              updateParams({
-                                lShapeRecessFront: val,
-                                facadeWidth: calc.effectiveWidth,
-                                facadeDepth: calc.effectiveDepth,
-                              });
-                            }}
-                            className={`w-full px-2 py-1 text-xs rounded-lg border font-mono font-bold ${inputBg}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-semibold text-slate-700">Girinti Derinlik (m):</label>
-                          <input
-                            type="number"
-                            step="0.5"
-                            value={modelParams.lShapeRecessDepth || 8.0}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 8.0;
-                              const calc = calculateFootprint('lShape', {
-                                lShapeFrontMain: modelParams.lShapeFrontMain || 16.0,
-                                lShapeDepthMain: modelParams.lShapeDepthMain || 20.0,
-                                lShapeRecessFront: modelParams.lShapeRecessFront || 6.0,
-                                lShapeRecessDepth: val,
-                              });
-                              updateParams({
-                                lShapeRecessDepth: val,
-                                facadeWidth: calc.effectiveWidth,
-                                facadeDepth: calc.effectiveDepth,
-                              });
-                            }}
-                            className={`w-full px-2 py-1 text-xs rounded-lg border font-mono font-bold ${inputBg}`}
-                          />
+                        {/* Canlı Cephe Mimari Ayrıntıları Kartları (N Cephe İçin Dinamik Genişleyen) */}
+                        <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-3.5">
+                          <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
+                            <div>
+                              <span className={`text-xs font-bold uppercase tracking-wider block ${textTitle}`}>
+                                Cephe Ölçüleri & Mimari Ayrıntılar ({facadeItems.length} Cephe Girişi)
+                              </span>
+                              <span className="text-[11px] text-slate-500">
+                                {isPolyDrawMode ? 'Poligona eklenen her kenar buraya anında yansır; ölçü, giriş ve balkon tiplerini yönetebilirsiniz.' : '4 cephenin ölçüleri, pencereleri, balkon türleri ve bina ana girişi'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              3D Modele Reaktif Yansır
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                            {facadeItems.map((facadeItem, fIdx) => {
+                              const cfg = activeCfgs[fIdx] || {
+                                id: fIdx + 1,
+                                name: facadeItem.label,
+                                length: facadeItem.value,
+                                windowCountPerFloor: fIdx === 0 ? 3 : 2,
+                                hasBalcony: fIdx === 0,
+                                balconyCountPerFloor: fIdx === 0 ? 1 : 0,
+                                balconyType: 'standard',
+                                isEntrance: fIdx === (modelParams.mainEntranceFacadeIndex || 0),
+                              };
+
+                              const isEntrance = fIdx === (modelParams.mainEntranceFacadeIndex || 0) || cfg.isEntrance === true;
+                              const isBlind = (cfg as any).windowCountPerFloor === 0 || (cfg as any).isBlankWall === true;
+
+                              return (
+                                <div
+                                  key={facadeItem.id}
+                                  className={`p-3 bg-white rounded-xl border transition-all space-y-3 shadow-2xs ${
+                                    isEntrance ? 'border-emerald-500 ring-1 ring-emerald-400/40 bg-emerald-50/10' : 'border-slate-200/90'
+                                  }`}
+                                >
+                                  {/* Facade Title & Length Input */}
+                                  <div className="space-y-1.5 pb-2 border-b border-slate-100">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <label className={`font-bold truncate max-w-[130px] ${isEntrance ? 'text-emerald-700' : textTitle}`}>
+                                        {facadeItem.label}:
+                                      </label>
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="number"
+                                          step="0.1"
+                                          min="1"
+                                          max="60"
+                                          value={facadeItem.value}
+                                          onChange={(e) => handleLengthChange(fIdx, parseFloat(e.target.value))}
+                                          className={`w-16 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                                        />
+                                        <span className={`text-xs font-medium ${textMuted}`}>m</span>
+                                      </div>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min="1"
+                                      max="40"
+                                      step="0.5"
+                                      value={facadeItem.value}
+                                      onChange={(e) => handleLengthChange(fIdx, parseFloat(e.target.value))}
+                                      className="w-full accent-indigo-600 cursor-pointer"
+                                    />
+                                  </div>
+
+                                  {/* Bina Ana Girişi Seçimi (Radio Button) */}
+                                  <div className="p-2 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-800">
+                                      <input
+                                        type="radio"
+                                        name="mainBuildingEntranceRadio"
+                                        checked={isEntrance}
+                                        onChange={() => updateFacadeDetail(fIdx, { isEntrance: true })}
+                                        className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
+                                      />
+                                      <span>🚪 Bina Girişi Bu Cephede</span>
+                                    </label>
+                                    {isEntrance && (
+                                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                                        Ana Giriş
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Kör Cephe Onay Kutusu */}
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={isBlind}
+                                          onChange={(e) => {
+                                            const isChecked = e.target.checked;
+                                            updateFacadeDetail(fIdx, {
+                                              windowCountPerFloor: isChecked ? 0 : 2,
+                                              hasBalcony: !isChecked,
+                                              balconyCountPerFloor: isChecked ? 0 : 1,
+                                            });
+                                          }}
+                                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span>🧱 Kör Cephe (Penceresiz)</span>
+                                      </label>
+                                      {isBlind && (
+                                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                          Dolu Duvar
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Window Count Selection */}
+                                    <div className="space-y-1">
+                                      <div className="flex items-center justify-between text-[11px]">
+                                        <span className="text-slate-600 font-medium">Pencere Sayısı:</span>
+                                        <span className="font-mono font-bold text-indigo-700">{cfg.windowCountPerFloor} Adet</span>
+                                      </div>
+                                      <select
+                                        disabled={isBlind}
+                                        value={cfg.windowCountPerFloor}
+                                        onChange={(e) => {
+                                          const wCount = parseInt(e.target.value, 10);
+                                          updateFacadeDetail(fIdx, { windowCountPerFloor: wCount });
+                                        }}
+                                        className={`w-full px-2 py-1 text-xs rounded-lg border font-semibold ${
+                                          isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : inputBg
+                                        }`}
+                                      >
+                                        <option value={0}>0 (Kör / Penceresiz)</option>
+                                        <option value={1}>1 Pencere</option>
+                                        <option value={2}>2 Pencere</option>
+                                        <option value={3}>3 Pencere</option>
+                                        <option value={4}>4 Pencere</option>
+                                        <option value={5}>5 Pencere</option>
+                                        <option value={6}>6 Pencere</option>
+                                      </select>
+                                    </div>
+
+                                    {/* Balcony Options & Types */}
+                                    <div className="space-y-1.5 pt-1.5 border-t border-slate-100">
+                                      <div className="flex items-center justify-between text-[11px]">
+                                        <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            disabled={isBlind}
+                                            checked={!isBlind && cfg.hasBalcony}
+                                            onChange={(e) => {
+                                              const hasB = e.target.checked;
+                                              updateFacadeDetail(fIdx, {
+                                                hasBalcony: hasB,
+                                                balconyCountPerFloor: hasB ? 1 : 0,
+                                              });
+                                            }}
+                                            className="rounded text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                          />
+                                          <span className="font-semibold">🏞️ Balkon Ekle</span>
+                                        </label>
+                                      </div>
+
+                                      {!isBlind && cfg.hasBalcony && (
+                                        <div className="space-y-2 pt-1">
+                                          <div className="grid grid-cols-2 gap-1.5">
+                                            <div>
+                                              <span className="block text-[10px] text-slate-500 font-semibold mb-0.5">Adet:</span>
+                                              <select
+                                                value={cfg.balconyCountPerFloor || 1}
+                                                onChange={(e) => updateFacadeDetail(fIdx, { balconyCountPerFloor: parseInt(e.target.value, 10) })}
+                                                className={`w-full px-1.5 py-1 text-[11px] font-semibold rounded-md border ${inputBg}`}
+                                              >
+                                                <option value={1}>1 Balkon</option>
+                                                <option value={2}>2 Balkon</option>
+                                                <option value={3}>3 Balkon</option>
+                                              </select>
+                                            </div>
+                                            <div>
+                                              <span className="block text-[10px] text-slate-500 font-semibold mb-0.5">Balkon Türü:</span>
+                                              <select
+                                                value={cfg.balconyType || 'standard'}
+                                                onChange={(e) => updateFacadeDetail(fIdx, { balconyType: e.target.value as any })}
+                                                className={`w-full px-1.5 py-1 text-[11px] font-semibold rounded-md border ${inputBg}`}
+                                              >
+                                                <option value="standard">Açık Konsol (Klasik)</option>
+                                                <option value="glass_enclosed">Katlanır Cam Balkon</option>
+                                                <option value="recessed">Gömme Lojya</option>
+                                                <option value="french">Fransız Balkon</option>
+                                                <option value="corner">Köşe / L-Tipi</option>
+                                                <option value="cumba">Cumba (Kapalı)</option>
+                                              </select>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Calculated Area Live Badge */}
                   <div className="p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-xl flex items-center justify-between text-xs">
@@ -1197,6 +1279,9 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
             </div>
           </div>
         )}
+
+        {/* İmar & Yangın Mevzuatı Otomatik Denetim Paneli */}
+        <ZoningAuditPanel params={modelParams} theme={theme} />
 
         {/* Informational Technical Note */}
         <div className="border border-indigo-200/70 rounded-2xl p-4 text-xs flex items-start gap-3 bg-indigo-50/50 text-slate-700">

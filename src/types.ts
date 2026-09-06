@@ -58,6 +58,15 @@ export interface GeometricValidationResult {
   };
 }
 
+export type BalconyType =
+  | 'standard'        // Açık Konsol Balkon (Klasik Çıkma)
+  | 'cantilever'      // Açık Konsol Balkon
+  | 'glass_enclosed'  // Katlanır Cam Balkon (Camlama / Kış Bahçesi - TR Mimarisinde En Yaygın)
+  | 'recessed'        // Gömme / Lojya Balkon (İçerlek Cephe)
+  | 'french'          // Fransız Balkon (Minimal Emniyet Korkuluklu Zemin Camı)
+  | 'corner'          // Köşe / L-Tipi Balkon
+  | 'cumba';          // Cumba / Kapalı Çıkma Balkon (Pencereli Kapalı Yaşam Alanı)
+
 export interface FacadeDetailConfig {
   id: number;
   name: string;               // Örn: "1. Ön Cephe (Yol / Ana Giriş)", "2. Sağ Yan Cephe", vb.
@@ -65,7 +74,7 @@ export interface FacadeDetailConfig {
   windowCountPerFloor: number;// Katta bu cephedeki pencere adedi (0, 1, 2, 3, 4, 5)
   hasBalcony: boolean;        // Bu cephede balkon var mı?
   balconyCountPerFloor: number;// Katta bu cephedeki balkon adedi (0, 1, 2, 3)
-  balconyType?: 'standard' | 'french' | 'recessed'; // Standart Çıkma, Fransız Balkon, Gömme Balkon
+  balconyType?: BalconyType;  // Türkiye mimarisinde yaygın balkon tipleri
   isEntrance?: boolean;       // Bina ana giriş kapısı bu cephede mi?
 }
 
@@ -76,7 +85,7 @@ export interface CustomFacadeSide {
   windowCountPerFloor?: number;
   hasBalcony?: boolean;
   balconyCountPerFloor?: number;
-  balconyType?: 'standard' | 'french' | 'recessed';
+  balconyType?: BalconyType;
   isEntrance?: boolean;
 }
 
@@ -114,8 +123,10 @@ export interface ProjectParams {
 
   // Taban Oturumu ve Cephe Ölçü Giriş Seçenekleri
   footprintInputMode?: FootprintInputMode; // 'directArea': Doğrudan m², 'dimensions': Ön x Yan Cephe, 'customFacades': Çoklu Cepheler, 'lShape': L-Tipi Kademeli, 'polygonDraw': Serbest Çizim
-  facadeWidth?: number;       // Ön Cephe Genişliği (m)
-  facadeDepth?: number;       // Yan Cephe Derinliği (m)
+  facadeWidth?: number;       // Ön Cephe Genişliği (m) [Ön]
+  facadeDepth?: number;       // Sağ Yan Cephe Derinliği (m) [Sağ]
+  backFacadeLength?: number;  // Arka Cephe Genişliği (m) [Arka]
+  leftFacadeLength?: number;  // Sol Yan Cephe Derinliği (m) [Sol]
   customFacadeCount?: number; // Cephe adedi (4, 5, 6, 8 vb.)
   customFacades?: CustomFacadeSide[]; // Cephe uzunlukları listesi
   lShapeFrontMain?: number;   // L-Tipi Ana Ön Cephe (m)
@@ -286,7 +297,9 @@ export type CameraPresetType = PredefinedViewDirection | 'side';
 
 export interface BuildingModelParams {
   facadeWidth: number;       // Ön cephe genişliği (m)
-  facadeDepth: number;       // Yan cephe / derinlik (m)
+  facadeDepth: number;       // Sağ yan cephe derinlik (m)
+  backFacadeLength?: number;  // Arka cephe genişliği (m)
+  leftFacadeLength?: number;  // Sol yan cephe derinlik (m)
   floorHeight: number;       // Kat yüksekliği (m)
   floorCount: number;        // Normal kat sayısı
   basementCount: number;     // Bodrum kat sayısı

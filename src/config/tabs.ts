@@ -35,7 +35,7 @@ export const TAB_CATEGORIES: { id: TabCategoryId; label: string }[] = [
 ];
 
 export const DEFAULT_TABS: TabConfig[] = [
-  { id: 'hesapla', label: '1. Hesaplama Paneli', shortLabel: 'Hesap', icon: Calculator, visible: true, order: 1, category: 'design' },
+  { id: 'hesapla', label: '1. Proje Künyesi', shortLabel: 'Künye', icon: Building, visible: true, order: 1, category: 'design' },
   { id: 'model', label: '2. 3D Model', shortLabel: 'Model', icon: Box, visible: true, order: 2, category: 'design' },
   { id: 'katplani', label: '3. 2D Kat Planı', shortLabel: 'Plan', icon: Compass, visible: true, order: 3, category: 'design' },
   { id: 'maliyet', label: '4. Maliyet Detayları', shortLabel: 'Maliyet', icon: BarChart3, visible: true, order: 4, category: 'finance' },

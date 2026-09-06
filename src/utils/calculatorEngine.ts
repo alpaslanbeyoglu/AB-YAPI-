@@ -23,6 +23,8 @@ export const DEFAULT_PARAMS: ProjectParams = {
   footprintInputMode: 'directArea',
   facadeWidth: 14.0,
   facadeDepth: 18.0,
+  backFacadeLength: 14.0,
+  leftFacadeLength: 18.0,
   customFacadeCount: 4,
   customFacades: DEFAULT_CUSTOM_FACADES_4,
   lShapeFrontMain: 16.0,
@@ -259,7 +261,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     ? Math.round(upperFloorArea * 0.70 * 100) / 100
     : 0;
 
-  const rawTotalArea = activeBaseArea + upperFloorsCount * upperFloorArea + roofAtticArea;
+  const basementFloorsCount = Math.max(0, params.basementCount !== undefined && !isNaN(params.basementCount) ? params.basementCount : 1);
+  const rawTotalArea = activeBaseArea * (1 + basementFloorsCount) + upperFloorsCount * upperFloorArea + roofAtticArea;
   const totalArea = Math.round(Math.max(1, rawTotalArea) * 100) / 100;
 
   // Bağımsız Bölüm Sayısı Hesabı:

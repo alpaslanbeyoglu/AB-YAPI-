@@ -784,24 +784,30 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
 
                   {/* Balkon Tipi Seçimi (Balkon varsa) */}
                   {cfg.hasBalcony && (
-                    <div className="pt-2 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-600 font-medium">Balkon Mimari Tipi:</span>
-                      <div className="flex items-center gap-1">
-                        {(['standard', 'french', 'recessed'] as const).map((bType) => (
-                          <button
-                            key={bType}
-                            type="button"
-                            onClick={() => handleUpdateFacadeConfig(idx, { balconyType: bType })}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all ${
-                              (cfg.balconyType || 'standard') === bType
-                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                            }`}
-                          >
-                            {bType === 'standard' ? 'Çıkma' : bType === 'french' ? 'Fransız' : 'Gömme'}
-                          </button>
-                        ))}
+                    <div className="pt-2 space-y-1 text-[11px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600 font-semibold">Balkon Mimari Tipi:</span>
+                        <span className="text-[10px] font-mono text-indigo-600 font-bold">
+                          {cfg.balconyType === 'glass_enclosed' ? 'Katlanır Cam Balkon'
+                            : cfg.balconyType === 'recessed' ? 'Gömme Lojya'
+                            : cfg.balconyType === 'french' ? 'Fransız Balkon'
+                            : cfg.balconyType === 'corner' ? 'Köşe L-Balkon'
+                            : cfg.balconyType === 'cumba' ? 'Cumba (Kapalı)'
+                            : 'Açık Konsol'}
+                        </span>
                       </div>
+                      <select
+                        value={cfg.balconyType || 'standard'}
+                        onChange={(e) => handleUpdateFacadeConfig(idx, { balconyType: e.target.value as any })}
+                        className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold text-slate-800"
+                      >
+                        <option value="standard">Açık Konsol (Klasik Çıkma)</option>
+                        <option value="glass_enclosed">Katlanır Cam Balkon (Camlama / Kış Bahçesi)</option>
+                        <option value="recessed">Gömme / Lojya Balkon</option>
+                        <option value="french">Fransız Balkon (Emniyet Korkuluklu)</option>
+                        <option value="corner">Köşe / L-Tipi Balkon</option>
+                        <option value="cumba">Cumba / Kapalı Çıkma (Kış Balkonu)</option>
+                      </select>
                     </div>
                   )}
 
