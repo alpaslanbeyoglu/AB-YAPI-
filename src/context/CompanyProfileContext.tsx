@@ -33,9 +33,9 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   authorizedPerson: 'Müh. Alpaslan Beyoğlu',
   authorizedTitle: 'Genel Müdür / İnşaat Mühendisi',
   authorizedChamberNo: 'İMO-74120',
-  authorizedPerson2: 'Mimar Zeynep Kaya',
-  authorizedTitle2: 'Şantiye Şefi / Mimar',
-  authorizedChamberNo2: 'MO-55210',
+  authorizedPerson2: '',
+  authorizedTitle2: '',
+  authorizedChamberNo2: '',
   phone: '+90 (212) 585 10 20',
   email: 'info@abyapi.com.tr',
   website: 'www.abyapi.com.tr',
@@ -87,6 +87,11 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        if (parsed.authorizedPerson2 === 'Mimar Zeynep Kaya') {
+          parsed.authorizedPerson2 = '';
+          parsed.authorizedTitle2 = '';
+          parsed.authorizedChamberNo2 = '';
+        }
         return {
           ...DEFAULT_COMPANY_PROFILE,
           ...parsed,

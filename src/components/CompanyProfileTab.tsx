@@ -494,7 +494,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
                   name="authorizedPerson2"
                   value={formData.authorizedPerson2 || ''}
                   onChange={handleInputChange}
-                  placeholder="Örn: Mimar Zeynep Kaya"
+                  placeholder="Örn: Mimar / Şantiye Şefi (İsteğe Bağlı)"
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                 />
               </div>

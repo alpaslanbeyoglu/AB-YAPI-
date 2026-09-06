@@ -32,7 +32,7 @@ export interface CompanyProfile {
   authorizedPerson: string;     // Örn: "Müh. Alpaslan Beyoğlu"
   authorizedTitle: string;      // Örn: "Genel Müdür / İnşaat Mühendisi"
   authorizedChamberNo?: string; // Örn: "İMO-74120"
-  authorizedPerson2?: string;   // Örn: "Mimar Zeynep Kaya"
+  authorizedPerson2?: string;   // Örn: "2. Yetkili (İsteğe bağlı)"
   authorizedTitle2?: string;    // Örn: "Şantiye Şefi / Mimar"
   authorizedChamberNo2?: string;// Örn: "MO-55210"
   phone: string;                // Örn: "+90 (212) 585 10 20"

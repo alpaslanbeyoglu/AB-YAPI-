@@ -23,7 +23,7 @@ export function generateOfferHtml(
   const showBank = opts.showBankInfo !== false;
   const showFirstAuth = opts.showFirstAuthorized !== false;
   const showFirstAuthChamber = opts.showFirstAuthorizedChamber !== false;
-  const showSecondAuth = opts.showSecondAuthorized !== false;
+  const showSecondAuth = opts.showSecondAuthorized === true && !!companyProfile?.authorizedPerson2;
   const showSecondAuthChamber = opts.showSecondAuthorizedChamber !== false;
   const showStamp = opts.showStamp !== false;
   const showFloorFacade = opts.showFloorAndFacade !== false;
@@ -577,7 +577,7 @@ export function generateContractHtml(
   const showBank = opts.showBankInfo !== false;
   const showFirstAuth = opts.showFirstAuthorized !== false;
   const showFirstAuthChamber = opts.showFirstAuthorizedChamber !== false;
-  const showSecondAuth = opts.showSecondAuthorized !== false;
+  const showSecondAuth = opts.showSecondAuthorized === true && !!companyProfile?.authorizedPerson2;
   const showSecondAuthChamber = opts.showSecondAuthorizedChamber !== false;
   const showStamp = opts.showStamp !== false;
 

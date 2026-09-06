@@ -35,6 +35,11 @@ export const ContractTab: React.FC<ContractTabProps> = ({
 
   const isGray = theme === 'gray';
 
+  const showFirstAuth = profile.printOptions?.showFirstAuthorized !== false && !!profile.authorizedPerson;
+  const showFirstAuthChamber = profile.printOptions?.showFirstAuthorizedChamber !== false && !!(profile.authorizedChamberNo || profile.authorizedChamber);
+  const showSecondAuth = profile.printOptions?.showSecondAuthorized === true && !!profile.authorizedPerson2;
+  const showSecondAuthChamber = profile.printOptions?.showSecondAuthorizedChamber !== false && !!(profile.authorizedChamberNo2 || profile.authorizedChamber2);
+
   const contractTitle =
     params.projectModel === 'contractorShare'
       ? 'ARSA PAYI KARŞILIĞI İNŞAAT VE GAYRİMENKUL SATIŞ VAADİ SÖZLEŞMESİ'
@@ -291,12 +296,12 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                 {profile.taxOffice && profile.taxNumber && `[Vergi Dairesi: ${highlightText(profile.taxOffice)} / V.No: ${highlightText(profile.taxNumber)}]`}
                 {profile.chamberNo && ` [Sicil/Oda No: ${highlightText(profile.chamberNo)}]`}
               </p>
-              {(profile.authorizedPerson || profile.authorizedPerson2) && (
+              {(showFirstAuth || showSecondAuth) && (
                 <p>
-                  <strong className="text-slate-900">Yetkili Temsilciler:</strong>{' '}
-                  {profile.authorizedPerson && `${highlightText(profile.authorizedPerson)} (${highlightText(profile.authorizedTitle)}${profile.authorizedChamber ? ` - ${highlightText(profile.authorizedChamber)}` : ''})`}
-                  {profile.authorizedPerson && profile.authorizedPerson2 && ' / '}
-                  {profile.authorizedPerson2 && `${highlightText(profile.authorizedPerson2)} (${highlightText(profile.authorizedTitle2)}${profile.authorizedChamber2 ? ` - ${highlightText(profile.authorizedChamber2)}` : ''})`}
+                  <strong className="text-slate-900">Yetkili Temsilci:</strong>{' '}
+                  {showFirstAuth && `${highlightText(profile.authorizedPerson)} (${highlightText(profile.authorizedTitle)}${showFirstAuthChamber ? ` - ${highlightText(profile.authorizedChamberNo || profile.authorizedChamber || '')}` : ''})`}
+                  {showFirstAuth && showSecondAuth && ' / '}
+                  {showSecondAuth && `${highlightText(profile.authorizedPerson2!)} (${highlightText(profile.authorizedTitle2 || '')}${showSecondAuthChamber ? ` - ${highlightText(profile.authorizedChamberNo2 || profile.authorizedChamber2 || '')}` : ''})`}
                 </p>
               )}
               {profile.bankName && profile.iban && (
@@ -550,21 +555,21 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                     className="max-h-12 object-contain absolute opacity-80 z-10 pointer-events-none"
                   />
                 )}
-                {profile.authorizedPerson && (
+                {showFirstAuth && profile.authorizedPerson && (
                   <div className="relative z-0">
                     <p className="font-bold text-slate-900 text-xs">{profile.authorizedPerson}</p>
                     <p className="text-[10px] text-indigo-700">{profile.authorizedTitle}</p>
-                    {profile.authorizedChamber && (
-                      <p className="text-[9px] text-slate-500 font-mono">{profile.authorizedChamber}</p>
+                    {showFirstAuthChamber && (profile.authorizedChamberNo || profile.authorizedChamber) && (
+                      <p className="text-[9px] text-slate-500 font-mono">{profile.authorizedChamberNo || profile.authorizedChamber}</p>
                     )}
                   </div>
                 )}
-                {profile.authorizedPerson2 && (
+                {showSecondAuth && profile.authorizedPerson2 && (
                   <div className="relative z-0 border-l border-slate-200 pl-3">
                     <p className="font-bold text-slate-900 text-xs">{profile.authorizedPerson2}</p>
                     <p className="text-[10px] text-emerald-700">{profile.authorizedTitle2}</p>
-                    {profile.authorizedChamber2 && (
-                      <p className="text-[9px] text-slate-500 font-mono">{profile.authorizedChamber2}</p>
+                    {showSecondAuthChamber && (profile.authorizedChamberNo2 || profile.authorizedChamber2) && (
+                      <p className="text-[9px] text-slate-500 font-mono">{profile.authorizedChamberNo2 || profile.authorizedChamber2}</p>
                     )}
                   </div>
                 )}
