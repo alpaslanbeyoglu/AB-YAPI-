@@ -101,6 +101,18 @@ export interface FlatItem {
   description?: string; // Ek açıklama (örn: "Çatı Katı Mansart - Ayrı Bağımsız Bölüm", "Çatı Dubleksi - Tek Bağımsız Bölüm")
 }
 
+export type FacadeStyleType =
+  | 'modern'
+  | 'wood_anthracite'
+  | 'glass_minimal'
+  | 'brick_stone'
+  | 'travertine_luxury'
+  | 'terracotta_warm'
+  | 'nordic_black'
+  | 'concrete_brutalist'
+  | 'mediterranean_white'
+  | 'cappadocia_tuff';
+
 export interface ProjectParams {
   projectAddress: string;
   landArea?: number;           // Arsa m2
@@ -154,7 +166,7 @@ export interface ProjectParams {
   floorHeight?: number;
   flatsPerFloor?: number;
   balconyDepth?: number;
-  facadeStyle?: 'modern' | 'wood_anthracite' | 'glass_minimal' | 'brick_stone';
+  facadeStyle?: FacadeStyleType;
   elevatorCount?: number;
   showDebugOverlay3D?: boolean; // Geometrik sınır kutusu ve kesişim noktaları hata ayıklama katmanı
 
@@ -313,7 +325,7 @@ export interface BuildingModelParams {
   balconyDepth: number;      // Balkon / çıkma payı (m)
   roofType: RoofType;        // Çatı tipi: Kırma, Teras, Mansart, Çatı Dubleksi
   mansardFlatCount?: number; // Mansart çatı tek seçildiğinde ortaya çıkan bağımsız bölüm sayısı
-  facadeStyle: 'modern' | 'wood_anthracite' | 'glass_minimal' | 'brick_stone';
+  facadeStyle: FacadeStyleType;
   wallThickness: number;     // Dış duvar kalınlığı (m)
   showFurniture: boolean;    // Mobilya katmanı
   showDimensions: boolean;   // Ölçülendirme çizgileri

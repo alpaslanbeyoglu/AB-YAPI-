@@ -1,5 +1,201 @@
-import { BuildingModelParams, RoomType } from '../types';
+import { BuildingModelParams, RoomType, FacadeStyleType } from '../types';
 import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint } from './footprintUtils';
+
+export interface FacadeStyleOption {
+  id: FacadeStyleType;
+  title: string;
+  subtitle: string;
+  category: 'Modern & Lüks' | 'Doğal & Sıcak' | 'Minimalist' | 'Karakterli & Endüstriyel';
+  wallColorHex: string;
+  accentColorHex: string;
+  colors: {
+    wall: number;
+    woodAccent: number;
+    slab: number;
+    glass: number;
+    column: number;
+    balcony: number;
+    roof: number;
+  };
+}
+
+export const FACADE_STYLES: FacadeStyleOption[] = [
+  {
+    id: 'modern',
+    title: 'Modern Açık Gri',
+    subtitle: 'Doğal Ahşap & Dengeli Sıva',
+    category: 'Modern & Lüks',
+    wallColorHex: '#f1f5f9',
+    accentColorHex: '#6366f1',
+    colors: {
+      wall: 0xf1f5f9,
+      woodAccent: 0x6366f1,
+      slab: 0xcccccc,
+      glass: 0x38bdf8,
+      column: 0x475569,
+      balcony: 0x312e81,
+      roof: 0x1e293b,
+    },
+  },
+  {
+    id: 'wood_anthracite',
+    title: 'Antrasit & Ahşap',
+    subtitle: 'Kompozit & Sıcak Teak Ahşap',
+    category: 'Modern & Lüks',
+    wallColorHex: '#22252a',
+    accentColorHex: '#b5734c',
+    colors: {
+      wall: 0x22252a,
+      woodAccent: 0xb5734c,
+      slab: 0xd6d3cb,
+      glass: 0x38bdf8,
+      column: 0x3f3f46,
+      balcony: 0x18181b,
+      roof: 0x1e293b,
+    },
+  },
+  {
+    id: 'travertine_luxury',
+    title: 'Doğal Bej Traverten',
+    subtitle: 'Honlu Mermer & Şampanya Çerçeve',
+    category: 'Modern & Lüks',
+    wallColorHex: '#eaddcf',
+    accentColorHex: '#8c6239',
+    colors: {
+      wall: 0xeaddcf,
+      woodAccent: 0x8c6239,
+      slab: 0xf5efe6,
+      glass: 0x7dd3fc,
+      column: 0xa89f91,
+      balcony: 0xbfa88e,
+      roof: 0x473c33,
+    },
+  },
+  {
+    id: 'glass_minimal',
+    title: 'Cam & Minimalist',
+    subtitle: 'Geniş Pencere & Alüminyum Profil',
+    category: 'Minimalist',
+    wallColorHex: '#e2e8f0',
+    accentColorHex: '#0284c7',
+    colors: {
+      wall: 0xe2e8f0,
+      woodAccent: 0x0284c7,
+      slab: 0xf8fafc,
+      glass: 0x0ea5e9,
+      column: 0x64748b,
+      balcony: 0x0284c7,
+      roof: 0x334155,
+    },
+  },
+  {
+    id: 'concrete_brutalist',
+    title: 'Brüt Beton & Çelik',
+    subtitle: 'Ham Endüstriyel Mimari Doku',
+    category: 'Karakterli & Endüstriyel',
+    wallColorHex: '#94a3b8',
+    accentColorHex: '#334155',
+    colors: {
+      wall: 0x94a3b8,
+      woodAccent: 0x334155,
+      slab: 0xcbd5e1,
+      glass: 0x0284c7,
+      column: 0x475569,
+      balcony: 0x1e293b,
+      roof: 0x0f172a,
+    },
+  },
+  {
+    id: 'brick_stone',
+    title: 'Tuğla & Doğal Taş',
+    subtitle: 'Sıcak Rustik Klinker Tuğla',
+    category: 'Doğal & Sıcak',
+    wallColorHex: '#9a3412',
+    accentColorHex: '#451a03',
+    colors: {
+      wall: 0x9a3412,
+      woodAccent: 0x451a03,
+      slab: 0xe7e5e4,
+      glass: 0x38bdf8,
+      column: 0x78716c,
+      balcony: 0x44403c,
+      roof: 0x7f1d1d,
+    },
+  },
+  {
+    id: 'terracotta_warm',
+    title: 'Terracotta & Bronz',
+    subtitle: 'Pişmiş Kil Panel & Sıcak Doku',
+    category: 'Doğal & Sıcak',
+    wallColorHex: '#c25e38',
+    accentColorHex: '#7c381c',
+    colors: {
+      wall: 0xc25e38,
+      woodAccent: 0x6b2d18,
+      slab: 0xeee4dc,
+      glass: 0x38bdf8,
+      column: 0x5c3829,
+      balcony: 0x7c381c,
+      roof: 0x421b10,
+    },
+  },
+  {
+    id: 'nordic_black',
+    title: 'İskandinav Kara Çam',
+    subtitle: 'Kömürleşmiş Ahşap & Koyu Füme',
+    category: 'Karakterli & Endüstriyel',
+    wallColorHex: '#18181b',
+    accentColorHex: '#a16207',
+    colors: {
+      wall: 0x18181b,
+      woodAccent: 0xa16207,
+      slab: 0x3f3f46,
+      glass: 0x60a5fa,
+      column: 0x27272a,
+      balcony: 0x09090b,
+      roof: 0x0f172a,
+    },
+  },
+  {
+    id: 'mediterranean_white',
+    title: 'Akdeniz Beyazı & Tik',
+    subtitle: 'Saf Beyaz Sıva & Sıcak Ahşap',
+    category: 'Doğal & Sıcak',
+    wallColorHex: '#fafafa',
+    accentColorHex: '#d97706',
+    colors: {
+      wall: 0xfafafa,
+      woodAccent: 0xd97706,
+      slab: 0xffffff,
+      glass: 0x06b6d4,
+      column: 0xd4d4d8,
+      balcony: 0xb45309,
+      roof: 0x9a3412,
+    },
+  },
+  {
+    id: 'cappadocia_tuff',
+    title: 'Kapadokya Taşı & Bakır',
+    subtitle: 'Volkanik Tüf & Oksit Bronz',
+    category: 'Doğal & Sıcak',
+    wallColorHex: '#d6c2a8',
+    accentColorHex: '#7c2d12',
+    colors: {
+      wall: 0xd6c2a8,
+      woodAccent: 0x7c2d12,
+      slab: 0xedd5b8,
+      glass: 0x0284c7,
+      column: 0x8c7860,
+      balcony: 0x78350f,
+      roof: 0x451a03,
+    },
+  },
+];
+
+export function getFacadeStyleConfig(styleId?: FacadeStyleType): FacadeStyleOption {
+  const found = FACADE_STYLES.find((s) => s.id === styleId);
+  return found || FACADE_STYLES[0];
+}
 
 export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   facadeWidth: 14.0,       // Ön cephe 14 metre

@@ -22,6 +22,7 @@ import {
   Info,
   Compass,
   BarChart3,
+  Palette,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, FlatItem, AppTheme, FootprintInputMode, CustomFacadeSide, BuildingModelParams } from '../types';
 import {
@@ -332,15 +333,59 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       type="number"
                       min="1"
                       value={params.landArea || ''}
-                      onChange={(e) => updateParam('landArea', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => updateParam('landArea', Math.max(0, parseFloat(e.target.value) || 0))}
                       className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border ${inputBg}`}
                     />
                     <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
                   </div>
                 </div>
 
-                {/* 4 Cepheli Canlı Geometri ve Cephe Ölçüleri */}
-                <div className="col-span-1 md:col-span-2">
+                {/* 2. Taban Oturumu / Kat Alanı (m²) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700 uppercase">Taban Oturumu / Kat Alanı (m²):</label>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      {params.facadeWidth && params.facadeDepth ? `~${params.facadeWidth}m × ${params.facadeDepth}m` : ''}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={params.baseBuildArea || ''}
+                      onChange={(e) => {
+                        const area = Math.max(0, parseFloat(e.target.value) || 0);
+                        onChangeParams({
+                          ...params,
+                          baseBuildArea: area,
+                        });
+                      }}
+                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border ${inputBg}`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
+                  </div>
+                </div>
+
+                {/* 3. Bahçe & Parsel Açık Alanı (Oturum / TAKS Dengesi) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-emerald-700 uppercase">Bahçe / Açık Alan (m²):</label>
+                    <span className="text-[10px] font-bold text-emerald-600 font-mono">
+                      TAKS: %{params.landArea && params.baseBuildArea ? Math.min(100, (params.baseBuildArea / params.landArea) * 100).toFixed(1) : 0}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`${Math.max(0, (params.landArea || 0) - (params.baseBuildArea || 0)).toLocaleString('tr-TR')} m²`}
+                      className="w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 text-emerald-900 cursor-default"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-emerald-600">Açık Parsel</span>
+                  </div>
+                </div>
+
+                {/* 4 Cepheli Canlı Geometri ve Cephe Ölçüleri (Tam Genişlik CAD Paneli) */}
+                <div className="sm:col-span-2 lg:col-span-3">
                   <InteractiveFacadeGeometryPanel
                     facadeWidth={params.facadeWidth || 10.0}
                     facadeDepth={params.facadeDepth || 10.0}
@@ -361,31 +406,6 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                       });
                     }}
                   />
-                </div>
-
-                {/* 4. Proje Kat Alanı / Taban Oturum (m²) */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 uppercase">Taban Oturumu / Kat Alanı (m²):</label>
-                    <span className="text-[10px] font-mono text-slate-500">
-                      {params.facadeWidth && params.facadeDepth ? `~${params.facadeWidth}m × ${params.facadeDepth}m` : ''}
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={params.baseBuildArea || ''}
-                      onChange={(e) => {
-                        const area = parseFloat(e.target.value) || 0;
-                        onChangeParams({
-                          ...params,
-                          baseBuildArea: area,
-                        });
-                      }}
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border ${inputBg}`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
-                  </div>
                 </div>
 
                 {/* Zemin Kat Ticari Dükkan Paneli */}
@@ -777,203 +797,27 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
 
-                {/* 12. Mimari Çatı Modeli (3D Model & Bağımsız Bölüm) */}
-                <div className="space-y-2.5">
+                {/* 12. Balkon / Konsol Derinliği (m) */}
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-800 uppercase">Mimari Çatı Modeli:</label>
-                    {params.roofType === 'mansard' && (
-                      <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                        +{(params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 2))} Ayrı B.B. Dahil
-                      </span>
-                    )}
-                    {params.roofType === 'duplex' && (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                        Tek B.B. (Dubleks Birleşik)
-                      </span>
-                    )}
+                    <label className="block text-xs font-bold text-slate-700 uppercase">Balkon Derinliği (m):</label>
+                    <span className="text-[10px] font-mono font-bold text-indigo-600">{params.balconyDepth ?? 1.4} m</span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                        const normalFlats = resFloors * (params.flatsPerFloor || 2);
-                        onChangeParams({
-                          ...params,
-                          roofType: 'gable',
-                          flatCount: normalFlats,
-                        });
-                      }}
-                      className={`p-2.5 rounded-2xl text-left border transition-all ${
-                        (params.roofType || 'gable') === 'gable'
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className="font-bold text-xs block">🏠 Kırma Çatı</span>
-                      <span className={`text-[10px] block mt-0.5 ${(params.roofType || 'gable') === 'gable' ? 'text-indigo-100' : 'text-slate-500'}`}>
-                        Klasik 4 eğimli kiremit çatı
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                        const normalFlats = resFloors * (params.flatsPerFloor || 2);
-                        onChangeParams({
-                          ...params,
-                          roofType: 'flat',
-                          flatCount: normalFlats,
-                        });
-                      }}
-                      className={`p-2.5 rounded-2xl text-left border transition-all ${
-                        params.roofType === 'flat'
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className="font-bold text-xs block">🏙️ Düz Teras</span>
-                      <span className={`text-[10px] block mt-0.5 ${params.roofType === 'flat' ? 'text-indigo-100' : 'text-slate-500'}`}>
-                        Parapetli modern teras çatı
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                        const normalFlats = resFloors * (params.flatsPerFloor || 2);
-                        const extraMansard = params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 2);
-                        onChangeParams({
-                          ...params,
-                          roofType: 'mansard',
-                          flatCount: normalFlats + extraMansard,
-                        });
-                      }}
-                      className={`p-2.5 rounded-2xl text-left border transition-all ${
-                        params.roofType === 'mansard'
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className="font-bold text-xs block">🏛️ Mansart Çatı</span>
-                      <span className={`text-[10px] block mt-0.5 ${params.roofType === 'mansard' ? 'text-indigo-100' : 'text-slate-500'}`}>
-                        Tek Seçim: Ekstra Bağımsız Bölüm
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                        const normalFlats = resFloors * (params.flatsPerFloor || 2);
-                        onChangeParams({
-                          ...params,
-                          roofType: 'duplex',
-                          flatCount: normalFlats,
-                        });
-                      }}
-                      className={`p-2.5 rounded-2xl text-left border transition-all ${
-                        params.roofType === 'duplex'
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className="font-bold text-xs block">🌟 Mansart + Dubleks</span>
-                      <span className={`text-[10px] block mt-0.5 ${params.roofType === 'duplex' ? 'text-indigo-100' : 'text-slate-500'}`}>
-                        Son Katla Birleşik: Tek Bağımsız Bölüm
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Mansart Tek Seçildiğinde Ekstra Bağımsız Bölüm Bilgilendirmesi ve Adet Girişi */}
-                  {params.roofType === 'mansard' && (
-                    <div className="p-3 rounded-xl bg-indigo-50/90 border border-indigo-200 text-indigo-900 text-[11px] space-y-2 mt-1">
-                      <div className="flex items-start gap-2">
-                        <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                        <div className="leading-snug">
-                          <span className="font-bold">Mansart Çatı Tek Seçildi:</span> Çatı katında ilave bağımsız bölüm ortaya çıkar. Maliyet ve daire paylaşımına otomatik dahil edilmiştir.
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between pt-1 border-t border-indigo-200/60">
-                        <span className="text-[10px] font-bold text-indigo-800">Çatıdaki İlave Bağımsız Bölüm Sayısı:</span>
-                        <div className="flex items-center gap-1.5">
-                          {[1, 2, 3, 4].map((cnt) => {
-                            const activeCnt = params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 2);
-                            return (
-                              <button
-                                key={cnt}
-                                type="button"
-                                onClick={() => {
-                                  const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                                  const normalFlats = resFloors * (params.flatsPerFloor || 2);
-                                  onChangeParams({
-                                    ...params,
-                                    mansardFlatCount: cnt,
-                                    flatCount: normalFlats + cnt,
-                                  });
-                                }}
-                                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all ${
-                                  activeCnt === cnt
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                    : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-100/50'
-                                }`}
-                              >
-                                +{cnt} B.B.
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Mansart + Dubleks Seçildiğinde Bilgilendirme */}
-                  {params.roofType === 'duplex' && (
-                    <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-[11px] flex items-start gap-2 mt-1">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <div className="leading-snug">
-                        <span className="font-bold">Mansart Çatı + Dubleks Seçildi:</span> Çatı piyesi üst kat daireleri ile birleştirilerek dubleks yapılmıştır ve <strong>tek bağımsız bölüm</strong> olarak kabul edilmektedir (ekstra daire eklenmez, metrekare dubleks olarak büyür).
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 13. Dış Cephe Görsel Karakter & Mimari Stili */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-800 uppercase">Görsel Karakter & Dış Cephe Stili:</label>
-                    <span className="text-[10px] font-semibold text-indigo-600">3D Canlı Doku</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: 'wood_anthracite', title: '🏢 Antrasit & Ahşap', subtitle: 'Kompozit & Modern Kontrast' },
-                      { id: 'modern', title: '🏛️ Modern Açık Gri', subtitle: 'Doğal Ahşap & Dengeli Sıva' },
-                      { id: 'glass_minimal', title: '🪟 Cam & Minimalist', subtitle: 'Geniş Pencere & Alüminyum' },
-                      { id: 'brick_stone', title: '🧱 Tuğla & Doğal Taş', subtitle: 'Sıcak & Karakterli Doku' },
-                    ].map((st) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => updateParam('facadeStyle', st.id as any)}
-                        className={`p-2.5 rounded-2xl text-left border transition-all ${
-                          (params.facadeStyle || 'wood_anthracite') === st.id
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="font-bold text-xs block">{st.title}</span>
-                        <span className={`text-[10px] block mt-0.5 ${(params.facadeStyle || 'wood_anthracite') === st.id ? 'text-indigo-100' : 'text-slate-500'}`}>
-                          {st.subtitle}
-                        </span>
-                      </button>
-                    ))}
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="3.0"
+                      value={params.balconyDepth ?? 1.4}
+                      onChange={(e) => updateParam('balconyDepth', Math.max(0, parseFloat(e.target.value) || 0))}
+                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m</span>
                   </div>
                 </div>
 
-                {/* 14. Yapı Kalitesi / Sınıfı */}
+                {/* 13. Yapı Kalitesi / Sınıfı */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-700 uppercase">Yapı Sınıfı & Kalite Segmenti:</label>
                   <select
@@ -987,43 +831,190 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </select>
                 </div>
 
-                {/* 15. Müteahhit Kâr Oranı (%) */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 uppercase">Müteahhit Kâr Oranı (%):</label>
-                    <span className="text-[10px] font-bold text-indigo-600 font-mono">%{params.profitRate ?? 25}</span>
+                {/* Mimari Çatı Modeli Paneli */}
+                <div className="sm:col-span-2 lg:col-span-3 p-4 rounded-2xl bg-slate-50/90 border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                    <div className="flex items-center gap-2">
+                      <Home className="w-4 h-4 text-indigo-600" />
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                        🏛️ Mimari Çatı Modeli & Bağımsız Bölüm Kurgusu
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-indigo-600 font-mono">
+                      {params.roofType === 'mansard'
+                        ? 'Mansart Çatı (Ayrı B.B.)'
+                        : params.roofType === 'duplex'
+                        ? 'Mansart + Dubleks'
+                        : params.roofType === 'gable'
+                        ? 'Kırma Çatı'
+                        : 'Düz Teras'}
+                    </span>
                   </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={params.profitRate ?? 25}
-                      onChange={(e) => updateParam('profitRate', Math.max(0, parseFloat(e.target.value) || 0))}
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">%</span>
+
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                          const normalFlats = resFloors * (params.flatsPerFloor || 2);
+                          onChangeParams({
+                            ...params,
+                            roofType: 'gable',
+                            flatCount: normalFlats,
+                          });
+                        }}
+                        className={`p-3 rounded-2xl text-left border transition-all ${
+                          (params.roofType || 'gable') === 'gable'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="font-bold text-xs block">🏠 Kırma Çatı</span>
+                        <span className={`text-[10px] block mt-0.5 ${(params.roofType || 'gable') === 'gable' ? 'text-indigo-100' : 'text-slate-500'}`}>
+                          Klasik 4 eğimli kiremit çatı
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                          const normalFlats = resFloors * (params.flatsPerFloor || 2);
+                          onChangeParams({
+                            ...params,
+                            roofType: 'flat',
+                            flatCount: normalFlats,
+                          });
+                        }}
+                        className={`p-3 rounded-2xl text-left border transition-all ${
+                          params.roofType === 'flat'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="font-bold text-xs block">🏙️ Düz Teras</span>
+                        <span className={`text-[10px] block mt-0.5 ${params.roofType === 'flat' ? 'text-indigo-100' : 'text-slate-500'}`}>
+                          Parapetli modern teras çatı
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                          const normalFlats = resFloors * (params.flatsPerFloor || 2);
+                          const extraMansard = params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 2);
+                          onChangeParams({
+                            ...params,
+                            roofType: 'mansard',
+                            flatCount: normalFlats + extraMansard,
+                          });
+                        }}
+                        className={`p-3 rounded-2xl text-left border transition-all ${
+                          params.roofType === 'mansard'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="font-bold text-xs block">🏛️ Mansart Çatı</span>
+                        <span className={`text-[10px] block mt-0.5 ${params.roofType === 'mansard' ? 'text-indigo-100' : 'text-slate-500'}`}>
+                          Tek Seçim: Ekstra Bağımsız Bölüm
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                          const normalFlats = resFloors * (params.flatsPerFloor || 2);
+                          onChangeParams({
+                            ...params,
+                            roofType: 'duplex',
+                            flatCount: normalFlats,
+                          });
+                        }}
+                        className={`p-3 rounded-2xl text-left border transition-all ${
+                          params.roofType === 'duplex'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="font-bold text-xs block">🌟 Mansart + Dubleks</span>
+                        <span className={`text-[10px] block mt-0.5 ${params.roofType === 'duplex' ? 'text-indigo-100' : 'text-slate-500'}`}>
+                          Son Katla Birleşik: Tek B.B.
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Mansart Tek Seçildiğinde Ekstra Bağımsız Bölüm Bilgilendirmesi ve Adet Girişi */}
+                    {params.roofType === 'mansard' && (
+                      <div className="p-3 rounded-xl bg-indigo-50/90 border border-indigo-200 text-indigo-900 text-[11px] space-y-2">
+                        <div className="flex items-start gap-2">
+                          <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                          <div className="leading-snug">
+                            <span className="font-bold">Mansart Çatı Tek Seçildi:</span> Çatı katında ilave bağımsız bölüm ortaya çıkar. Maliyet ve daire paylaşımına otomatik dahil edilmiştir.
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-indigo-200/60">
+                          <span className="text-[10px] font-bold text-indigo-800">Çatıdaki İlave Bağımsız Bölüm Sayısı:</span>
+                          <div className="flex items-center gap-1.5">
+                            {[1, 2, 3, 4].map((cnt) => {
+                              const activeCnt = params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : (params.flatsPerFloor || 2);
+                              return (
+                                <button
+                                  key={cnt}
+                                  type="button"
+                                  onClick={() => {
+                                    const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
+                                    const normalFlats = resFloors * (params.flatsPerFloor || 2);
+                                    onChangeParams({
+                                      ...params,
+                                      mansardFlatCount: cnt,
+                                      flatCount: normalFlats + cnt,
+                                    });
+                                  }}
+                                  className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all ${
+                                    activeCnt === cnt
+                                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                      : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-100/50'
+                                  }`}
+                                >
+                                  +{cnt} B.B.
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mansart + Dubleks Seçildiğinde Bilgilendirme */}
+                    {params.roofType === 'duplex' && (
+                      <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-[11px] flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="leading-snug">
+                          <span className="font-bold">Mansart Çatı + Dubleks Seçildi:</span> Çatı piyesi üst kat daireleri ile birleştirilerek dubleks yapılmıştır ve <strong>tek bağımsız bölüm</strong> olarak kabul edilmektedir (ekstra daire eklenmez, metrekare dubleks olarak büyür).
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3D Canlı Model Ekranına Taşınan Dış Cephe Stili Bilgi Rozeti */}
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-indigo-50/50 border border-indigo-100 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Palette className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <span className="text-[11px] text-slate-700">
+                          <strong>Dış Cephe Stili:</strong> 10 zengin mimari seçenek doğrudan <strong>3D Canlı Model</strong> ekranına taşınmıştır.
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-indigo-700 bg-white px-2 py-1 rounded-lg border border-indigo-200 shrink-0">
+                        3D Ekranda Canlı Seçilebilir
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* 16. Balkon / Konsol Derinliği (m) */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 uppercase">Balkon Derinliği (m):</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="3.0"
-                      value={params.balconyDepth ?? 1.4}
-                      onChange={(e) => updateParam('balconyDepth', parseFloat(e.target.value) || 0)}
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m</span>
-                  </div>
-                </div>
-
-                {/* 17. Konsol / Tabla Çıkması (3D Modelde Canlı Yansır) */}
+                {/* 14. Konsol / Tabla Çıkması (3D Modelde Canlı Yansır) */}
                 <div className="sm:col-span-2 lg:col-span-3 p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -1052,7 +1043,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                             min="0.5"
                             max="2.5"
                             value={params.cantileverDepth || 1.2}
-                            onChange={(e) => updateParam('cantileverDepth', parseFloat(e.target.value) || 1.2)}
+                            onChange={(e) => updateParam('cantileverDepth', Math.max(0.5, parseFloat(e.target.value) || 1.2))}
                             className={`w-full text-xs font-mono font-bold px-3 py-2 rounded-xl border ${inputBg}`}
                           />
                           <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">m</span>
@@ -1074,56 +1065,22 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   )}
                 </div>
 
-
-
-                {/* 19. Teklif Birim m2 Maliyet Fiyatı */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-indigo-700 uppercase">Teklif Birim m² Maliyeti (TL):</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={params.manualUnitPrice || ''}
-                      onChange={(e) => updateParam('manualUnitPrice', parseFloat(e.target.value) || 0)}
-                      placeholder={`${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : ''} TL (Otomatik)`}
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-indigo-200 ${inputBg}`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">TL/m²</span>
-                  </div>
-                  <p className="text-[9px] text-slate-400 italic">Boş bırakılırsa maliyet motoru otomatik hesaplar.</p>
-                </div>
-
-                {/* 20. Proje Teslim Süresi */}
-                <div className="space-y-1.5">
-                  <label className={`block text-xs font-bold ${labelColor} uppercase`}>
-                    Proje Teslim Süresi:
+                {/* 15. Yapım Modeli */}
+                <div>
+                  <label className="block text-xs font-bold text-emerald-700 mb-1.5 uppercase">
+                    Yapım Modeli:
                   </label>
                   <select
-                    value={params.durationOption}
-                    onChange={(e) => updateParam('durationOption', e.target.value as any)}
+                    value={params.projectModel}
+                    onChange={(e) => updateParam('projectModel', e.target.value as any)}
                     className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
                   >
-                    <option value="auto">Otomatik Hesapla (Gantt Çizelgesi)</option>
-                    <option value="manual">Manuel Gir (Ay)</option>
-                    <option value="hide">Gizle</option>
+                    <option value="cash">Nakit Ödemeli / Müteahhit</option>
+                    <option value="contractorShare">Kat Karşılığı Paylaşımlı</option>
                   </select>
                 </div>
 
-                {params.durationOption === 'manual' && (
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-red-600 uppercase">
-                      Manuel Süre (Ay):
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={params.manualMonths}
-                      onChange={(e) => updateParam('manualMonths', parseFloat(e.target.value) || 1)}
-                      className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                    />
-                  </div>
-                )}
-
-                {/* 21. Destek Modeli */}
+                {/* 16. Destek Modeli */}
                 <div>
                   <label className="block text-xs font-bold text-indigo-700 mb-1.5 uppercase">
                     Destek Modeli:
@@ -1150,19 +1107,102 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </select>
                 </div>
 
-                {/* 22. Yapım Modeli */}
-                <div>
-                  <label className="block text-xs font-bold text-emerald-700 mb-1.5 uppercase">
-                    Yapım Modeli:
-                  </label>
-                  <select
-                    value={params.projectModel}
-                    onChange={(e) => updateParam('projectModel', e.target.value as any)}
-                    className={`w-full text-xs px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                  >
-                    <option value="cash">Nakit Ödemeli / Müteahhit</option>
-                    <option value="contractorShare">Kat Karşılığı Paylaşımlı</option>
-                  </select>
+                {/* 17. Proje Teslim Süresi */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className={`block text-xs font-bold ${labelColor} uppercase`}>
+                      Proje Teslim Süresi:
+                    </label>
+                    <span className="text-[10px] font-mono font-bold text-indigo-600">
+                      {params.durationOption === 'hide'
+                        ? 'Gizli'
+                        : `${Number.isInteger(results.finalMonths) ? results.finalMonths : Number(results.finalMonths).toFixed(1)} Ay`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={params.durationOption}
+                      onChange={(e) => updateParam('durationOption', e.target.value as any)}
+                      className={`flex-1 text-xs px-3 py-2 rounded-xl border transition-all ${inputBg}`}
+                    >
+                      <option value="auto">Otomatik (Gantt Çizelgesi)</option>
+                      <option value="manual">Manuel Gir (Ay)</option>
+                      <option value="hide">Gizle</option>
+                    </select>
+                    {params.durationOption === 'manual' && (
+                      <div className="relative w-24 shrink-0">
+                        <input
+                          type="number"
+                          min="1"
+                          max="60"
+                          value={params.manualMonths}
+                          onChange={(e) => updateParam('manualMonths', Math.max(1, parseFloat(e.target.value) || 1))}
+                          className={`w-full text-xs font-mono font-bold px-2.5 py-2 rounded-xl border text-center transition-all ${inputBg}`}
+                        />
+                        <span className="absolute right-2 top-2 text-[10px] font-semibold text-slate-400">Ay</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 18. Müteahhit Kâr Oranı (%) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700 uppercase">Müteahhit Kâr Oranı (%):</label>
+                    <span className="text-[10px] font-bold text-indigo-600 font-mono">%{params.profitRate ?? 25}</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={params.profitRate ?? 25}
+                      onChange={(e) => updateParam('profitRate', Math.max(0, parseFloat(e.target.value) || 0))}
+                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">%</span>
+                  </div>
+                </div>
+
+                {/* 19. Teklif Birim m2 Maliyet Fiyatı */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-indigo-700 uppercase">Teklif Birim m² Maliyeti (TL):</label>
+                    <span className="text-[10px] font-mono text-slate-400">Opsiyonel</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={params.manualUnitPrice || ''}
+                      onChange={(e) => updateParam('manualUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder={`${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : ''} TL (Otomatik)`}
+                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-indigo-200 ${inputBg}`}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">TL/m²</span>
+                  </div>
+                </div>
+
+                {/* 20. Canlı Birim Maliyet & Hedef Özeti */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700 uppercase">Hedef Maliyet Özeti:</label>
+                    <span className="text-[10px] font-mono font-bold text-emerald-700">Canlı Hesap</span>
+                  </div>
+                  <div className="p-2 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-2 h-[42px]">
+                    <div>
+                      <span className="text-[9px] text-slate-500 block leading-tight">Net İnşaat m²</span>
+                      <span className="text-xs font-mono font-bold text-slate-800">
+                        {results.netCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </span>
+                    </div>
+                    <div className="h-6 w-px bg-slate-200 shrink-0" />
+                    <div className="text-right">
+                      <span className="text-[9px] text-slate-500 block leading-tight">Hedef Satış m²</span>
+                      <span className="text-xs font-mono font-bold text-indigo-700">
+                        {results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

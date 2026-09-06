@@ -25,11 +25,14 @@ import {
   Trash2,
   Sun,
   MapPin,
+  Palette,
 } from 'lucide-react';
-import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig } from '../types';
+import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig, FacadeStyleType } from '../types';
 import {
   DEFAULT_BUILDING_PARAMS,
   calculateBuildingMetrics,
+  FACADE_STYLES,
+  getFacadeStyleConfig,
 } from '../utils/buildingModelUtils';
 import {
   calculateFootprint,
@@ -444,7 +447,70 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
             </div>
 
             {viewMode === '3d' && (
-              <ThreeBuildingView params={modelParams} theme={theme} />
+              <div className="space-y-3">
+                <ThreeBuildingView
+                  params={modelParams}
+                  theme={theme}
+                  onUpdateFacadeStyle={(style) => updateParams({ facadeStyle: style })}
+                />
+
+                {/* Görsel Karakter & Dış Cephe Stili Hızlı Seçim Şeridi (10 Mimari Seçenek) */}
+                <div className={`p-3.5 rounded-2xl border ${subCardBg} space-y-2`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-indigo-600" />
+                      <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
+                        Görsel Karakter & Dış Cephe Stili (10 Seçenek):
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-indigo-600 font-mono">
+                      Seçili: {getFacadeStyleConfig(modelParams.facadeStyle).title}
+                    </span>
+                  </div>
+
+                  {/* Yatay Kaydırılabilir 10 Stil Kartları */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                    {FACADE_STYLES.map((st) => {
+                      const isSelected = (modelParams.facadeStyle || 'wood_anthracite') === st.id;
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => updateParams({ facadeStyle: st.id })}
+                          className={`shrink-0 px-3 py-2 rounded-xl text-left border transition-all flex items-center gap-2.5 ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-300'
+                              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          {/* Color dots */}
+                          <div className="flex items-center -space-x-1 shrink-0">
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-white shadow-xs"
+                              style={{ backgroundColor: st.wallColorHex }}
+                            />
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-white shadow-xs"
+                              style={{ backgroundColor: st.accentColorHex }}
+                            />
+                          </div>
+
+                          <div className="leading-tight">
+                            <span className="font-bold text-[11px] block whitespace-nowrap">
+                              {st.title}
+                            </span>
+                            <span className={`text-[9px] block whitespace-nowrap ${isSelected ? 'text-indigo-100' : 'text-slate-500'}`}>
+                              {st.subtitle}
+                            </span>
+                          </div>
+
+                          {isSelected && <Check className="w-3.5 h-3.5 shrink-0 text-white" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             )}
 
             {viewMode === 'solar' && (
@@ -457,6 +523,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   sunAzimuth={solarPos.azimuth}
                   buildingRotation={solarBuildingRotation}
                   isSolarHeatmap={isSolarHeatmap}
+                  onUpdateFacadeStyle={(style) => updateParams({ facadeStyle: style })}
                 />
                 <SolarAnalysisPanel
                   location={solarLocation}
