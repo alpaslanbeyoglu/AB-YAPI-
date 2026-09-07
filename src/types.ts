@@ -150,9 +150,18 @@ export type FacadeStyleType =
   | 'mediterranean_white'
   | 'cappadocia_tuff';
 
+export interface ExistingBuilding {
+  id: string;
+  name: string;
+  floorCount: number;
+  flatCount: number;
+  landShare?: number; // Total land share of this building if applicable
+}
+
 export interface ProjectParams {
   projectAddress: string;
   landArea?: number;           // Arsa m2
+  existingBuildings?: ExistingBuilding[]; // Mevcut birleşecek binalar
   manualFlatUnitPrice?: number;    // Manuel daire birim m2 maliyet fiyatı
   manualShopUnitPrice?: number;    // Manuel dükkan birim m2 maliyet fiyatı
   durationOption: 'auto' | 'manual' | 'hide';

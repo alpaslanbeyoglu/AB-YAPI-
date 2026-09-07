@@ -31,7 +31,8 @@ import {
   Briefcase,
   RotateCcw,
   Info,
-  Layout
+  Layout,
+  AlertTriangle
 } from 'lucide-react';
 import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig, FacadeStyleType, RoadConfig, RoadType } from '../types';
 import {

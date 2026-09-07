@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Ruler, Sparkles, RefreshCw, AlertTriangle, CheckCircle2, Compass, DoorOpen } from 'lucide-react';
-import { AppTheme, PolygonPoint, RoadSegment } from '../types';
+import { AppTheme, PolygonPoint, RoadConfig } from '../types';
 import {
   buildQuadrilateralPolygon,
   calculateInteractiveQuadrilateral,
@@ -26,7 +26,7 @@ interface InteractiveFacadeGeometryPanelProps {
   backFacadeLength?: number;
   leftFacadeLength?: number;
   polygonPoints?: PolygonPoint[];
-  roads?: RoadSegment[];
+  roads?: RoadConfig[];
   mainEntranceIndex?: number;
   theme?: AppTheme;
   title?: string;
@@ -401,9 +401,9 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
 
             {/* Adjacent Roads */}
             {roads.map((road, rIdx) => {
-              if (road.edgeIndex >= pts.length) return null;
-              const p1 = pts[road.edgeIndex];
-              const p2 = pts[(road.edgeIndex + 1) % pts.length];
+              if (road.facadeIndex >= pts.length) return null;
+              const p1 = pts[road.facadeIndex];
+              const p2 = pts[(road.facadeIndex + 1) % pts.length];
               const x1 = toSvgX(p1.x);
               const y1 = toSvgY(p1.y);
               const x2 = toSvgX(p2.x);
@@ -414,7 +414,7 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
               if (len === 0) return null;
               const nx = -dy / len;
               const ny = dx / len;
-              const roadWidth = Math.min(18, (road.widthMeters || 10) * 1.2);
+              const roadWidth = Math.min(18, (road.width || 10) * 1.2);
               const midX = (x1 + x2) / 2 + nx * (roadWidth / 2 + 3);
               const midY = (y1 + y2) / 2 + ny * (roadWidth / 2 + 3);
 

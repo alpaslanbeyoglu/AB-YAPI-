@@ -27,6 +27,7 @@ import { LiteMobileView } from './components/LiteMobileView';
 import { DrivePanel } from './components/DrivePanel';
 import { ConfirmModal } from './components/ConfirmModal';
 import { CalculatorTab } from './components/CalculatorTab';
+import { ProjectSetupTab } from './components/ProjectSetupTab';
 import { BuildingModelTab } from './components/BuildingModelTab';
 import { FloorPlanTab } from './components/FloorPlanTab';
 import { OfferTab } from './components/OfferTab';
@@ -105,7 +106,7 @@ export default function App() {
     return DEFAULT_TABS;
   });
 
-  const [activeTab, setActiveTab] = useState<TabId>('hesapla');
+  const [activeTab, setActiveTab] = useState<TabId>('kurulum');
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isDrivePanelOpen, setIsDrivePanelOpen] = useState(false);
 
@@ -884,6 +885,15 @@ export default function App() {
           )}
 
         {/* Tab Views */}
+        {activeTab === 'kurulum' && (
+          <ProjectSetupTab
+            params={params}
+            onChangeParams={updateCalculatorParams}
+            onNext={() => setActiveTab('hesapla')}
+            theme={theme}
+          />
+        )}
+
         {activeTab === 'hesapla' && (
           <CalculatorTab
             params={params}

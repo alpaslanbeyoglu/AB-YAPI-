@@ -14,7 +14,7 @@ import {
   LucideIcon
 } from 'lucide-react';
 
-export type TabId = 'hesapla' | 'model' | 'katplani' | 'maliyet' | 'malikler' | 'teklif' | 'surec' | 'sozlesme' | 'sartname' | 'raporlar' | 'profile' | 'tamamlanan' | 'gecmis';
+export type TabId = 'kurulum' | 'hesapla' | 'model' | 'katplani' | 'maliyet' | 'malikler' | 'teklif' | 'surec' | 'sozlesme' | 'sartname' | 'raporlar' | 'profile' | 'tamamlanan' | 'gecmis';
 
 export type TabCategoryId = 'design' | 'finance' | 'docs' | 'admin';
 
@@ -36,6 +36,7 @@ export const TAB_CATEGORIES: { id: TabCategoryId; label: string }[] = [
 ];
 
 export const DEFAULT_TABS: TabConfig[] = [
+  { id: 'kurulum', label: '0. Parsel & Yapı Kurulumu', shortLabel: 'Kurulum', icon: Compass, visible: true, order: 0, category: 'design' },
   { id: 'hesapla', label: '1. Proje Künyesi', shortLabel: 'Künye', icon: Building, visible: true, order: 1, category: 'design' },
   { id: 'model', label: '2. 3D Model', shortLabel: 'Model', icon: Box, visible: true, order: 2, category: 'design' },
   { id: 'katplani', label: '3. 2D Kat Planı', shortLabel: 'Plan', icon: Compass, visible: true, order: 3, category: 'design' },

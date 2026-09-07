@@ -40,7 +40,6 @@ import {
   InteractiveFacadeUpdateResult,
 } from '../utils/footprintUtils';
 import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel';
-import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 import { ThreeBuildingView } from './ThreeBuildingView';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
 
