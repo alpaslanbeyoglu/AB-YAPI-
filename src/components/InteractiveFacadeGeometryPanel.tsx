@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Ruler, Sparkles, RefreshCw, AlertTriangle, CheckCircle2, Compass } from 'lucide-react';
-import { AppTheme } from '../types';
+import { Ruler, Sparkles, RefreshCw, AlertTriangle, CheckCircle2, Compass, DoorOpen } from 'lucide-react';
+import { AppTheme, PolygonPoint, RoadSegment } from '../types';
 import {
   buildQuadrilateralPolygon,
   calculateInteractiveQuadrilateral,
@@ -9,15 +9,30 @@ import {
   QuadrilateralResult,
 } from '../utils/footprintUtils';
 
+const computePolygonArea = (points: PolygonPoint[]): number => {
+  if (!points || points.length < 3) return 0;
+  let area = 0;
+  for (let i = 0; i < points.length; i++) {
+    const j = (i + 1) % points.length;
+    area += points[i].x * points[j].y;
+    area -= points[j].x * points[i].y;
+  }
+  return Math.abs(area) / 2;
+};
+
 interface InteractiveFacadeGeometryPanelProps {
   facadeWidth?: number;
   facadeDepth?: number;
   backFacadeLength?: number;
   leftFacadeLength?: number;
+  polygonPoints?: PolygonPoint[];
+  roads?: RoadSegment[];
+  mainEntranceIndex?: number;
   theme?: AppTheme;
   title?: string;
   compact?: boolean;
   onUpdateFacades: (result: InteractiveFacadeUpdateResult) => void;
+  onEditInSmartPolygon?: () => void;
 }
 
 export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryPanelProps> = ({
@@ -25,10 +40,14 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
   facadeDepth = 10.0,
   backFacadeLength,
   leftFacadeLength,
+  polygonPoints,
+  roads = [],
+  mainEntranceIndex = 0,
   theme = 'light',
-  title = '4 Cepheli Canlı Geometri ve Cephe Ölçüleri',
+  title = '2D Geometri Planı ve Cephe Ölçüleri',
   compact = false,
   onUpdateFacades,
+  onEditInSmartPolygon,
 }) => {
   const isGray = theme === 'gray';
   const textTitle = isGray ? 'text-gray-100' : 'text-slate-900';
@@ -99,8 +118,23 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
     onUpdateFacades(result);
   };
 
+  // Check if active smart polygon is available
+  const hasSmartPoly = Boolean(polygonPoints && polygonPoints.length >= 3);
+
+  // Determine points to render
+  const pts: PolygonPoint[] = hasSmartPoly && polygonPoints ? polygonPoints : quad.polygonPoints;
+  const polyArea = hasSmartPoly && polygonPoints ? computePolygonArea(polygonPoints) : quad.area;
+
+  // Calculate perimeter
+  let polyPerimeter = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % pts.length];
+    polyPerimeter += Math.hypot(p2.x - p1.x, p2.y - p1.y);
+  }
+  polyPerimeter = Math.round(polyPerimeter * 10) / 10;
+
   // SVG coordinate transformation
-  const pts = quad.polygonPoints;
   const xs = pts.map((p) => p.x);
   const ys = pts.map((p) => p.y);
   const minX = Math.min(...xs);
@@ -111,14 +145,16 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
   const spanY = Math.max(1, maxY - minY);
   const maxSpan = Math.max(spanX, spanY);
 
-  const svgW = 240;
-  const svgH = 180;
-  const padding = 34;
+  const svgW = 260;
+  const svgH = 190;
+  const padding = 42;
   const scale = Math.min((svgW - padding * 2) / maxSpan, (svgH - padding * 2) / maxSpan);
 
-  const toSvgX = (x: number) => svgW / 2 + x * scale;
-  // Invert Y for architectural top-down view (positive Y goes up/north)
-  const toSvgY = (y: number) => svgH / 2 - y * scale;
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  const toSvgX = (x: number) => svgW / 2 + (x - centerX) * scale;
+  const toSvgY = (y: number) => svgH / 2 - (y - centerY) * scale;
 
   const svgPoints = pts.map((p) => `${toSvgX(p.x)},${toSvgY(p.y)}`).join(' ');
 
@@ -131,14 +167,33 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
             📐
           </div>
           <div>
-            <h4 className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>{title}</h4>
+            <div className="flex items-center gap-2">
+              <h4 className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>{title}</h4>
+              {hasSmartPoly && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Akıllı Poligon Referansı
+                </span>
+              )}
+            </div>
             <p className={`text-[11px] ${textMuted}`}>
-              1 cephe değiştiğinde diğer cepheler düzlem geometrisine göre otomatik hesaplanır
+              {hasSmartPoly
+                ? `Akıllı çizimden aktarılan ${pts.length} köşeli form (${polyArea.toFixed(1)} m² taban, ${polyPerimeter}m çevre)`
+                : '1 cephe değiştiğinde diğer cepheler düzlem geometrisine göre otomatik hesaplanır'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 self-end sm:self-auto">
+          {onEditInSmartPolygon && (
+            <button
+              type="button"
+              onClick={onEditInSmartPolygon}
+              className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 shadow-2xs transition-colors flex items-center gap-1"
+            >
+              <Compass className="w-3 h-3 text-indigo-600" />
+              Poligon Çiziminde Aç
+            </button>
+          )}
           <button
             type="button"
             onClick={handleResetToSquare}
@@ -330,106 +385,162 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
 
         {/* 2D Geometric SVG Canvas */}
         <div className={`${compact ? 'w-full' : 'lg:col-span-5'} bg-white p-2.5 rounded-xl border border-slate-200/90 flex flex-col items-center justify-center shadow-2xs relative`}>
-          <div className="absolute top-1.5 left-2 flex items-center gap-1 text-[10px] font-bold text-slate-400">
+          <div className="absolute top-1.5 left-2 flex items-center gap-1 text-[10px] font-bold text-slate-500">
             <Compass className="w-3 h-3 text-indigo-500" />
             <span>2D GEOMETRİ PLANI</span>
           </div>
 
-          <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full max-w-[240px] h-[160px] overflow-visible">
+          <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full max-w-[260px] h-[190px] overflow-visible">
             {/* Grid background lines */}
             <defs>
-              <pattern id="grid-pattern" width="16" height="16" patternUnits="userSpaceOnUse">
+              <pattern id="grid-pattern-geom" width="16" height="16" patternUnits="userSpaceOnUse">
                 <path d="M 16 0 L 0 0 0 16" fill="none" stroke="#f1f5f9" strokeWidth="1" />
               </pattern>
             </defs>
-            <rect width={svgW} height={svgH} fill="url(#grid-pattern)" rx="8" />
+            <rect width={svgW} height={svgH} fill="url(#grid-pattern-geom)" rx="8" />
 
-            {/* Skewed Quadrilateral Polygon */}
+            {/* Adjacent Roads */}
+            {roads.map((road, rIdx) => {
+              if (road.edgeIndex >= pts.length) return null;
+              const p1 = pts[road.edgeIndex];
+              const p2 = pts[(road.edgeIndex + 1) % pts.length];
+              const x1 = toSvgX(p1.x);
+              const y1 = toSvgY(p1.y);
+              const x2 = toSvgX(p2.x);
+              const y2 = toSvgY(p2.y);
+              const dx = x2 - x1;
+              const dy = y2 - y1;
+              const len = Math.hypot(dx, dy);
+              if (len === 0) return null;
+              const nx = -dy / len;
+              const ny = dx / len;
+              const roadWidth = Math.min(18, (road.widthMeters || 10) * 1.2);
+              const midX = (x1 + x2) / 2 + nx * (roadWidth / 2 + 3);
+              const midY = (y1 + y2) / 2 + ny * (roadWidth / 2 + 3);
+
+              return (
+                <g key={road.id || rIdx}>
+                  <line
+                    x1={x1 + nx * (roadWidth / 2)}
+                    y1={y1 + ny * (roadWidth / 2)}
+                    x2={x2 + nx * (roadWidth / 2)}
+                    y2={y2 + ny * (roadWidth / 2)}
+                    stroke="#475569"
+                    strokeWidth={roadWidth}
+                    strokeOpacity="0.35"
+                    strokeLinecap="round"
+                  />
+                  <line
+                    x1={x1 + nx * (roadWidth / 2)}
+                    y1={y1 + ny * (roadWidth / 2)}
+                    x2={x2 + nx * (roadWidth / 2)}
+                    y2={y2 + ny * (roadWidth / 2)}
+                    stroke="#f59e0b"
+                    strokeWidth="1.2"
+                    strokeDasharray="3 3"
+                    strokeOpacity="0.8"
+                  />
+                  <text
+                    x={midX}
+                    y={midY}
+                    fontSize="7"
+                    fontWeight="bold"
+                    fill="#334155"
+                    textAnchor="middle"
+                    className="select-none font-mono"
+                  >
+                    🛣️ {road.name}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Polygon Boundary */}
             <polygon
               points={svgPoints}
-              fill={quad.isSkewed ? 'rgba(245, 158, 11, 0.12)' : 'rgba(99, 102, 241, 0.12)'}
-              stroke={quad.isSkewed ? '#d97706' : '#4f46e5'}
+              fill={hasSmartPoly ? 'rgba(79, 70, 229, 0.14)' : quad.isSkewed ? 'rgba(245, 158, 11, 0.12)' : 'rgba(99, 102, 241, 0.12)'}
+              stroke={hasSmartPoly ? '#4338ca' : quad.isSkewed ? '#d97706' : '#4f46e5'}
               strokeWidth="2.5"
               strokeLinejoin="round"
             />
 
-            {/* Vertices & Corner Angle Labels */}
+            {/* Vertices & Points */}
             {pts.map((p, i) => {
               const cx = toSvgX(p.x);
               const cy = toSvgY(p.y);
-              const angle = i === 0 ? quad.angles.p1 : i === 1 ? quad.angles.p2 : i === 2 ? quad.angles.p3 : quad.angles.p4;
               return (
                 <g key={p.id || i}>
                   <circle cx={cx} cy={cy} r="4.5" fill="#4f46e5" stroke="#ffffff" strokeWidth="1.5" />
                   <text
-                    x={cx + (i === 0 || i === 3 ? -14 : 14)}
-                    y={cy + (i === 0 || i === 1 ? 14 : -8)}
-                    fontSize="9"
+                    x={cx}
+                    y={cy - 6}
+                    fontSize="8"
                     fontWeight="bold"
-                    fill="#334155"
+                    fill="#1e293b"
                     textAnchor="middle"
+                    className="font-mono select-none"
                   >
-                    {angle}°
+                    P{i + 1}
                   </text>
                 </g>
               );
             })}
 
             {/* Edge Dimension Labels */}
-            {/* Front (Edge 0 -> 1) */}
-            <text
-              x={(toSvgX(pts[0].x) + toSvgX(pts[1].x)) / 2}
-              y={toSvgY(pts[0].y) + 16}
-              fontSize="10"
-              fontWeight="bold"
-              fill="#4338ca"
-              textAnchor="middle"
-            >
-              Ön: {front}m
-            </text>
+            {pts.map((p1, i) => {
+              const p2 = pts[(i + 1) % pts.length];
+              const x1 = toSvgX(p1.x);
+              const y1 = toSvgY(p1.y);
+              const x2 = toSvgX(p2.x);
+              const y2 = toSvgY(p2.y);
+              const midX = (x1 + x2) / 2;
+              const midY = (y1 + y2) / 2;
+              const edgeDist = Math.hypot(p2.x - p1.x, p2.y - p1.y).toFixed(1);
+              const isEntrance = i === mainEntranceIndex;
 
-            {/* Right (Edge 1 -> 2) */}
-            <text
-              x={Math.max(toSvgX(pts[1].x), toSvgX(pts[2].x)) + 8}
-              y={(toSvgY(pts[1].y) + toSvgY(pts[2].y)) / 2}
-              fontSize="10"
-              fontWeight="bold"
-              fill="#334155"
-              textAnchor="start"
-            >
-              Sağ: {right}m
-            </text>
+              return (
+                <g key={`edge-${i}`}>
+                  <rect
+                    x={midX - 16}
+                    y={midY - 7}
+                    width="32"
+                    height="14"
+                    rx="3"
+                    fill="#ffffff"
+                    stroke="#e2e8f0"
+                    strokeWidth="0.8"
+                    className="opacity-95"
+                  />
+                  <text
+                    x={midX}
+                    y={midY + 3.5}
+                    fontSize="8.5"
+                    fontWeight="bold"
+                    fill={isEntrance ? '#059669' : '#334155'}
+                    textAnchor="middle"
+                    className="font-mono select-none"
+                  >
+                    {edgeDist}m
+                  </text>
 
-            {/* Back (Edge 2 -> 3) */}
-            <text
-              x={(toSvgX(pts[2].x) + toSvgX(pts[3].x)) / 2}
-              y={Math.min(toSvgY(pts[2].y), toSvgY(pts[3].y)) - 10}
-              fontSize="10"
-              fontWeight="bold"
-              fill={quad.isSkewed ? '#b45309' : '#334155'}
-              textAnchor="middle"
-            >
-              Arka: {back}m
-            </text>
-
-            {/* Left (Edge 3 -> 0) */}
-            <text
-              x={Math.min(toSvgX(pts[0].x), toSvgX(pts[3].x)) - 8}
-              y={(toSvgY(pts[0].y) + toSvgY(pts[3].y)) / 2}
-              fontSize="10"
-              fontWeight="bold"
-              fill="#334155"
-              textAnchor="end"
-            >
-              Sol: {left}m
-            </text>
+                  {/* Main Entrance Marker */}
+                  {isEntrance && (
+                    <g transform={`translate(${midX}, ${midY})`}>
+                      <circle cx="0" cy="12" r="6" fill="#059669" />
+                      <text x="0" y="14" fontSize="7" fill="#ffffff" fontWeight="bold" textAnchor="middle">
+                        🚪
+                      </text>
+                    </g>
+                  )}
+                </g>
+              );
+            })}
           </svg>
 
-          <div className="flex items-center justify-between w-full px-2 pt-1 text-[10px] text-slate-500 font-mono">
-            <span>Ön: {front}m</span>
-            <span>Sağ: {right}m</span>
-            <span className={quad.isSkewed ? 'text-amber-700 font-bold' : ''}>Arka: {back}m</span>
-            <span>Sol: {left}m</span>
+          <div className="flex items-center justify-between w-full px-2 pt-1 text-[10px] text-slate-600 font-mono">
+            <span>{pts.length} Kenar / Cephe</span>
+            <span className="font-bold text-indigo-700">{polyArea.toFixed(1)} m²</span>
+            <span>Çevre: {polyPerimeter}m</span>
           </div>
         </div>
       </div>

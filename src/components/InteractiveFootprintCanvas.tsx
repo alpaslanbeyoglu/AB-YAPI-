@@ -2084,6 +2084,20 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
                       </div>
                     </div>
 
+                    {/* Tabla Çıkması (Konsol) Durumu */}
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500 font-medium">Tabla Çıkması (Konsol):</span>
+                      {cfg.windowCountPerFloor === 0 ? (
+                        <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                          ⛔ Yapılamaz (Kör Cephe)
+                        </span>
+                      ) : (
+                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          ✓ Açık (İzinli)
+                        </span>
+                      )}
+                    </div>
+
                     <div className="pt-2 mt-2 border-t border-slate-200 flex items-center justify-between">
                       <button
                         type="button"

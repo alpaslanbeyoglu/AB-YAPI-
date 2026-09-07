@@ -802,8 +802,11 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                             facadeDepth={modelParams.facadeDepth || 10.0}
                             backFacadeLength={modelParams.backFacadeLength}
                             leftFacadeLength={modelParams.leftFacadeLength}
+                            polygonPoints={modelParams.polygonPoints}
+                            roads={modelParams.roads}
+                            mainEntranceIndex={modelParams.mainEntranceFacadeIndex}
                             theme={theme}
-                            title="4 Cepheli Canlı Geometri & 3D Kütle Şekillendirme"
+                            title="2D Geometri Planı & Canlı Ölçülendirme"
                             onUpdateFacades={(res) => {
                               updateParams({
                                 facadeWidth: res.front,
@@ -1181,40 +1184,67 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                                 { label: 'Sağ Yan', idx: 1 },
                                 { label: 'Arka Cephe', idx: 2 },
                                 { label: 'Sol Yan', idx: 3 }
-                              ].map((f) => (
-                                <div key={f.idx} className="flex items-center justify-between">
-                                  <span className="text-[10px] text-slate-500">{f.label}:</span>
-                                  <input
-                                    type="number"
-                                    step="0.1"
-                                    min="0"
-                                    max="2.5"
-                                    value={modelParams.facadeCantilevers?.[f.idx] !== undefined ? modelParams.facadeCantilevers[f.idx] : (
-                                      modelParams.cantileverDirection === 'all' ? (modelParams.cantileverDepth || 1.2) :
-                                      modelParams.cantileverDirection === 'front_back' && (f.idx === 0 || f.idx === 2) ? (modelParams.cantileverDepth || 1.2) :
-                                      modelParams.cantileverDirection === 'front' && f.idx === 0 ? (modelParams.cantileverDepth || 1.2) : 0
-                                    )}
-                                    onChange={(e) => {
-                                      const val = parseFloat(e.target.value);
-                                      if (!isNaN(val) && val >= 0) {
-                                        const next = [...(modelParams.facadeCantilevers || [0,0,0,0])];
-                                        // Initialize if empty
-                                        if (next.length < 4) {
-                                          const base = modelParams.cantileverDepth || 1.2;
-                                          if (modelParams.cantileverDirection === 'all') next.splice(0, 4, base, base, base, base);
-                                          else if (modelParams.cantileverDirection === 'front_back') next.splice(0, 4, base, 0, base, 0);
-                                          else if (modelParams.cantileverDirection === 'front') next.splice(0, 4, base, 0, 0, 0);
-                                          else next.splice(0, 4, 0, 0, 0, 0);
+                              ].map((f) => {
+                                const isBlind = modelParams.facadeConfigs?.[f.idx]?.windowCountPerFloor === 0 || (modelParams.facadeConfigs?.[f.idx] as any)?.isBlankWall === true;
+                                const currentVal = isBlind ? 0 : (
+                                  modelParams.facadeCantilevers?.[f.idx] !== undefined ? modelParams.facadeCantilevers[f.idx] : (
+                                    modelParams.cantileverDirection === 'all' ? (modelParams.cantileverDepth || 1.2) :
+                                    modelParams.cantileverDirection === 'front_back' && (f.idx === 0 || f.idx === 2) ? (modelParams.cantileverDepth || 1.2) :
+                                    modelParams.cantileverDirection === 'front' && f.idx === 0 ? (modelParams.cantileverDepth || 1.2) : 0
+                                  )
+                                );
+
+                                return (
+                                  <div key={f.idx} className="flex items-center justify-between gap-1">
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className="text-[10px] text-slate-500 truncate">{f.label}:</span>
+                                      {isBlind && (
+                                        <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-200 shrink-0">
+                                          Kör
+                                        </span>
+                                      )}
+                                    </div>
+                                    <input
+                                      type="number"
+                                      step="0.1"
+                                      min="0"
+                                      max="2.5"
+                                      disabled={isBlind}
+                                      value={currentVal}
+                                      onChange={(e) => {
+                                        if (isBlind) return;
+                                        const val = parseFloat(e.target.value);
+                                        if (!isNaN(val) && val >= 0) {
+                                          const next = [...(modelParams.facadeCantilevers || [0,0,0,0])];
+                                          if (next.length < 4) {
+                                            const base = modelParams.cantileverDepth || 1.2;
+                                            if (modelParams.cantileverDirection === 'all') next.splice(0, 4, base, base, base, base);
+                                            else if (modelParams.cantileverDirection === 'front_back') next.splice(0, 4, base, 0, base, 0);
+                                            else if (modelParams.cantileverDirection === 'front') next.splice(0, 4, base, 0, 0, 0);
+                                            else next.splice(0, 4, 0, 0, 0, 0);
+                                          }
+                                          next[f.idx] = val;
+                                          updateParams({ facadeCantilevers: next });
                                         }
-                                        next[f.idx] = val;
-                                        updateParams({ facadeCantilevers: next });
-                                      }
-                                    }}
-                                    className={`w-12 px-1.5 py-0.5 text-right font-mono font-bold text-[10px] rounded border ${inputBg}`}
-                                  />
-                                </div>
-                              ))}
+                                      }}
+                                      className={`w-12 px-1.5 py-0.5 text-right font-mono font-bold text-[10px] rounded border ${
+                                        isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : inputBg
+                                      }`}
+                                      title={isBlind ? 'Kör cephelerde imar mevzuatı gereği tabla çıkması yapılamaz' : undefined}
+                                    />
+                                  </div>
+                                );
+                              })}
                             </div>
+                            {/* Blind facade warning alert */}
+                            {[0, 1, 2, 3].some((idx) => modelParams.facadeConfigs?.[idx]?.windowCountPerFloor === 0 || (modelParams.facadeConfigs?.[idx] as any)?.isBlankWall === true) && (
+                              <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-[10px] text-amber-800 flex items-start gap-1.5 leading-tight">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>İmar Kuralı:</strong> Kör cephelerde (komşu parsel sınırı / yangın duvarı) tabla çıkması (konsol) yapılamaz. Çıkma 0m olarak uygulanmaktadır.
+                                </span>
+                              </div>
+                            )}
                             <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
                               <span className="text-[9px] text-slate-400 italic">Değerleri tek tek özelleştirebilirsiniz.</span>
                               <button 

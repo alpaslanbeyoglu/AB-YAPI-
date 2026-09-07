@@ -569,7 +569,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const facadeCantilevers = params?.facadeCantilevers;
 
     // Helper to get cantilever depth for a specific facade (0:Front, 1:Right, 2:Back, 3:Left)
+    // KURAL: Tabla çıkması KÖR CEPHELERDE kesinlikle yapılamaz!
+    const isBlindFacade = (idx: number) => {
+      const cfg = params?.facadeConfigs?.[idx];
+      return cfg && (cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true);
+    };
+
     const getFacadeCantilever = (idx: number) => {
+      if (isBlindFacade(idx)) return 0;
       if (facadeCantilevers && facadeCantilevers[idx] !== undefined) return facadeCantilevers[idx];
       if (cantileverDirection === 'all') return cantileverDepth;
       if (cantileverDirection === 'front_back' && (idx === 0 || idx === 2)) return cantileverDepth;

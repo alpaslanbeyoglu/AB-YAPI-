@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
-import { BuildingModelParams, ProjectParams, RoomType } from '../types';
+import { BuildingModelParams, ProjectParams, RoomType, PolygonPoint } from '../types';
 import {
   calculateBuildingMetrics,
   getFloorFlatLayouts,
@@ -36,6 +36,7 @@ import {
   RoomDetail,
   FlatLayout,
 } from '../utils/buildingModelUtils';
+import { getPolygonBounds } from '../utils/footprintUtils';
 
 interface FloorPlan2DViewProps {
   params: BuildingModelParams;
@@ -201,18 +202,22 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
     (selectedFloorTab === 'first' || selectedFloorTab === 'typical' || selectedFloorTab === 'duplex') &&
     hasCantilever;
 
+  const isBlind = (idx: number) => {
+    const cfg = params.facadeConfigs?.[idx];
+    return cfg && (cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true);
+  };
+
+  const frontCantilever = isUpperFloorWithCantilever && (cantileverDirection === 'all' || cantileverDirection === 'front_back' || cantileverDirection === 'front') && !isBlind(0) ? cantileverDepth : 0;
+  const rightCantilever = isUpperFloorWithCantilever && (cantileverDirection === 'all') && !isBlind(1) ? cantileverDepth : 0;
+  const backCantilever = isUpperFloorWithCantilever && (cantileverDirection === 'all' || cantileverDirection === 'front_back') && !isBlind(2) ? cantileverDepth : 0;
+  const leftCantilever = isUpperFloorWithCantilever && (cantileverDirection === 'all') && !isBlind(3) ? cantileverDepth : 0;
+
   let currentFacadeWidth = params.facadeWidth;
   let currentFacadeDepth = params.facadeDepth;
 
   if (isUpperFloorWithCantilever) {
-    if (cantileverDirection === 'all') {
-      currentFacadeWidth += cantileverDepth * 2;
-      currentFacadeDepth += cantileverDepth * 2;
-    } else if (cantileverDirection === 'front_back') {
-      currentFacadeDepth += cantileverDepth * 2;
-    } else if (cantileverDirection === 'front') {
-      currentFacadeDepth += cantileverDepth;
-    }
+    currentFacadeWidth += leftCantilever + rightCantilever;
+    currentFacadeDepth += frontCantilever + backCantilever;
   }
 
   // Base scale: 28 pixels per meter
@@ -230,8 +235,98 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
   // Ground floor footprint reference (for showing cantilever projection lines)
   const gW = params.facadeWidth * scale;
   const gH = params.facadeDepth * scale;
-  const gX = bX + (bW - gW) / 2;
-  const gY = cantileverDirection === 'front' ? bY : bY + (bH - gH) / 2;
+  const gX = bX + leftCantilever * scale;
+  const gY = bY + backCantilever * scale;
+
+  const hasPoly = params.footprintInputMode === 'polygonDraw' && params.polygonPoints && params.polygonPoints.length >= 3;
+
+  const bounds = hasPoly && params.polygonPoints
+    ? getPolygonBounds(params.polygonPoints)
+    : { minX: 0, minY: 0, width: params.facadeWidth, depth: params.facadeDepth };
+
+  const mapPointToSvg = (x: number, y: number, applyCantilevers: boolean = true) => {
+    const normX = bounds.width > 0 ? (x - bounds.minX) / bounds.width : 0;
+    const normY = bounds.depth > 0 ? (y - bounds.minY) / bounds.depth : 0;
+
+    let targetW = params.facadeWidth;
+    let targetH = params.facadeDepth;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (applyCantilevers && isUpperFloorWithCantilever) {
+      targetW = currentFacadeWidth;
+      targetH = currentFacadeDepth;
+    } else {
+      offsetX = leftCantilever * scale;
+      offsetY = backCantilever * scale;
+    }
+
+    const svgX = bX + offsetX + normX * targetW * scale;
+    const svgY = bY + offsetY + normY * targetH * scale;
+
+    return { x: svgX, y: svgY };
+  };
+
+  const getInnerPolygonPoints = (points: PolygonPoint[], offsetInMeters: number) => {
+    const n = points.length;
+    if (n < 3) return points;
+
+    // Check winding order (clockwise vs counter-clockwise)
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      const p1 = points[i];
+      const p2 = points[(i + 1) % n];
+      sum += (p2.x - p1.x) * (p2.y + p1.y);
+    }
+    const isClockwise = sum > 0;
+    const sign = isClockwise ? 1 : -1;
+
+    return points.map((p, i) => {
+      const prev = points[(i - 1 + n) % n];
+      const next = points[(i + 1) % n];
+
+      // Normal to edge 1 (prev -> p)
+      const v1x = p.x - prev.x;
+      const v1y = p.y - prev.y;
+      const d1 = Math.hypot(v1x, v1y) || 1;
+      const n1x = -v1y / d1 * sign;
+      const n1y = v1x / d1 * sign;
+
+      // Normal to edge 2 (p -> next)
+      const v2x = next.x - p.x;
+      const v2y = next.y - p.y;
+      const d2 = Math.hypot(v2x, v2y) || 1;
+      const n2x = -v2y / d2 * sign;
+      const n2y = v2x / d2 * sign;
+
+      // Bisector (average normal)
+      const bisectorX = n1x + n2x;
+      const bisectorY = n1y + n2y;
+      const len = Math.hypot(bisectorX, bisectorY) || 1;
+
+      // Scale factor to maintain constant wall thickness
+      const dot = n1x * n2x + n1y * n2y;
+      const sinHalfAngle = Math.sqrt(Math.max(0.1, (1 + dot) / 2));
+      const factor = offsetInMeters / (sinHalfAngle || 1);
+
+      return {
+        x: p.x + (bisectorX / len) * factor,
+        y: p.y + (bisectorY / len) * factor
+      };
+    });
+  };
+
+  const outerPoints = hasPoly && params.polygonPoints
+    ? params.polygonPoints.map(p => mapPointToSvg(p.x, p.y, true))
+    : [];
+
+  const innerPoints = hasPoly && params.polygonPoints
+    ? getInnerPolygonPoints(params.polygonPoints, 0.25).map(p => mapPointToSvg(p.x, p.y, true))
+    : [];
+
+  const groundPoints = hasPoly && params.polygonPoints
+    ? params.polygonPoints.map(p => mapPointToSvg(p.x, p.y, false))
+    : [];
 
   // CAD WALL THICKNESSES
   // Dış duvar: 25 cm = 0.25 * scale = 7.0 px
@@ -1453,6 +1548,13 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                   strokeWidth="0.5"
                 />
               </pattern>
+
+              {/* Dynamic Building Polygon Clip Path */}
+              {hasPoly && (
+                <clipPath id="building-polygon-clip">
+                  <polygon points={innerPoints.map(p => `${p.x},${p.y}`).join(' ')} />
+                </clipPath>
+              )}
             </defs>
 
             <g transform={`translate(${panX}, ${panY}) scale(${zoom})`}>
@@ -1572,16 +1674,26 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
             {isUpperFloorWithCantilever && (
               <g id="cantilever-indication">
                 {/* Ground floor footprint contour dashed line (Zemin İzdüşümü) */}
-                <rect
-                  x={gX}
-                  y={gY}
-                  width={gW}
-                  height={gH}
-                  fill="none"
-                  stroke={isLight ? '#0284c7' : '#38bdf8'}
-                  strokeWidth="1.2"
-                  strokeDasharray="6,4"
-                />
+                {hasPoly ? (
+                  <polygon
+                    points={groundPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                    fill="none"
+                    stroke={isLight ? '#0284c7' : '#38bdf8'}
+                    strokeWidth="1.2"
+                    strokeDasharray="6,4"
+                  />
+                ) : (
+                  <rect
+                    x={gX}
+                    y={gY}
+                    width={gW}
+                    height={gH}
+                    fill="none"
+                    stroke={isLight ? '#0284c7' : '#38bdf8'}
+                    strokeWidth="1.2"
+                    strokeDasharray="6,4"
+                  />
+                )}
                 <text
                   x={gX + gW / 2}
                   y={gY + 14}
@@ -1597,65 +1709,110 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
             )}
 
             {/* 4. FLOOR SLAB BASE PLATE */}
-            <rect
-              x={bX}
-              y={bY}
-              width={bW}
-              height={bH}
-              fill={isLight ? '#ffffff' : '#121214'}
-              stroke="none"
-            />
+            {hasPoly ? (
+              <polygon
+                points={outerPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                fill={isLight ? '#ffffff' : '#121214'}
+                stroke="none"
+              />
+            ) : (
+              <rect
+                x={bX}
+                y={bY}
+                width={bW}
+                height={bH}
+                fill={isLight ? '#ffffff' : '#121214'}
+                stroke="none"
+              />
+            )}
 
             {/* 5. EXTERIOR WALLS (25 cm Double Line + Poché Fill) */}
-            {/* Outer perimeter */}
-            <rect
-              x={bX}
-              y={bY}
-              width={bW}
-              height={bH}
-              fill="none"
-              stroke={isLight ? '#0f172a' : '#f4f4f5'}
-              strokeWidth="2.5"
-            />
-            {/* Inner perimeter (25cm offset) */}
-            <rect
-              x={bX + extWallThick}
-              y={bY + extWallThick}
-              width={bW - extWallThick * 2}
-              height={bH - extWallThick * 2}
-              fill="none"
-              stroke={isLight ? '#334155' : '#71717a'}
-              strokeWidth="1.2"
-            />
-            {/* Filled Wall Poché Border */}
-            <path
-              d={`
-                M ${bX} ${bY} H ${bX + bW} V ${bY + bH} H ${bX} Z
-                M ${bX + extWallThick} ${bY + extWallThick} V ${bY + bH - extWallThick} H ${
-                bX + bW - extWallThick
-              } V ${bY + extWallThick} Z
-              `}
-              fill="url(#wallPoche)"
-              fillRule="evenodd"
-              opacity="0.35"
-            />
+            {hasPoly ? (
+              <>
+                {/* Outer perimeter */}
+                <polygon
+                  points={outerPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                  fill="none"
+                  stroke={isLight ? '#0f172a' : '#f4f4f5'}
+                  strokeWidth="2.5"
+                />
+                {/* Inner perimeter (25cm offset) */}
+                <polygon
+                  points={innerPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                  fill="none"
+                  stroke={isLight ? '#334155' : '#71717a'}
+                  strokeWidth="1.2"
+                />
+                {/* Filled Wall Poché Border */}
+                <path
+                  d={`
+                    M ${outerPoints.map(p => `${p.x} ${p.y}`).join(' L ')} Z
+                    M ${innerPoints.map(p => `${p.x} ${p.y}`).join(' L ')} Z
+                  `}
+                  fill="url(#wallPoche)"
+                  fillRule="evenodd"
+                  opacity="0.35"
+                />
+              </>
+            ) : (
+              <>
+                {/* Outer perimeter */}
+                <rect
+                  x={bX}
+                  y={bY}
+                  width={bW}
+                  height={bH}
+                  fill="none"
+                  stroke={isLight ? '#0f172a' : '#f4f4f5'}
+                  strokeWidth="2.5"
+                />
+                {/* Inner perimeter (25cm offset) */}
+                <rect
+                  x={bX + extWallThick}
+                  y={bY + extWallThick}
+                  width={bW - extWallThick * 2}
+                  height={bH - extWallThick * 2}
+                  fill="none"
+                  stroke={isLight ? '#334155' : '#71717a'}
+                  strokeWidth="1.2"
+                />
+                {/* Filled Wall Poché Border */}
+                <path
+                  d={`
+                    M ${bX} ${bY} H ${bX + bW} V ${bY + bH} H ${bX} Z
+                    M ${bX + extWallThick} ${bY + extWallThick} V ${bY + bH - extWallThick} H ${
+                    bX + bW - extWallThick
+                  } V ${bY + extWallThick} Z
+                  `}
+                  fill="url(#wallPoche)"
+                  fillRule="evenodd"
+                  opacity="0.35"
+                />
+              </>
+            )}
 
             {/* 6. STRUCTURAL COLUMNS (Betonarme Kolonlar - 45x45 cm) */}
-            {[
-              { x: bX, y: bY },
-              { x: bX + bW / 2 - 8, y: bY },
-              { x: bX + bW - 16, y: bY },
-              { x: bX, y: bY + bH / 2 - 8 },
-              { x: bX + bW - 16, y: bY + bH / 2 - 8 },
-              { x: bX, y: bY + bH - 16 },
-              { x: bX + bW / 2 - 8, y: bY + bH - 16 },
-              { x: bX + bW - 16, y: bY + bH - 16 },
-              // Core corner columns
+            {(hasPoly && params.polygonPoints
+              ? params.polygonPoints.map(p => {
+                  const pt = mapPointToSvg(p.x, p.y, true);
+                  return { x: pt.x - 8, y: pt.y - 8 };
+                })
+              : [
+                  { x: bX, y: bY },
+                  { x: bX + bW / 2 - 8, y: bY },
+                  { x: bX + bW - 16, y: bY },
+                  { x: bX, y: bY + bH / 2 - 8 },
+                  { x: bX + bW - 16, y: bY + bH / 2 - 8 },
+                  { x: bX, y: bY + bH - 16 },
+                  { x: bX + bW / 2 - 8, y: bY + bH - 16 },
+                  { x: bX + bW - 16, y: bY + bH - 16 },
+                ]
+            ).concat([
               { x: stairX - 4, y: stairY - 4 },
               { x: elevX + elevW - 12, y: stairY - 4 },
               { x: stairX - 4, y: stairY + stairH - 12 },
               { x: elevX + elevW - 12, y: stairY + stairH - 12 },
-            ].map((col, cIdx) => (
+            ]).map((col, cIdx) => (
               <rect
                 key={`col-${cIdx}`}
                 x={col.x}
@@ -1725,6 +1882,7 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
               )}
 
             {/* 8. COMMON CIRCULATION CORRIDOR (ORTAK KAT HOLÜ & YANGIN KORİDORU) */}
+            <g clipPath={hasPoly ? 'url(#building-polygon-clip)' : undefined}>
             <g
               id="common-circulation-corridor"
               onMouseDown={handleCoreMouseDown}
@@ -2280,6 +2438,7 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
                 );
               })
             )}
+            </g>
 
             {/* 12. ARCHITECTURAL ELEVATION MARKER (KOT İŞARETİ) */}
             <g id="elevation-marker" transform={`translate(${bX + 35}, ${bY + 35})`}>

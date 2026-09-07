@@ -294,17 +294,41 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const estD = footprintCalc.effectiveDepth;
 
   // Calculate upper floor area if cantilever (tabla çıkması) is present
+  // KURAL: Tabla çıkması KÖR CEPHELERDE (yangın duvarı / komşu parsel sınırı) kesinlikle yapılamaz!
   const upperFloorsCount = Math.max(0, floorCount - 1);
   let upperFloorArea = activeBaseArea;
   if (hasCantilever && cantileverDepth > 0) {
-    if (cantileverDirection === 'all') {
-      upperFloorArea = (estW + 2 * cantileverDepth) * (estD + 2 * cantileverDepth);
-    } else if (cantileverDirection === 'front') {
-      upperFloorArea = estW * (estD + cantileverDepth);
+    const isBlind = (idx: number) => {
+      const cfg = params.facadeConfigs?.[idx];
+      return cfg && (cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true);
+    };
+
+    let fCant = 0;
+    let rCant = 0;
+    let bCant = 0;
+    let lCant = 0;
+
+    if (params.facadeCantilevers && params.facadeCantilevers.length >= 4) {
+      fCant = isBlind(0) ? 0 : (params.facadeCantilevers[0] || 0);
+      rCant = isBlind(1) ? 0 : (params.facadeCantilevers[1] || 0);
+      bCant = isBlind(2) ? 0 : (params.facadeCantilevers[2] || 0);
+      lCant = isBlind(3) ? 0 : (params.facadeCantilevers[3] || 0);
     } else {
-      // front_back (standard)
-      upperFloorArea = estW * (estD + 2 * cantileverDepth);
+      if (cantileverDirection === 'all') {
+        fCant = isBlind(0) ? 0 : cantileverDepth;
+        rCant = isBlind(1) ? 0 : cantileverDepth;
+        bCant = isBlind(2) ? 0 : cantileverDepth;
+        lCant = isBlind(3) ? 0 : cantileverDepth;
+      } else if (cantileverDirection === 'front') {
+        fCant = isBlind(0) ? 0 : cantileverDepth;
+      } else {
+        // front_back
+        fCant = isBlind(0) ? 0 : cantileverDepth;
+        bCant = isBlind(2) ? 0 : cantileverDepth;
+      }
     }
+
+    upperFloorArea = (estW + lCant + rCant) * (estD + fCant + bCant);
     upperFloorArea = Math.round(upperFloorArea * 100) / 100;
   }
 

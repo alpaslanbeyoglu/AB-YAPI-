@@ -306,14 +306,37 @@ export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = 
   const cantileverDepth = params.cantileverDepth || 1.2;
   let upperFloorGrossArea = footprintArea;
   if (hasCantilever && cantileverDepth > 0) {
-    if (params.cantileverDirection === 'all') {
-      upperFloorGrossArea = (fw + 2 * cantileverDepth) * (fd + 2 * cantileverDepth);
-    } else if (params.cantileverDirection === 'front') {
-      upperFloorGrossArea = fw * (fd + cantileverDepth);
+    const isBlind = (idx: number) => {
+      const cfg = params?.facadeConfigs?.[idx];
+      return cfg && (cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true);
+    };
+
+    let fCant = 0;
+    let rCant = 0;
+    let bCant = 0;
+    let lCant = 0;
+
+    if (params.facadeCantilevers && params.facadeCantilevers.length >= 4) {
+      fCant = isBlind(0) ? 0 : (params.facadeCantilevers[0] || 0);
+      rCant = isBlind(1) ? 0 : (params.facadeCantilevers[1] || 0);
+      bCant = isBlind(2) ? 0 : (params.facadeCantilevers[2] || 0);
+      lCant = isBlind(3) ? 0 : (params.facadeCantilevers[3] || 0);
     } else {
-      // front_back
-      upperFloorGrossArea = fw * (fd + 2 * cantileverDepth);
+      if (params.cantileverDirection === 'all') {
+        fCant = isBlind(0) ? 0 : cantileverDepth;
+        rCant = isBlind(1) ? 0 : cantileverDepth;
+        bCant = isBlind(2) ? 0 : cantileverDepth;
+        lCant = isBlind(3) ? 0 : cantileverDepth;
+      } else if (params.cantileverDirection === 'front') {
+        fCant = isBlind(0) ? 0 : cantileverDepth;
+      } else {
+        // front_back
+        fCant = isBlind(0) ? 0 : cantileverDepth;
+        bCant = isBlind(2) ? 0 : cantileverDepth;
+      }
     }
+
+    upperFloorGrossArea = (fw + lCant + rCant) * (fd + fCant + bCant);
     upperFloorGrossArea = Math.round(upperFloorGrossArea * 100) / 100;
   }
   const cantileverArea = Math.round(Math.max(0, upperFloorGrossArea - footprintArea) * 100) / 100;
