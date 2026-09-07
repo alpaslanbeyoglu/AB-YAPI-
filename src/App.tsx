@@ -251,7 +251,11 @@ export default function App() {
   });
 
   // Keep Building Model and Calculator synchronized LIVE bidirectionally
-  const updateCalculatorParams = (newParams: ProjectParams) => {
+  const updateCalculatorParams = (newParamsOrUpdates: ProjectParams | Partial<ProjectParams>) => {
+    const newParams: ProjectParams = {
+      ...params,
+      ...newParamsOrUpdates,
+    };
     // 1. Determine activeBaseArea: Keep user's explicit manual entry if provided (> 0)
     let activeBaseArea = newParams.baseBuildArea;
     if (!activeBaseArea || activeBaseArea <= 0) {

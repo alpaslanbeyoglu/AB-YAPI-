@@ -134,6 +134,68 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
   const [fieldPhoto, setFieldPhoto] = useState<string | null>(null);
   const [noteSaved, setNoteSaved] = useState(false);
 
+  // Contractor flat count calculation
+  const contractorFlatsCount = useMemo(() => {
+    if (results.flatResults && results.flatResults.length > 0) {
+      const count = results.flatResults.filter(f => f.isContractorShare).length;
+      if (count > 0) return count;
+    }
+    if (params.projectModel === 'contractorShare') {
+      return Math.round((results.flatCount || 10) * ((params.contractorShareRate || 50) / 100));
+    }
+    return 0;
+  }, [results.flatResults, results.flatCount, params.projectModel, params.contractorShareRate]);
+
+  // Synchronized parameter step handlers
+  const handleUpdateFloorCount = (delta: number) => {
+    const nextCount = Math.max(1, (params.floorCount || 5) + delta);
+    const normalFloors = params.hasGroundFloorShop ? Math.max(1, nextCount - 1) : nextCount;
+    const fpf = params.flatsPerFloor || 2;
+    const isMansard = params.roofType === 'mansard';
+    const extraMansard = isMansard ? (params.mansardFlatCount || fpf) : 0;
+    const totalFlats = normalFloors * fpf + extraMansard;
+    onChangeParams({
+      floorCount: nextCount,
+      flatCount: totalFlats,
+    });
+  };
+
+  const handleUpdateFlatsPerFloor = (delta: number) => {
+    const nextFpf = Math.max(1, (params.flatsPerFloor || 2) + delta);
+    const normalFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : (params.floorCount || 5);
+    const isMansard = params.roofType === 'mansard';
+    const extraMansard = isMansard ? (params.mansardFlatCount || nextFpf) : 0;
+    const totalFlats = normalFloors * nextFpf + extraMansard;
+    onChangeParams({
+      flatsPerFloor: nextFpf,
+      flatCount: totalFlats,
+    });
+  };
+
+  const handleToggleShop = (hasShop: boolean) => {
+    const normalFloors = hasShop ? Math.max(1, (params.floorCount || 5) - 1) : (params.floorCount || 5);
+    const fpf = params.flatsPerFloor || 2;
+    const isMansard = params.roofType === 'mansard';
+    const extraMansard = isMansard ? (params.mansardFlatCount || fpf) : 0;
+    const totalFlats = normalFloors * fpf + extraMansard;
+    onChangeParams({
+      hasGroundFloorShop: hasShop,
+      flatCount: totalFlats,
+    });
+  };
+
+  const handleUpdateRoofType = (roof: 'flat' | 'gable' | 'duplex' | 'mansard') => {
+    const normalFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : (params.floorCount || 5);
+    const fpf = params.flatsPerFloor || 2;
+    const isMansard = roof === 'mansard';
+    const extraMansard = isMansard ? (params.mansardFlatCount || fpf) : 0;
+    const totalFlats = normalFloors * fpf + extraMansard;
+    onChangeParams({
+      roofType: roof,
+      flatCount: totalFlats,
+    });
+  };
+
   const handleSaveQuickNote = () => {
     if (!quickNote.trim()) return;
     try {
@@ -186,7 +248,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
       `Binamızın kentsel dönüşüm inşaatında güncel ilerleme durumu:\n\n` +
       `📊 *Fiziki İlerleme:* [${bar}] *%${overallProgress}*\n` +
       `🔨 *Aktif Aşama:* ${activeStage?.name || 'Kaba Yapı'}\n` +
-      `⏱️ *Hedef Teslim:* ${results.projectDurationMonths || 18} Ay\n\n` +
+      `⏱️ *Hedef Teslim:* ${results.finalMonths || 18} Ay\n\n` +
       `Şantiyemizdeki tüm imalatlar deprem yönetmeliği ve yapı denetim standartlarına tam uyumlu olarak sürdürülmektedir.\n\n` +
       `*${compName} Şantiye Yönetimi*\n` +
       `📞 ${profile.phone || '+90 (212) 585 10 20'}`;
@@ -339,7 +401,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
             </div>
             <div className="text-right shrink-0">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Süre</span>
-              <span className="text-xs font-black text-indigo-700">{results.projectDurationMonths || 18} Ay</span>
+              <span className="text-xs font-black text-indigo-700">{results.finalMonths || 18} Ay</span>
             </div>
           </div>
 
@@ -347,25 +409,25 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-100">
             <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/60">
               <span className="text-[10px] font-bold text-slate-500 block">Toplam İnşaat</span>
-              <span className="text-xs font-black text-slate-900">{Math.round(results.totalBuildingArea || 0)} m²</span>
+              <span className="text-xs font-black text-slate-900">{Math.round(results.totalArea || 0)} m²</span>
             </div>
 
             <div className="p-2 rounded-xl bg-emerald-50/80 border border-emerald-200/70">
               <span className="text-[10px] font-bold text-emerald-800 block">Toplam Maliyet</span>
-              <span className="text-xs font-black text-emerald-700">{formatCurrency(results.totalCost)}</span>
+              <span className="text-xs font-black text-emerald-700">{formatCurrency(results.grandTotal)}</span>
             </div>
 
             <div className="p-2 rounded-xl bg-indigo-50/80 border border-indigo-200/70">
               <span className="text-[10px] font-bold text-indigo-800 block">Daire Başı</span>
               <span className="text-xs font-black text-indigo-700">
-                {formatCurrency(results.flatCount ? results.totalCost / results.flatCount : 0)}
+                {formatCurrency(results.flatCount ? results.grandTotal / results.flatCount : 0)}
               </span>
             </div>
 
             <div className="p-2 rounded-xl bg-amber-50/80 border border-amber-200/70">
               <span className="text-[10px] font-bold text-amber-900 block">Müteahhit Payı</span>
               <span className="text-xs font-black text-amber-700">
-                %{params.contractorShareRate || 50} ({results.contractorFlatCount || 0} Daire)
+                %{params.contractorShareRate || 50} ({contractorFlatsCount} Daire)
               </span>
             </div>
           </div>
@@ -403,7 +465,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => onChangeParams({ floorCount: Math.max(1, (params.floorCount || 5) - 1) })}
+                    onClick={() => handleUpdateFloorCount(-1)}
                     className="w-8 h-8 rounded-lg bg-white border border-slate-300 font-bold text-slate-700 active:scale-95 shadow-xs flex items-center justify-center cursor-pointer"
                   >
                     -
@@ -411,7 +473,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                   <span className="w-8 text-center font-black text-sm text-indigo-900">{params.floorCount || 5}</span>
                   <button
                     type="button"
-                    onClick={() => onChangeParams({ floorCount: (params.floorCount || 5) + 1 })}
+                    onClick={() => handleUpdateFloorCount(1)}
                     className="w-8 h-8 rounded-lg bg-white border border-slate-300 font-bold text-slate-700 active:scale-95 shadow-xs flex items-center justify-center cursor-pointer"
                   >
                     +
@@ -428,7 +490,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => onChangeParams({ flatsPerFloor: Math.max(1, (params.flatsPerFloor || 2) - 1) })}
+                    onClick={() => handleUpdateFlatsPerFloor(-1)}
                     className="w-8 h-8 rounded-lg bg-white border border-slate-300 font-bold text-slate-700 active:scale-95 shadow-xs flex items-center justify-center cursor-pointer"
                   >
                     -
@@ -436,7 +498,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                   <span className="w-8 text-center font-black text-sm text-indigo-900">{params.flatsPerFloor || 2}</span>
                   <button
                     type="button"
-                    onClick={() => onChangeParams({ flatsPerFloor: (params.flatsPerFloor || 2) + 1 })}
+                    onClick={() => handleUpdateFlatsPerFloor(1)}
                     className="w-8 h-8 rounded-lg bg-white border border-slate-300 font-bold text-slate-700 active:scale-95 shadow-xs flex items-center justify-center cursor-pointer"
                   >
                     +
@@ -477,7 +539,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                 <input
                   type="checkbox"
                   checked={!!params.hasGroundFloorShop}
-                  onChange={(e) => onChangeParams({ hasGroundFloorShop: e.target.checked })}
+                  onChange={(e) => handleToggleShop(e.target.checked)}
                   className="w-5 h-5 rounded text-indigo-600 cursor-pointer"
                 />
               </div>
@@ -495,7 +557,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                     <button
                       key={roof.id}
                       type="button"
-                      onClick={() => onChangeParams({ roofType: roof.id as any })}
+                      onClick={() => handleUpdateRoofType(roof.id as any)}
                       className={`py-2 px-1 rounded-xl text-[11px] font-bold border transition text-center cursor-pointer ${
                         params.roofType === roof.id
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
@@ -525,7 +587,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                     m² İnşaat Birim Maliyeti (₺/m²)
                   </label>
                   <span className="text-xs font-black text-indigo-700">
-                    {formatCurrency(params.manualFlatUnitPrice || 22000)}/m²
+                    {formatCurrency(params.manualFlatUnitPrice || results.grossCostPerSqM)}/m²
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -582,29 +644,40 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
 
             {/* Mini Finansal Döküm */}
             <div className={`${cardBg} rounded-2xl border p-4 shadow-xs space-y-2.5`}>
-              <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                Hızlı Maliyet Dağılımı Özeti
-              </h4>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                  Hızlı Maliyet Dağılımı Özeti
+                </h4>
+                <span className="text-[11px] font-mono font-bold text-indigo-700">
+                  {formatCurrency(results.grossCostPerSqM)}/m²
+                </span>
+              </div>
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-600">Kaba İnşaat (%42)</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(results.totalCost * 0.42)}</span>
+                  <span className="text-slate-600">Kaba İnşaat (Beton, Demir, Duvar)</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(results.kabaTotalCost)}</span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-600">İnce İmalatlar & Cephe (%33)</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(results.totalCost * 0.33)}</span>
+                  <span className="text-slate-600">İnce İmalatlar & Cephe</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(results.finishingTotalCost)}</span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-600">Elektrik, Sıhhi & Mekanik Tesisat (%15)</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(results.totalCost * 0.15)}</span>
+                  <span className="text-slate-600">Elektrik, Sıhhi & Mekanik Tesisat</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(results.systemsCost)}</span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-600">Proje, Zemin Etüdü & Ruhsat Harçları (%10)</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(results.totalCost * 0.10)}</span>
+                  <span className="text-slate-600">Proje, SGK & Ruhsat Harçları</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(results.officialCost + results.sgkSalesCost)}</span>
                 </div>
+                {results.profitAmount > 0 && (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-600">Müteahhit Kârı / Payı (%{params.profitRate || 25})</span>
+                    <span className="font-bold text-emerald-700">{formatCurrency(results.profitAmount)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between pt-1.5 font-black text-emerald-800 text-sm">
                   <span>TOPLAM PROJE MALİYETİ</span>
-                  <span>{formatCurrency(results.totalCost)}</span>
+                  <span className="text-indigo-700 font-mono text-sm">{formatCurrency(results.grandTotal)}</span>
                 </div>
               </div>
             </div>
@@ -852,6 +925,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                 {filteredFlats.map((flat) => {
                   const isSigned = (flat.description || '').includes('İmzalandı');
                   const isObjection = (flat.description || '').includes('İtiraz');
+                  const flatRes = results.flatResults?.find(fr => fr.id === flat.id);
 
                   return (
                     <div
@@ -873,9 +947,18 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            {flat.area || 95} m² &bull; Kat {flat.floorNumber ?? Math.ceil(flat.id / 2)}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <span className="text-[11px] text-slate-500">
+                              {flat.area || 95} m² &bull; Kat {flat.floorNumber ?? Math.ceil(flat.id / 2)}
+                            </span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-700">
+                              {flat.isContractorShare
+                                ? 'Finansman (Müteahhit)'
+                                : params.projectModel === 'contractorShare'
+                                ? 'Kat Karşılığı (0 TL Borç)'
+                                : `Maliyet: ${formatCurrency(flatRes?.netRemainingDebt || 0)}`}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Status badge - clickable to toggle */}
@@ -966,11 +1049,13 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-500">Toplam İnşaat Alanı:</span>
-                  <span className="font-bold text-slate-900">{Math.round(results.totalBuildingArea || 0)} m²</span>
+                  <span className="font-bold text-slate-900">{Math.round(results.totalArea || 0)} m²</span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-500">Bağımsız Bölüm Sayısı:</span>
-                  <span className="font-bold text-slate-900">{results.flatCount || 0} Adet Daire</span>
+                  <span className="font-bold text-slate-900">
+                    {results.flatCount || 0} Adet ({contractorFlatsCount} Müteahhit / {Math.max(0, (results.flatCount || 0) - contractorFlatsCount)} Malik)
+                  </span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-500">Paylaşım Şartı:</span>
@@ -978,11 +1063,15 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-500">Taahhüt Edilen Süre:</span>
-                  <span className="font-black text-indigo-700">{results.projectDurationMonths || 18} Ay (Anahtar Teslim)</span>
+                  <span className="font-black text-indigo-700">{results.finalMonths || 18} Ay (Anahtar Teslim)</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Birim İmalat Bedeli:</span>
+                  <span className="font-mono font-bold text-emerald-700">{formatCurrency(results.grossCostPerSqM)}/m²</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 text-sm font-black text-emerald-800">
                   <span>TOPLAM PROJE BEDELİ:</span>
-                  <span>{formatCurrency(results.totalCost)}</span>
+                  <span className="text-indigo-700 font-mono text-base">{formatCurrency(results.grandTotal)}</span>
                 </div>
               </div>
 
@@ -1001,10 +1090,11 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                     const comp = profile.companyName || 'AB YAPI';
                     const msg = `🏢 *${comp.toUpperCase()} - KENTSEL DÖNÜŞÜM VE İNŞAAT TEKLİFİ*\n` +
                       `📍 *Proje:* ${params.projectAddress || 'İstanbul'}\n` +
-                      `📐 *Toplam İnşaat Alanı:* ${Math.round(results.totalBuildingArea || 0)} m²\n` +
-                      `🚪 *Daire Sayısı:* ${results.flatCount || 0} Adet\n` +
-                      `⏱️ *Taahhüt Süresi:* ${results.projectDurationMonths || 18} Ay\n` +
-                      `💰 *Toplam Maliyet Bedeli:* ${formatCurrency(results.totalCost)}\n` +
+                      `📐 *Toplam İnşaat Alanı:* ${Math.round(results.totalArea || 0)} m²\n` +
+                      `🚪 *Daire Sayısı:* ${results.flatCount || 0} Adet (${contractorFlatsCount} Müteahhit / ${Math.max(0, (results.flatCount || 0) - contractorFlatsCount)} Malik)\n` +
+                      `⏱️ *Taahhüt Süresi:* ${results.finalMonths || 18} Ay\n` +
+                      `📊 *Birim m² Bedeli:* ${formatCurrency(results.grossCostPerSqM)}/m²\n` +
+                      `💰 *Toplam Maliyet Bedeli:* ${formatCurrency(results.grandTotal)}\n` +
                       `🤝 *Paylaşım:* %${params.contractorShareRate || 50} Kat Karşılığı\n\n` +
                       `Detaylı mimari projeler, teknik şartname ve resmi sözleşme için ofisimizle iletişime geçebilirsiniz.\n\n` +
                       `*${profile.authorizedPerson || 'Şirket Yönetimi'}*\n` +

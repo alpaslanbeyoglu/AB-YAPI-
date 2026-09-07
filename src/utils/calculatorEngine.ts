@@ -517,7 +517,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const hasManualPrice = hasManualFlatPrice || hasManualShopPrice;
 
   const finalFlatPrice = hasManualFlatPrice ? params.manualFlatUnitPrice! : calculatedGrossCostPerSqM;
-  const finalShopPrice = hasManualShopPrice ? params.manualShopUnitPrice! : calculatedGrossCostPerSqM;
+  const finalShopPrice = hasManualShopPrice ? params.manualShopUnitPrice! : (hasManualFlatPrice ? params.manualFlatUnitPrice! : calculatedGrossCostPerSqM);
 
   const safeManualExtraCost = Math.max(0, params.manualEqualExtraCost || 0);
 
