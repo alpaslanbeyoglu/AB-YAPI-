@@ -451,3 +451,67 @@ export interface BuildingModelParams {
   flatCount?: number;
   roads?: RoadConfig[];
 }
+
+// -------------------------------------------------------------
+// İNŞAAT SÜREÇ & İLERLEME TAKİBİ (TEKLİF KABUL SONRASI) TİPLERİ
+// -------------------------------------------------------------
+
+export type ConstructionStageStatus = 'not_started' | 'in_progress' | 'completed' | 'delayed';
+export type ConstructionPeriodType = 'weekly' | 'monthly' | 'milestone';
+
+export interface ConstructionStage {
+  id: string;
+  order: number;
+  name: string;
+  category: 'proje_ruhsat' | 'kaba_yapi' | 'tesisat_ince' | 'teslim';
+  categoryLabel: string;
+  progressPercent: number; // 0 - 100
+  status: ConstructionStageStatus;
+  startDatePlanned: string;
+  endDatePlanned: string;
+  startDateActual?: string;
+  endDateActual?: string;
+  responsible: string;
+  weightPercent: number; // Toplam projedeki ağırlık payı (%)
+  notes: string;
+  subTasks?: { id: string; title: string; completed: boolean }[];
+}
+
+export interface ConstructionProgressLog {
+  id: string;
+  date: string;
+  periodType: ConstructionPeriodType;
+  periodLabel: string; // Örn: "12. Hafta", "Ekim 2026 Bülteni"
+  title: string;
+  overallProgress: number; // %
+  completedWork: string; // Bu periyotta tamamlanan imalatlar
+  plannedNextWork: string; // Önümüzdeki periyotta yapılacak işler
+  workDaysCount?: number; // Şantiye aktif çalışma günü
+  weatherStatus?: string; // Hava ve zemin koşulları
+  photoUrls?: string[]; // Şantiye fotoğrafları (data URL veya link)
+  isSharedWithClients?: boolean;
+}
+
+export interface ClientNotificationDraft {
+  channel: 'whatsapp' | 'sms' | 'email';
+  recipientType: 'all' | 'individual';
+  selectedFlatId?: number;
+  recipientName?: string;
+  recipientPhone?: string;
+  templateType: 'weekly' | 'monthly' | 'milestone' | 'custom';
+  messageSubject?: string;
+  messageBody: string;
+}
+
+export interface ConstructionProgressProjectState {
+  projectAddress: string;
+  contractDate: string; // Teklif kabul / Sözleşme tarihi
+  startDate: string; // Şantiye başlama tarihi
+  plannedCompletionDate: string; // Planlanan teslim tarihi
+  actualCompletionDate?: string;
+  isOfferAccepted: boolean;
+  overallProgress: number; // 0 - 100
+  stages: ConstructionStage[];
+  logs: ConstructionProgressLog[];
+  lastUpdated: string;
+}

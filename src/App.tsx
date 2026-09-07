@@ -18,15 +18,19 @@ import {
   Users,
   Building2,
   Settings2,
+  Smartphone,
+  Monitor,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Header } from './components/Header';
+import { LiteMobileView } from './components/LiteMobileView';
 import { DrivePanel } from './components/DrivePanel';
 import { ConfirmModal } from './components/ConfirmModal';
 import { CalculatorTab } from './components/CalculatorTab';
 import { BuildingModelTab } from './components/BuildingModelTab';
 import { FloorPlanTab } from './components/FloorPlanTab';
 import { OfferTab } from './components/OfferTab';
+import { ConstructionProgressTab } from './components/ConstructionProgressTab';
 import { ContractTab } from './components/ContractTab';
 import { SpecificationTab } from './components/SpecificationTab';
 import { AdminReportTab } from './components/AdminReportTab';
@@ -104,6 +108,26 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('hesapla');
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isDrivePanelOpen, setIsDrivePanelOpen] = useState(false);
+
+  // App mode: 'full' (pro desktop) or 'lite' (fast mobile)
+  const [appMode, setAppMode] = useState<'full' | 'lite'>(() => {
+    try {
+      const saved = localStorage.getItem('ab_yapi_mode');
+      if (saved === 'lite' || saved === 'full') return saved as 'full' | 'lite';
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        return 'lite';
+      }
+    } catch (e) {}
+    return 'full';
+  });
+
+  const toggleAppMode = () => {
+    const next = appMode === 'full' ? 'lite' : 'full';
+    setAppMode(next);
+    try {
+      localStorage.setItem('ab_yapi_mode', next);
+    } catch (e) {}
+  };
 
   const handleSaveTabs = (newTabs: TabConfig[]) => {
     setTabsConfig(newTabs);
@@ -700,6 +724,27 @@ export default function App() {
     tabs: tabsConfig.filter(t => t.category === cat.id && t.visible).sort((a, b) => a.order - b.order)
   }));
 
+  // If mobile Lite mode is active, render the dedicated LiteMobileView
+  if (appMode === 'lite') {
+    return (
+      <LiteMobileView
+        params={params}
+        results={results}
+        onChangeParams={updateCalculatorParams}
+        onSwitchToFull={() => {
+          setAppMode('full');
+          try {
+            localStorage.setItem('ab_yapi_mode', 'full');
+          } catch (e) {}
+        }}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onQuickSave={handleQuickSave}
+        isSavingToDrive={isSavingToDrive}
+      />
+    );
+  }
+
   return (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 ${
@@ -718,6 +763,8 @@ export default function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}
+          appMode={appMode}
+          onToggleAppMode={toggleAppMode}
         />
       </div>
 
@@ -766,6 +813,21 @@ export default function App() {
             </div>
           ))}
           
+          {/* Quick Mobile Lite Mode Switch Button */}
+          <button
+            type="button"
+            onClick={toggleAppMode}
+            title="Mobil Lite Sürüme Geç"
+            className={`self-end mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 border cursor-pointer active:scale-95 ${
+              isGray
+                ? 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border-indigo-200 shadow-xs'
+                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-xs'
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Mobil Lite</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsMenuSettingsOpen(true)}
@@ -880,7 +942,18 @@ export default function App() {
             hasToken={hasToken}
             onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
             onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
+            onNavigateToSurec={() => setActiveTab('surec')}
             theme={theme}
+          />
+        )}
+
+        {activeTab === 'surec' && (
+          <ConstructionProgressTab
+            params={params}
+            results={results}
+            theme={theme}
+            onNavigateToOffer={() => setActiveTab('teklif')}
+            onNavigateToContract={() => setActiveTab('sozlesme')}
           />
         )}
 

@@ -45,6 +45,7 @@ interface OfferTabProps {
   hasToken: boolean;
   onOpenDrivePanel: () => void;
   onUpdateParam?: (key: keyof ProjectParams, val: any) => void;
+  onNavigateToSurec?: () => void;
   theme?: AppTheme;
 }
 
@@ -54,6 +55,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   hasToken,
   onOpenDrivePanel,
   onUpdateParam,
+  onNavigateToSurec,
   theme = 'light',
 }) => {
   const { profile } = useCompanyProfile();
@@ -278,7 +280,23 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {onNavigateToSurec && (
+            <button
+              type="button"
+              onClick={() => {
+                const safeAddr = (params.projectAddress || 'default_project').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+                try {
+                  localStorage.setItem('ab_yapi_progress_' + safeAddr + '_offer_accepted', 'true');
+                } catch (e) {}
+                onNavigateToSurec();
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Teklif Kabul Edildi ➔ Süreç Takibini Başlat</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleSaveToDrive}

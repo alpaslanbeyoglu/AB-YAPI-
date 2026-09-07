@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Cloud, Save, HardDrive, Sun, Palette, Printer, FileDown, FileUp } from 'lucide-react';
+import { Cloud, Save, HardDrive, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Logo } from './Logo';
 import { AppTheme } from '../types';
@@ -15,6 +15,8 @@ interface HeaderProps {
   theme?: AppTheme;
   onToggleTheme?: () => void;
   onNavigateToCompletedProjects?: () => void;
+  appMode?: 'full' | 'lite';
+  onToggleAppMode?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   theme = 'light',
   onToggleTheme,
   onNavigateToCompletedProjects,
+  appMode = 'full',
+  onToggleAppMode,
 }) => {
   const isGray = theme === 'gray';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,10 +54,44 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Brand Logo & Title using official AB YAPI SVG Logo */}
         <div className="flex items-center gap-3">
           <Logo size="md" theme={theme} />
+          {appMode === 'lite' && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white shadow-xs">
+              LİTE
+            </span>
+          )}
         </div>
 
-        {/* Right Actions: Nav Link, Theme toggle, Google Drive sync & quick save */}
+        {/* Right Actions: Mode Switch, Theme toggle, Google Drive sync & quick save */}
         <div className="flex items-center gap-2 sm:gap-3">
+
+          {/* App Mode Conversion Button (Mobil Lite vs Tam Sürüm) */}
+          {onToggleAppMode && (
+            <button
+              id="app-mode-toggle-btn"
+              type="button"
+              onClick={onToggleAppMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer ${
+                appMode === 'lite'
+                  ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                  : isGray
+                  ? 'bg-white hover:bg-slate-50 text-indigo-700 border-indigo-200'
+                  : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200'
+              }`}
+              title={appMode === 'lite' ? 'Masaüstü / Tam Sürüme Geç' : 'Mobil Lite Sürüme Geç'}
+            >
+              {appMode === 'lite' ? (
+                <>
+                  <Monitor className="w-3.5 h-3.5 text-white" />
+                  <span>Tam Sürüm</span>
+                </>
+              ) : (
+                <>
+                  <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Mobil Lite</span>
+                </>
+              )}
+            </button>
+          )}
           
           {/* Light / Gray Theme Toggle Button (No Dark Theme) */}
           {onToggleTheme && (
