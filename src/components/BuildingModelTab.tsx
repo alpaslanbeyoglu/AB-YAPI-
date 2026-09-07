@@ -845,6 +845,21 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                               flatsPerFloor={modelParams.flatsPerFloor || 2}
                               theme={theme}
                               compact
+                              roads={modelParams.roads}
+                              onChangeRoads={(newRoads) => {
+                                updateParams({ roads: newRoads });
+                              }}
+                              stairWidth={modelParams.stairWidth}
+                              stairDepth={modelParams.stairDepth}
+                              elevatorWidth={modelParams.elevatorWidth}
+                              elevatorDepth={modelParams.elevatorDepth}
+                              elevatorCount={modelParams.elevatorCount}
+                              coreOffsetX={modelParams.coreOffsetX}
+                              coreOffsetY={modelParams.coreOffsetY}
+                              corePositionPreset={modelParams.corePositionPreset}
+                              onChangeCoreParams={(coreUpdates) => {
+                                updateParams(coreUpdates);
+                              }}
                             />
                           </div>
                         )}

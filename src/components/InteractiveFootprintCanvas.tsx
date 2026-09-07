@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   MousePointer,
+  Move,
   Plus,
   Trash2,
   RotateCcw,
+  RotateCw,
   Maximize2,
   Grid,
   CheckCircle2,
@@ -11,15 +13,32 @@ import {
   Sparkles,
   Compass,
   DoorOpen,
-  Armchair,
   Home,
   Sliders,
   Eye,
   Info,
   ZoomIn,
   ZoomOut,
+  Navigation,
+  CornerDownRight,
+  Ruler,
+  Split,
+  Crosshair,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  Car,
+  Building2,
+  Check,
 } from 'lucide-react';
-import { PolygonPoint, FacadeDetailConfig, AppTheme } from '../types';
+import {
+  PolygonPoint,
+  FacadeDetailConfig,
+  AppTheme,
+  RoadConfig,
+  RoadType,
+} from '../types';
 import {
   POLYGON_PRESETS,
   calculatePolygonArea,
@@ -29,9 +48,11 @@ import {
   generateFacadeConfigs,
   normalizePolygonAndAlignToGrid,
   validatePolygonFootprint,
+  isPointInPolygon,
+  getPolygonCentroid,
 } from '../utils/footprintUtils';
 
-interface InteractiveFootprintCanvasProps {
+export interface InteractiveFootprintCanvasProps {
   points?: PolygonPoint[];
   onChangePoints: (newPoints: PolygonPoint[]) => void;
   facadeConfigs?: FacadeDetailConfig[];
@@ -41,7 +62,30 @@ interface InteractiveFootprintCanvasProps {
   flatsPerFloor?: number;
   theme?: AppTheme;
   compact?: boolean;
+  // Enhanced features requested by user:
+  roads?: RoadConfig[];
+  onChangeRoads?: (roads: RoadConfig[]) => void;
+  stairWidth?: number;
+  stairDepth?: number;
+  elevatorWidth?: number;
+  elevatorDepth?: number;
+  elevatorCount?: number;
+  coreOffsetX?: number;
+  coreOffsetY?: number;
+  corePositionPreset?: 'center' | 'entrance' | 'rear' | 'left' | 'right' | 'custom';
+  onChangeCoreParams?: (params: {
+    stairWidth?: number;
+    stairDepth?: number;
+    elevatorWidth?: number;
+    elevatorDepth?: number;
+    elevatorCount?: number;
+    coreOffsetX?: number;
+    coreOffsetY?: number;
+    corePositionPreset?: 'center' | 'entrance' | 'rear' | 'left' | 'right' | 'custom';
+  }) => void;
 }
+
+export type CanvasToolMode = 'select' | 'addPoint' | 'pan';
 
 export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProps> = ({
   points: propPoints,
@@ -53,49 +97,104 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
   flatsPerFloor = 2,
   theme = 'light',
   compact = false,
+  roads = [],
+  onChangeRoads,
+  stairWidth = 2.6,
+  stairDepth = 4.8,
+  elevatorWidth = 1.8,
+  elevatorDepth = 2.0,
+  elevatorCount = 1,
+  coreOffsetX = 0,
+  coreOffsetY = 0,
+  corePositionPreset = 'center',
+  onChangeCoreParams,
 }) => {
   const points = (propPoints && propPoints.length >= 3) ? propPoints : POLYGON_PRESETS.rectangle.points;
   const isGray = theme === 'gray';
 
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Tool Modes: 'select' (default - points NEVER jump or add accidentally), 'addPoint' (only when clicked explicitly), 'pan'
+  const [toolMode, setToolMode] = useState<CanvasToolMode>('select');
+
+  // Active selections
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
-  const [gridStep, setGridStep] = useState<number>(0.5); // 0.5m grid step
   const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(0);
+
+  // Dragging state
+  const [isDraggingPoint, setIsDraggingPoint] = useState<boolean>(false);
+  const [draggedPointIndex, setDraggedPointIndex] = useState<number | null>(null);
+  const [isDraggingCore, setIsDraggingCore] = useState<boolean>(false);
+  const coreDragStartRef = useRef<{ mouseX: number; mouseY: number; initialOffsetX: number; initialOffsetY: number }>({
+    mouseX: 0,
+    mouseY: 0,
+    initialOffsetX: 0,
+    initialOffsetY: 0,
+  });
+
+  // History for Undo / Redo
+  const [history, setHistory] = useState<PolygonPoint[][]>([points]);
+  const [historyIndex, setHistoryIndex] = useState<number>(0);
+
+  // Push to history helper
+  const commitPointsWithHistory = useCallback((newPts: PolygonPoint[]) => {
+    setHistory(prev => {
+      const next = prev.slice(0, historyIndex + 1);
+      return [...next, newPts];
+    });
+    setHistoryIndex(prev => prev + 1);
+    onChangePoints(newPts);
+  }, [historyIndex, onChangePoints]);
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIdx = historyIndex - 1;
+      setHistoryIndex(newIdx);
+      onChangePoints(history[newIdx]);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const newIdx = historyIndex + 1;
+      setHistoryIndex(newIdx);
+      onChangePoints(history[newIdx]);
+    }
+  };
+
+  // Snapping & Grid settings
+  const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
+  const [gridStep, setGridStep] = useState<number>(0.5); // 0.5m default grid step
 
   // Zoom & Pan State
   const [zoom, setZoom] = useState<number>(1.0);
   const [panX, setPanX] = useState<number>(0);
   const [panY, setPanY] = useState<number>(0);
   const [isPanning, setIsPanning] = useState<boolean>(false);
-  const [panStart, setPanStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const panStartRef = useRef<{ clientX: number; clientY: number; panX: number; panY: number }>({
+    clientX: 0,
+    clientY: 0,
+    panX: 0,
+    panY: 0,
+  });
 
-  // Canvas coordinate system parameters: -17m to +17m
-  const viewBoxSize = 34; // 34 meters total width/height (-17 to +17)
+  // Flag to differentiate a genuine click from a pan drag release
+  const hasMovedRef = useRef<boolean>(false);
+
+  // Canvas coordinate system parameters: -18m to +18m
+  const viewBoxSize = 36;
   const halfSize = viewBoxSize / 2;
 
-  // Real-time geometric calculations & validation engine
+  // Real-time geometric calculations & validation
   const area = calculatePolygonArea(points);
   const perimeter = calculatePolygonPerimeter(points);
   const edges = getPolygonEdges(points);
   const bounds = getPolygonBounds(points);
+  const centroid = getPolygonCentroid(points);
   const validation = validatePolygonFootprint(points, gridStep);
 
-  // Geometric Normalization & Grid Alignment Handler
-  const handleNormalizeAndAlign = () => {
-    const { normalizedPoints, actionsTaken } = normalizePolygonAndAlignToGrid(points, {
-      gridStep,
-      angleSnapToleranceDeg: 10,
-      minEdgeLength: 0.5,
-    });
-    onChangePoints(normalizedPoints);
-    if (actionsTaken.length > 0) {
-      alert(`Geometrik Doğrulama & Aks Hizalaması Tamamlandı:\n\n• ` + actionsTaken.join('\n• '));
-    } else {
-      alert(`Geometrik form zaten ${gridStep}m yapısal aks ızgarası ile mükemmel uyumludur.`);
-    }
-  };
+  // Active feature tab in sidebar
+  const [activeTab, setActiveTab] = useState<'edges' | 'core' | 'facades'>('edges');
 
   // Sync facade configurations when edges change
   const currentFacadeConfigs = generateFacadeConfigs(points, facadeConfigs, mainEntranceIndex);
@@ -113,21 +212,17 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
     return { clientX: (e as any).clientX, clientY: (e as any).clientY };
   };
 
-  // Convert SVG mouse/touch coordinates to meters (-17 to +17) accounting for Zoom & Pan
-  const getMeterCoordinates = useCallback(
-    (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>): { x: number; y: number } | null => {
+  // Convert client screen coordinates to meters in polygon world space
+  const screenToMeters = useCallback(
+    (clientX: number, clientY: number): { x: number; y: number } | null => {
       if (!svgRef.current) return null;
       const rect = svgRef.current.getBoundingClientRect();
-      const { clientX, clientY } = getClientCoords(e);
-
       const normX = (clientX - rect.left) / rect.width;
       const normY = (clientY - rect.top) / rect.height;
 
-      // Base unscaled coordinates from -17m to +17m
-      const baseSvgX = (normX * viewBoxSize) - halfSize;
-      const baseSvgY = (normY * viewBoxSize) - halfSize;
+      const baseSvgX = normX * viewBoxSize - halfSize;
+      const baseSvgY = normY * viewBoxSize - halfSize;
 
-      // Invert zoom and pan to map back to building coordinates
       let meterX = (baseSvgX - panX) / zoom;
       let meterY = (baseSvgY - panY) / zoom;
 
@@ -137,14 +232,14 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
       }
 
       return {
-        x: Math.round(meterX * 10) / 10,
-        y: Math.round(meterY * 10) / 10,
+        x: Math.round(meterX * 100) / 100,
+        y: Math.round(meterY * 100) / 100,
       };
     },
     [snapToGrid, gridStep, viewBoxSize, halfSize, zoom, panX, panY]
   );
 
-  // Mouse Wheel Zoom centered at the cursor
+  // Wheel zoom centered on cursor
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -159,16 +254,15 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
       const normX = mouseX / rect.width;
       const normY = mouseY / rect.height;
 
-      const baseSvgX = (normX * viewBoxSize) - halfSize;
-      const baseSvgY = (normY * viewBoxSize) - halfSize;
+      const baseSvgX = normX * viewBoxSize - halfSize;
+      const baseSvgY = normY * viewBoxSize - halfSize;
 
       const oldZoom = zoom;
       const wheel = e.deltaY < 0 ? 1 : -1;
-      const newZoom = Math.max(0.6, Math.min(5.5, zoom + wheel * zoomIntensity));
+      const newZoom = Math.max(0.6, Math.min(5.0, zoom + wheel * zoomIntensity));
 
-      // Translate pan to keep cursor point stationary
-      setPanX((prev) => baseSvgX - (baseSvgX - prev) * (newZoom / oldZoom));
-      setPanY((prev) => baseSvgY - (baseSvgY - prev) * (newZoom / oldZoom));
+      setPanX(prev => baseSvgX - (baseSvgX - prev) * (newZoom / oldZoom));
+      setPanY(prev => baseSvgY - (baseSvgY - prev) * (newZoom / oldZoom));
       setZoom(newZoom);
     };
 
@@ -178,714 +272,1848 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
     };
   }, [zoom, panX, panY, viewBoxSize, halfSize]);
 
-  // Handle Canvas Click to add vertex if not dragging or panning
+  // Window-level dragging listener so fast mouse moves or drags never drop or misfire
+  useEffect(() => {
+    if (!isDraggingPoint && !isPanning && !isDraggingCore) return;
+
+    const handleWindowPointerMove = (e: PointerEvent) => {
+      hasMovedRef.current = true;
+
+      // Handle Point Dragging
+      if (isDraggingPoint && draggedPointIndex !== null && draggedPointIndex < points.length) {
+        const coords = screenToMeters(e.clientX, e.clientY);
+        if (!coords) return;
+
+        const updated = points.map((p, idx) => {
+          if (idx === draggedPointIndex) {
+            return { ...p, x: coords.x, y: coords.y };
+          }
+          return p;
+        });
+        onChangePoints(updated);
+      }
+
+      // Handle Core Dragging
+      if (isDraggingCore && onChangeCoreParams) {
+        if (!svgRef.current) return;
+        const rect = svgRef.current.getBoundingClientRect();
+        const deltaPxX = e.clientX - coreDragStartRef.current.mouseX;
+        const deltaPxY = e.clientY - coreDragStartRef.current.mouseY;
+
+        const deltaMetersX = (deltaPxX / rect.width) * (viewBoxSize / zoom);
+        const deltaMetersY = (deltaPxY / rect.height) * (viewBoxSize / zoom);
+
+        let newOffsetX = coreDragStartRef.current.initialOffsetX + deltaMetersX;
+        let newOffsetY = coreDragStartRef.current.initialOffsetY + deltaMetersY;
+
+        if (snapToGrid) {
+          newOffsetX = Math.round(newOffsetX / gridStep) * gridStep;
+          newOffsetY = Math.round(newOffsetY / gridStep) * gridStep;
+        }
+
+        // Clamp inside bounding box
+        const maxDistX = Math.max(1, bounds.width / 2 - 2);
+        const maxDistY = Math.max(1, bounds.depth / 2 - 2);
+        newOffsetX = Math.max(-maxDistX, Math.min(maxDistX, newOffsetX));
+        newOffsetY = Math.max(-maxDistY, Math.min(maxDistY, newOffsetY));
+
+        onChangeCoreParams({
+          coreOffsetX: Math.round(newOffsetX * 10) / 10,
+          coreOffsetY: Math.round(newOffsetY * 10) / 10,
+          corePositionPreset: 'custom',
+        });
+      }
+
+      // Handle Pan
+      if (isPanning) {
+        if (!svgRef.current) return;
+        const rect = svgRef.current.getBoundingClientRect();
+        const deltaPxX = e.clientX - panStartRef.current.clientX;
+        const deltaPxY = e.clientY - panStartRef.current.clientY;
+
+        const deltaSvgX = (deltaPxX / rect.width) * viewBoxSize;
+        const deltaSvgY = (deltaPxY / rect.height) * viewBoxSize;
+
+        setPanX(panStartRef.current.panX + deltaSvgX);
+        setPanY(panStartRef.current.panY + deltaSvgY);
+      }
+    };
+
+    const handleWindowPointerUp = () => {
+      if (isDraggingPoint) {
+        setIsDraggingPoint(false);
+        setDraggedPointIndex(null);
+        // Save current state to history
+        commitPointsWithHistory(points);
+      }
+      if (isDraggingCore) {
+        setIsDraggingCore(false);
+      }
+      if (isPanning) {
+        setIsPanning(false);
+      }
+    };
+
+    window.addEventListener('pointermove', handleWindowPointerMove);
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+    };
+  }, [
+    isDraggingPoint,
+    draggedPointIndex,
+    isPanning,
+    isDraggingCore,
+    points,
+    screenToMeters,
+    commitPointsWithHistory,
+    onChangePoints,
+    onChangeCoreParams,
+    viewBoxSize,
+    zoom,
+    snapToGrid,
+    gridStep,
+    bounds.width,
+    bounds.depth,
+  ]);
+
+  // Canvas Mouse Down: Starts pan in 'pan' or 'select' mode when not hitting a vertex
+  const handleCanvasPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    hasMovedRef.current = false;
+    panStartRef.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      panX,
+      panY,
+    };
+    setIsPanning(true);
+  };
+
+  // Canvas Click: Only in 'addPoint' mode does clicking empty canvas insert a vertex!
   const handleCanvasClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (isDragging || isPanning) return;
-    const coords = getMeterCoordinates(e);
-    if (!coords) return;
-
-    // Check if clicked near existing point
-    const nearIndex = points.findIndex(
-      (p) => Math.hypot(p.x - coords.x, p.y - coords.y) < 0.9
-    );
-
-    if (nearIndex !== -1) {
-      setSelectedPointIndex(nearIndex);
+    // If pointer was moved (dragging or panning), do not treat as click
+    if (hasMovedRef.current) {
+      hasMovedRef.current = false;
       return;
     }
 
-    // Insert point after the closest edge
-    let closestEdgeIndex = 0;
-    let minDistance = Infinity;
-
-    for (let i = 0; i < points.length; i++) {
-      const p1 = points[i];
-      const p2 = points[(i + 1) % points.length];
-      const midX = (p1.x + p2.x) / 2;
-      const midY = (p1.y + p2.y) / 2;
-      const dist = Math.hypot(midX - coords.x, midY - coords.y);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestEdgeIndex = i;
-      }
+    if (toolMode === 'select') {
+      // In select mode, clicking empty canvas simply deselects active point/edge!
+      // This prevents the common frustration of accidental points jumping into the polygon!
+      setSelectedPointIndex(null);
+      return;
     }
 
-    const newPoints = [...points];
-    const newPoint: PolygonPoint = {
-      id: `p_${Date.now()}`,
-      x: coords.x,
-      y: coords.y,
-    };
-    newPoints.splice(closestEdgeIndex + 1, 0, newPoint);
-    onChangePoints(newPoints);
-    setSelectedPointIndex(closestEdgeIndex + 1);
-  };
-
-  // Vertex Drag Handlers
-  const handlePointMouseDown = (index: number, e: React.MouseEvent | React.TouchEvent) => {
-    e.stopPropagation();
-    setSelectedPointIndex(index);
-    setIsDragging(true);
-  };
-
-  // Canvas Panning Handler
-  const handleCanvasMouseDown = (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => {
-    // Left-click to pan or touch start
-    const { clientX, clientY } = getClientCoords(e);
-    setIsPanning(true);
-    setPanStart({ x: clientX, y: clientY });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement> | React.TouchEvent<SVGSVGElement>) => {
-    if (isDragging && selectedPointIndex !== null) {
-      const coords = getMeterCoordinates(e);
+    if (toolMode === 'addPoint') {
+      const coords = screenToMeters(e.clientX, e.clientY);
       if (!coords) return;
 
-      const updated = [...points];
-      updated[selectedPointIndex] = {
-        ...updated[selectedPointIndex],
+      // Find closest edge to insert after
+      let closestEdgeIndex = 0;
+      let minDistance = Infinity;
+
+      for (let i = 0; i < points.length; i++) {
+        const p1 = points[i];
+        const p2 = points[(i + 1) % points.length];
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        const dist = Math.hypot(midX - coords.x, midY - coords.y);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestEdgeIndex = i;
+        }
+      }
+
+      const newPoint: PolygonPoint = {
+        id: `p_${Date.now()}`,
         x: coords.x,
         y: coords.y,
       };
-      onChangePoints(updated);
-    } else if (isPanning) {
-      const { clientX, clientY } = getClientCoords(e);
-      if (svgRef.current) {
-        const rect = svgRef.current.getBoundingClientRect();
-        const deltaX = (clientX - panStart.x) * (viewBoxSize / rect.width);
-        const deltaY = (clientY - panStart.y) * (viewBoxSize / rect.height);
-        setPanX((prev) => prev + deltaX);
-        setPanY((prev) => prev + deltaY);
-        setPanStart({ x: clientX, y: clientY });
-      }
+
+      const newPoints = [...points];
+      newPoints.splice(closestEdgeIndex + 1, 0, newPoint);
+      commitPointsWithHistory(newPoints);
+      setSelectedPointIndex(closestEdgeIndex + 1);
+      // Switch back to select mode automatically so subsequent clicks don't spawn more points accidentally
+      setToolMode('select');
     }
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    setIsPanning(false);
+  // Start dragging a point
+  const handlePointPointerDown = (index: number, e: React.PointerEvent) => {
+    e.stopPropagation();
+    hasMovedRef.current = false;
+    setSelectedPointIndex(index);
+    setDraggedPointIndex(index);
+    setIsDraggingPoint(true);
   };
 
-  // Delete selected vertex
+  // Start dragging circulation core
+  const handleCorePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    hasMovedRef.current = false;
+    coreDragStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      initialOffsetX: coreOffsetX || 0,
+      initialOffsetY: coreOffsetY || 0,
+    };
+    setIsDraggingCore(true);
+    setActiveTab('core');
+  };
+
+  // Split an edge at its exact midpoint (1-click fail-safe vertex addition)
+  const handleSplitEdge = (edgeIdx: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const edge = edges[edgeIdx];
+    if (!edge) return;
+
+    let splitX = edge.midpoint.x;
+    let splitY = edge.midpoint.y;
+    if (snapToGrid) {
+      splitX = Math.round(splitX / gridStep) * gridStep;
+      splitY = Math.round(splitY / gridStep) * gridStep;
+    }
+
+    const newPoint: PolygonPoint = {
+      id: `p_${Date.now()}`,
+      x: splitX,
+      y: splitY,
+    };
+
+    const newPoints = [...points];
+    newPoints.splice(edgeIdx + 1, 0, newPoint);
+    commitPointsWithHistory(newPoints);
+    setSelectedPointIndex(edgeIdx + 1);
+    setSelectedEdgeIndex(edgeIdx);
+  };
+
+  // Delete Vertex
   const handleDeletePoint = (index: number) => {
     if (points.length <= 3) {
-      alert('Bina taban poligonu en az 3 köşe noktasından oluşmalıdır.');
+      alert('Poligon en az 3 köşeden oluşmalıdır. Daha fazla köşe silinemez.');
       return;
     }
-    const updated = points.filter((_, i) => i !== index);
-    onChangePoints(updated);
+    const newPoints = points.filter((_, idx) => idx !== index);
+    commitPointsWithHistory(newPoints);
     setSelectedPointIndex(null);
   };
 
-  // Apply Preset
-  const handleApplyPreset = (presetKey: string) => {
-    const preset = POLYGON_PRESETS[presetKey];
-    if (preset) {
-      onChangePoints(preset.points);
-      setSelectedPointIndex(null);
-      if (onChangeMainEntranceIndex) onChangeMainEntranceIndex(0);
+  // Manual Nudge of Selected Vertex
+  const handleNudgePoint = (dx: number, dy: number) => {
+    if (selectedPointIndex === null || selectedPointIndex >= points.length) return;
+    const pt = points[selectedPointIndex];
+    const newX = Math.round((pt.x + dx) * 10) / 10;
+    const newY = Math.round((pt.y + dy) * 10) / 10;
+    const newPoints = points.map((p, idx) =>
+      idx === selectedPointIndex ? { ...p, x: newX, y: newY } : p
+    );
+    commitPointsWithHistory(newPoints);
+  };
+
+  // Direct Coordinate Input Change
+  const handlePointCoordChange = (axis: 'x' | 'y', value: number) => {
+    if (selectedPointIndex === null || selectedPointIndex >= points.length) return;
+    if (isNaN(value)) return;
+    const safeVal = Math.max(-25, Math.min(25, value));
+    const newPoints = points.map((p, idx) =>
+      idx === selectedPointIndex ? { ...p, [axis]: safeVal } : p
+    );
+    commitPointsWithHistory(newPoints);
+  };
+
+  // Change Edge Length
+  const handleChangeEdgeLength = (edgeIdx: number, newLengthM: number, mode: 'extendEnd' | 'symmetric' = 'extendEnd') => {
+    if (edgeIdx < 0 || edgeIdx >= points.length) return;
+    const safeLen = Math.max(1.0, Math.min(80.0, typeof newLengthM === 'number' && !isNaN(newLengthM) ? newLengthM : 10.0));
+
+    const n = points.length;
+    const p1 = points[edgeIdx];
+    const p2 = points[(edgeIdx + 1) % n];
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const curLen = Math.hypot(dx, dy);
+    if (curLen < 0.001) return;
+
+    let updatedPoints: PolygonPoint[];
+
+    if (mode === 'symmetric') {
+      const midX = (p1.x + p2.x) / 2;
+      const midY = (p1.y + p2.y) / 2;
+      const halfLen = safeLen / 2;
+      const unitX = dx / curLen;
+      const unitY = dy / curLen;
+
+      updatedPoints = points.map((p, idx) => {
+        if (idx === edgeIdx) {
+          return {
+            ...p,
+            x: Math.round((midX - unitX * halfLen) * 10) / 10,
+            y: Math.round((midY - unitY * halfLen) * 10) / 10,
+          };
+        }
+        if (idx === (edgeIdx + 1) % n) {
+          return {
+            ...p,
+            x: Math.round((midX + unitX * halfLen) * 10) / 10,
+            y: Math.round((midY + unitY * halfLen) * 10) / 10,
+          };
+        }
+        return p;
+      });
+    } else {
+      // Extend end vertex along edge vector
+      const scale = safeLen / curLen;
+      const deltaX = dx * (scale - 1);
+      const deltaY = dy * (scale - 1);
+
+      updatedPoints = points.map((p, idx) => {
+        if (idx === (edgeIdx + 1) % n) {
+          return {
+            ...p,
+            x: Math.round((p.x + deltaX) * 10) / 10,
+            y: Math.round((p.y + deltaY) * 10) / 10,
+          };
+        }
+        return p;
+      });
+    }
+
+    commitPointsWithHistory(updatedPoints);
+  };
+
+  // Make Edge Perfectly Orthogonal (Snap to 0, 90, 180, 270 degrees)
+  const handleOrthogonalizeEdge = (edgeIdx: number) => {
+    if (edgeIdx < 0 || edgeIdx >= points.length) return;
+    const n = points.length;
+    const p1 = points[edgeIdx];
+    const p2 = points[(edgeIdx + 1) % n];
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const len = Math.hypot(dx, dy);
+
+    const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+    const absAngle = (angleDeg + 360) % 360;
+
+    const targets = [0, 90, 180, 270, 360];
+    let closestTarget = targets[0];
+    let minDiff = Infinity;
+    for (const tgt of targets) {
+      const diff = Math.abs(absAngle - tgt);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestTarget = tgt % 360;
+      }
+    }
+
+    const rad = (closestTarget * Math.PI) / 180;
+    const newX = Math.round((p1.x + Math.cos(rad) * len) * 10) / 10;
+    const newY = Math.round((p1.y + Math.sin(rad) * len) * 10) / 10;
+
+    const updated = points.map((p, idx) => {
+      if (idx === (edgeIdx + 1) % n) {
+        return { ...p, x: newX, y: newY };
+      }
+      return p;
+    });
+    commitPointsWithHistory(updated);
+  };
+
+  // Geometric Normalization & Structural Grid Alignment
+  const handleNormalizeAndAlign = () => {
+    const { normalizedPoints, actionsTaken } = normalizePolygonAndAlignToGrid(points, {
+      gridStep,
+      angleSnapToleranceDeg: 10,
+      minEdgeLength: 0.5,
+    });
+    commitPointsWithHistory(normalizedPoints);
+    if (actionsTaken.length > 0) {
+      alert(`Geometrik Doğrulama & Aks Hizalaması Tamamlandı:\n\n• ` + actionsTaken.join('\n• '));
+    } else {
+      alert(`Geometrik form zaten ${gridStep}m yapısal aks ızgarası ile mükemmel uyumludur.`);
     }
   };
 
-  // Update specific facade configuration
-  const handleUpdateFacadeConfig = (index: number, updates: Partial<FacadeDetailConfig>) => {
-    const updated = currentFacadeConfigs.map((cfg, i) => {
-      if (i === index) {
-        const merged = { ...cfg, ...updates };
-        
-        // Under TR regulations, blind facades (0 windows) cannot have balconies
-        if (merged.windowCountPerFloor === 0) {
-          merged.hasBalcony = false;
-          merged.balconyCountPerFloor = 0;
-        } else if (merged.hasBalcony && merged.windowCountPerFloor === 0) {
-          // If they somehow had balcony but 0 windows, enforce at least 1 window
-          merged.windowCountPerFloor = 1;
-        }
-        
-        return merged;
+  // ROAD MANAGEMENT: Add, Update, or Remove Road on a Facade/Edge
+  const handleToggleRoadOnFacade = (facadeIdx: number, roadType: RoadType = 'road', customName?: string) => {
+    if (!onChangeRoads) return;
+    const existing = roads.find(r => r.facadeIndex === facadeIdx);
+
+    if (existing) {
+      // Remove road
+      const updated = roads.filter(r => r.facadeIndex !== facadeIdx);
+      onChangeRoads(updated);
+    } else {
+      // Add road
+      const defaultWidth = roadType === 'street' ? 7 : roadType === 'road' ? 12 : roadType === 'avenue' ? 20 : 35;
+      const defaultName = roadType === 'street' ? `${facadeIdx + 1}. Sokak` : roadType === 'avenue' ? `${facadeIdx + 1}. Cadde` : `${facadeIdx + 1}. Ön Yol`;
+      const newRoad: RoadConfig = {
+        id: `road_${Date.now()}_${facadeIdx}`,
+        facadeIndex: facadeIdx,
+        type: roadType,
+        name: customName || defaultName,
+        width: defaultWidth,
+      };
+      onChangeRoads([...roads, newRoad]);
+    }
+  };
+
+  const handleUpdateRoadType = (facadeIdx: number, newType: RoadType) => {
+    if (!onChangeRoads) return;
+    const defaultWidth = newType === 'street' ? 7 : newType === 'road' ? 12 : newType === 'avenue' ? 20 : 35;
+    const updated = roads.map(r => {
+      if (r.facadeIndex === facadeIdx) {
+        return { ...r, type: newType, width: defaultWidth };
       }
-      if (updates.isEntrance && i !== index) {
-        return { ...cfg, isEntrance: false };
+      return r;
+    });
+    onChangeRoads(updated);
+  };
+
+  const handleUpdateRoadName = (facadeIdx: number, newName: string) => {
+    if (!onChangeRoads) return;
+    const updated = roads.map(r => {
+      if (r.facadeIndex === facadeIdx) {
+        return { ...r, name: newName };
+      }
+      return r;
+    });
+    onChangeRoads(updated);
+  };
+
+  // ENTRANCE MANAGEMENT: Select Main Building Entrance
+  const handleSetMainEntrance = (idx: number) => {
+    if (onChangeMainEntranceIndex) {
+      onChangeMainEntranceIndex(idx);
+    }
+    if (onChangeFacadeConfigs) {
+      const updated = currentFacadeConfigs.map((cfg, i) => ({
+        ...cfg,
+        isEntrance: i === idx,
+      }));
+      onChangeFacadeConfigs(updated);
+    }
+  };
+
+  // CORE PRESET MANAGEMENT
+  const handleApplyCorePreset = (preset: 'center' | 'entrance' | 'rear' | 'left' | 'right') => {
+    if (!onChangeCoreParams) return;
+    let offX = 0;
+    let offY = 0;
+
+    const wHalf = bounds.width / 4;
+    const dHalf = bounds.depth / 4;
+
+    if (preset === 'center') {
+      offX = 0;
+      offY = 0;
+    } else if (preset === 'entrance') {
+      // Find entrance edge midpoint relative to centroid
+      const entEdge = edges[mainEntranceIndex] || edges[0];
+      if (entEdge) {
+        offX = Math.round((entEdge.midpoint.x - centroid.x) * 0.45 * 10) / 10;
+        offY = Math.round((entEdge.midpoint.y - centroid.y) * 0.45 * 10) / 10;
+      } else {
+        offY = dHalf * 0.8;
+      }
+    } else if (preset === 'rear') {
+      offY = -dHalf * 0.9;
+    } else if (preset === 'left') {
+      offX = -wHalf * 0.9;
+    } else if (preset === 'right') {
+      offX = wHalf * 0.9;
+    }
+
+    onChangeCoreParams({
+      coreOffsetX: offX,
+      coreOffsetY: offY,
+      corePositionPreset: preset,
+    });
+  };
+
+  // Facade config individual update
+  const handleUpdateFacadeConfig = (idx: number, updates: Partial<FacadeDetailConfig>) => {
+    if (!onChangeFacadeConfigs) return;
+    const updated = currentFacadeConfigs.map((cfg, i) => {
+      if (i === idx) {
+        return { ...cfg, ...updates };
       }
       return cfg;
     });
-
-    if (onChangeFacadeConfigs) {
-      onChangeFacadeConfigs(updated);
-    }
-    if (updates.isEntrance && onChangeMainEntranceIndex) {
-      onChangeMainEntranceIndex(index);
-    }
+    onChangeFacadeConfigs(updated);
   };
 
-  // SVG Polygon Points String
-  const polygonPointsStr = points.map((p) => `${p.x},${p.y}`).join(' ');
+  // Convert points to SVG polygon points string
+  const polygonPointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
+
+  // Computed Circulation Core Center Coordinates
+  const effectiveCoreCenterX = bounds.centerX + (coreOffsetX || 0);
+  const effectiveCoreCenterY = bounds.centerY + (coreOffsetY || 0);
+
+  // Selected edge object
+  const currentSelectedEdge = selectedEdgeIndex !== null ? edges[selectedEdgeIndex] : null;
+  const currentEdgeRoad = selectedEdgeIndex !== null ? roads.find(r => r.facadeIndex === selectedEdgeIndex) : null;
+  const isSelectedEdgeEntrance = selectedEdgeIndex === mainEntranceIndex;
 
   return (
-    <div className={`space-y-4 ${isGray ? 'text-slate-200' : 'text-slate-800'}`}>
-      {/* Real-time metrics bar */}
-      <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-slate-200">
-        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-          <MousePointer className="w-4 h-4 text-indigo-600" />
-          <span>Poligon Çizim Editörü & Cephe Konfigürasyonu</span>
-        </span>
+    <div className="space-y-4">
+      {/* 🧭 TOP HEADER: AREA, PERIMETER, STATUS & TOOL MODES */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="px-2.5 py-1 bg-indigo-50 border border-indigo-200 rounded-lg text-xs font-bold text-indigo-900 font-mono">
-            Alan: <span className="text-indigo-600">{area.toFixed(1)} m²</span>
+          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-200">
+            <Ruler className="w-4 h-4" />
           </div>
-          <div className="px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 font-mono">
-            Çevre: {perimeter.toFixed(1)} m
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-800">
+                2D Akıllı Poligon Taban Çizim Editörü
+              </span>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                validation.isValid
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {points.length} Köşe • {area.toFixed(1)} m²
+              </span>
+            </div>
+            <span className="text-xs text-slate-500">
+              Çevre: <b className="text-slate-700">{perimeter.toFixed(1)}m</b> • Boyutlar:{' '}
+              <b className="text-slate-700">{bounds.width.toFixed(1)}m × {bounds.depth.toFixed(1)}m</b>
+            </span>
           </div>
+        </div>
+
+        {/* PRIMARY TOOL MODE SELECTOR BAR */}
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button
+            type="button"
+            onClick={() => setToolMode('select')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              toolMode === 'select'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-700 hover:bg-white/80'
+            }`}
+            title="Seç ve Taşı Modu: Köşeleri ve kenarları seçin veya sürükleyin. Boşluğa tıklamak yanlışlıkla nokta eklemez!"
+          >
+            <MousePointer className="w-3.5 h-3.5" />
+            <span>Seç & Düzenle</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setToolMode('addPoint')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              toolMode === 'addPoint'
+                ? 'bg-emerald-600 text-white shadow-sm animate-pulse'
+                : 'text-slate-700 hover:bg-white/80'
+            }`}
+            title="Serbest Nokta Ekleme Modu: Çizim alanına tıklayarak yeni köşe noktası ekleyin."
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+            <span>+ Nokta Ekle</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setToolMode('pan')}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              toolMode === 'pan'
+                ? 'bg-slate-800 text-white shadow-sm'
+                : 'text-slate-700 hover:bg-white/80'
+            }`}
+            title="Çizim alanını kaydırmak için tuvali sürükleyin"
+          >
+            <Move className="w-3.5 h-3.5" />
+            <span>Kaydır</span>
+          </button>
+
+          <div className="w-[1px] h-5 bg-slate-300 mx-1" />
+
+          {/* UNDO / REDO */}
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={historyIndex <= 0}
+            className="p-1.5 rounded-lg text-slate-700 hover:bg-white disabled:opacity-30 transition-all"
+            title="Geri Al (Undo)"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleRedo}
+            disabled={historyIndex >= history.length - 1}
+            className="p-1.5 rounded-lg text-slate-700 hover:bg-white disabled:opacity-30 transition-all"
+            title="İleri Al (Redo)"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+          </button>
+
+          <div className="w-[1px] h-5 bg-slate-300 mx-1" />
+
+          {/* Aksa Hizala & Dikleştir */}
+          <button
+            type="button"
+            onClick={handleNormalizeAndAlign}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 flex items-center gap-1 transition-all"
+            title="Köşeleri 90° ve 45° dik açılara bağlar, çakışan noktaları temizler."
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Aksa Hizala</span>
+          </button>
         </div>
       </div>
 
-      {/* INTERACTIVE 2D CANVAS */}
-      <div className="space-y-2.5">
-          {/* Geometric Validation & Structural Grid Alignment Banner */}
-          <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 flex-wrap ${
-            validation.isValid
-              ? validation.healthScore >= 90
-                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
-                : 'bg-amber-50/80 border-amber-200 text-amber-900'
-              : 'bg-rose-50/80 border-rose-200 text-rose-900'
-          }`}>
-            <div className="flex items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${
-                validation.isValid ? (validation.healthScore >= 90 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500') : 'bg-rose-500 animate-ping'
-              }`} />
-              <div>
-                <span className="font-bold">
-                  {validation.isValid ? `Geometrik Doğruluk: %${validation.healthScore}` : 'Geometrik Uyuşmazlık!'}
-                </span>
-                <span className="ml-2 text-[11px] opacity-80">
-                  ({validation.gridAlignment.alignmentPercentage}% Izgara Uyumlu • {validation.metrics.edgeCount} Köşe • {validation.metrics.isOrthogonal ? 'Dik Akslı' : 'Açısal Form'})
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {validation.issues.length > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-200 text-rose-800">
-                  {validation.issues[0]}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={handleNormalizeAndAlign}
-                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Köşeleri dikleştir, çakışmaları sil ve aks ızgarasına sabitle"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>⚡ Geometrik Düzelt & Aksa Hizala</span>
-              </button>
-            </div>
+      {/* ⚠️ TOOLBAR ACTIVE MODE NOTIFICATION BANNER */}
+      {toolMode === 'addPoint' && (
+        <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <Crosshair className="w-4 h-4 text-emerald-600 animate-spin" />
+            <span>
+              <b>Nokta Ekleme Modu Aktif:</b> Çizim üzerinde istediğiniz konuma tıklayarak yeni köşe ekleyin. Ekledikten sonra otomatik olarak Seçim moduna dönülür.
+            </span>
           </div>
+          <button
+            type="button"
+            onClick={() => setToolMode('select')}
+            className="px-2 py-0.5 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-700 text-[11px]"
+          >
+            İptal Et
+          </button>
+        </div>
+      )}
 
-          {/* Quick Preset Selector & Grid Controls */}
-          <div className="flex items-center justify-between gap-1 flex-wrap text-xs">
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-[11px] font-semibold text-slate-500">Hazır Şablonlar:</span>
-              {Object.entries(POLYGON_PRESETS).map(([key, item]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => handleApplyPreset(key)}
-                  className="px-2 py-0.5 bg-white border border-slate-200 hover:border-indigo-500 hover:text-indigo-600 rounded-lg text-[11px] font-medium transition-colors"
-                >
-                  {item.name.split(' ')[0]}
-                </button>
-              ))}
-            </div>
+      {/* 🖥️ MAIN CANVAS & DRAWING STAGE */}
+      <div className="relative w-full rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-inner">
+        {/* SVG Drawing Surface */}
+        <div className="w-full aspect-[16/10] min-h-[380px] max-h-[560px] relative select-none">
+          <svg
+            ref={svgRef}
+            viewBox={`${-halfSize} ${-halfSize} ${viewBoxSize} ${viewBoxSize}`}
+            className={`w-full h-full ${
+              toolMode === 'addPoint'
+                ? 'cursor-crosshair'
+                : toolMode === 'pan' || isPanning
+                ? 'cursor-grab active:cursor-grabbing'
+                : 'cursor-default'
+            }`}
+            onPointerDown={handleCanvasPointerDown}
+            onClick={handleCanvasClick}
+          >
+            <defs>
+              {/* 1-meter minor grid pattern */}
+              <pattern id="grid-1m" width="1" height="1" patternUnits="userSpaceOnUse">
+                <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.04" />
+              </pattern>
+              {/* 5-meter major grid pattern */}
+              <pattern id="grid-5m" width="5" height="5" patternUnits="userSpaceOnUse">
+                <rect width="5" height="5" fill="url(#grid-1m)" />
+                <path d="M 5 0 L 0 0 0 5" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="0.08" />
+              </pattern>
+              {/* Diagonal architectural building hatch */}
+              <pattern id="hatch-arch" width="1.2" height="1.2" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="0" x2="0" y2="1.2" stroke="rgba(99, 102, 241, 0.28)" strokeWidth="0.16" />
+              </pattern>
+              {/* Asphalt road pattern */}
+              <pattern id="road-asphalt" width="2" height="2" patternUnits="userSpaceOnUse">
+                <rect width="2" height="2" fill="#1e293b" />
+                <line x1="0" y1="1" x2="2" y2="1" stroke="rgba(255,255,255,0.04)" strokeWidth="0.1" strokeDasharray="0.3,0.3" />
+              </pattern>
+            </defs>
 
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1 cursor-pointer text-[11px] text-slate-600 font-medium">
-                <input
-                  type="checkbox"
-                  checked={snapToGrid}
-                  onChange={(e) => setSnapToGrid(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
-                />
-                <span>Izgaraya Yapış ({gridStep}m)</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => handleApplyPreset('rectangle')}
-                className="p-1 text-slate-500 hover:text-red-600 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Sıfırla"
+            {/* Transform Container with Pan & Zoom */}
+            <g transform={`translate(${panX}, ${panY}) scale(${zoom})`}>
+              {/* Infinite Grid Background */}
+              <rect x="-150" y="-150" width="300" height="300" fill="#0f172a" />
+              <rect x="-150" y="-150" width="300" height="300" fill="url(#grid-5m)" />
+
+              {/* World Axes (X=0, Y=0 in meters) */}
+              <line x1="-150" y1="0" x2="150" y2="0" stroke="rgba(255,255,255,0.18)" strokeWidth="0.06" strokeDasharray="0.4,0.4" />
+              <line x1="0" y1="-150" x2="0" y2="150" stroke="rgba(255,255,255,0.18)" strokeWidth="0.06" strokeDasharray="0.4,0.4" />
+
+              {/* 🛣️ 2D ROADS RENDERING ON ATTACHED FACADES */}
+              {roads.map(road => {
+                const edge = edges[road.facadeIndex];
+                if (!edge) return null;
+
+                const p1 = edge.start;
+                const p2 = edge.end;
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const len = Math.hypot(dx, dy);
+                if (len < 0.1) return null;
+
+                // Outward normal vector perpendicular to edge (CCW winding points outside)
+                // Normal = (dy / len, -dx / len)
+                const nx = dy / len;
+                const ny = -dx / len;
+
+                const roadW = Math.max(3, Math.min(15, (road.width || 12) * 0.45)); // Scaled for clean 2D representation
+
+                // 4 corners of road strip
+                const r1x = p1.x;
+                const r1y = p1.y;
+                const r2x = p2.x;
+                const r2y = p2.y;
+                const r3x = p2.x + nx * roadW;
+                const r3y = p2.y + ny * roadW;
+                const r4x = p1.x + nx * roadW;
+                const r4y = p1.y + ny * roadW;
+
+                const midRoadX = edge.midpoint.x + nx * (roadW * 0.5);
+                const midRoadY = edge.midpoint.y + ny * (roadW * 0.5);
+
+                const roadAngle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+                return (
+                  <g key={`road-polygon-${road.id}`} className="cursor-pointer" onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedEdgeIndex(road.facadeIndex);
+                    setActiveTab('edges');
+                  }}>
+                    {/* Road Pavement Ribbon */}
+                    <polygon
+                      points={`${r1x},${r1y} ${r2x},${r2y} ${r3x},${r3y} ${r4x},${r4y}`}
+                      fill="#1e293b"
+                      stroke="#475569"
+                      strokeWidth="0.1"
+                    />
+
+                    {/* Road Centerline dashed stripe */}
+                    <line
+                      x1={(r1x + r4x) / 2}
+                      y1={(r1y + r4y) / 2}
+                      x2={(r2x + r3x) / 2}
+                      y2={(r2y + r3y) / 2}
+                      stroke="#facc15"
+                      strokeWidth="0.12"
+                      strokeDasharray="0.8,0.5"
+                    />
+
+                    {/* Sidewalk Curb line */}
+                    <line
+                      x1={r1x}
+                      y1={r1y}
+                      x2={r2x}
+                      y2={r2y}
+                      stroke="#94a3b8"
+                      strokeWidth="0.16"
+                    />
+
+                    {/* Road Name Badge */}
+                    <g transform={`translate(${midRoadX}, ${midRoadY})`}>
+                      <rect
+                        x="-2.6"
+                        y="-0.5"
+                        width="5.2"
+                        height="1.0"
+                        rx="0.25"
+                        fill="#0f172a"
+                        stroke="#f59e0b"
+                        strokeWidth="0.08"
+                      />
+                      <text
+                        x="0"
+                        y="0.2"
+                        fill="#fde68a"
+                        fontSize="0.46"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                      >
+                        🛣️ {road.name || 'İmar Yolu'} ({road.width || 12}m)
+                      </text>
+                    </g>
+                  </g>
+                );
+              })}
+
+              {/* Filled Building Polygon Footprint */}
+              <polygon
+                points={polygonPointsStr}
+                fill="url(#hatch-arch)"
+                stroke="rgba(99, 102, 241, 0.4)"
+                strokeWidth="0.12"
+              />
+
+              {/* 🏛️ REALISTIC STAIRCASE & ELEVATOR CIRCULATION CORE (DRAGGABLE) */}
+              <g
+                transform={`translate(${effectiveCoreCenterX}, ${effectiveCoreCenterY})`}
+                className="cursor-move group"
+                onPointerDown={handleCorePointerDown}
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+                {/* Core Boundary Enclosure Box */}
+                {(() => {
+                  const sW = stairWidth || 2.6;
+                  const sD = stairDepth || 4.8;
+                  const eW = (elevatorWidth || 1.8) * (elevatorCount || 1);
+                  const eD = elevatorDepth || 2.0;
 
-          {/* Interactive SVG Drawing Board */}
-          <div className="relative w-full h-[460px] md:h-[500px] bg-slate-900 rounded-2xl border-2 border-slate-800 overflow-hidden shadow-inner cursor-grab active:cursor-grabbing select-none">
-            <svg
-              ref={svgRef}
-              viewBox={`-${halfSize} -${halfSize} ${viewBoxSize} ${viewBoxSize}`}
-              className="w-full h-full"
-              onMouseDown={(e) => {
-                // If clicked on point, point's handler stops propagation
-                handleCanvasMouseDown(e);
-              }}
-              onTouchStart={handleCanvasMouseDown}
-              onClick={handleCanvasClick}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onTouchMove={handleMouseMove}
-              onTouchEnd={handleMouseUp}
-            >
-              <defs>
-                {/* 1-meter grid pattern */}
-                <pattern id="grid-1m" width="1" height="1" patternUnits="userSpaceOnUse">
-                  <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.04" />
-                </pattern>
-                {/* 5-meter major grid pattern */}
-                <pattern id="grid-5m" width="5" height="5" patternUnits="userSpaceOnUse">
-                  <rect width="5" height="5" fill="url(#grid-1m)" />
-                  <path d="M 5 0 L 0 0 0 5" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="0.08" />
-                </pattern>
-                {/* Diagonal hatch for building interior */}
-                <pattern id="hatch-arch" width="1" height="1" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
-                  <line x1="0" y1="0" x2="0" y2="1" stroke="rgba(99, 102, 241, 0.25)" strokeWidth="0.15" />
-                </pattern>
-              </defs>
-
-              {/* Grid Background - remains static or moves with pan depending on choice. We move it for realistic CAD grid feel */}
-              <g transform={`translate(${panX}, ${panY}) scale(${zoom})`}>
-                <rect x="-100" y="-100" width="200" height="200" fill="#0f172a" />
-                {/* Scaled grid */}
-                <rect x="-100" y="-100" width="200" height="200" fill="url(#grid-5m)" />
-
-                {/* Center Axes (X, Y in meters) */}
-                <line x1="-100" y1="0" x2="100" y2="0" stroke="rgba(255,255,255,0.2)" strokeWidth="0.06" strokeDasharray="0.3,0.3" />
-                <line x1="0" y1="-100" x2="0" y2="100" stroke="rgba(255,255,255,0.2)" strokeWidth="0.06" strokeDasharray="0.3,0.3" />
-
-                {/* Filled Polygon Floor */}
-                <polygon
-                  points={polygonPointsStr}
-                  fill="url(#hatch-arch)"
-                  stroke="rgba(99, 102, 241, 0.4)"
-                  strokeWidth="0.1"
-                />
-
-                {/* Central Stair & Elevator Core Representation */}
-                <g transform={`translate(${bounds.centerX}, ${bounds.centerY})`}>
-                  <rect
-                    x="-1.8"
-                    y="-1.5"
-                    width="3.6"
-                    height="3.0"
-                    fill="rgba(234, 179, 8, 0.2)"
-                    stroke="rgba(234, 179, 8, 0.8)"
-                    strokeWidth="0.12"
-                    rx="0.2"
-                  />
-                  <text x="0" y="-0.2" fill="#fef08a" fontSize="0.55" fontWeight="bold" textAnchor="middle">
-                    🏛️ MERDİVEN & ASANSÖR
-                  </text>
-                  <text x="0" y="0.7" fill="#fde047" fontSize="0.45" textAnchor="middle">
-                    {flatsPerFloor} Daireli Kat Holü
-                  </text>
-                </g>
-
-                {/* Polygon Edges with Lengths and Entrance Indicator */}
-                {edges.map((edge, idx) => {
-                  const isEntrance = (currentFacadeConfigs[idx]?.isEntrance) || (idx === mainEntranceIndex);
-                  const isSelected = selectedEdgeIndex === idx;
+                  const totalCoreW = sW + eW + 0.4;
+                  const totalCoreD = Math.max(sD, eD) + 0.8;
+                  const halfCW = totalCoreW / 2;
+                  const halfCD = totalCoreD / 2;
 
                   return (
-                    <g key={`edge-${idx}`} className="cursor-pointer" onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedEdgeIndex(idx);
-                    }}>
-                      {/* Line */}
-                      <line
-                        x1={edge.start.x}
-                        y1={edge.start.y}
-                        x2={edge.end.x}
-                        y2={edge.end.y}
-                        stroke={isEntrance ? '#22c55e' : (isSelected ? '#6366f1' : '#38bdf8')}
-                        strokeWidth={isEntrance ? '0.4' : '0.28'}
-                        strokeLinecap="round"
+                    <g>
+                      {/* Drop shadow / glow */}
+                      <rect
+                        x={-halfCW}
+                        y={-halfCD}
+                        width={totalCoreW}
+                        height={totalCoreD}
+                        fill="rgba(15, 23, 42, 0.75)"
+                        stroke="#f59e0b"
+                        strokeWidth="0.12"
+                        rx="0.3"
                       />
 
-                      {/* Edge Midpoint Label & Length Badge */}
-                      <g transform={`translate(${edge.midpoint.x}, ${edge.midpoint.y})`}>
+                      {/* Staircase Shaft Volume (Left Half) */}
+                      <g transform={`translate(${-halfCW + 0.2}, ${-halfCD + 0.2})`}>
+                        <rect
+                          x="0"
+                          y="0"
+                          width={sW}
+                          height={sD}
+                          fill="rgba(245, 158, 11, 0.15)"
+                          stroke="#d97706"
+                          strokeWidth="0.08"
+                          rx="0.15"
+                        />
+                        {/* Stair steps lines */}
+                        {Array.from({ length: 8 }).map((_, stepIdx) => (
+                          <line
+                            key={`step-${stepIdx}`}
+                            x1="0.1"
+                            y1={0.3 + stepIdx * (sD - 0.6) / 8}
+                            x2={sW - 0.1}
+                            y2={0.3 + stepIdx * (sD - 0.6) / 8}
+                            stroke="rgba(253, 230, 138, 0.4)"
+                            strokeWidth="0.05"
+                          />
+                        ))}
+                        {/* Stair central eye & UP arrow */}
+                        <line
+                          x1={sW / 2}
+                          y1="0.3"
+                          x2={sW / 2}
+                          y2={sD - 0.3}
+                          stroke="#f59e0b"
+                          strokeWidth="0.07"
+                          strokeDasharray="0.2,0.2"
+                        />
+                        <text
+                          x={sW / 2}
+                          y={sD / 2}
+                          fill="#fef08a"
+                          fontSize="0.4"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          ▲ ÇIKIŞ
+                        </text>
+                        <text
+                          x={sW / 2}
+                          y={0.5}
+                          fill="#fbbf24"
+                          fontSize="0.38"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          MERDİVEN ({sW}m)
+                        </text>
+                      </g>
+
+                      {/* Elevator Shaft Volume (Right Half) */}
+                      <g transform={`translate(${-halfCW + sW + 0.3}, ${-halfCD + 0.2})`}>
+                        {Array.from({ length: elevatorCount || 1 }).map((_, elevIdx) => {
+                          const singleEW = (elevatorWidth || 1.8);
+                          const elevX = elevIdx * (singleEW + 0.1);
+                          return (
+                            <g key={`elev-shaft-${elevIdx}`} transform={`translate(${elevX}, 0)`}>
+                              <rect
+                                x="0"
+                                y="0"
+                                width={singleEW}
+                                height={eD}
+                                fill="rgba(56, 189, 248, 0.15)"
+                                stroke="#38bdf8"
+                                strokeWidth="0.08"
+                                rx="0.15"
+                              />
+                              {/* Architectural Shaft Cross 'X' */}
+                              <line x1="0.1" y1="0.1" x2={singleEW - 0.1} y2={eD - 0.1} stroke="rgba(56, 189, 248, 0.35)" strokeWidth="0.06" />
+                              <line x1={singleEW - 0.1} y1="0.1" x2="0.1" y2={eD - 0.1} stroke="rgba(56, 189, 248, 0.35)" strokeWidth="0.06" />
+                              <text
+                                x={singleEW / 2}
+                                y={eD / 2 + 0.1}
+                                fill="#bae6fd"
+                                fontSize="0.36"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                              >
+                                ASANSÖR {elevatorCount > 1 ? `#${elevIdx + 1}` : ''}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </g>
+
+                      {/* Circulation Lobby & Drag Handle Header */}
+                      <g transform={`translate(0, ${halfCD - 0.4})`}>
+                        <rect
+                          x={-halfCW + 0.3}
+                          y="-0.3"
+                          width={totalCoreW - 0.6}
+                          height="0.6"
+                          rx="0.15"
+                          fill="#334155"
+                          stroke="#64748b"
+                          strokeWidth="0.06"
+                        />
+                        <text
+                          x="0"
+                          y="0.12"
+                          fill="#f8fafc"
+                          fontSize="0.38"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          ✥ Çekirdek Konumu (Sürükleyin)
+                        </text>
+                      </g>
+                    </g>
+                  );
+                })()}
+              </g>
+
+              {/* 🚪 MAIN BUILDING ENTRANCE AWNING & ENTRY ARROW */}
+              {(() => {
+                const entranceEdge = edges[mainEntranceIndex];
+                if (!entranceEdge) return null;
+
+                const p1 = entranceEdge.start;
+                const p2 = entranceEdge.end;
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const len = Math.hypot(dx, dy);
+                if (len < 0.1) return null;
+
+                // Outward normal vector
+                const nx = dy / len;
+                const ny = -dx / len;
+
+                const midX = entranceEdge.midpoint.x;
+                const midY = entranceEdge.midpoint.y;
+
+                return (
+                  <g key="main-entrance-portal" className="pointer-events-none">
+                    {/* Entrance steps / ramp outside */}
+                    <line
+                      x1={midX - (dx / len) * 1.6 + nx * 0.3}
+                      y1={midY - (dy / len) * 1.6 + ny * 0.3}
+                      x2={midX + (dx / len) * 1.6 + nx * 0.3}
+                      y2={midY + (dy / len) * 1.6 + ny * 0.3}
+                      stroke="#22c55e"
+                      strokeWidth="0.25"
+                    />
+
+                    {/* High-visibility Entrance Canopy Badge */}
+                    <g transform={`translate(${midX + nx * 1.4}, ${midY + ny * 1.4})`}>
+                      <rect
+                        x="-3.0"
+                        y="-0.65"
+                        width="6.0"
+                        height="1.3"
+                        rx="0.3"
+                        fill="#15803d"
+                        stroke="#86efac"
+                        strokeWidth="0.1"
+                      />
+                      <text
+                        x="0"
+                        y="0.25"
+                        fill="#ffffff"
+                        fontSize="0.52"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                      >
+                        🚪 BİNA ANA GİRİŞİ
+                      </text>
+                    </g>
+
+                    {/* Inward direction entrance arrow */}
+                    <line
+                      x1={midX + nx * 0.8}
+                      y1={midY + ny * 0.8}
+                      x2={midX - nx * 1.2}
+                      y2={midY - ny * 1.2}
+                      stroke="#4ade80"
+                      strokeWidth="0.18"
+                      strokeDasharray="0.3,0.2"
+                    />
+                  </g>
+                );
+              })()}
+
+              {/* 📏 POLYGON EDGES WITH DIRECT LENGTH LABELS & MIDPOINT SPLIT BUTTONS */}
+              {edges.map((edge, idx) => {
+                const isEntrance = idx === mainEntranceIndex;
+                const isSelected = selectedEdgeIndex === idx;
+                const hasRoad = roads.some(r => r.facadeIndex === idx);
+
+                return (
+                  <g key={`edge-${idx}`}>
+                    {/* Edge Main Line (Click to select edge) */}
+                    <line
+                      x1={edge.start.x}
+                      y1={edge.start.y}
+                      x2={edge.end.x}
+                      y2={edge.end.y}
+                      stroke={
+                        isEntrance
+                          ? '#22c55e'
+                          : isSelected
+                          ? '#a855f7'
+                          : hasRoad
+                          ? '#f59e0b'
+                          : '#38bdf8'
+                      }
+                      strokeWidth={isSelected ? '0.45' : isEntrance ? '0.38' : '0.28'}
+                      strokeLinecap="round"
+                      className="cursor-pointer transition-all hover:stroke-indigo-400"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedEdgeIndex(idx);
+                        setActiveTab('edges');
+                      }}
+                    />
+
+                    {/* Edge Midpoint Interactive Cluster */}
+                    <g transform={`translate(${edge.midpoint.x}, ${edge.midpoint.y})`}>
+                      {/* Length Badge Circle */}
+                      <g
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedEdgeIndex(idx);
+                          setActiveTab('edges');
+                        }}
+                      >
                         <circle
-                          r="0.85"
-                          fill={isEntrance ? '#15803d' : '#1e293b'}
-                          stroke={isEntrance ? '#4ade80' : '#64748b'}
+                          r="0.9"
+                          fill={
+                            isEntrance
+                              ? '#15803d'
+                              : isSelected
+                              ? '#7e22ce'
+                              : hasRoad
+                              ? '#b45309'
+                              : '#1e293b'
+                          }
+                          stroke={isSelected ? '#d8b4fe' : '#94a3b8'}
                           strokeWidth="0.08"
                         />
                         <text
                           x="0"
                           y="0.25"
                           fill="#ffffff"
-                          fontSize="0.52"
+                          fontSize="0.5"
                           fontWeight="bold"
                           textAnchor="middle"
                         >
                           {edge.length}m
                         </text>
-
-                        {isEntrance && (
-                          <g transform="translate(0, 1.4)">
-                            <rect x="-2.2" y="-0.5" width="4.4" height="1.0" rx="0.3" fill="#16a34a" />
-                            <text x="0" y="0.22" fill="#ffffff" fontSize="0.45" fontWeight="bold" textAnchor="middle">
-                              🚪 ANA GİRİŞ
-                            </text>
-                          </g>
-                        )}
                       </g>
-                    </g>
-                  );
-                })}
 
-                {/* Vertex Control Points (Draggable Dots) */}
-                {points.map((p, idx) => {
-                  const isSelected = selectedPointIndex === idx;
-                  return (
-                    <g
-                      key={`point-${p.id || idx}`}
-                      className="cursor-move"
-                      onMouseDown={(e) => handlePointMouseDown(idx, e)}
-                      onTouchStart={(e) => handlePointMouseDown(idx, e)}
+                      {/* ➕ Quick Edge Split Button (Adds Point Right Here Without Slipping!) */}
+                      {toolMode === 'select' && (
+                        <g
+                          transform="translate(1.4, -0.4)"
+                          className="cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
+                          onClick={(e) => handleSplitEdge(idx, e)}
+                        >
+                          <circle r="0.45" fill="#10b981" stroke="#ffffff" strokeWidth="0.06" />
+                          <text x="0" y="0.18" fill="#ffffff" fontSize="0.5" fontWeight="bold" textAnchor="middle">
+                            +
+                          </text>
+                        </g>
+                      )}
+                    </g>
+                  </g>
+                );
+              })}
+
+              {/* 🎯 VERTEX CONTROL POINTS (DRAGGABLE WITH POINTER LOCK) */}
+              {points.map((p, idx) => {
+                const isSelected = selectedPointIndex === idx;
+
+                return (
+                  <g
+                    key={`point-${p.id || idx}`}
+                    className="cursor-grab active:cursor-grabbing"
+                    onPointerDown={(e) => handlePointPointerDown(idx, e)}
+                  >
+                    {/* Outer Glow Halo */}
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={isSelected ? '1.1' : '0.8'}
+                      fill={isSelected ? 'rgba(168, 85, 247, 0.45)' : 'rgba(255, 255, 255, 0.18)'}
+                    />
+                    {/* Core Point Dot */}
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r="0.48"
+                      fill={isSelected ? '#a855f7' : '#ffffff'}
+                      stroke="#0f172a"
+                      strokeWidth="0.12"
+                    />
+                    {/* Point Index Label (K1, K2...) */}
+                    <text
+                      x={p.x}
+                      y={p.y - 0.75}
+                      fill={isSelected ? '#d8b4fe' : '#94a3b8'}
+                      fontSize="0.58"
+                      fontWeight="bold"
+                      textAnchor="middle"
                     >
-                      {/* Outer Glow Halo */}
-                      <circle
-                        cx={p.x}
-                        cy={p.y}
-                        r={isSelected ? '1.0' : '0.75'}
-                        fill={isSelected ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.2)'}
-                      />
-                      {/* Core Handle */}
-                      <circle
-                        cx={p.x}
-                        cy={p.y}
-                        r="0.45"
-                        fill={isSelected ? '#6366f1' : '#f8fafc'}
-                        stroke="#0f172a"
-                        strokeWidth="0.12"
-                      />
-                      {/* Vertex Index Label */}
-                      <text
-                        cx={p.x}
-                        cy={p.y}
-                        x={p.x}
-                        y={p.y - 0.7}
-                        fill="#94a3b8"
-                        fontSize="0.55"
-                        fontWeight="bold"
-                        textAnchor="middle"
-                      >
-                        K{idx + 1}
-                      </text>
-                    </g>
-                  );
-                })}
-              </g>
+                      K{idx + 1}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
 
-              {/* Static overlay direction indicators (do not scale/pan) */}
-              <g className="pointer-events-none opacity-50">
-                <text x="0" y={`-${halfSize - 1.2}`} fill="#94a3b8" fontSize="0.95" fontWeight="bold" textAnchor="middle">
-                  ▲ ARKA PARSEL / KUZEY
-                </text>
-                <text x="0" y={`${halfSize - 0.8}`} fill="#818cf8" fontSize="0.95" fontWeight="bold" textAnchor="middle">
-                  ▼ ÖN YOL / GİRİŞ CEPHESİ
-                </text>
-              </g>
-            </svg>
+            {/* Static Compass Overlay (Cardinal Directions) */}
+            <g className="pointer-events-none opacity-40">
+              <text x="0" y={`-${halfSize - 1.2}`} fill="#94a3b8" fontSize="0.95" fontWeight="bold" textAnchor="middle">
+                ▲ KUZEY / ARKA PARSEL
+              </text>
+              <text x="0" y={`${halfSize - 0.8}`} fill="#818cf8" fontSize="0.95" fontWeight="bold" textAnchor="middle">
+                ▼ GÜNEY / ÖN CEPHE
+              </text>
+            </g>
+          </svg>
 
-            {/* Interactive floating Zoom & Navigation Panel */}
-            <div className="absolute top-2 right-2 flex flex-col gap-1.5 bg-slate-900/90 backdrop-blur-sm p-1.5 rounded-xl border border-slate-700 shadow-lg">
-              <button
-                type="button"
-                onClick={() => setZoom(z => Math.min(5.5, z + 0.2))}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-650 rounded-lg text-slate-300 transition-colors"
-                title="Yakınlaştır (+)"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setZoom(z => Math.max(0.6, z - 0.2))}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-650 rounded-lg text-slate-300 transition-colors"
-                title="Uzaklaştır (-)"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setZoom(1.0);
-                  setPanX(0);
-                  setPanY(0);
-                }}
-                className="px-1.5 py-1 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 active:bg-slate-650 rounded-lg text-indigo-300 transition-colors text-center"
-                title="Birebir Ölçek"
-              >
-                1:1
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPanX(-bounds.centerX);
-                  setPanY(-bounds.centerY);
-                  const maxDim = Math.max(bounds.width, bounds.depth);
-                  if (maxDim > 0) {
-                    setZoom(Math.max(0.7, Math.min(2.2, (viewBoxSize * 0.72) / maxDim)));
-                  }
-                }}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-650 rounded-lg text-amber-400 transition-colors"
-                title="Sığdır / Ortala"
-              >
-                <Maximize2 className="w-4 h-4" />
-              </button>
-            </div>
+          {/* Floating Navigation Controls (Zoom / Center / Reset) */}
+          <div className="absolute top-3 right-3 flex flex-col gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-700 shadow-xl">
+            <button
+              type="button"
+              onClick={() => setZoom(z => Math.min(5.0, z + 0.25))}
+              className="p-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded-lg text-slate-200 transition-colors"
+              title="Yakınlaştır (+)"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom(z => Math.max(0.6, z - 0.25))}
+              className="p-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded-lg text-slate-200 transition-colors"
+              title="Uzaklaştır (-)"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPanX(-bounds.centerX);
+                setPanY(-bounds.centerY);
+                const maxDim = Math.max(bounds.width, bounds.depth);
+                if (maxDim > 0) {
+                  setZoom(Math.max(0.7, Math.min(2.0, (viewBoxSize * 0.7) / maxDim)));
+                }
+              }}
+              className="p-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded-lg text-amber-400 transition-colors"
+              title="Modeli Ortala / Sığdır"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setZoom(1.0);
+                setPanX(0);
+                setPanY(0);
+              }}
+              className="px-1.5 py-1 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded-lg text-indigo-300 transition-colors text-center"
+              title="Birebir Ölçek (1:1)"
+            >
+              1:1
+            </button>
+          </div>
 
-            {/* Canvas Overlay Helper */}
-            <div className="absolute top-2 left-2 px-2.5 py-1.5 bg-slate-900/85 backdrop-blur-sm rounded-lg border border-slate-700 text-[10px] text-slate-300 pointer-events-none max-w-[280px]">
-              💡 <b>Etkileşim Rehberi:</b><br />
-              • Boş alana tıklayıp <b>sürükleyerek kaydırın</b> (Pan).<br />
-              • Fare tekerleğiyle veya sağdaki butonlarla <b>yakınlaştırın</b> (Zoom).<br />
-              • Boş alana sol tıklayarak <b>yeni köşe ekleyin</b>.<br />
-              • Köşeleri (K1, K2...) sürükleyerek <b>formu değiştirin</b>.
-            </div>
+          {/* Grid Snap & Tolerance Floating Bar */}
+          <div className="absolute top-3 left-3 flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700 shadow-xl text-xs text-slate-300">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={snapToGrid}
+                onChange={(e) => setSnapToGrid(e.target.checked)}
+                className="w-3.5 h-3.5 accent-indigo-500 cursor-pointer rounded"
+              />
+              <span className="text-[11px] font-semibold">Izgaraya Yapış:</span>
+            </label>
+            <select
+              value={gridStep}
+              onChange={(e) => setGridStep(parseFloat(e.target.value) || 0.5)}
+              className="bg-slate-800 border border-slate-700 text-slate-200 text-[11px] rounded px-1.5 py-0.5"
+            >
+              <option value={0.25}>0.25m</option>
+              <option value={0.5}>0.5m (Standart)</option>
+              <option value={1.0}>1.0m (Kaba)</option>
+            </select>
+          </div>
 
-            {/* Selected Vertex Delete Action Bar */}
-            {selectedPointIndex !== null && (
-              <div className="absolute bottom-2 right-2 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-sm p-1.5 rounded-xl border border-slate-700">
-                <span className="text-[11px] font-bold text-indigo-400 px-1">
-                  Köşe {selectedPointIndex + 1}: ({points[selectedPointIndex].x}m, {points[selectedPointIndex].y}m)
-                </span>
+          {/* Selected Vertex Fine-Tuning Overlay Bar */}
+          {selectedPointIndex !== null && selectedPointIndex < points.length && (
+            <div className="absolute bottom-3 left-3 right-3 sm:right-auto flex flex-wrap items-center gap-2 bg-slate-900/95 backdrop-blur-md p-2.5 rounded-xl border border-purple-500/50 shadow-2xl animate-fadeIn">
+              <span className="text-xs font-bold text-purple-300 px-1">
+                📍 Köşe K{selectedPointIndex + 1} Koordinatları:
+              </span>
+
+              {/* Manual numeric coordinate inputs */}
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-lg border border-slate-700">
+                  <span className="text-[10px] font-bold text-slate-400">X:</span>
+                  <input
+                    type="number"
+                    step={gridStep}
+                    value={points[selectedPointIndex].x}
+                    onChange={(e) => handlePointCoordChange('x', parseFloat(e.target.value))}
+                    className="w-14 bg-transparent text-xs font-mono font-bold text-white focus:outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400">m</span>
+                </div>
+                <div className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-lg border border-slate-700">
+                  <span className="text-[10px] font-bold text-slate-400">Y:</span>
+                  <input
+                    type="number"
+                    step={gridStep}
+                    value={points[selectedPointIndex].y}
+                    onChange={(e) => handlePointCoordChange('y', parseFloat(e.target.value))}
+                    className="w-14 bg-transparent text-xs font-mono font-bold text-white focus:outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400">m</span>
+                </div>
+              </div>
+
+              {/* Nudge arrow buttons */}
+              <div className="flex items-center gap-0.5 bg-slate-800 p-0.5 rounded-lg border border-slate-700">
                 <button
                   type="button"
-                  onClick={() => handleDeletePoint(selectedPointIndex)}
-                  className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors"
+                  onClick={() => handleNudgePoint(-gridStep, 0)}
+                  className="p-1 hover:bg-slate-700 text-slate-200 rounded"
+                  title="Sola Kaydır"
                 >
-                  <Trash2 className="w-3 h-3" />
-                  <span>Köşeyi Sil</span>
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudgePoint(0, -gridStep)}
+                  className="p-1 hover:bg-slate-700 text-slate-200 rounded"
+                  title="Yukarı Kaydır"
+                >
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudgePoint(0, gridStep)}
+                  className="p-1 hover:bg-slate-700 text-slate-200 rounded"
+                  title="Aşağı Kaydır"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudgePoint(gridStep, 0)}
+                  className="p-1 hover:bg-slate-700 text-slate-200 rounded"
+                  title="Sağa Kaydır"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
-            )}
-          </div>
-        </div>
 
-      {/* 📐 ÖN × YAN CEPHE BOYUTLARI PANELİ */}
-      <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900 pb-2 border-b border-indigo-200">
-          <Sliders className="w-4 h-4 text-indigo-600" />
-          <span>📐 Ön × Yan Cephe Boyutları (Poligondan Dinamik Hesaplanan)</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3 pt-2.5">
-          <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex flex-col gap-0.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase">Ön Cephe Genişliği (W):</span>
-            <span className="font-mono text-sm font-bold text-indigo-600">{bounds.width.toFixed(1)} m</span>
-          </div>
-          <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex flex-col gap-0.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase">Yan Cephe Derinliği (D):</span>
-            <span className="font-mono text-sm font-bold text-indigo-600">{bounds.depth.toFixed(1)} m</span>
-          </div>
+              {/* Delete Vertex Button */}
+              <button
+                type="button"
+                onClick={() => handleDeletePoint(selectedPointIndex)}
+                disabled={points.length <= 3}
+                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ml-auto"
+                title="Köşeyi Sil"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Sil</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* TAB 2: CEPHELER, PENCERELER & BALKONLAR MANUEL GİRİŞİ */}
-      {true && (
-        <div className="space-y-3">
-          <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl text-xs text-indigo-950 flex items-start gap-2">
-            <Info className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
+      {/* 🛠️ ACTIVE INTEGRATED CONTROLS PANEL: KENAR UZUNLUĞU, YOL EKLEME, BİNA GİRİŞİ, ÇEKİRDEK YAPISI */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-slate-200 bg-slate-50/80 p-1.5 gap-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('edges')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'edges'
+                ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Ruler className="w-4 h-4 text-indigo-600" />
+            <span>Kenar Boyutu, Yol & Bina Girişi</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('core')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'core'
+                ? 'bg-white text-amber-700 shadow-sm border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Building2 className="w-4 h-4 text-amber-600" />
+            <span>Merdiven & Asansör Çekirdek Yapısı</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('facades')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'facades'
+                ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-slate-600" />
+            <span>Tüm Cephe Listesi ({edges.length})</span>
+          </button>
+        </div>
+
+        {/* TAB 1: KENAR UZUNLUĞU DEĞİŞTİRME, YOL EKLEME & GİRİŞ SEÇME */}
+        {activeTab === 'edges' && (
+          <div className="p-4 space-y-4">
+            {/* Edge Selector Carousel / Pills */}
             <div>
-              <b>3D Model Cephe Özelleştirmesi:</b> Aşağıdaki listeden her cephenin pencere adedini, balkon var/yok durumunu ve bina ana giriş kapısının hangi cephede olacağını manuel olarak seçebilirsiniz. 3D modele anında yansır.
-            </div>
-          </div>
+              <label className="text-xs font-bold text-slate-600 block mb-2">
+                Düzenlemek İstediğiniz Cepheyi / Kenarı Seçin:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {edges.map((edge, idx) => {
+                  const isSelected = selectedEdgeIndex === idx;
+                  const isEntrance = idx === mainEntranceIndex;
+                  const road = roads.find(r => r.facadeIndex === idx);
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-1">
-            {currentFacadeConfigs.map((cfg, idx) => {
-              const edge = edges[idx];
-              const isEntrance = cfg.isEntrance || idx === mainEntranceIndex;
-
-              return (
-                <div
-                  key={cfg.id || idx}
-                  className={`p-3 rounded-2xl border transition-all ${
-                    isEntrance
-                      ? 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-300'
-                      : 'bg-slate-50/90 border-slate-200 hover:bg-slate-100/80'
-                  }`}
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
+                  return (
+                    <button
+                      key={`edge-btn-${idx}`}
+                      type="button"
+                      onClick={() => setSelectedEdgeIndex(idx)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
+                          : isEntrance
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                          : road
+                          ? 'bg-amber-50 text-amber-800 border border-amber-300'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span className="w-4 h-4 rounded-full bg-black/10 flex items-center justify-center text-[10px]">
                         {idx + 1}
                       </span>
-                      <span className="text-xs font-bold text-slate-800">
-                        {cfg.name}
+                      <span>K{edge.startIndex + 1}→K{edge.endIndex + 1}</span>
+                      <span className="opacity-80 font-mono">({edge.length}m)</span>
+                      {isEntrance && <span>🚪</span>}
+                      {road && <span>🛣️</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Selected Edge Details & Controls Box */}
+            {currentSelectedEdge && selectedEdgeIndex !== null && (
+              <div className="p-4 bg-slate-50/90 rounded-2xl border border-indigo-200 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                      {selectedEdgeIndex + 1}
+                    </span>
+                    <div>
+                      <span className="text-sm font-bold text-slate-900 block">
+                        {currentFacadeConfigs[selectedEdgeIndex]?.name || `${selectedEdgeIndex + 1}. Cephe`}
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Köşeler: K{currentSelectedEdge.startIndex + 1} ({currentSelectedEdge.start.x}m, {currentSelectedEdge.start.y}m) → K{currentSelectedEdge.endIndex + 1} ({currentSelectedEdge.end.x}m, {currentSelectedEdge.end.y}m)
                       </span>
                     </div>
-                    <span className="font-mono text-xs font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                      {edge ? edge.length : cfg.length} m
+                  </div>
+
+                  {/* 🚪 1-CLICK MAIN ENTRANCE TOGGLE BUTTON */}
+                  <button
+                    type="button"
+                    onClick={() => handleSetMainEntrance(selectedEdgeIndex)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      isSelectedEdgeEntrance
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-white text-emerald-700 border border-emerald-300 hover:bg-emerald-50'
+                    }`}
+                  >
+                    <DoorOpen className="w-4 h-4" />
+                    <span>{isSelectedEdgeEntrance ? '✓ Ana Bina Girişi' : '🚪 Bu Cepheyi Ana Giriş Yap'}</span>
+                  </button>
+                </div>
+
+                {/* 1. KENAR UZUNLUĞUNU DEĞİŞTİRME KONTROLLERİ */}
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Ruler className="w-4 h-4 text-indigo-600" />
+                      <span className="text-xs font-bold text-slate-800">
+                        Kenar Uzunluğu (Metre):
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-indigo-600">
+                      Açı: {currentSelectedEdge.angleDeg}°
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2.5 text-xs">
-                    {/* Pencere Sayısı */}
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                        🪟 Kat Başına Pencere:
-                      </label>
-                      <select
-                        value={cfg.windowCountPerFloor}
-                        onChange={(e) => handleUpdateFacadeConfig(idx, { windowCountPerFloor: parseInt(e.target.value) || 0 })}
-                        className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold"
-                      >
-                        <option value={0}>0 (Kör Cephe)</option>
-                        <option value={1}>1 Pencere</option>
-                        <option value={2}>2 Pencere</option>
-                        <option value={3}>3 Pencere</option>
-                        <option value={4}>4 Pencere</option>
-                        <option value={5}>5 Pencere</option>
-                        <option value={6}>6 Pencere</option>
-                      </select>
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Stepper buttons */}
+                    <button
+                      type="button"
+                      onClick={() => handleChangeEdgeLength(selectedEdgeIndex, currentSelectedEdge.length - 1.0)}
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold"
+                    >
+                      -1m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChangeEdgeLength(selectedEdgeIndex, currentSelectedEdge.length - 0.5)}
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold"
+                    >
+                      -0.5m
+                    </button>
 
-                    {/* Balkon Sayısı ve Tipi */}
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                        🏞️ Balkon Durumu:
-                      </label>
-                      <select
-                        value={cfg.hasBalcony ? cfg.balconyCountPerFloor || 1 : 0}
-                        disabled={cfg.windowCountPerFloor === 0}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          handleUpdateFacadeConfig(idx, {
-                            hasBalcony: val > 0,
-                            balconyCountPerFloor: val,
-                          });
-                        }}
-                        className={`w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold ${
-                          cfg.windowCountPerFloor === 0 ? 'opacity-60 cursor-not-allowed bg-slate-100 text-slate-400' : ''
-                        }`}
-                      >
-                        {cfg.windowCountPerFloor === 0 ? (
-                          <option value={0}>Kör Cephede Balkon Olamaz</option>
-                        ) : (
-                          <>
-                            <option value={0}>Balkon Yok</option>
-                            <option value={1}>1 Adet Balkon</option>
-                            <option value={2}>2 Adet Balkon</option>
-                            <option value={3}>3 Adet Balkon</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Balkon Tipi Seçimi (Balkon varsa) */}
-                  {cfg.hasBalcony && (
-                    <div className="pt-2 space-y-1 text-[11px]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-600 font-semibold">Balkon Mimari Tipi:</span>
-                        <span className="text-[10px] font-mono text-indigo-600 font-bold">
-                          {cfg.balconyType === 'glass_enclosed' ? 'Katlanır Cam Balkon'
-                            : cfg.balconyType === 'recessed' ? 'Gömme Lojya'
-                            : cfg.balconyType === 'french' ? 'Fransız Balkon'
-                            : cfg.balconyType === 'corner' ? 'Köşe L-Balkon'
-                            : cfg.balconyType === 'cumba' ? 'Cumba (Kapalı)'
-                            : 'Açık Konsol'}
-                        </span>
-                      </div>
-                      <select
-                        value={cfg.balconyType || 'standard'}
-                        onChange={(e) => handleUpdateFacadeConfig(idx, { balconyType: e.target.value as any })}
-                        className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold text-slate-800"
-                      >
-                        <option value="standard">Açık Konsol (Klasik Çıkma)</option>
-                        <option value="glass_enclosed">Katlanır Cam Balkon (Camlama / Kış Bahçesi)</option>
-                        <option value="recessed">Gömme / Lojya Balkon</option>
-                        <option value="french">Fransız Balkon (Emniyet Korkuluklu)</option>
-                        <option value="corner">Köşe / L-Tipi Balkon</option>
-                        <option value="cumba">Cumba / Kapalı Çıkma (Kış Balkonu)</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Bina Giriş Kapısı Seçimi */}
-                  <div className="pt-2.5 mt-2 border-t border-slate-200 flex items-center justify-between">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-800">
+                    {/* Numeric Input */}
+                    <div className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50/50 rounded-xl border border-indigo-300">
                       <input
-                        type="radio"
-                        name="mainEntranceFacade"
-                        checked={isEntrance}
-                        onChange={() => handleUpdateFacadeConfig(idx, { isEntrance: true })}
-                        className="w-4 h-4 accent-emerald-600 cursor-pointer"
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        max="80"
+                        value={currentSelectedEdge.length}
+                        onChange={(e) => handleChangeEdgeLength(selectedEdgeIndex, parseFloat(e.target.value))}
+                        className="w-20 bg-transparent text-sm font-mono font-bold text-indigo-900 focus:outline-none text-center"
                       />
-                      <span>🚪 Bina Ana Giriş Kapısı Bu Cephede</span>
-                    </label>
-                    {isEntrance && (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
-                        Seçili Giriş
-                      </span>
-                    )}
+                      <span className="text-xs font-bold text-indigo-600">m</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleChangeEdgeLength(selectedEdgeIndex, currentSelectedEdge.length + 0.5)}
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold"
+                    >
+                      +0.5m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChangeEdgeLength(selectedEdgeIndex, currentSelectedEdge.length + 1.0)}
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold"
+                    >
+                      +1m
+                    </button>
+
+                    {/* Orthogonal Snap Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOrthogonalizeEdge(selectedEdgeIndex)}
+                      className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold ml-auto"
+                      title="Kenarı en yakın 90° dik veya yatay aksa hizalar"
+                    >
+                      ⚡ 90° Dikleştir
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
-      {/* TAB 3: MERDİVEN, DAİRE DAĞILIMI & BİNA GİRİŞİ */}
-      {true && (
-        <div className="space-y-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-200">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-800 pb-2 border-b border-slate-200">
-            <DoorOpen className="w-4 h-4 text-indigo-600" />
-            <span>Gerçekçi Bina Girişi & Kat Sirkülasyon Planı</span>
-          </div>
+                {/* 2. CEPHEYE YOL EKLEME KONTROLLERİ */}
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Car className="w-4 h-4 text-amber-600" />
+                      <span className="text-xs font-bold text-slate-800">
+                        Bu Cepheye Yol Durumu:
+                      </span>
+                    </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-            <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Seçili Giriş Cephesi:</span>
-              <div className="text-sm font-bold text-emerald-700 flex items-center gap-1.5">
-                <DoorOpen className="w-4 h-4 text-emerald-600" />
-                <span>
-                  {currentFacadeConfigs[mainEntranceIndex]?.name || `${mainEntranceIndex + 1}. Ön Cephe`}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleRoadOnFacade(selectedEdgeIndex)}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                        currentEdgeRoad
+                          ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                          : 'bg-amber-500 text-white hover:bg-amber-600 shadow-sm'
+                      }`}
+                    >
+                      {currentEdgeRoad ? <Trash2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                      <span>{currentEdgeRoad ? 'Yolu Kaldır' : '🛣️ Cepheye Yol Ekle'}</span>
+                    </button>
+                  </div>
+
+                  {currentEdgeRoad ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                          Yol Genişliği / Tipi:
+                        </label>
+                        <select
+                          value={currentEdgeRoad.type}
+                          onChange={(e) => handleUpdateRoadType(selectedEdgeIndex, e.target.value as RoadType)}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-800"
+                        >
+                          <option value="street">Sokak (7 metre genişlik)</option>
+                          <option value="road">İmar Yolu (12 metre genişlik)</option>
+                          <option value="avenue">Cadde (20 metre genişlik)</option>
+                          <option value="highway">Bulvar / Anayol (35 metre genişlik)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                          Yol Adı (İsteğe Bağlı):
+                        </label>
+                        <input
+                          type="text"
+                          value={currentEdgeRoad.name || ''}
+                          onChange={(e) => handleUpdateRoadName(selectedEdgeIndex, e.target.value)}
+                          placeholder="Örn: Atatürk Cad., 104. Sokak"
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-800"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-500">
+                      Bu cephede şu an yol tanımlı değildir (komşu parsel / bahçe çekme mesafesi olarak değerlendirilir). Yol eklemek için yukarıdaki butona tıklayınız.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: MERDİVEN & ASANSÖR ÇEKİRDEK YAPISI DÜZENLEYİCİSİ */}
+        {activeTab === 'core' && (
+          <div className="p-4 space-y-4">
+            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-xs text-amber-950">
+              <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <b>Dolaşım & Çekirdek Yapısı Özelleştirme:</b> Merdiven kovası ve asansör şaftının bina içerisindeki konumunu, merdiven genişliğini, asansör sayısını ve kuyu ölçülerini buradan aktif olarak değiştirebilirsiniz. Değişiklikler 2D plan ve 3D modele anında işlenir.
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Core Position Presets */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">
+                    Çekirdek Konumu / Yerleşimi:
+                  </span>
+                  <span className="text-[11px] font-mono text-amber-700 font-bold">
+                    ({effectiveCoreCenterX.toFixed(1)}m, {effectiveCoreCenterY.toFixed(1)}m)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCorePreset('center')}
+                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
+                      corePositionPreset === 'center'
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Merkez (Ortalı)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCorePreset('entrance')}
+                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
+                      corePositionPreset === 'entrance'
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Giriş Yanı
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCorePreset('rear')}
+                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
+                      corePositionPreset === 'rear'
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Arka Cephe
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCorePreset('left')}
+                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
+                      corePositionPreset === 'left'
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Sol Kanat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCorePreset('right')}
+                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
+                      corePositionPreset === 'right'
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Sağ Kanat
+                  </button>
+                  <div className="p-2 rounded-xl text-[10px] font-bold text-center text-slate-500 border border-dashed border-slate-300 flex items-center justify-center">
+                    ✥ Sürükleyerek Taşı
+                  </div>
+                </div>
+
+                {/* Fine Manual Offset Controls */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 block mb-1">X Kaçıklığı:</span>
+                    <input
+                      type="range"
+                      min={-bounds.width / 2 + 1}
+                      max={bounds.width / 2 - 1}
+                      step={0.2}
+                      value={coreOffsetX || 0}
+                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ coreOffsetX: parseFloat(e.target.value) || 0, corePositionPreset: 'custom' })}
+                      className="w-full accent-amber-500 cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 block mb-1">Y Kaçıklığı:</span>
+                    <input
+                      type="range"
+                      min={-bounds.depth / 2 + 1}
+                      max={bounds.depth / 2 - 1}
+                      step={0.2}
+                      value={coreOffsetY || 0}
+                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ coreOffsetY: parseFloat(e.target.value) || 0, corePositionPreset: 'custom' })}
+                      className="w-full accent-amber-500 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Stair and Elevator Dimensions */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <span className="text-xs font-bold text-slate-800 block">
+                  Merdiven & Asansör Boyutları:
                 </span>
-              </div>
-              <p className="text-[10px] text-slate-500">
-                Zemin katta ana giriş kapısı, sundurma ve giriş rüzgarlığı bu cepheye konumlandırılır.
-              </p>
-            </div>
 
-            <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Daire Dağılımı:</span>
-              <div className="text-sm font-bold text-indigo-700 flex items-center gap-1.5">
-                <Home className="w-4 h-4 text-indigo-600" />
-                <span>Katta {flatsPerFloor} Daire</span>
-              </div>
-              <p className="text-[10px] text-slate-500">
-                {flatsPerFloor === 1
-                  ? 'Tek daireli kat: Merdiven sahanlığından doğrudan daire ana kapısına giriş.'
-                  : flatsPerFloor === 2
-                  ? 'Çift daireli kat: Sağ ve sol kanat simetrik daire giriş kapıları.'
-                  : 'Çoklu daireli kat: Merkezi sahanlık etrafında eşit açılı kapı dağılımı.'}
-              </p>
-            </div>
+                <div className="grid grid-cols-2 gap-2.5 text-xs">
+                  {/* Merdiven Genişliği */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                      Merdiven Genişliği (sW):
+                    </label>
+                    <select
+                      value={stairWidth}
+                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ stairWidth: parseFloat(e.target.value) })}
+                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold"
+                    >
+                      <option value={2.2}>2.20 m (Dar / Kompakt)</option>
+                      <option value={2.4}>2.40 m (Standart)</option>
+                      <option value={2.6}>2.60 m (Geniş Yangın Kaçış)</option>
+                      <option value={2.8}>2.80 m (Lüks Rezidans)</option>
+                      <option value={3.2}>3.20 m (Çift Kollu Galeri)</option>
+                    </select>
+                  </div>
 
-            <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Merdiven & Asansör Şaftı:</span>
-              <div className="text-sm font-bold text-amber-700 flex items-center gap-1.5">
-                <Armchair className="w-4 h-4 text-amber-600" />
-                <span>Merkezi Yangın Güvenlikli Çekirdek</span>
+                  {/* Merdiven Derinliği */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                      Merdiven Derinliği (sD):
+                    </label>
+                    <select
+                      value={stairDepth}
+                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ stairDepth: parseFloat(e.target.value) })}
+                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold"
+                    >
+                      <option value={4.2}>4.20 m (Kısa Kollu)</option>
+                      <option value={4.8}>4.80 m (Standart Sahanlıklı)</option>
+                      <option value={5.2}>5.20 m (Geniş Ara Sahanlık)</option>
+                      <option value={5.8}>5.80 m (Sedye Uyumlu)</option>
+                    </select>
+                  </div>
+
+                  {/* Asansör Sayısı */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                      Asansör Sayısı:
+                    </label>
+                    <select
+                      value={elevatorCount}
+                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ elevatorCount: parseInt(e.target.value) })}
+                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold"
+                    >
+                      <option value={1}>1 Adet (Standart 8 Kişilik)</option>
+                      <option value={2}>2 Adet (Sedye + Yolcu)</option>
+                    </select>
+                  </div>
+
+                  {/* Asansör Kuyu Genişliği */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                      Asansör Kuyu Genişliği:
+                    </label>
+                    <select
+                      value={elevatorWidth}
+                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ elevatorWidth: parseFloat(e.target.value) })}
+                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold"
+                    >
+                      <option value={1.6}>1.60 m (6 Kişilik)</option>
+                      <option value={1.8}>1.80 m (8 Kişilik Standart)</option>
+                      <option value={2.0}>2.00 m (10 Kişilik)</option>
+                      <option value={2.4}>2.40 m (Sedye / Yük Asansörü)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <p className="text-[10px] text-slate-500">
-                Bina ağırlık merkezine yakın, ana giriş holü ile doğrudan irtibatlı konsept yerleşim.
-              </p>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* TAB 3: TÜM CEPHE LİSTESİ & PENCERE/BALKON/GİRİŞ AYARLARI */}
+        {activeTab === 'facades' && (
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+              {currentFacadeConfigs.map((cfg, idx) => {
+                const edge = edges[idx];
+                const isEntrance = idx === mainEntranceIndex;
+                const road = roads.find(r => r.facadeIndex === idx);
+
+                return (
+                  <div
+                    key={cfg.id || idx}
+                    className={`p-3 rounded-2xl border transition-all ${
+                      isEntrance
+                        ? 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-300'
+                        : 'bg-slate-50/90 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                        <span className="text-xs font-bold text-slate-800">
+                          {cfg.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {road && (
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                            🛣️ {road.name || `${road.width}m Yol`}
+                          </span>
+                        )}
+                        <span className="font-mono text-xs font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                          {edge ? edge.length : cfg.length} m
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2.5 text-xs">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                          🪟 Pencere Sayısı:
+                        </label>
+                        <select
+                          value={cfg.windowCountPerFloor}
+                          onChange={(e) => handleUpdateFacadeConfig(idx, { windowCountPerFloor: parseInt(e.target.value) || 0 })}
+                          className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold"
+                        >
+                          <option value={0}>0 (Kör Cephe)</option>
+                          <option value={1}>1 Pencere</option>
+                          <option value={2}>2 Pencere</option>
+                          <option value={3}>3 Pencere</option>
+                          <option value={4}>4 Pencere</option>
+                          <option value={5}>5 Pencere</option>
+                          <option value={6}>6 Pencere</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                          🏞️ Balkon:
+                        </label>
+                        <select
+                          value={cfg.hasBalcony ? cfg.balconyCountPerFloor || 1 : 0}
+                          disabled={cfg.windowCountPerFloor === 0}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            handleUpdateFacadeConfig(idx, {
+                              hasBalcony: val > 0,
+                              balconyCountPerFloor: val,
+                            });
+                          }}
+                          className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold"
+                        >
+                          <option value={0}>Balkon Yok</option>
+                          <option value={1}>1 Adet Balkon</option>
+                          <option value={2}>2 Adet Balkon</option>
+                          <option value={3}>3 Adet Balkon</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 mt-2 border-t border-slate-200 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => handleSetMainEntrance(idx)}
+                        className={`text-xs font-bold flex items-center gap-1.5 ${
+                          isEntrance ? 'text-emerald-700' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <DoorOpen className="w-3.5 h-3.5" />
+                        <span>{isEntrance ? '✓ Ana Giriş Kapısı' : 'Giriş Olarak Seç'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedEdgeIndex(idx);
+                          setActiveTab('edges');
+                        }}
+                        className="text-[11px] font-bold text-indigo-600 hover:underline"
+                      >
+                        Kenarı Düzenle →
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

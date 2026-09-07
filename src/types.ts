@@ -411,6 +411,9 @@ export interface BuildingModelParams {
   elevatorWidth: number;     // Asansör kuyu genişliği (m)
   elevatorDepth: number;     // Asansör kuyu derinliği (m)
   elevatorCount: number;     // Asansör sayısı (1, 2)
+  corePositionPreset?: 'center' | 'entrance' | 'rear' | 'left' | 'right' | 'custom'; // Çekirdek yerleşim şablonu
+  coreOffsetX?: number;      // Çekirdek merkezinden X kaçıklığı (m)
+  coreOffsetY?: number;      // Çekirdek merkezinden Y kaçıklığı (m)
   balconyDepth: number;      // Balkon / çıkma payı (m)
   roofType: RoofType;        // Çatı tipi: Kırma, Teras, Mansart, Çatı Dubleksi
   mansardFlatCount?: number; // Mansart çatı tek seçildiğinde ortaya çıkan bağımsız bölüm sayısı

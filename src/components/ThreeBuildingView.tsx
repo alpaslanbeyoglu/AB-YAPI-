@@ -986,6 +986,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         }
       }
 
+      if (params.coreOffsetX !== undefined && !isNaN(params.coreOffsetX)) {
+        coreCenterX += params.coreOffsetX;
+      }
+      if (params.coreOffsetY !== undefined && !isNaN(params.coreOffsetY)) {
+        coreCenterZ += params.coreOffsetY;
+      }
+
       // Shift core and scale dynamically to NEVER overflow building footprint limits!
       let safeCoreCenterX = coreCenterX;
       let safeCoreCenterZ = coreCenterZ;
