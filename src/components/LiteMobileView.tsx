@@ -41,6 +41,8 @@ import {
 } from '../types';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { Logo } from './Logo';
+import { CompactSummaryBar } from './CompactSummaryBar';
+import { AiAssistantTab } from './AiAssistantTab';
 
 interface LiteMobileViewProps {
   params: ProjectParams;
@@ -53,7 +55,7 @@ interface LiteMobileViewProps {
   isSavingToDrive: boolean;
 }
 
-type LiteTab = 'hesapla' | 'santiye' | 'malikler' | 'teklif';
+type LiteTab = 'hesapla' | 'santiye' | 'malikler' | 'teklif' | 'ai';
 
 export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
   params,
@@ -357,6 +359,8 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
           <span>3D & Detaylı Sözleşmeye Dön &rarr;</span>
         </button>
       </div>
+
+      <CompactSummaryBar results={results} params={params} theme={theme} />
 
       {/* ------------------------------------------------------------- */}
       {/* PROJECT HEADER CARD                                           */}
@@ -1098,6 +1102,17 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
             </div>
           </div>
         )}
+
+        {activeTab === 'ai' && (
+          <div className="p-3">
+            <AiAssistantTab
+              params={params}
+              results={results}
+              onChangeParams={(updates) => onChangeParams(updates)}
+              isLight={theme === 'light'}
+            />
+          </div>
+        )}
       </div>
 
       {/* ------------------------------------------------------------- */}
@@ -1128,7 +1143,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('hesapla')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl transition cursor-pointer ${
             activeTab === 'hesapla'
               ? 'text-indigo-600 font-black'
               : 'text-slate-500 font-semibold hover:text-slate-900'
@@ -1141,7 +1156,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('santiye')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl transition cursor-pointer ${
             activeTab === 'santiye'
               ? 'text-indigo-600 font-black'
               : 'text-slate-500 font-semibold hover:text-slate-900'
@@ -1153,8 +1168,21 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
 
         <button
           type="button"
+          onClick={() => setActiveTab('ai')}
+          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl transition cursor-pointer ${
+            activeTab === 'ai'
+              ? 'text-emerald-600 font-black'
+              : 'text-slate-500 font-semibold hover:text-slate-900'
+          }`}
+        >
+          <Sparkles className="w-5 h-5 text-emerald-500" />
+          <span className="text-[10px]">AI Danışman</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('malikler')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl transition cursor-pointer ${
             activeTab === 'malikler'
               ? 'text-indigo-600 font-black'
               : 'text-slate-500 font-semibold hover:text-slate-900'
@@ -1167,7 +1195,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('teklif')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl transition cursor-pointer ${
             activeTab === 'teklif'
               ? 'text-indigo-600 font-black'
               : 'text-slate-500 font-semibold hover:text-slate-900'

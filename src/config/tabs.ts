@@ -11,10 +11,11 @@ import {
   Users,
   Building2,
   Activity,
+  Sparkles,
   LucideIcon
 } from 'lucide-react';
 
-export type TabId = 'kurulum' | 'hesapla' | 'model' | 'katplani' | 'maliyet' | 'malikler' | 'teklif' | 'surec' | 'sozlesme' | 'sartname' | 'raporlar' | 'profile' | 'tamamlanan' | 'gecmis';
+export type TabId = 'kurulum' | 'hesapla' | 'model' | 'katplani' | 'maliyet' | 'malikler' | 'teklif' | 'surec' | 'sozlesme' | 'sartname' | 'raporlar' | 'profile' | 'tamamlanan' | 'gecmis' | 'ai_uzman';
 
 export type TabCategoryId = 'design' | 'finance' | 'docs' | 'admin';
 
@@ -50,4 +51,5 @@ export const DEFAULT_TABS: TabConfig[] = [
   { id: 'profile', label: '11. Firma Profili', shortLabel: 'Firma', icon: Building, visible: true, order: 11, category: 'admin' },
   { id: 'tamamlanan', label: '12. Tamamlanan Projeler', shortLabel: 'Projeler', icon: Building2, visible: true, order: 12, category: 'admin' },
   { id: 'gecmis', label: '13. Kayıtlar', shortLabel: 'Kayıtlar', icon: History, visible: true, order: 13, category: 'admin' },
+  { id: 'ai_uzman', label: '14. Yapay Zeka Danışmanı', shortLabel: 'AI Uzmanı', icon: Sparkles, visible: true, order: 14, category: 'finance' },
 ];

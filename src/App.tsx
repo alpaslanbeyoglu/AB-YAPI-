@@ -40,7 +40,9 @@ import { CompanyProfileTab } from './components/CompanyProfileTab';
 import { CostDetailsTab } from './components/CostDetailsTab';
 import { OwnersTab } from './components/OwnersTab';
 import { CompletedProjectsTab } from './components/CompletedProjectsTab';
+import { AiAssistantTab } from './components/AiAssistantTab';
 import { TabNavigation } from './components/TabNavigation';
+import { CompactSummaryBar } from './components/CompactSummaryBar';
 import { MenuSettingsModal } from './components/MenuSettingsModal';
 import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
 
@@ -724,6 +726,7 @@ export default function App() {
           onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}
           appMode={appMode}
           onToggleAppMode={toggleAppMode}
+          onOpenAiUzman={() => setActiveTab('ai_uzman')}
         />
       </div>
 
@@ -801,6 +804,11 @@ export default function App() {
             <span className="hidden lg:inline">Menü</span>
           </button>
         </div>
+      </div>
+
+      {/* Global Live Summary Bar */}
+      <div className="sticky top-[118px] z-10 print:hidden">
+        <CompactSummaryBar results={results} params={params} theme={theme} />
       </div>
 
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6">
@@ -967,6 +975,15 @@ export default function App() {
         {activeTab === 'tamamlanan' && (
           <CompletedProjectsTab
             theme={theme}
+          />
+        )}
+
+        {activeTab === 'ai_uzman' && (
+          <AiAssistantTab
+            params={params}
+            results={results}
+            onChangeParams={updateCalculatorParams}
+            isLight={isLight}
           />
         )}
 
