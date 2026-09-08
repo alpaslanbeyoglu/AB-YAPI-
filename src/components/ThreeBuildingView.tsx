@@ -28,6 +28,7 @@ import {
   Clock,
   Play,
   Pause,
+  MapPin,
 } from 'lucide-react';
 import { BuildingModelParams, CameraPresetType, FacadeStyleType } from '../types';
 import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon } from '../utils/footprintUtils';
@@ -462,6 +463,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [showDebugOverlay, setShowDebugOverlay] = useState<boolean>(params.showDebugOverlay3D || false);
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
   const [cameraPreset, setCameraPreset] = useState<CameraPresetType>(forcedCameraPreset || 'iso');
+  const [showStreetNames, setShowStreetNames] = useState<boolean>(false);
+  const [buildingColor, setBuildingColor] = useState<string>('');
   const [isExportingUSDZ, setIsExportingUSDZ] = useState<boolean>(false);
   const [isExportingGLTF, setIsExportingGLTF] = useState<boolean>(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
@@ -499,7 +502,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const buildingGroup = new THREE.Group();
     buildingGroupRef.current = buildingGroup;
 
-    const colors = getStyleColors(params.facadeStyle);
+    const baseColors = getStyleColors(params.facadeStyle);
+    const colors = {
+      ...baseColors,
+      ...(buildingColor ? { wall: parseInt(buildingColor.replace('#', '0x'), 16) } : {})
+    };
     let W = safeNum(params?.facadeWidth, 14.0, 1.0);
     let D = safeNum(params?.facadeDepth, 18.0, 1.0);
 
@@ -3268,7 +3275,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       controlsRef.current.target.set(0, (N * H) / 2, 0);
       controlsRef.current.update();
     }
-  }, [params, isWireframe, showCoreHighlight, showDebugOverlay, selectedFloor, explodeRatio, isLight, getStyleColors]);
+  }, [params, isWireframe, showCoreHighlight, showDebugOverlay, selectedFloor, explodeRatio, isLight, getStyleColors, buildingColor]);
 
   // Initialize Three.js Canvas & Animation Loop
   useEffect(() => {
@@ -3284,7 +3291,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     // Background color based on theme (light or gray, strictly no dark theme)
     const bgHex = isGray ? 0xe2e8f0 : 0xf8fafc;
     scene.background = new THREE.Color(bgHex);
-    scene.fog = new THREE.FogExp2(bgHex, 0.012);
+    // scene.fog = new THREE.FogExp2(bgHex, 0.012);
+    scene.fog = null;
 
     // 2. Camera
     const camera = new THREE.PerspectiveCamera(42, width / height, 0.5, 1000);
@@ -3868,7 +3876,38 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
       {/* Right Toolbar: Camera & Render & Export Controls */}
       {!hideControls && (
-        <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-10">
+        <>
+          {showStreetNames && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+              <div className="bg-slate-900/70 text-white px-4 py-2 rounded-lg text-sm font-bold backdrop-blur-sm">
+                Cadde / Sokak İsimleri (Önizleme)
+              </div>
+            </div>
+          )}
+          <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-10 hidden sm:flex">
+          {/* Street names toggle */}
+          <button
+            type="button"
+            onClick={() => setShowStreetNames(!showStreetNames)}
+            className={`p-2 rounded-xl text-xs transition-all ${
+              showStreetNames
+                ? 'bg-emerald-600 text-white'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title="Cadde ve Sokak İsimlerini Göster"
+          >
+            <MapPin className="w-4 h-4" />
+          </button>
+          {/* Color picker */}
+          <div className="p-1.5 rounded-2xl border bg-white/95 border-slate-200">
+            <input
+              type="color"
+              value={buildingColor || getFacadeStyleConfig(params.facadeStyle).wallColorHex}
+              onChange={(e) => setBuildingColor(e.target.value)}
+              className="w-8 h-8 rounded cursor-pointer"
+              title="Manuel Bina Rengi Seç"
+            />
+          </div>
         {/* Camera presets */}
         <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
           isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
@@ -3881,7 +3920,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
-            title="3D İzometrik Görünüm (Aksonometrik)"
+            title="3D İzometrik Görünüm"
           >
             <Compass className="w-4 h-4" />
           </button>
@@ -3893,57 +3932,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
-            title="Ön Cephe (Güney / 180°)"
+            title="Ön Cephe"
           >
             <span className="text-[10px] font-bold">ÖN</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('rear')}
-            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
-              cameraPreset === 'rear'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Arka Cephe (Kuzey / 0°)"
-          >
-            <span className="text-[10px] font-bold">ARKA</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('right')}
-            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
-              cameraPreset === 'right' || cameraPreset === 'side'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Sağ Yan Cephe (Doğu / 90°)"
-          >
-            <span className="text-[10px] font-bold">SAĞ</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('left')}
-            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
-              cameraPreset === 'left'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Sol Yan Cephe (Batı / 270°)"
-          >
-            <span className="text-[10px] font-bold">SOL</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('top')}
-            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
-              cameraPreset === 'top'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Kuşbakışı / Üstten Kat Planı"
-          >
-            <span className="text-[10px] font-bold">ÜST</span>
           </button>
         </div>
 
@@ -4032,6 +4023,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           </button>
         </div>
       </div>
+        </>
       )}
 
       {/* Bottom Bar: Explode Floors Slider & Floor Isolation */}
