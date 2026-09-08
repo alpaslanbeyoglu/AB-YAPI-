@@ -42,5 +42,18 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
+      chunkSizeWarningLimit: 4000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'three-vendor': ['three'],
+            'react-vendor': ['react', 'react-dom', 'lucide-react', 'motion'],
+          },
+        },
+      },
+    },
   };
 });
