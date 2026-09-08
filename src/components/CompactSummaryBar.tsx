@@ -17,9 +17,10 @@ interface CompactSummaryBarProps {
   results: CalculationResult;
   params: ProjectParams;
   theme: AppTheme;
+  onNavigateToItem?: (itemId: string) => void;
 }
 
-export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = ({ results, params, theme }) => {
+export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = ({ results, params, theme, onNavigateToItem }) => {
   const isGray = theme === 'gray';
   const [activeView, setActiveView] = useState<'project' | 'financial' | 'all'>('all');
 
@@ -170,17 +171,20 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = ({ results, p
         {showProject && (
           <div className="flex items-center gap-2 shrink-0">
             {projectItems.map((item) => {
-              const Icon = item.icon;
               return (
-                <div 
+                <button 
                   key={item.id}
                   id={`summary-chip-${item.id}`}
-                  className="flex flex-col justify-center px-2.5 py-1 rounded-lg border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] shrink-0 min-w-[130px] max-w-[175px] hover:border-slate-300 transition-colors"
+                  type="button"
+                  onClick={() => onNavigateToItem?.(item.id)}
+                  title={`${item.label}: Veri giriş ekranına atlamak için tıklayın`}
+                  className="flex flex-col justify-center px-2.5 py-1 rounded-lg border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] shrink-0 min-w-[130px] max-w-[175px] hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100/80 active:scale-[0.98] transition-all text-left cursor-pointer group"
                 >
-                  <div className="flex items-center gap-1 leading-none mb-0.5">
+                  <div className="flex items-center justify-between gap-1 leading-none mb-0.5 w-full">
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider uppercase border ${item.badgeColor}`}>
                       {item.label}
                     </span>
+                    <span className="text-[8px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">↗</span>
                   </div>
                   
                   <div className="flex items-baseline gap-1 leading-none">
@@ -197,7 +201,7 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = ({ results, p
                   <span className="text-[8.5px] font-medium text-slate-400 mt-0.5 leading-tight truncate">
                     {item.subValue}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -212,15 +216,19 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = ({ results, p
         {showFinancial && (
           <div className="flex items-center gap-2 shrink-0">
             {financialItems.map((item) => (
-              <div 
+              <button 
                 key={item.id}
                 id={`summary-chip-${item.id}`}
-                className="flex flex-col justify-center px-2.5 py-1 rounded-lg border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] shrink-0 min-w-[120px] max-w-[160px] hover:border-slate-300 transition-colors"
+                type="button"
+                onClick={() => onNavigateToItem?.(item.id)}
+                title={`${item.label}: Veri giriş ekranına atlamak için tıklayın`}
+                className="flex flex-col justify-center px-2.5 py-1 rounded-lg border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] shrink-0 min-w-[120px] max-w-[160px] hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100/80 active:scale-[0.98] transition-all text-left cursor-pointer group"
               >
-                <div className="flex items-center gap-1 leading-none mb-0.5">
+                <div className="flex items-center justify-between gap-1 leading-none mb-0.5 w-full">
                   <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider uppercase border ${item.badgeColor}`}>
                     {item.label}
                   </span>
+                  <span className="text-[8px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">↗</span>
                 </div>
                 
                 <div className="flex items-baseline gap-1 leading-none">
@@ -237,7 +245,7 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = ({ results, p
                 <span className="text-[8.5px] font-medium text-slate-400 mt-0.5 leading-tight truncate">
                   {item.subValue}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         )}

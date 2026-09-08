@@ -271,7 +271,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               </div>
 
               {/* Live Scannable Metrics Strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
+              <div id="calculator-core-summary" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
                 <div className="space-y-0.5 col-span-2">
                   <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Taban Oturumu / Kat Alanı</span>
                   <div className="text-xs font-mono font-bold text-indigo-900">
@@ -330,6 +330,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                   <div className="relative">
                     <input
+                      id="input-base-build-area"
                       type="number"
                       value={params.baseBuildArea || ''}
                       onChange={(e) => {
@@ -433,6 +434,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     </button>
                     <div className="relative flex-1">
                       <input
+                        id="input-floor-count"
                         type="number"
                         min="1"
                         max="60"
@@ -518,6 +520,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     </button>
                     <div className="relative flex-1">
                       <input
+                        id="input-flats-per-floor"
                         type="number"
                         min="1"
                         max="30"
@@ -975,7 +978,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 </div>
 
                 {/* 17. Proje Teslim Süresi */}
-                <div className="space-y-1.5">
+                <div id="input-project-duration" className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className={`block text-xs font-bold ${labelColor} uppercase`}>
                       Proje Teslim Süresi:
@@ -1013,7 +1016,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 </div>
 
                 {/* 18. Müteahhit Kâr Oranı (%) */}
-                <div className="space-y-1.5">
+                <div id="input-profit-rate" className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-slate-700 uppercase">Müteahhit Kâr Oranı (%):</label>
                     <span className="text-[10px] font-bold text-indigo-600 font-mono">%{params.profitRate ?? 25}</span>
@@ -1032,7 +1035,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                 </div>
 
                 {/* 19. Teklif Birim m2 Maliyet Fiyatları (Daire ve Dükkan Ayrı) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div id="input-manual-flat-price" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-bold text-indigo-700 uppercase leading-tight">Daire Birim m² (TL):</label>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ProjectParams,
   ExistingBuilding,
@@ -65,6 +65,8 @@ interface ProjectSetupTabProps {
   onNext: () => void;
   onNavigateToModel?: () => void;
   onNavigateToOwners?: () => void;
+  requestedStep?: number;
+  onStepChange?: (step: number) => void;
 }
 
 export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
@@ -74,6 +76,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   onNext,
   onNavigateToModel,
   onNavigateToOwners,
+  requestedStep,
+  onStepChange,
 }) => {
   const isGray = theme === 'gray';
   const textTitle = isGray ? 'text-gray-100' : 'text-slate-900';
@@ -101,7 +105,19 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
   // Interactive Scenario Flow States
   const [wizardMode, setWizardMode] = useState<boolean>(true);
-  const [activeStep, setActiveStep] = useState<number>(2);
+  const [activeStepState, setActiveStepState] = useState<number>(requestedStep || 2);
+  const activeStep = requestedStep !== undefined ? requestedStep : activeStepState;
+
+  const setActiveStep = (step: number) => {
+    setActiveStepState(step);
+    if (onStepChange) onStepChange(step);
+  };
+
+  useEffect(() => {
+    if (requestedStep !== undefined) {
+      setActiveStepState(requestedStep);
+    }
+  }, [requestedStep]);
   const [activeScenario, setActiveScenario] = useState<number | null>(null);
   const [showExistingForm, setShowExistingForm] = useState<boolean>(false);
   const [showManualDataSection, setShowManualDataSection] = useState<boolean>(true);

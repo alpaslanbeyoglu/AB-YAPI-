@@ -303,7 +303,7 @@ export const UnifiedFacadeManager: React.FC<UnifiedFacadeManagerProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div id="unified-facade-manager" className="space-y-6 animate-fade-in">
       {/* 🌟 ANA BAŞLIK & METRAJ ÖZETİ ŞERİDİ */}
       <div className={`${bgCard} rounded-2xl p-6 border shadow-xs relative overflow-hidden`}>
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -497,7 +497,7 @@ export const UnifiedFacadeManager: React.FC<UnifiedFacadeManagerProps> = ({
                 </div>
 
                 {/* 2. CEPHE ÖLÇÜSÜ (UZUNLUK METRAJ DÜZENLEYİCİ) */}
-                <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200 space-y-3">
+                <div id="facade-length-controls" className="p-4 rounded-xl bg-slate-50/80 border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Ruler className="w-4 h-4 text-indigo-600" />
@@ -862,7 +862,7 @@ export const UnifiedFacadeManager: React.FC<UnifiedFacadeManagerProps> = ({
                 </div>
 
                 {/* 5. KONSOL ÇIKMA (CEPHEDE ÇIKMA OLACAK / OLMAYACAK) */}
-                <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-3">
+                <div id="facade-cantilever-controls" className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-emerald-200/60">
                     <label className="text-xs font-black text-emerald-950 flex items-center gap-2 cursor-pointer">
                       <input

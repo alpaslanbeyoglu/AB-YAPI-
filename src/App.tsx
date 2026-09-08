@@ -109,8 +109,74 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<TabId>('kurulum');
+  const [requestedSetupStep, setRequestedSetupStep] = useState<number | undefined>(2);
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isDrivePanelOpen, setIsDrivePanelOpen] = useState(false);
+
+  const handleSummaryChipNavigate = (itemId: string) => {
+    let targetTab: TabId = 'hesapla';
+    let targetId = '';
+    let setupStep: number | undefined = undefined;
+
+    switch (itemId) {
+      case 'taban-alani':
+        targetTab = 'kurulum';
+        setupStep = 2;
+        targetId = 'unified-facade-manager';
+        break;
+      case 'cikmali-taban':
+        targetTab = 'kurulum';
+        setupStep = 2;
+        targetId = 'facade-cantilever-controls';
+        break;
+      case 'kat-bolum':
+        targetTab = 'hesapla';
+        targetId = 'input-floor-count';
+        break;
+      case 'toplam-insaat':
+        targetTab = 'hesapla';
+        targetId = 'calculator-core-summary';
+        break;
+      case 'birim-satis':
+        targetTab = 'hesapla';
+        targetId = 'input-manual-flat-price';
+        break;
+      case 'net-maliyet':
+        targetTab = 'maliyet';
+        targetId = 'cost-details-header';
+        break;
+      case 'hedef-bedel':
+        targetTab = 'hesapla';
+        targetId = 'input-profit-rate';
+        break;
+      case 'teslim-suresi':
+        targetTab = 'hesapla';
+        targetId = 'input-project-duration';
+        break;
+      default:
+        break;
+    }
+
+    if (setupStep !== undefined) {
+      setRequestedSetupStep(setupStep);
+    }
+    setActiveTab(targetTab);
+
+    // Smooth scroll and pulse highlight
+    setTimeout(() => {
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.classList.add('ring-4', 'ring-indigo-500/60', 'transition-all', 'duration-500');
+        if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement) {
+          element.focus();
+        }
+        setTimeout(() => {
+          element.classList.remove('ring-4', 'ring-indigo-500/60');
+        }, 2000);
+      }
+    }, 120);
+  };
 
   // App mode: 'full' (pro desktop) or 'lite' (fast mobile)
   const [appMode, setAppMode] = useState<'full' | 'lite'>(() => {
@@ -808,7 +874,12 @@ export default function App() {
 
       {/* Global Live Summary Bar */}
       <div className="sticky top-[118px] z-10 print:hidden">
-        <CompactSummaryBar results={results} params={params} theme={theme} />
+        <CompactSummaryBar
+          results={results}
+          params={params}
+          theme={theme}
+          onNavigateToItem={handleSummaryChipNavigate}
+        />
       </div>
 
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6">
@@ -855,6 +926,8 @@ export default function App() {
             onNavigateToModel={() => setActiveTab('model')}
             onNavigateToOwners={() => setActiveTab('malikler')}
             theme={theme}
+            requestedStep={requestedSetupStep}
+            onStepChange={setRequestedSetupStep}
           />
         )}
 
