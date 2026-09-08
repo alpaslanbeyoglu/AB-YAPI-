@@ -261,6 +261,102 @@ function createRectangularHipRoofGeometry(
   return geom;
 }
 
+function createOffsetPolygon(
+  pts: Array<{ x: number; y: number }>,
+  getDepthForEdge: (edgeIndex: number) => number
+): Array<{ x: number; y: number }> {
+  const n = pts.length;
+  if (n < 3) return pts;
+
+  let hasAnyOffset = false;
+  for (let i = 0; i < n; i++) {
+    if (getDepthForEdge(i) > 0.001) {
+      hasAnyOffset = true;
+      break;
+    }
+  }
+  if (!hasAnyOffset) return pts;
+
+  let signedArea = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    signedArea += (pts[i].x * pts[j].y - pts[j].x * pts[i].y);
+  }
+  const isCW = signedArea > 0;
+
+  interface Line2D {
+    px: number;
+    py: number;
+    dx: number;
+    dy: number;
+    depth: number;
+  }
+
+  const lines: Line2D[] = [];
+  for (let i = 0; i < n; i++) {
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % n];
+    const ex = p2.x - p1.x;
+    const ey = p2.y - p1.y;
+    const len = Math.sqrt(ex * ex + ey * ey) || 1;
+    const udx = ex / len;
+    const udy = ey / len;
+
+    const nx = isCW ? -udy : udy;
+    const ny = isCW ? udx : -udx;
+
+    const depth = Math.max(0, getDepthForEdge(i));
+    lines.push({
+      px: p1.x + nx * depth,
+      py: p1.y + ny * depth,
+      dx: udx,
+      dy: udy,
+      depth,
+    });
+  }
+
+  const newPts: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < n; i++) {
+    const prevIdx = (i - 1 + n) % n;
+    const L1 = lines[prevIdx];
+    const L2 = lines[i];
+
+    const det = L1.dx * L2.dy - L1.dy * L2.dx;
+    const origPt = pts[i];
+
+    if (Math.abs(det) < 1e-4) {
+      const avgDepth = (L1.depth + L2.depth) / 2;
+      const nx = isCW ? -L2.dy : L2.dy;
+      const ny = isCW ? L2.dx : -L2.dx;
+      newPts.push({
+        x: origPt.x + nx * avgDepth,
+        y: origPt.y + ny * avgDepth,
+      });
+    } else {
+      const dx = L2.px - L1.px;
+      const dy = L2.py - L1.py;
+      const t = (dx * L2.dy - dy * L2.dx) / det;
+      let ix = L1.px + t * L1.dx;
+      let iy = L1.py + t * L1.dy;
+
+      const maxDist = Math.max(L1.depth, L2.depth) * 2.5;
+      const distFromOrig = Math.sqrt((ix - origPt.x) ** 2 + (iy - origPt.y) ** 2);
+      if (distFromOrig > maxDist && maxDist > 0) {
+        const ratio = maxDist / distFromOrig;
+        ix = origPt.x + (ix - origPt.x) * ratio;
+        iy = origPt.y + (iy - origPt.y) * ratio;
+      }
+
+      newPts.push({
+        x: Math.round(ix * 100) / 100,
+        y: Math.round(iy * 100) / 100,
+      });
+    }
+  }
+
+  return newPts;
+}
+
 function createPolygonHipRoofGeometry(
   pts: Array<{ x: number; y: number }>,
   centerX: number,
@@ -575,17 +671,17 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const cantileverDirection = params?.cantileverDirection || 'front_back';
     const facadeCantilevers = params?.facadeCantilevers;
 
-    // Helper to get cantilever depth for a specific facade (0:Front, 1:Right, 2:Back, 3:Left)
-    // KURAL: Tabla çıkması KÖR CEPHELERDE kesinlikle yapılamaz!
+    // Helper to get cantilever depth for a specific facade
+    // KURAL: Tabla çıkması KÖR CEPHELERDE ve BİTİŞİK NİZAM (yangın duvarı) yüzeylerde kesinlikle yapılamaz!
     const isBlindFacade = (idx: number) => {
       const cfg = params?.facadeConfigs?.[idx];
-      return cfg && (cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true);
+      return cfg && (cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true || (cfg as any).isAdjacent === true);
     };
 
     const getFacadeCantilever = (idx: number) => {
       if (isBlindFacade(idx)) return 0;
-      if (facadeCantilevers && facadeCantilevers[idx] !== undefined) return facadeCantilevers[idx];
-      if (cantileverDirection === 'all') return cantileverDepth;
+      if (facadeCantilevers && facadeCantilevers[idx] !== undefined) return Math.max(0, facadeCantilevers[idx]);
+      if (cantileverDirection === 'all' || cantileverDirection === 'open_facades') return cantileverDepth;
       if (cantileverDirection === 'front_back' && (idx === 0 || idx === 2)) return cantileverDepth;
       if (cantileverDirection === 'front' && idx === 0) return cantileverDepth;
       return 0;
@@ -852,9 +948,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // 1. FLOOR SLAB (Döşeme Betonu)
       let slabGeo: THREE.BufferGeometry;
       let slabMesh: THREE.Mesh;
-      if (isCustomPoly && activePolyPts) {
-        const bounds = getPolygonBounds(activePolyPts);
-        const shape = createShapeFromPolygon(activePolyPts, bounds.centerX, bounds.centerY);
+      const currentFloorPts = (isCustomPoly && activePolyPts)
+        ? (isCantileverFloor ? createOffsetPolygon(activePolyPts, (i) => getFacadeCantilever(i)) : activePolyPts)
+        : null;
+
+      if (isCustomPoly && currentFloorPts) {
+        const bounds = getPolygonBounds(currentFloorPts);
+        const shape = createShapeFromPolygon(currentFloorPts, bounds.centerX, bounds.centerY);
 
         slabGeo = new THREE.ExtrudeGeometry(shape, { depth: slabThickness, bevelEnabled: false });
         slabMesh = new THREE.Mesh(slabGeo, isShopFloor ? commercialFloorMat : slabMaterial);
@@ -872,22 +972,32 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       floorGroup.add(slabMesh);
 
       // Under-slab Cantilever Soffit (Konsol Altı Kaplama) on 1st Floor
-      if (hasCantilever && floorIndex === 1 && !isCustomPoly) {
-        const soffitGeo = safeBox(floorW, 0.08, floorD);
-        const soffitMesh = new THREE.Mesh(soffitGeo, soffitMaterial);
-        soffitMesh.position.set(0, baseY - 0.04, floorCenterZ);
-        floorGroup.add(soffitMesh);
+      if (hasCantilever && floorIndex === 1) {
+        if (isCustomPoly && currentFloorPts) {
+          const bounds = getPolygonBounds(currentFloorPts);
+          const cShape = createShapeFromPolygon(currentFloorPts, bounds.centerX, bounds.centerY);
+          const soffitGeo = new THREE.ExtrudeGeometry(cShape, { depth: 0.08, bevelEnabled: false });
+          const soffitMesh = new THREE.Mesh(soffitGeo, soffitMaterial);
+          soffitMesh.rotation.x = Math.PI / 2;
+          soffitMesh.position.set(0, baseY + 0.04, 0);
+          floorGroup.add(soffitMesh);
+        } else {
+          const soffitGeo = safeBox(floorW, 0.08, floorD);
+          const soffitMesh = new THREE.Mesh(soffitGeo, soffitMaterial);
+          soffitMesh.position.set(0, baseY - 0.04, floorCenterZ);
+          floorGroup.add(soffitMesh);
 
-        // Recessed downlights under cantilever overhang
-        const dlCount = Math.max(3, Math.floor(floorW / 2.5));
-        for (let d = 0; d < dlCount; d++) {
-          const dlX = -floorW / 2 + (floorW / (dlCount + 1)) * (d + 1);
-          const dlMesh = new THREE.Mesh(
-            safeCylinder(0.12, 0.12, 0.04, 12),
-            downlightMat
-          );
-          dlMesh.position.set(dlX, baseY - 0.07, floorD / 2 - 0.4);
-          floorGroup.add(dlMesh);
+          // Recessed downlights under cantilever overhang
+          const dlCount = Math.max(3, Math.floor(floorW / 2.5));
+          for (let d = 0; d < dlCount; d++) {
+            const dlX = -floorW / 2 + (floorW / (dlCount + 1)) * (d + 1);
+            const dlMesh = new THREE.Mesh(
+              safeCylinder(0.12, 0.12, 0.04, 12),
+              downlightMat
+            );
+            dlMesh.position.set(dlX, baseY - 0.07, floorD / 2 - 0.4);
+            floorGroup.add(dlMesh);
+          }
         }
       }
 
@@ -1908,14 +2018,17 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
         let wallDefs: Array<{ name: string; length: number; x: number; z: number; rotationY: number; isCustom: boolean }> = [];
         if (isCustomPoly && activePolyPts) {
-          const bounds = getPolygonBounds(activePolyPts);
-          const edges = getPolygonEdges(activePolyPts);
+          const currentFloorWallPts = isCantileverFloor
+            ? createOffsetPolygon(activePolyPts, (i) => getFacadeCantilever(i))
+            : activePolyPts;
+          const bounds = getPolygonBounds(currentFloorWallPts);
+          const edges = getPolygonEdges(currentFloorWallPts);
 
           // Calculate signed area to know clockwise vs counter-clockwise winding
           let signedArea = 0;
-          for (let i = 0; i < activePolyPts.length; i++) {
-            const j = (i + 1) % activePolyPts.length;
-            signedArea += (activePolyPts[i].x * activePolyPts[j].y - activePolyPts[j].x * activePolyPts[i].y);
+          for (let i = 0; i < currentFloorWallPts.length; i++) {
+            const j = (i + 1) % currentFloorWallPts.length;
+            signedArea += (currentFloorWallPts[i].x * currentFloorWallPts[j].y - currentFloorWallPts[j].x * currentFloorWallPts[i].y);
           }
           const isCW = signedArea > 0;
 
@@ -2607,16 +2720,20 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       // 50cm standard Turkish eaves overhang (Çatı Saçağı)
       const eavesOverhang = 0.5;
 
-      const minSpan = isCustomPoly && activePolyPts
-        ? Math.min(getPolygonBounds(activePolyPts).width, getPolygonBounds(activePolyPts).depth)
+      const roofPolyPts = (isCustomPoly && activePolyPts)
+        ? (isTopFloorCantilever ? createOffsetPolygon(activePolyPts, (i) => getFacadeCantilever(i)) : activePolyPts)
+        : null;
+
+      const minSpan = isCustomPoly && roofPolyPts
+        ? Math.min(getPolygonBounds(roofPolyPts).width, getPolygonBounds(roofPolyPts).depth)
         : Math.min(topFloorW, topFloorD);
 
       if (roofType === 'gable') {
         // 1. Classic Turkish Gable / Kırma Çatı
         const roofHeight = Math.max(1.8, Math.min(4.2, minSpan * 0.28 + 0.8));
-        if (isCustomPoly && activePolyPts) {
-          const bounds = getPolygonBounds(activePolyPts);
-          const roofGeo = createPolygonHipRoofGeometry(activePolyPts, bounds.centerX, bounds.centerY, roofHeight, eavesOverhang, 0.25);
+        if (isCustomPoly && roofPolyPts) {
+          const bounds = getPolygonBounds(roofPolyPts);
+          const roofGeo = createPolygonHipRoofGeometry(roofPolyPts, bounds.centerX, bounds.centerY, roofHeight, eavesOverhang, 0.25);
           const roofMesh = new THREE.Mesh(
             roofGeo,
             new THREE.MeshStandardMaterial({
@@ -2657,16 +2774,16 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           side: THREE.DoubleSide,
         });
 
-        if (isCustomPoly && activePolyPts) {
-          const bounds = getPolygonBounds(activePolyPts);
-          const lowerGeo = createPolygonHipRoofGeometry(activePolyPts, bounds.centerX, bounds.centerY, mansardLowerH, eavesOverhang, 0.2);
+        if (isCustomPoly && roofPolyPts) {
+          const bounds = getPolygonBounds(roofPolyPts);
+          const lowerGeo = createPolygonHipRoofGeometry(roofPolyPts, bounds.centerX, bounds.centerY, mansardLowerH, eavesOverhang, 0.2);
           const lowerMesh = new THREE.Mesh(lowerGeo, mansardMat);
           lowerMesh.position.set(0, topFloorY, 0);
           lowerMesh.castShadow = true;
           roofGroup.add(lowerMesh);
 
           // Dormers along front polygon edge
-          const edges = getPolygonEdges(activePolyPts);
+          const edges = getPolygonEdges(roofPolyPts);
           const mainEntranceIdx = params.mainEntranceFacadeIndex || 0;
           const mainEdge = edges[mainEntranceIdx] || edges[0];
           if (mainEdge) {
@@ -2855,9 +2972,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       } else {
         // 4. Flat Roof with Parapet (Teras Çatı)
         const parapetHeight = 0.9;
-        if (isCustomPoly && activePolyPts) {
-          const bounds = getPolygonBounds(activePolyPts);
-          const shape = createShapeFromPolygon(activePolyPts, bounds.centerX, bounds.centerY);
+        if (isCustomPoly && roofPolyPts) {
+          const bounds = getPolygonBounds(roofPolyPts);
+          const shape = createShapeFromPolygon(roofPolyPts, bounds.centerX, bounds.centerY);
           const roofSlabGeo = new THREE.ExtrudeGeometry(shape, { depth: slabThickness, bevelEnabled: false });
           const roofSlab = new THREE.Mesh(roofSlabGeo, slabMaterial);
           roofSlab.rotation.x = Math.PI / 2;
@@ -2865,11 +2982,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           roofSlab.castShadow = true;
           roofGroup.add(roofSlab);
 
-          const edges = getPolygonEdges(activePolyPts);
+          const edges = getPolygonEdges(roofPolyPts);
           let signedArea = 0;
-          for (let i = 0; i < activePolyPts.length; i++) {
-            const j = (i + 1) % activePolyPts.length;
-            signedArea += (activePolyPts[i].x * activePolyPts[j].y - activePolyPts[j].x * activePolyPts[i].y);
+          for (let i = 0; i < roofPolyPts.length; i++) {
+            const j = (i + 1) % roofPolyPts.length;
+            signedArea += (roofPolyPts[i].x * roofPolyPts[j].y - roofPolyPts[j].x * roofPolyPts[i].y);
           }
           const isCW = signedArea > 0;
 

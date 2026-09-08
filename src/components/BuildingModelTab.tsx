@@ -1136,120 +1136,274 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                         <span className={`font-semibold ${textTitle}`}>Tabla Çıkması (Konsol)</span>
                       </label>
 
-                      {modelParams.hasCantilever && (
-                        <div className="space-y-4 pt-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-[11px] font-bold text-slate-700">Genel Çıkma Modu:</span>
-                            <select
-                              value={modelParams.cantileverDirection || 'front_back'}
-                              onChange={(e) => {
-                                const newDir = e.target.value as any;
-                                let newFacades = modelParams.facadeCantilevers;
-                                if (newDir !== 'custom') {
-                                  newFacades = undefined;
-                                } else {
-                                  const d = modelParams.cantileverDepth || 1.2;
-                                  newFacades = [d, 0, d, 0]; // default to front_back
-                                }
-                                updateParams({
-                                  cantileverDirection: newDir,
-                                  facadeCantilevers: newFacades,
-                                });
-                              }}
-                              className={`w-32 text-[10px] px-2 py-1 rounded-lg border focus:outline-hidden ${inputBg}`}
-                            >
-                              <option value="front_back">Ön ve Arka</option>
-                              <option value="front">Yalnız Ön</option>
-                              <option value="all">Dört Cephe</option>
-                              <option value="custom">Özel Cepheler</option>
-                            </select>
-                          </div>
+                      {modelParams.hasCantilever && (() => {
+                        const isPoly = modelParams.footprintInputMode === 'polygonDraw' || (modelParams.polygonPoints && modelParams.polygonPoints.length > 4);
+                        const pts = modelParams.polygonPoints && modelParams.polygonPoints.length >= 3 ? modelParams.polygonPoints : null;
+                        const edges = pts ? getPolygonEdges(pts) : [];
+                        const sideCount = edges.length > 0 ? edges.length : (modelParams.customFacades && modelParams.customFacades.length > 4 ? modelParams.customFacades.length : 4);
 
-                          <div className="space-y-2.5 p-3 bg-white/50 rounded-2xl border border-slate-100">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <Layout className="w-3.5 h-3.5 text-indigo-600" />
-                              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-tight">Cephe Bazlı Çıkmalar (m)</span>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                              {[
-                                { label: 'Ön Cephe', idx: 0 },
-                                { label: 'Sağ Yan', idx: 1 },
-                                { label: 'Arka Cephe', idx: 2 },
-                                { label: 'Sol Yan', idx: 3 }
-                              ].map((f) => {
-                                const isBlind = modelParams.facadeConfigs?.[f.idx]?.windowCountPerFloor === 0 || (modelParams.facadeConfigs?.[f.idx] as any)?.isBlankWall === true;
-                                const currentVal = isBlind ? 0 : (
-                                  modelParams.facadeCantilevers?.[f.idx] !== undefined ? modelParams.facadeCantilevers[f.idx] : (
-                                    modelParams.cantileverDirection === 'all' ? (modelParams.cantileverDepth || 1.2) :
-                                    modelParams.cantileverDirection === 'front_back' && (f.idx === 0 || f.idx === 2) ? (modelParams.cantileverDepth || 1.2) :
-                                    modelParams.cantileverDirection === 'front' && f.idx === 0 ? (modelParams.cantileverDepth || 1.2) : 0
-                                  )
-                                );
+                        const cfgs = generateFacadeConfigs(
+                          pts || sideCount,
+                          modelParams.facadeConfigs,
+                          modelParams.mainEntranceFacadeIndex || 0
+                        );
 
-                                return (
-                                  <div key={f.idx} className="flex items-center justify-between gap-1">
-                                    <div className="flex items-center gap-1 min-w-0">
-                                      <span className="text-[10px] text-slate-500 truncate">{f.label}:</span>
-                                      {isBlind && (
-                                        <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-200 shrink-0">
-                                          Kör
-                                        </span>
-                                      )}
-                                    </div>
-                                    <input
-                                      type="number"
-                                      step="0.1"
-                                      min="0"
-                                      max="2.5"
-                                      disabled={isBlind}
-                                      value={currentVal}
-                                      onChange={(e) => {
-                                        if (isBlind) return;
-                                        const val = parseFloat(e.target.value);
-                                        if (!isNaN(val) && val >= 0) {
-                                          const next = [...(modelParams.facadeCantilevers || [0,0,0,0])];
-                                          if (next.length < 4) {
-                                            const base = modelParams.cantileverDepth || 1.2;
-                                            if (modelParams.cantileverDirection === 'all') next.splice(0, 4, base, base, base, base);
-                                            else if (modelParams.cantileverDirection === 'front_back') next.splice(0, 4, base, 0, base, 0);
-                                            else if (modelParams.cantileverDirection === 'front') next.splice(0, 4, base, 0, 0, 0);
-                                            else next.splice(0, 4, 0, 0, 0, 0);
-                                          }
-                                          next[f.idx] = val;
-                                          updateParams({ facadeCantilevers: next });
-                                        }
-                                      }}
-                                      className={`w-12 px-1.5 py-0.5 text-right font-mono font-bold text-[10px] rounded border ${
-                                        isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : inputBg
-                                      }`}
-                                      title={isBlind ? 'Kör cephelerde imar mevzuatı gereği tabla çıkması yapılamaz' : undefined}
-                                    />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            {/* Blind facade warning alert */}
-                            {[0, 1, 2, 3].some((idx) => modelParams.facadeConfigs?.[idx]?.windowCountPerFloor === 0 || (modelParams.facadeConfigs?.[idx] as any)?.isBlankWall === true) && (
-                              <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-[10px] text-amber-800 flex items-start gap-1.5 leading-tight">
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                                <span>
-                                  <strong>İmar Kuralı:</strong> Kör cephelerde (komşu parsel sınırı / yangın duvarı) tabla çıkması (konsol) yapılamaz. Çıkma 0m olarak uygulanmaktadır.
-                                </span>
-                              </div>
-                            )}
-                            <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
-                              <span className="text-[9px] text-slate-400 italic">Değerleri tek tek özelleştirebilirsiniz.</span>
-                              <button 
-                                onClick={() => updateParams({ facadeCantilevers: undefined })}
-                                className="text-[9px] text-indigo-600 font-bold hover:underline"
+                        const defaultDepth = modelParams.cantileverDepth || 1.2;
+
+                        // Check if any blind/adjacent exists
+                        const hasBlindOrAdjacent = cfgs.some(
+                          (c) => c.windowCountPerFloor === 0 || (c as any).isBlankWall === true || (c as any).isAdjacent === true
+                        );
+
+                        return (
+                          <div className="space-y-4 pt-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-[11px] font-bold text-slate-700">Genel Çıkma Modu:</span>
+                              <select
+                                value={modelParams.cantileverDirection || 'open_facades'}
+                                onChange={(e) => {
+                                  const newDir = e.target.value as any;
+                                  let newFacades: number[] | undefined = undefined;
+                                  if (newDir === 'custom') {
+                                    newFacades = cfgs.map((c) => {
+                                      const isBlind = c.windowCountPerFloor === 0 || (c as any).isBlankWall || (c as any).isAdjacent;
+                                      return isBlind ? 0 : defaultDepth;
+                                    });
+                                  }
+                                  updateParams({
+                                    cantileverDirection: newDir,
+                                    facadeCantilevers: newFacades,
+                                  });
+                                }}
+                                className={`w-40 text-[10px] px-2 py-1 rounded-lg border focus:outline-hidden ${inputBg}`}
                               >
-                                Sıfırla
-                              </button>
+                                <option value="open_facades">Tüm Açık Cepheler</option>
+                                <option value="front_back">Ön ve Arka Cephe</option>
+                                <option value="front">Yalnız Ön Cephe</option>
+                                <option value="all">Tüm Cepheler</option>
+                                <option value="custom">Özel Cepheler</option>
+                              </select>
+                            </div>
+
+                            {/* Varsayılan Konsol Derinliği */}
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-[11px] font-medium text-slate-600">Varsayılan Çıkma Derinliği:</span>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  min="0.5"
+                                  max="2.5"
+                                  value={defaultDepth}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value);
+                                    if (!isNaN(val) && val >= 0) {
+                                      updateParams({ cantileverDepth: val });
+                                    }
+                                  }}
+                                  className={`w-14 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded border ${inputBg}`}
+                                />
+                                <span className="text-xs text-slate-400">m</span>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2.5 p-3 bg-white/70 rounded-2xl border border-slate-200">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-1.5">
+                                  <Layout className="w-3.5 h-3.5 text-indigo-600" />
+                                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-tight">
+                                    Cephe Bazlı Çıkma & Bitişik Nizam ({cfgs.length} Cephe)
+                                  </span>
+                                </div>
+                                {cfgs.length >= 6 && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    L-Tipi / Çokgen
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {cfgs.map((cfg, fIdx) => {
+                                  const isAdjacent = (cfg as any).isAdjacent === true;
+                                  const isBlank = cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true;
+                                  const isBlind = isAdjacent || isBlank;
+                                  const currentVal = isBlind ? 0 : (
+                                    modelParams.facadeCantilevers?.[fIdx] !== undefined
+                                      ? modelParams.facadeCantilevers[fIdx]
+                                      : (
+                                        (modelParams.cantileverDirection === 'all' || modelParams.cantileverDirection === 'open_facades') ? defaultDepth :
+                                        modelParams.cantileverDirection === 'front_back' && (fIdx === 0 || fIdx === 2) ? defaultDepth :
+                                        modelParams.cantileverDirection === 'front' && fIdx === 0 ? defaultDepth : 0
+                                      )
+                                  );
+
+                                  return (
+                                    <div
+                                      key={fIdx}
+                                      className={`p-2 rounded-xl border transition-all flex items-center justify-between gap-1.5 ${
+                                        isBlind ? 'bg-slate-100/70 border-slate-200' : 'bg-white border-slate-200'
+                                      }`}
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-[11px] font-semibold text-slate-800 truncate" title={cfg.name}>
+                                            {cfg.name}
+                                          </span>
+                                          {cfg.length && (
+                                            <span className="text-[9px] text-slate-400 font-mono">({cfg.length}m)</span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const newCfgs = [...cfgs];
+                                              const willBeAdjacent = !isAdjacent;
+                                              newCfgs[fIdx] = {
+                                                ...newCfgs[fIdx],
+                                                isAdjacent: willBeAdjacent,
+                                                isBlankWall: willBeAdjacent,
+                                                windowCountPerFloor: willBeAdjacent ? 0 : 2,
+                                                hasBalcony: !willBeAdjacent,
+                                                balconyCountPerFloor: willBeAdjacent ? 0 : 1,
+                                                cantileverDepth: willBeAdjacent ? 0 : defaultDepth,
+                                              };
+
+                                              const nextCantilevers = [...(modelParams.facadeCantilevers || Array(cfgs.length).fill(defaultDepth))];
+                                              while (nextCantilevers.length < cfgs.length) {
+                                                nextCantilevers.push(defaultDepth);
+                                              }
+                                              nextCantilevers[fIdx] = willBeAdjacent ? 0 : defaultDepth;
+
+                                              updateParams({
+                                                facadeConfigs: newCfgs,
+                                                facadeCantilevers: nextCantilevers,
+                                                cantileverDirection: 'custom',
+                                              });
+                                            }}
+                                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-all ${
+                                              isAdjacent
+                                                ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'
+                                            }`}
+                                            title="Bitişik nizam veya komşu parsel yangın duvarı olarak işaretle"
+                                          >
+                                            {isAdjacent ? 'Bitişik Nizam (Kör)' : 'Açık Cephe'}
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <input
+                                          type="number"
+                                          step="0.1"
+                                          min="0"
+                                          max="2.5"
+                                          disabled={isBlind}
+                                          value={currentVal}
+                                          onChange={(e) => {
+                                            if (isBlind) return;
+                                            const val = parseFloat(e.target.value);
+                                            if (!isNaN(val) && val >= 0) {
+                                              const next = [...(modelParams.facadeCantilevers || Array(cfgs.length).fill(defaultDepth))];
+                                              while (next.length < cfgs.length) {
+                                                next.push(defaultDepth);
+                                              }
+                                              next[fIdx] = val;
+                                              updateParams({
+                                                facadeCantilevers: next,
+                                                cantileverDirection: 'custom',
+                                              });
+                                            }
+                                          }}
+                                          className={`w-12 px-1 py-0.5 text-right font-mono font-bold text-[11px] rounded border ${
+                                            isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : inputBg
+                                          }`}
+                                          title={isBlind ? 'Kör veya bitişik cephelerde imar mevzuatı gereği tabla çıkması yapılamaz' : undefined}
+                                        />
+                                        <span className="text-[10px] text-slate-400">m</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Blind/Adjacent facade warning alert */}
+                              {hasBlindOrAdjacent && (
+                                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[10px] text-amber-800 flex items-start gap-1.5 leading-tight">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                  <span>
+                                    <strong>İmar Mevzuatı (Planlı Alanlar Madde 41):</strong> Komşu parsele bitişik (yangın duvarı / kör cephe) yüzeylerde parsel sınırını ihlal edeceğinden tabla konsol çıkması yapılamaz. Çıkma 0m olarak uygulanmaktadır.
+                                  </span>
+                                </div>
+                              )}
+
+                              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5">
+                                {cfgs.length >= 6 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      // Preset: L-Shape standard: back and left adjacent, others open with defaultDepth
+                                      const newCfgs = cfgs.map((c, i) => {
+                                        const isAdj = i === 3 || i === 4; // usually inner/back corner in L shape
+                                        return {
+                                          ...c,
+                                          isAdjacent: isAdj,
+                                          isBlankWall: isAdj,
+                                          windowCountPerFloor: isAdj ? 0 : 2,
+                                          hasBalcony: !isAdj,
+                                          balconyCountPerFloor: isAdj ? 0 : 1,
+                                          cantileverDepth: isAdj ? 0 : defaultDepth,
+                                        };
+                                      });
+                                      const newCants = newCfgs.map(c => ((c as any).isAdjacent ? 0 : defaultDepth));
+                                      updateParams({
+                                        facadeConfigs: newCfgs,
+                                        facadeCantilevers: newCants,
+                                        cantileverDirection: 'custom',
+                                      });
+                                    }}
+                                    className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                                  >
+                                    L-Tipi: Arka & Yan Bitişik Yap
+                                  </button>
+                                )}
+                                <div className="flex items-center gap-2 ml-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const allOpen = cfgs.map(c => ({
+                                        ...c,
+                                        isAdjacent: false,
+                                        isBlankWall: false,
+                                        windowCountPerFloor: 2,
+                                        hasBalcony: true,
+                                        balconyCountPerFloor: 1,
+                                        cantileverDepth: defaultDepth,
+                                      }));
+                                      updateParams({
+                                        facadeConfigs: allOpen,
+                                        facadeCantilevers: Array(cfgs.length).fill(defaultDepth),
+                                        cantileverDirection: 'open_facades',
+                                      });
+                                    }}
+                                    className="text-[9px] text-slate-600 font-bold hover:underline"
+                                  >
+                                    Tüm Açık
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateParams({ facadeCantilevers: undefined, cantileverDirection: 'open_facades' })}
+                                    className="text-[9px] text-indigo-600 font-bold hover:underline"
+                                  >
+                                    Sıfırla
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

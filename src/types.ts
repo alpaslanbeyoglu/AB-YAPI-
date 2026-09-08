@@ -108,6 +108,9 @@ export interface FacadeDetailConfig {
   balconyCountPerFloor: number;// Katta bu cephedeki balkon adedi (0, 1, 2, 3)
   balconyType?: BalconyType;  // Türkiye mimarisinde yaygın balkon tipleri
   isEntrance?: boolean;       // Bina ana giriş kapısı bu cephede mi?
+  isAdjacent?: boolean;       // Bitişik nizam / Komşu parsele bitişik cephe (İmar mevzuatı gereği çıkma ve pencere yapılamaz)
+  isBlankWall?: boolean;      // Sağır duvar / Kör cephe
+  cantileverDepth?: number;   // Bu cephedeki konsol çıkma derinliği (m)
 }
 
 export interface CustomFacadeSide {
@@ -119,6 +122,9 @@ export interface CustomFacadeSide {
   balconyCountPerFloor?: number;
   balconyType?: BalconyType;
   isEntrance?: boolean;
+  isAdjacent?: boolean;
+  isBlankWall?: boolean;
+  cantileverDepth?: number;
 }
 
 export interface FlatItem {
@@ -183,6 +189,8 @@ export interface ExistingBuilding {
   note?: string; // Ek açıklama / ada parsel notu
 }
 
+export type CantileverDirection = 'open_facades' | 'front_back' | 'front' | 'all' | 'custom';
+
 export interface ProjectParams {
   projectName?: string;        // Müşteri / Proje Adı
   projectType?: string;        // Proje Türü: 'kentsel' | 'kat_karsiligi' | 'muteahhitlik' vb.
@@ -239,7 +247,7 @@ export interface ProjectParams {
   // Çıkma / Tabla Konsolu (1. kattan sonra tabla çıkması)
   hasCantilever?: boolean;
   cantileverDepth?: number;
-  cantileverDirection?: 'front_back' | 'front' | 'all' | 'custom';
+  cantileverDirection?: CantileverDirection;
   facadeCantilevers?: number[]; // Her cephe için ayrı çıkma mesafesi (m)
 
   // Mimari Çatı ve Kütle Özellikleri
@@ -353,6 +361,7 @@ export interface FlatCalcResult {
 export interface CalculationResult {
   totalArea: number;
   baseArea: number;
+  upperFloorArea?: number;
   flatCount: number;
   normalFlats?: number;
   extraMansardFlats?: number;
@@ -497,7 +506,7 @@ export interface BuildingModelParams {
   // Çıkma / Tabla Konsolu (1. kattan itibaren konsol çıkması)
   hasCantilever?: boolean;
   cantileverDepth?: number;
-  cantileverDirection?: 'front_back' | 'front' | 'all' | 'custom';
+  cantileverDirection?: CantileverDirection;
   facadeCantilevers?: number[]; // Her cephe için ayrı çıkma mesafesi (m)
   // Müteahhit Payı / Daire Paylaşımı
   contractorFlatIds?: number[];          // Müteahhite kalacak dairelerin ID listesi

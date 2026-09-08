@@ -703,21 +703,27 @@ export function generateFacadeConfigs(
     // Determine window count first
     const windowCountPerFloor = existing?.windowCountPerFloor !== undefined ? existing.windowCountPerFloor : defaultWindows;
     
-    // Under TR regulations, blind facades (0 windows) cannot have balconies or windows
-    const isBlind = windowCountPerFloor === 0;
+    // Under TR regulations, adjacent or blind facades (0 windows) cannot have balconies, windows or cantilevers
+    const isAdjacent = existing?.isAdjacent ?? false;
+    const isBlankWall = existing?.isBlankWall ?? isAdjacent;
+    const isBlind = windowCountPerFloor === 0 || isBlankWall || isAdjacent;
     
     const hasBalcony = isBlind ? false : ((existing?.hasBalcony !== undefined) ? existing.hasBalcony : (len >= 6 && i !== 2));
     const balconyCountPerFloor = isBlind ? 0 : (existing?.balconyCountPerFloor !== undefined ? existing.balconyCountPerFloor : (hasBalcony ? 1 : 0));
+    const cantileverDepth = isBlind ? 0 : (existing?.cantileverDepth !== undefined ? existing.cantileverDepth : 1.2);
 
     return {
       id: i + 1,
       name: existing?.name || names[i] || `${i + 1}. Cephe`,
       length: len,
-      windowCountPerFloor,
+      windowCountPerFloor: isBlind ? 0 : windowCountPerFloor,
       hasBalcony,
       balconyCountPerFloor,
       balconyType: existing?.balconyType || 'standard',
       isEntrance,
+      isAdjacent,
+      isBlankWall,
+      cantileverDepth,
     };
   });
 }

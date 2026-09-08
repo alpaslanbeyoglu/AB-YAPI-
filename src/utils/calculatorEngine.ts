@@ -1,5 +1,127 @@
 import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem } from '../types';
-import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint } from './footprintUtils';
+import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint, FootprintCalculationResult } from './footprintUtils';
+
+export interface FacadeCantileverDetail {
+  index: number;
+  name: string;
+  length: number;
+  isAdjacent: boolean;
+  isBlind: boolean;
+  cantileverDepth: number;
+  addedArea: number;
+}
+
+export interface CantileverCalculationResult {
+  upperFloorArea: number;
+  singleFloorDiff: number;
+  facades: FacadeCantileverDetail[];
+  totalCantileverArea: number;
+}
+
+/**
+ * Dinamik Konsol Çıkma ve Kat Alanı Hesaplayıcı
+ * L-Tipi (6 cephe), U-Tipi (8 cephe), Çokgen (N cephe) ve 4 cepheli yapılarda
+ * bitişik nizam ve kör cephe kurallarını (İmar Mevzuatı Md. 41) dikkate alarak
+ * her cephenin konsol çıkmasını ve 1. kattan itibaren oluşan kat alanını hesaplar.
+ */
+export function calculateCantileverDetails(
+  params: Partial<ProjectParams>,
+  activeBaseArea?: number,
+  footprintCalc?: FootprintCalculationResult
+): CantileverCalculationResult {
+  const calc = footprintCalc || calculateFootprint(params.footprintInputMode, params as ProjectParams);
+  const baseArea = activeBaseArea !== undefined && activeBaseArea > 0 ? activeBaseArea : (calc.area || 100);
+
+  const sides = (calc.sidesList && calc.sidesList.length > 0) ? calc.sidesList : [
+    { name: '1. Ön Cephe', length: calc.effectiveWidth || 14 },
+    { name: '2. Sağ Yan Cephe', length: calc.effectiveDepth || 18 },
+    { name: '3. Arka Cephe', length: calc.effectiveWidth || 14 },
+    { name: '4. Sol Yan Cephe', length: calc.effectiveDepth || 18 },
+  ];
+
+  const totalSides = sides.length;
+  const hasCantilever = !!params.hasCantilever;
+  const defaultDepth = params.cantileverDepth || 1.2;
+  const direction = params.cantileverDirection || 'front_back';
+
+  const facadeDetails: FacadeCantileverDetail[] = sides.map((side, idx) => {
+    const cfg = params.facadeConfigs?.[idx];
+    const isAdjacent = !!(cfg && (cfg.isAdjacent === true || cfg.isBlankWall === true || (cfg as any).isBlind === true));
+    const isZeroWindowBlind = !!(cfg && cfg.windowCountPerFloor === 0);
+    const isBlind = isAdjacent || isZeroWindowBlind;
+    const len = side.length || cfg?.length || 10;
+
+    let depth = 0;
+    if (hasCantilever && !isBlind && defaultDepth > 0) {
+      if (params.facadeCantilevers && params.facadeCantilevers[idx] !== undefined) {
+        depth = Math.max(0, params.facadeCantilevers[idx]);
+      } else if (direction === 'all' || direction === 'open_facades') {
+        depth = defaultDepth;
+      } else if (direction === 'front') {
+        const isEntrance = idx === (params.mainEntranceFacadeIndex || 0) || !!cfg?.isEntrance || idx === 0;
+        depth = isEntrance ? defaultDepth : 0;
+      } else if (direction === 'front_back') {
+        const isEntrance = idx === (params.mainEntranceFacadeIndex || 0) || !!cfg?.isEntrance || idx === 0;
+        const isBack = totalSides === 4
+          ? idx === 2
+          : (idx === Math.floor(totalSides / 2) || (side.name && side.name.toLowerCase().includes('arka')));
+        depth = (isEntrance || isBack) ? defaultDepth : 0;
+      } else if (direction === 'custom') {
+        depth = cfg?.cantileverDepth !== undefined ? cfg.cantileverDepth : 0;
+      }
+    }
+
+    const addedArea = Math.round(len * depth * 100) / 100;
+    return {
+      index: idx,
+      name: cfg?.name || side.name,
+      length: len,
+      isAdjacent,
+      isBlind,
+      cantileverDepth: depth,
+      addedArea,
+    };
+  });
+
+  let singleFloorDiff = 0;
+  if (hasCantilever) {
+    if (totalSides === 4 && (params.footprintInputMode === 'dimensions' || params.footprintInputMode === 'directArea' || !params.footprintInputMode)) {
+      // Classic 4-wall box calculation
+      const fC = facadeDetails[0]?.cantileverDepth || 0;
+      const rC = facadeDetails[1]?.cantileverDepth || 0;
+      const bC = facadeDetails[2]?.cantileverDepth || 0;
+      const lC = facadeDetails[3]?.cantileverDepth || 0;
+      const w = calc.effectiveWidth || 10;
+      const d = calc.effectiveDepth || 10;
+      const boxArea = (w + lC + rC) * (d + fC + bC);
+      singleFloorDiff = Math.max(0, Math.round((boxArea - (w * d)) * 100) / 100);
+    } else {
+      // Polygon, L-Shape (6 facades), U-Shape (8 facades)
+      const stripsArea = facadeDetails.reduce((sum, f) => sum + f.addedArea, 0);
+      let cornerBonus = 0;
+      for (let i = 0; i < totalSides; i++) {
+        const nextIdx = (i + 1) % totalSides;
+        // Skip concave inner corners for L-shape (inner notch)
+        const isInnerNotch = totalSides === 6 && (i === 2 || i === 3);
+        if (!isInnerNotch && facadeDetails[i].cantileverDepth > 0 && facadeDetails[nextIdx].cantileverDepth > 0) {
+          cornerBonus += facadeDetails[i].cantileverDepth * facadeDetails[nextIdx].cantileverDepth;
+        }
+      }
+      singleFloorDiff = Math.round((stripsArea + cornerBonus) * 100) / 100;
+    }
+  }
+
+  const upperFloorArea = Math.round((baseArea + singleFloorDiff) * 100) / 100;
+  const upperFloorsCount = Math.max(0, (params.floorCount || 5) - 1);
+  const totalCantileverArea = Math.round(singleFloorDiff * upperFloorsCount * 100) / 100;
+
+  return {
+    upperFloorArea,
+    singleFloorDiff,
+    facades: facadeDetails,
+    totalCantileverArea,
+  };
+}
 
 export const DEFAULT_PARAMS: ProjectParams = {
   projectName: 'Müşteri / Proje Adı Belirtilmedi',
@@ -313,43 +435,10 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const estD = footprintCalc.effectiveDepth;
 
   // Calculate upper floor area if cantilever (tabla çıkması) is present
-  // KURAL: Tabla çıkması KÖR CEPHELERDE (yangın duvarı / komşu parsel sınırı) kesinlikle yapılamaz!
+  // KURAL: Tabla çıkması KÖR CEPHELERDE / BİTİŞİK NİZAMDA (komşu parsel sınırı) kesinlikle yapılamaz!
+  const cantileverInfo = calculateCantileverDetails(params, activeBaseArea, footprintCalc);
+  const upperFloorArea = cantileverInfo.upperFloorArea;
   const upperFloorsCount = Math.max(0, floorCount - 1);
-  let upperFloorArea = activeBaseArea;
-  if (hasCantilever && cantileverDepth > 0) {
-    const isBlind = (idx: number) => {
-      const cfg = params.facadeConfigs?.[idx];
-      return cfg && (cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true);
-    };
-
-    let fCant = 0;
-    let rCant = 0;
-    let bCant = 0;
-    let lCant = 0;
-
-    if (cantileverDirection === 'custom' && params.facadeCantilevers && params.facadeCantilevers.length >= 4) {
-      fCant = isBlind(0) ? 0 : (params.facadeCantilevers[0] || 0);
-      rCant = isBlind(1) ? 0 : (params.facadeCantilevers[1] || 0);
-      bCant = isBlind(2) ? 0 : (params.facadeCantilevers[2] || 0);
-      lCant = isBlind(3) ? 0 : (params.facadeCantilevers[3] || 0);
-    } else {
-      if (cantileverDirection === 'all') {
-        fCant = isBlind(0) ? 0 : cantileverDepth;
-        rCant = isBlind(1) ? 0 : cantileverDepth;
-        bCant = isBlind(2) ? 0 : cantileverDepth;
-        lCant = isBlind(3) ? 0 : cantileverDepth;
-      } else if (cantileverDirection === 'front') {
-        fCant = isBlind(0) ? 0 : cantileverDepth;
-      } else {
-        // front_back
-        fCant = isBlind(0) ? 0 : cantileverDepth;
-        bCant = isBlind(2) ? 0 : cantileverDepth;
-      }
-    }
-
-    upperFloorArea = (estW + lCant + rCant) * (estD + fCant + bCant);
-    upperFloorArea = Math.round(upperFloorArea * 100) / 100;
-  }
 
   // Çatı ve Dubleks İnşaat Alanı Hesabı:
   const roofType = params.roofType || 'gable';
@@ -863,6 +952,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     normalFlats: normalFloorFlats,
     extraMansardFlats,
     roofAtticArea,
+    upperFloorArea: Math.round(upperFloorArea * 100) / 100,
     isMansardIndependent: isMansard,
     isDuplexUnified: isDuplex,
     autoDurationMonths,
