@@ -1355,7 +1355,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                                       </span>
                                     </div>
                                     <span className="text-[10px] text-slate-500 block mt-0.5">
-                                      {flat.area} m² | Şerefiye: x{flat.serefiyeMultiplier || '1.0'} | Kat {flat.floorNumber}
+                                      {flat.area} m²{params.enableSerefiye && flat.serefiyeMultiplier ? ` | Şerefiye: x${flat.serefiyeMultiplier}` : ''}
                                     </span>
                                   </div>
 

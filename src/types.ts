@@ -313,9 +313,11 @@ export interface ProjectParams {
   enableLandShareBalancing?: boolean; // Arsa Payı Mahsuplaşma ve Dengelemesini uygula
   totalLandShareDenominator?: number; // Toplam arsa payı paydası (örn: 240, 1000)
 
-  // Manuel Hibe & Kredi Desteği Parametreleri (Tek bir yerden belirlenir)
-  grantAmountPerFlat?: number; // Daire başı manuel belirlenen hibe tutarı (TL) - Örn: 700.000 TL
-  creditAmountPerFlat?: number; // Daire başı manuel belirlenen kredi tutarı (TL) - Örn: 700.000 TL
+  // Manuel Daire ve Dükkan Hibe & Kredi Desteği Parametreleri (Tek bir yerden belirlenir)
+  grantAmountPerFlat?: number; // Konut (Daire) başı manuel belirlenen hibe tutarı (TL) - Örn: 700.000 TL
+  creditAmountPerFlat?: number; // Konut (Daire) başı manuel belirlenen kredi tutarı (TL) - Örn: 700.000 TL
+  shopGrantAmountPerFlat?: number; // Dükkan (Ticari) başı manuel belirlenen hibe tutarı (TL) - Örn: 350.000 TL
+  shopCreditAmountPerFlat?: number; // Dükkan (Ticari) başı manuel belirlenen kredi tutarı (TL) - Örn: 350.000 TL
 
   // Özel Sözleşme Notları & İlave Maddeler
   customContractNotes?: string;
@@ -342,6 +344,8 @@ export interface FlatCalcResult {
   downPayment: number;
   usedCredit: number;
   usedGrant?: number; // Kullanılan hibe tutarı (TL)
+  grantLimit?: number; // Uygulanabilir azami hibe limiti (TL) - Daire için örn: 700k, Dükkan için: 350k
+  creditLimit?: number; // Uygulanabilir azami kredi limiti (TL) - Daire için örn: 700k, Dükkan için: 350k
   totalSupport?: number; // Toplam destek tutarı (Hibe + Kredi)
   netRemainingDebt: number;
   isContractorShare?: boolean;

@@ -34,6 +34,12 @@ import {
   Compass,
   Award,
   TrendingUp,
+  AlertTriangle,
+  Info,
+  ExternalLink,
+  Store,
+  Home,
+  Wrench,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, FlatItem, AppTheme, FlatCalcResult } from '../types';
 import { OfficialOwnerReportModal } from './OfficialOwnerReportModal';
@@ -234,6 +240,110 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         useTransformationCredit: isContractor ? false : (!!flat.useGrant || enable),
       };
     });
+    onChangeParams({
+      ...params,
+      flats: updatedFlats,
+    });
+    if (onCalculate) onCalculate();
+  };
+
+  // Konut (Daire) Özel Toggle'ları
+  const handleToggleFlatsGrant = (enable: boolean) => {
+    const updatedFlats = params.flats.map((flat) => {
+      const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
+      if (flat.flatType === 'shop' || isContractor) return flat;
+      return {
+        ...flat,
+        useGrant: enable,
+        useTransformationCredit: enable || !!flat.useCredit,
+      };
+    });
+    onChangeParams({ ...params, flats: updatedFlats });
+    if (onCalculate) onCalculate();
+  };
+
+  const handleToggleFlatsCredit = (enable: boolean) => {
+    const updatedFlats = params.flats.map((flat) => {
+      const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
+      if (flat.flatType === 'shop' || isContractor) return flat;
+      return {
+        ...flat,
+        useCredit: enable,
+        useTransformationCredit: !!flat.useGrant || enable,
+      };
+    });
+    onChangeParams({ ...params, flats: updatedFlats });
+    if (onCalculate) onCalculate();
+  };
+
+  // Dükkan (Ticari) Özel Toggle'ları
+  const handleToggleShopsGrant = (enable: boolean) => {
+    const updatedFlats = params.flats.map((flat) => {
+      const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
+      if (flat.flatType !== 'shop' || isContractor) return flat;
+      return {
+        ...flat,
+        useGrant: enable,
+        useTransformationCredit: enable || !!flat.useCredit,
+      };
+    });
+    onChangeParams({ ...params, flats: updatedFlats });
+    if (onCalculate) onCalculate();
+  };
+
+  const handleToggleShopsCredit = (enable: boolean) => {
+    const updatedFlats = params.flats.map((flat) => {
+      const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
+      if (flat.flatType !== 'shop' || isContractor) return flat;
+      return {
+        ...flat,
+        useCredit: enable,
+        useTransformationCredit: !!flat.useGrant || enable,
+      };
+    });
+    onChangeParams({ ...params, flats: updatedFlats });
+    if (onCalculate) onCalculate();
+  };
+
+  // Hak Sahipleri Brüt m² Canlı Denetim ve Uyarı Motoru
+  const areaAudit = useMemo(() => {
+    const totalFlatsArea = params.flats.reduce((sum, f) => sum + (Number(f.area) || 0), 0);
+    const totalConstructionArea = results.totalArea || 0;
+    const averageFlatArea = params.flats.length > 0 ? totalFlatsArea / params.flats.length : 0;
+    const commonArea = Math.max(0, totalConstructionArea - totalFlatsArea);
+    const commonAreaRatio = totalConstructionArea > 0 ? (commonArea / totalConstructionArea) * 100 : 0;
+    const zeroOrMissingFlats = params.flats.filter((f) => !f.area || Number(f.area) <= 0 || isNaN(Number(f.area)));
+    const isOverTotal = totalFlatsArea > totalConstructionArea && totalConstructionArea > 0;
+    const difference = totalConstructionArea - totalFlatsArea;
+    const isHealthy = !isOverTotal && zeroOrMissingFlats.length === 0 && (totalConstructionArea === 0 || (commonAreaRatio >= 5 && commonAreaRatio <= 45));
+
+    return {
+      totalFlatsArea,
+      totalConstructionArea,
+      averageFlatArea,
+      commonArea,
+      commonAreaRatio,
+      zeroOrMissingFlats,
+      isOverTotal,
+      isHealthy,
+      difference,
+    };
+  }, [params.flats, results.totalArea]);
+
+  // Otomatik Metraj Dengeleme Fonksiyonu
+  const handleAutoBalanceAreas = () => {
+    if (params.flats.length === 0) return;
+    const targetUsableTotal = results.totalArea > 0 ? results.totalArea * 0.78 : (params.flats.length * 100);
+    const avgArea = Math.max(30, Math.round((targetUsableTotal / params.flats.length) * 10) / 10);
+
+    const updatedFlats = params.flats.map((flat) => {
+      const currentArea = Number(flat.area) || 0;
+      return {
+        ...flat,
+        area: currentArea > 0 ? currentArea : (flat.flatType === 'shop' ? Math.round(avgArea * 0.8) : avgArea),
+      };
+    });
+
     onChangeParams({
       ...params,
       flats: updatedFlats,
@@ -1485,9 +1595,9 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                 </div>
               </div>
 
-              {/* HİBE, KREDİ VE PEŞİNAT MERKEZİ PARAMETRE KONTROL PANELİ */}
-              <div className="p-3.5 bg-gradient-to-r from-slate-50 via-indigo-50/20 to-emerald-50/20 rounded-2xl border border-slate-200 shadow-2xs">
-                <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3.5">
+              {/* HİBE, KREDİ VE PEŞİNAT MERKEZİ PARAMETRE KONTROL PANELİ (KONUT VE DÜKKAN AYRI) */}
+              <div className="p-4 bg-gradient-to-r from-slate-50 via-indigo-50/20 to-emerald-50/20 rounded-2xl border border-slate-200 shadow-2xs space-y-3.5">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
@@ -1499,86 +1609,244 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      Hibe ve kredi tutarları tek bir yerden belirlenir. Daire borcundan önce peşinat, ardından hibe, kalan bakiyeye kredi mahsup edilir.
+                      Konut ve dükkanlar için hibe ve kredi tutarları ayrı ayrı belirlenir. Daire borcundan önce peşinat, ardından hibe, kalan bakiyeye kredi mahsup edilir.
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto">
-                    {/* Manuel Hibe Belirleme */}
-                    <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-emerald-300 shadow-2xs">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                      <span className="text-[11px] font-bold text-emerald-900">Daire Başı Hibe:</span>
-                      <input
-                        type="number"
-                        step="50000"
-                        min="0"
-                        value={params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : 700000}
-                        onChange={(e) => {
-                          const val = Math.max(0, parseFloat(e.target.value) || 0);
-                          updateParam('grantAmountPerFlat', val);
-                          if (onCalculate) onCalculate();
-                        }}
-                        className="w-24 text-xs px-2 py-1 rounded-lg border border-slate-200 font-mono font-bold text-right text-emerald-800 focus:border-emerald-500"
-                      />
-                      <span className="text-[10px] text-slate-400 font-mono">TL</span>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleAllGrant(true)}
-                        className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-200 transition-all cursor-pointer"
-                        title="Tüm hak sahiplerine hibe uygula"
-                      >
-                        Tümüne Aç
-                      </button>
+                  {/* Toplu Peşinat Belirleme */}
+                  <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-indigo-300 shadow-2xs">
+                    <span className="text-[11px] font-bold text-indigo-900">Toplu Peşinat:</span>
+                    <input
+                      type="number"
+                      step="25000"
+                      min="0"
+                      value={bulkDownPayment || ''}
+                      onChange={(e) => setBulkDownPayment(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="Tutar (TL)"
+                      className="w-24 text-xs px-2 py-1 rounded-lg border border-slate-200 font-mono font-bold text-right text-indigo-700 focus:border-indigo-500"
+                    />
+                    <span className="text-[10px] text-slate-400 font-mono">TL</span>
+                    <button
+                      type="button"
+                      onClick={handleApplyBulkDownPayment}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[10px] transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                    >
+                      Uygula
+                    </button>
+                  </div>
+                </div>
+
+                {/* Konut ve Dükkan Parametreleri Yan Yana */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {/* 1. KONUT (DAİRE) DESTEKLERİ */}
+                  <div className="bg-white p-3 rounded-xl border border-emerald-200/80 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1.5">
+                        <Home className="w-3.5 h-3.5 text-emerald-600" />
+                        🏠 Konut (Daire) Destek Tutarları
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFlatsGrant(true)}
+                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-all cursor-pointer"
+                          title="Tüm dairelere hibe aç"
+                        >
+                          Hibe Aç
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFlatsCredit(true)}
+                          className="text-[9px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded border border-sky-200 transition-all cursor-pointer"
+                          title="Tüm dairelere kredi aç"
+                        >
+                          Kredi Aç
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Manuel Kredi Belirleme */}
-                    <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-sky-300 shadow-2xs">
-                      <div className="w-2 h-2 rounded-full bg-sky-500"></div>
-                      <span className="text-[11px] font-bold text-sky-900">Daire Başı Kredi:</span>
-                      <input
-                        type="number"
-                        step="50000"
-                        min="0"
-                        value={params.creditAmountPerFlat !== undefined ? params.creditAmountPerFlat : 700000}
-                        onChange={(e) => {
-                          const val = Math.max(0, parseFloat(e.target.value) || 0);
-                          updateParam('creditAmountPerFlat', val);
-                          if (onCalculate) onCalculate();
-                        }}
-                        className="w-24 text-xs px-2 py-1 rounded-lg border border-slate-200 font-mono font-bold text-right text-sky-800 focus:border-sky-500"
-                      />
-                      <span className="text-[10px] text-slate-400 font-mono">TL</span>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleAllCredit(true)}
-                        className="text-[10px] font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 px-2 py-1 rounded-lg border border-sky-200 transition-all cursor-pointer"
-                        title="Tüm hak sahiplerine kredi uygula"
-                      >
-                        Tümüne Aç
-                      </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-lg border border-slate-200/70">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></div>
+                        <span className="text-[10px] font-bold text-slate-600">Daire Hibe:</span>
+                        <input
+                          type="number"
+                          step="50000"
+                          min="0"
+                          value={params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : 700000}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseFloat(e.target.value) || 0);
+                            updateParam('grantAmountPerFlat', val);
+                            if (onCalculate) onCalculate();
+                          }}
+                          className="w-full text-xs px-1.5 py-0.5 rounded border border-slate-200 font-mono font-bold text-right text-emerald-800 bg-white"
+                        />
+                        <span className="text-[9px] text-slate-400 font-mono">TL</span>
+                      </div>
+
+                      <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-lg border border-slate-200/70">
+                        <div className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0"></div>
+                        <span className="text-[10px] font-bold text-slate-600">Daire Kredi:</span>
+                        <input
+                          type="number"
+                          step="50000"
+                          min="0"
+                          value={params.creditAmountPerFlat !== undefined ? params.creditAmountPerFlat : 700000}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseFloat(e.target.value) || 0);
+                            updateParam('creditAmountPerFlat', val);
+                            if (onCalculate) onCalculate();
+                          }}
+                          className="w-full text-xs px-1.5 py-0.5 rounded border border-slate-200 font-mono font-bold text-right text-sky-800 bg-white"
+                        />
+                        <span className="text-[9px] text-slate-400 font-mono">TL</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. DÜKKAN (TİCARİ) DESTEKLERİ */}
+                  <div className="bg-white p-3 rounded-xl border border-amber-200/80 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                        <Store className="w-3.5 h-3.5 text-amber-600" />
+                        🏪 Dükkan (Ticari) Destek Tutarları
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleShopsGrant(true)}
+                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-all cursor-pointer"
+                          title="Tüm dükkanlara hibe aç"
+                        >
+                          Hibe Aç
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleShopsCredit(true)}
+                          className="text-[9px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded border border-sky-200 transition-all cursor-pointer"
+                          title="Tüm dükkanlara kredi aç"
+                        >
+                          Kredi Aç
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Toplu Peşinat */}
-                    <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-indigo-300 shadow-2xs">
-                      <span className="text-[11px] font-bold text-indigo-900">Toplu Peşinat:</span>
-                      <input
-                        type="number"
-                        step="25000"
-                        min="0"
-                        value={bulkDownPayment || ''}
-                        onChange={(e) => setBulkDownPayment(Math.max(0, parseFloat(e.target.value) || 0))}
-                        placeholder="Tutar (TL)"
-                        className="w-24 text-xs px-2 py-1 rounded-lg border border-slate-200 font-mono font-bold text-right text-indigo-700 focus:border-indigo-500"
-                      />
-                      <span className="text-[10px] text-slate-400 font-mono">TL</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-lg border border-slate-200/70">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></div>
+                        <span className="text-[10px] font-bold text-slate-600">Dükkan Hibe:</span>
+                        <input
+                          type="number"
+                          step="50000"
+                          min="0"
+                          value={params.shopGrantAmountPerFlat !== undefined ? params.shopGrantAmountPerFlat : 350000}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseFloat(e.target.value) || 0);
+                            updateParam('shopGrantAmountPerFlat', val);
+                            if (onCalculate) onCalculate();
+                          }}
+                          className="w-full text-xs px-1.5 py-0.5 rounded border border-slate-200 font-mono font-bold text-right text-emerald-800 bg-white"
+                        />
+                        <span className="text-[9px] text-slate-400 font-mono">TL</span>
+                      </div>
+
+                      <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-lg border border-slate-200/70">
+                        <div className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0"></div>
+                        <span className="text-[10px] font-bold text-slate-600">Dükkan Kredi:</span>
+                        <input
+                          type="number"
+                          step="50000"
+                          min="0"
+                          value={params.shopCreditAmountPerFlat !== undefined ? params.shopCreditAmountPerFlat : 350000}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseFloat(e.target.value) || 0);
+                            updateParam('shopCreditAmountPerFlat', val);
+                            if (onCalculate) onCalculate();
+                          }}
+                          className="w-full text-xs px-1.5 py-0.5 rounded border border-slate-200 font-mono font-bold text-right text-sky-800 bg-white"
+                        />
+                        <span className="text-[9px] text-slate-400 font-mono">TL</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* HAK SAHİPLERİ BRÜT M² CANLI DENETİM & UYARI PANELI */}
+              <div
+                className={`p-3.5 rounded-2xl border transition-all ${
+                  areaAudit.isOverTotal || areaAudit.zeroOrMissingFlats.length > 0
+                    ? 'bg-rose-50/70 border-rose-200 text-rose-950'
+                    : areaAudit.isHealthy
+                    ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
+                    : 'bg-amber-50/50 border-amber-200 text-amber-950'
+                }`}
+              >
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5">
+                        <Scale className="w-4 h-4 text-indigo-600" />
+                        Hak Sahipleri Brüt m² Canlı Denetimi & Metraj Dengesi
+                      </span>
+                      {areaAudit.isOverTotal ? (
+                        <span className="text-[10px] bg-rose-600 text-white font-bold px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Kritik: Toplam Alan Aşıldı
+                        </span>
+                      ) : areaAudit.zeroOrMissingFlats.length > 0 ? (
+                        <span className="text-[10px] bg-amber-600 text-white font-bold px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          {areaAudit.zeroOrMissingFlats.length} Dairenin m² Bilgisi Eksik
+                        </span>
+                      ) : areaAudit.isHealthy ? (
+                        <span className="text-[10px] bg-emerald-600 text-white font-bold px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Canlı Metraj Dengeli & Uygun
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-amber-500 text-white font-bold px-2.5 py-0.5 rounded-full shadow-2xs">
+                          Metraj İnceleniyor
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Metraj Açıklama ve Uyarı Metni */}
+                    <p className="text-[11px] text-slate-600">
+                      {areaAudit.isOverTotal ? (
+                        <span className="text-rose-700 font-semibold">
+                          🚨 Dikkat: Dairelerin brüt alanları toplamı ({areaAudit.totalFlatsArea.toFixed(1)} m²), projenin toplam inşaat alanından ({areaAudit.totalConstructionArea.toFixed(1)} m²) {Math.abs(areaAudit.difference).toFixed(1)} m² daha fazla! Lütfen bağımsız bölüm m² ölçülerini güncelleyin.
+                        </span>
+                      ) : areaAudit.zeroOrMissingFlats.length > 0 ? (
+                        <span className="text-amber-800 font-semibold">
+                          ⚠️ {areaAudit.zeroOrMissingFlats.map((f) => `No ${f.id}`).join(', ')} numaralı bölümlerin m² alanı 0 veya girilmemiş. Hesaplamaların sıhhati için lütfen alanları tamamlayın.
+                        </span>
+                      ) : (
+                        <span>
+                          Bağımsız bölümler toplamı: <strong>{areaAudit.totalFlatsArea.toLocaleString('tr-TR')} m²</strong> | Bina ortak alan payı: <strong>{areaAudit.commonArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m² (%{areaAudit.commonAreaRatio.toFixed(1)})</strong> | Ortalama daire: <strong>{areaAudit.averageFlatArea.toFixed(1)} m²</strong>
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Hızlı Dengeleme ve Metraj Özet Rozetleri */}
+                  <div className="flex items-center gap-2 w-full lg:w-auto justify-end flex-wrap">
+                    <div className="flex items-center gap-2 text-xs font-mono bg-white px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-slate-500 text-[10px]">Toplam Bağımsız:</span>
+                      <strong className="text-slate-900">{areaAudit.totalFlatsArea.toLocaleString('tr-TR')} m²</strong>
+                    </div>
+
+                    {(areaAudit.isOverTotal || areaAudit.zeroOrMissingFlats.length > 0) && (
                       <button
                         type="button"
-                        onClick={handleApplyBulkDownPayment}
-                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[10px] transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                        onClick={handleAutoBalanceAreas}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                        title="Tüm daire metrajlarını mimari inşaat alanına göre oransal dengele"
                       >
-                        Uygula
+                        <Wrench className="w-3.5 h-3.5" />
+                        <span>Metrajları Otomatik Dengele</span>
                       </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2112,9 +2380,11 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           <button
                             type="button"
                             onClick={() => setSelectedFlatId(flat.id)}
-                            className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold underline cursor-pointer"
+                            className="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-lg border border-indigo-200 transition-all cursor-pointer"
+                            title="Uçan Panelde Aç"
                           >
-                            Kart
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Uçan Panel</span>
                           </button>
                         </div>
                       </div>
@@ -2276,50 +2546,64 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           {/* Hibe */}
-                          <div className="p-2 rounded-xl bg-emerald-50/40 border border-emerald-200">
-                            <label className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-900 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={flat.useGrant !== undefined ? flat.useGrant : (flat.useTransformationCredit ?? false)}
-                                onChange={(e) => {
-                                  handleFlatChange(originalIndex, 'useGrant', e.target.checked);
-                                  handleFlatChange(originalIndex, 'useTransformationCredit', e.target.checked || !!flat.useCredit);
-                                  if (onCalculate) onCalculate();
-                                }}
-                                className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
-                                disabled={isContractor}
-                              />
-                              <span>2. Hibe ({((params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : 700000) / 1000).toFixed(0)}k TL)</span>
-                            </label>
-                            {calc && (calc.usedGrant || 0) > 0 && (
-                              <div className="text-[9px] font-mono font-bold text-emerald-700 mt-1">
-                                Mahsup: -{(calc.usedGrant || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                              </div>
-                            )}
-                          </div>
+                          {(() => {
+                            const isShop = flat.flatType === 'shop';
+                            const applicableGrant = isShop
+                              ? (params.shopGrantAmountPerFlat !== undefined ? params.shopGrantAmountPerFlat : 350000)
+                              : (params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : 700000);
+                            const applicableCredit = isShop
+                              ? (params.shopCreditAmountPerFlat !== undefined ? params.shopCreditAmountPerFlat : 350000)
+                              : (params.creditAmountPerFlat !== undefined ? params.creditAmountPerFlat : 700000);
 
-                          {/* Kredi */}
-                          <div className="p-2 rounded-xl bg-sky-50/40 border border-sky-200">
-                            <label className="flex items-center gap-1.5 text-[10px] font-bold text-sky-900 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={!!flat.useCredit}
-                                onChange={(e) => {
-                                  handleFlatChange(originalIndex, 'useCredit', e.target.checked);
-                                  handleFlatChange(originalIndex, 'useTransformationCredit', (flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit) || e.target.checked);
-                                  if (onCalculate) onCalculate();
-                                }}
-                                className="rounded text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
-                                disabled={isContractor}
-                              />
-                              <span>3. Kredi ({((params.creditAmountPerFlat !== undefined ? params.creditAmountPerFlat : 700000) / 1000).toFixed(0)}k TL)</span>
-                            </label>
-                            {calc && (calc.usedCredit || 0) > 0 && (
-                              <div className="text-[9px] font-mono font-bold text-sky-700 mt-1">
-                                Mahsup: -{(calc.usedCredit || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                              </div>
-                            )}
-                          </div>
+                            return (
+                              <>
+                                <div className="p-2 rounded-xl bg-emerald-50/40 border border-emerald-200">
+                                  <label className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-900 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={flat.useGrant !== undefined ? flat.useGrant : (flat.useTransformationCredit ?? false)}
+                                      onChange={(e) => {
+                                        handleFlatChange(originalIndex, 'useGrant', e.target.checked);
+                                        handleFlatChange(originalIndex, 'useTransformationCredit', e.target.checked || !!flat.useCredit);
+                                        if (onCalculate) onCalculate();
+                                      }}
+                                      className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                                      disabled={isContractor}
+                                    />
+                                    <span>2. Hibe ({(applicableGrant / 1000).toFixed(0)}k TL)</span>
+                                  </label>
+                                  {calc && (calc.usedGrant || 0) > 0 && (
+                                    <div className="text-[9px] font-mono font-bold text-emerald-700 mt-1">
+                                      Mahsup: -{(calc.usedGrant || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Kredi */}
+                                <div className="p-2 rounded-xl bg-sky-50/40 border border-sky-200">
+                                  <label className="flex items-center gap-1.5 text-[10px] font-bold text-sky-900 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!flat.useCredit}
+                                      onChange={(e) => {
+                                        handleFlatChange(originalIndex, 'useCredit', e.target.checked);
+                                        handleFlatChange(originalIndex, 'useTransformationCredit', (flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit) || e.target.checked);
+                                        if (onCalculate) onCalculate();
+                                      }}
+                                      className="rounded text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                                      disabled={isContractor}
+                                    />
+                                    <span>3. Kredi ({(applicableCredit / 1000).toFixed(0)}k TL)</span>
+                                  </label>
+                                  {calc && (calc.usedCredit || 0) > 0 && (
+                                    <div className="text-[9px] font-mono font-bold text-sky-700 mt-1">
+                                      Mahsup: -{(calc.usedCredit || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
 
@@ -2397,310 +2681,662 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         )}
       </div>
 
-      {/* 5. ÇIKTILAR & DAIRE HAKEDİŞ HESAP TABLOSU & BİREYSEL ÖDEME TAKVİMİ */}
+      {/* 5. ÇIKTILAR & DAIRE HAKEDİŞ HESAP TABLOSU */}
       <div className={`p-6 rounded-3xl border ${cardBg} shadow-sm space-y-6`}>
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2.5">
             <Building className="w-5 h-5 text-indigo-600" />
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                📊 Hak Sahipleri Ödeme Çıktıları & Bireysel Ödeme Takvimleri
+                📊 Hak Sahipleri Ödeme Çıktıları & Hakediş Tablosu
               </h3>
               <p className="text-[10px] text-slate-500 mt-0.5">
-                Daire bazlı brüt alan maliyeti, peşinat mahsubu, kentsel dönüşüm yardımı ve net kalan borç listesi. Detaylar için dairenin üzerine tıklayın.
+                Daire bazlı brüt alan maliyeti, peşinat mahsubu, kentsel dönüşüm yardımı ve net kalan borç listesi. Detaylı uçan panel ve takvim için daire satırına tıklayın.
               </p>
             </div>
           </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer shadow-2xs"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>CSV İndir</span>
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Sol Taraf: Özet Liste Tablosu */}
-          <div className="lg:col-span-2 overflow-x-auto border border-slate-200/60 rounded-2xl max-h-[500px] overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider z-10">
-                <tr>
-                  <th className="p-3">Daire No / Hak Sahibi</th>
-                  <th className="p-3 text-right">Brüt Alan</th>
-                  <th className="p-3 text-right">Toplam Borç</th>
-                  <th className="p-3 text-right text-indigo-700">Ödenen Peşinat</th>
-                  <th className="p-3 text-right text-emerald-700">Devlet Desteği</th>
-                  <th className="p-3 text-right text-slate-900">Kalan Bakiye</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {results.flatResults?.map((flat) => (
+        {/* Tam Genişlik Liste Tablosu */}
+        <div className="overflow-x-auto border border-slate-200/80 rounded-2xl max-h-[550px] overflow-y-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider z-10">
+              <tr>
+                <th className="p-3">Daire No</th>
+                <th className="p-3">Tip</th>
+                <th className="p-3">Hak Sahibi / Durum</th>
+                <th className="p-3 text-right">Brüt Alan</th>
+                <th className="p-3 text-right">Toplam Katkı</th>
+                <th className="p-3 text-right text-indigo-700">1. Peşinat</th>
+                <th className="p-3 text-right text-emerald-700">2. Hibe</th>
+                <th className="p-3 text-right text-sky-700">3. Kredi</th>
+                <th className="p-3 text-right text-slate-900">Kalan Net Borç</th>
+                <th className="p-3 text-center">İşlem</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {results.flatResults?.map((flat) => {
+                const flatItem = params.flats.find((f) => f.id === flat.id);
+                const isSelected = selectedFlatId === flat.id;
+                const isShop = flatItem?.flatType === 'shop' || flat.flatType === 'shop';
+
+                return (
                   <tr
                     key={flat.id}
                     onClick={() => setSelectedFlatId(flat.id)}
                     className={`cursor-pointer transition-colors ${
-                      selectedFlatId === flat.id
-                        ? 'bg-indigo-50/70 hover:bg-indigo-50'
+                      isSelected
+                        ? 'bg-indigo-50/80 hover:bg-indigo-100/60'
                         : flat.isContractorShare
                         ? 'bg-amber-50/20 hover:bg-amber-50/40 text-slate-500'
-                        : 'hover:bg-slate-50'
+                        : 'hover:bg-slate-50/80'
                     }`}
                   >
                     <td className="p-3">
-                      <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                        <span>No {flat.id}:</span>
-                        <span className="truncate max-w-[120px]">{flat.name || 'İsimsiz Malik'}</span>
+                      <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
+                        <span>No {flat.id}</span>
                       </div>
-                      <span className="text-[9px] text-slate-400 block mt-0.5 font-mono">
-                        {flat.isContractorShare ? 'Müteahhit Payı' : `TC: ${flat.tc || 'Belirtilmedi'}`}
+                    </td>
+                    <td className="p-3">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          isShop
+                            ? 'bg-amber-100 text-amber-900 border-amber-300'
+                            : flat.flatType === 'duplex'
+                            ? 'bg-purple-100 text-purple-900 border-purple-300'
+                            : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {isShop ? '🏪 Dükkan' : flat.flatType === 'duplex' ? '🏘️ Dubleks' : flat.flatType === 'mansard' ? '🏚️ Mansart' : '🏠 Konut'}
                       </span>
                     </td>
-                    <td className="p-3 text-right font-mono text-slate-700">{flat.area} m²</td>
+                    <td className="p-3">
+                      <div className="font-bold text-slate-800">
+                        {flat.isContractorShare ? (
+                          <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                            Müteahhit Payı
+                          </span>
+                        ) : (
+                          flat.name || 'İsimsiz Malik'
+                        )}
+                      </div>
+                      {!flat.isContractorShare && (
+                        <span className="text-[9px] text-slate-400 block mt-0.5 font-mono">
+                          TC: {flat.tc || '-'}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right font-mono text-slate-700 font-bold">
+                      {flat.area} m²
+                    </td>
                     <td className="p-3 text-right font-mono text-slate-900">
                       {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                     </td>
-                    <td className="p-3 text-right font-mono text-indigo-700">
-                      {flat.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                    <td className="p-3 text-right font-mono text-indigo-700 font-bold">
+                      {flat.downPayment > 0 ? `${flat.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '-'}
                     </td>
                     <td className="p-3 text-right font-mono text-emerald-700 font-bold">
-                      {flat.usedCredit > 0 ? `${flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '-'}
+                      {(flat.usedGrant || 0) > 0 ? `${(flat.usedGrant || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '-'}
                     </td>
-                    <td className="p-3 text-right font-mono font-bold text-slate-900">
-                      {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                    <td className="p-3 text-right font-mono text-sky-700 font-bold">
+                      {(flat.usedCredit || 0) > 0 ? `${(flat.usedCredit || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '-'}
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold">
+                      <span
+                        className={`px-2 py-1 rounded-lg ${
+                          flat.netRemainingDebt <= 0
+                            ? 'bg-emerald-100 text-emerald-900'
+                            : 'bg-slate-100 text-slate-900'
+                        }`}
+                      >
+                        {flat.netRemainingDebt <= 0
+                          ? 'Ödendi'
+                          : `${flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL`}
+                      </span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFlatId(flat.id);
+                        }}
+                        className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-all cursor-pointer shadow-2xs"
+                        title="Uçan Panelde Detayları Aç"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-          {/* Sağ Taraf: Tıklanan Dairenin Bireysel Ödeme Takvimi ve Makbuz Kartı */}
-          <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-4">
-            {selectedFlatResult ? (
-              <div className="space-y-4 animate-fade-in">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                  <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <UserCheck className="w-4 h-4 text-indigo-600" />
-                    <span>Daire {selectedFlatResult.id} Ödeme Kartı</span>
-                  </h4>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenReport(selectedFlatResult.id)}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg border border-indigo-200 transition-all cursor-pointer"
-                      title="Resmi A4 Taahhütname Yazdır / PDF"
-                    >
-                      <Printer className="w-3 h-3 text-indigo-600" />
-                      <span>A4 Taahhütname</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFlatId(null)}
-                      className="text-slate-400 hover:text-slate-600 text-xs font-bold px-1.5 py-1"
-                    >
-                      Kapat
-                    </button>
-                  </div>
+      {/* UÇAN PANEL (MALİK DETAY VE ÖDEME TAKVİMİ SLIDE-OVER DRAWER) */}
+      {selectedFlatId !== null && selectedFlatResult && (
+        <div className="fixed inset-0 z-50 overflow-hidden animate-fade-in">
+          {/* Karartma ve Blur Katmanı */}
+          <div
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setSelectedFlatId(null)}
+          />
+
+          <div className="fixed inset-y-0 right-0 max-w-xl w-full bg-white shadow-2xl flex flex-col z-50 transform transition-transform duration-300 ease-in-out border-l border-slate-200">
+            {/* Panel Üst Başlığı */}
+            <div className="p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between shadow-md shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shrink-0">
+                  <Building className="w-5 h-5" />
                 </div>
-
-                <div className="space-y-2 text-xs">
-                  <p className="flex justify-between">
-                    <span className="text-slate-500">Mülk Sahibi:</span>
-                    <strong className="text-slate-800">{selectedFlatResult.name || 'Belirtilmedi'}</strong>
-                  </p>
-                  <p className="flex justify-between">
-                    <span className="text-slate-500">Bağımsız Bölüm Alanı:</span>
-                    <strong className="font-mono text-slate-800">{selectedFlatResult.area} m²</strong>
-                  </p>
-                  <div className="bg-white/80 p-3 rounded-xl border border-slate-200/50 space-y-1.5 text-[11px] my-2 shadow-2xs">
-                    <div className="text-[10px] font-bold text-indigo-900 tracking-wider uppercase mb-1">Fiziki Metraj Dağılımı</div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">İç Net Alan (Süpürülebilir):</span>
-                      <strong className="font-mono text-emerald-800">{selectedFlatResult.netArea} m²</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Bölüm Brüt Alanı:</span>
-                      <strong className="font-mono text-slate-800">{selectedFlatResult.grossArea} m²</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Bina Ortak Alan Payı:</span>
-                      <strong className="font-mono text-slate-800">+{selectedFlatResult.commonAreaShare} m²</strong>
-                    </div>
-                    {selectedFlatResult.cantileverAreaShare > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Çıkma Katkısı:</span>
-                        <strong className="font-mono text-slate-800">+{selectedFlatResult.cantileverAreaShare} m²</strong>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Balkon / Teras Alanı:</span>
-                      <strong className="font-mono text-slate-800">{selectedFlatResult.balconyAreaShare > 0 ? `${selectedFlatResult.balconyAreaShare} m²` : 'Yok'}</strong>
-                    </div>
-                    <div className="flex justify-between pt-1 border-t border-dashed border-slate-200 font-bold text-slate-900">
-                      <span>Genel Toplam Brüt:</span>
-                      <strong className="font-mono">{selectedFlatResult.totalGrossArea} m²</strong>
-                    </div>
-                  </div>
-                  {params.enableSerefiye && (
-                    <p className="flex justify-between text-amber-900 bg-amber-50/70 px-2 py-1 rounded border border-amber-200/60">
-                      <span>Şerefiye Katsayısı:</span>
-                      <strong className="font-mono">
-                        {selectedFlatResult.serefiyeMultiplier || 1.0} ({Math.round(((selectedFlatResult.serefiyeMultiplier || 1.0) - 1.0) * 100) > 0 ? '+' : ''}{Math.round(((selectedFlatResult.serefiyeMultiplier || 1.0) - 1.0) * 100)}%)
-                      </strong>
-                    </p>
-                  )}
-                  {params.enableLandShareBalancing && (
-                    <p className="flex justify-between text-emerald-900 bg-emerald-50/70 px-2 py-1 rounded border border-emerald-200/60">
-                      <span>Arsa Payı Dengelemesi:</span>
-                      <strong className="font-mono">
-                        {(selectedFlatResult.landShareDifference || 0) > 0 ? '+' : ''}{(selectedFlatResult.landShareDifference || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </strong>
-                    </p>
-                  )}
-                  <p className="flex justify-between">
-                    <span className="text-slate-500">Toplam İnşaat Katkı Payı:</span>
-                    <strong className="font-mono text-slate-900">
-                      {selectedFlatResult.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </strong>
-                  </p>
-                  <p className="flex justify-between text-indigo-700">
-                    <span>1. Öncelik: Peşinat (Mahsup):</span>
-                    <strong className="font-mono">
-                      -{selectedFlatResult.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                    </strong>
-                  </p>
-                  {(selectedFlatResult.usedGrant || 0) > 0 && (
-                    <p className="flex justify-between text-emerald-700 font-semibold">
-                      <span>2. Öncelik: Hibe Desteği:</span>
-                      <strong className="font-mono">
-                        -{(selectedFlatResult.usedGrant || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </strong>
-                    </p>
-                  )}
-                  {(selectedFlatResult.usedCredit || 0) > 0 && (
-                    <p className="flex justify-between text-sky-700 font-semibold">
-                      <span>3. Öncelik: Dönüşüm Kredisi:</span>
-                      <strong className="font-mono">
-                        -{(selectedFlatResult.usedCredit || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </strong>
-                    </p>
-                  )}
-                  <div className="pt-2 border-t border-slate-200 flex justify-between font-bold text-slate-900 bg-white/50 p-2.5 rounded-lg border">
-                    <span>Net Kalan Bakiye (Taksit):</span>
-                    <span className="font-mono">
-                      {selectedFlatResult.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold tracking-wide">
+                      Bağımsız Bölüm No: {selectedFlatResult.id}
+                    </h3>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        selectedFlatResult.isContractorShare
+                          ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                          : 'bg-indigo-400/20 text-indigo-300 border border-indigo-400/30'
+                      }`}
+                    >
+                      {selectedFlatResult.isContractorShare ? 'Müteahhit Payı' : 'Kat Maliki'}
+                    </span>
+                    <span className="text-[10px] bg-white/10 text-slate-200 font-mono px-2 py-0.5 rounded-full border border-white/10">
+                      {selectedFlatResult.area} m² Brüt
                     </span>
                   </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5 truncate max-w-sm">
+                    {selectedFlatResult.name || 'Hak Sahibi İsimsiz'}
+                  </p>
                 </div>
+              </div>
 
-                {selectedFlatResult.netRemainingDebt > 0 ? (
-                  <div className="pt-2.5 space-y-2">
-                    {params.paymentPlanType === 'installments' ? (
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="block text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
-                            Aylık Eşit Taksit Takvimi ({params.installmentCount || 12} Ay)
-                          </span>
-                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold">
-                            {selectedFlatResult.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay
-                          </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleOpenReport(selectedFlatResult.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all shadow-xs cursor-pointer"
+                  title="Resmi A4 Taahhütname Yazdır / PDF"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>A4 Rapor</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedFlatId(null)}
+                  className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer"
+                  title="Paneli Kapat"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Panel Gövdesi (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-slate-50/50">
+              {(() => {
+                const flatIndex = params.flats.findIndex((f) => f.id === selectedFlatId);
+                const currentFlat = params.flats[flatIndex] || selectedFlatResult;
+                const isShop = currentFlat.flatType === 'shop';
+                const applicableGrant = isShop
+                  ? (params.shopGrantAmountPerFlat !== undefined ? params.shopGrantAmountPerFlat : 350000)
+                  : (params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : 700000);
+                const applicableCredit = isShop
+                  ? (params.shopCreditAmountPerFlat !== undefined ? params.shopCreditAmountPerFlat : 350000)
+                  : (params.creditAmountPerFlat !== undefined ? params.creditAmountPerFlat : 700000);
+
+                return (
+                  <>
+                    {/* 1. Canlı Malik ve Bölüm Bilgileri */}
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <UserCheck className="w-3.5 h-3.5 text-indigo-600" />
+                          Malik & Bağımsız Bölüm Bilgileri
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">Daire #{currentFlat.id}</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Hak Sahibi Adı Soyadı:
+                          </label>
+                          <input
+                            type="text"
+                            value={currentFlat.name || ''}
+                            onChange={(e) => handleFlatChange(flatIndex, 'name', e.target.value)}
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 font-bold text-slate-800"
+                            placeholder="Malik Adı Soyadı"
+                            disabled={selectedFlatResult.isContractorShare}
+                          />
                         </div>
-                        <div className="space-y-1.5 font-mono text-[11px] max-h-48 overflow-y-auto pr-1">
-                          {Array.from({ length: Math.min(12, params.installmentCount || 12) }).map((_, idx) => (
-                            <div key={idx} className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                              <span>{idx + 1}. Ay Taksiti:</span>
-                              <strong className="text-emerald-800">
-                                {selectedFlatResult.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                              </strong>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            T.C. Kimlik No:
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={11}
+                            value={currentFlat.tc || ''}
+                            onChange={(e) => handleFlatChange(flatIndex, 'tc', e.target.value)}
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 font-mono font-bold text-slate-800"
+                            placeholder="11 Haneli TC"
+                            disabled={selectedFlatResult.isContractorShare}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Brüt Alan (m²):
+                          </label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="1"
+                            value={currentFlat.area || ''}
+                            onChange={(e) =>
+                              handleFlatChange(
+                                flatIndex,
+                                'area',
+                                Math.max(1, parseFloat(e.target.value) || 0)
+                              )
+                            }
+                            className={`w-full text-xs px-3 py-2 rounded-xl border font-mono font-bold ${
+                              !currentFlat.area || currentFlat.area <= 0
+                                ? 'bg-rose-50 border-rose-300 text-rose-800'
+                                : 'bg-slate-50 focus:bg-white border-slate-200 text-slate-800'
+                            }`}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Bağımsız Bölüm Tipi:
+                          </label>
+                          <select
+                            value={currentFlat.flatType || 'standard'}
+                            onChange={(e) => handleFlatChange(flatIndex, 'flatType', e.target.value)}
+                            className={`w-full text-xs px-3 py-2 rounded-xl border font-bold ${
+                              isShop ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-800'
+                            }`}
+                          >
+                            <option value="standard">🏠 Konut (Daire)</option>
+                            <option value="shop">🏪 Ticari (Dükkan/Mağaza)</option>
+                            <option value="mansard">🏚️ Mansart Katı</option>
+                            <option value="duplex">🏘️ Çatı Dubleksi</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Şerefiye ve Arsa Payı (Açıksa) */}
+                      {(params.enableSerefiye || params.enableLandShareBalancing) && (
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                          {params.enableSerefiye && (
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                  Şerefiye Çarpanı:
+                                </label>
+                                <span className="text-[9px] font-mono font-bold text-amber-700">
+                                  {Math.round(((currentFlat.serefiyeMultiplier || 1.0) - 1.0) * 100) > 0
+                                    ? `+${Math.round(((currentFlat.serefiyeMultiplier || 1.0) - 1.0) * 100)}%`
+                                    : `${Math.round(((currentFlat.serefiyeMultiplier || 1.0) - 1.0) * 100)}%`}
+                                </span>
+                              </div>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0.5"
+                                max="2.5"
+                                value={currentFlat.serefiyeMultiplier !== undefined ? currentFlat.serefiyeMultiplier : 1.0}
+                                onChange={(e) =>
+                                  handleFlatChange(
+                                    flatIndex,
+                                    'serefiyeMultiplier',
+                                    Math.max(0.5, parseFloat(e.target.value) || 1.0)
+                                  )
+                                }
+                                className="w-full text-xs px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50/50 font-mono font-bold"
+                              />
                             </div>
-                          ))}
-                          {(params.installmentCount || 12) > 12 && (
-                            <div className="p-2 text-center text-[10px] text-slate-400 bg-slate-100 rounded">
-                              ... ve devam eden {(params.installmentCount || 12) - 12} ay boyunca aynı tutar.
+                          )}
+
+                          {params.enableLandShareBalancing && (
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                Arsa Payı (Hisse / Payda):
+                              </label>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={currentFlat.landShareNumerator !== undefined ? currentFlat.landShareNumerator : ''}
+                                  onChange={(e) =>
+                                    handleFlatChange(
+                                      flatIndex,
+                                      'landShareNumerator',
+                                      Math.max(0, parseInt(e.target.value) || 0)
+                                    )
+                                  }
+                                  placeholder="0"
+                                  className="w-full text-xs px-2.5 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50/50 font-mono font-bold text-center"
+                                />
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  /{currentFlat.landShareDenominator || params.totalLandShareDenominator || 1000}
+                                </span>
+                              </div>
                             </div>
                           )}
                         </div>
-                      </div>
-                    ) : params.paymentPlanType === 'hybrid' ? (
-                      <div>
-                        <span className="block text-[10px] font-bold text-purple-800 uppercase tracking-wider mb-2">
-                          Karma Ödeme Takvimi (Ara Ödemeli + Taksit)
+                      )}
+                    </div>
+
+                    {/* 2. Fiziki Mimari Metraj Dağılımı */}
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-2 text-xs">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                          Fiziki Metraj Dağılımı
                         </span>
-                        <div className="space-y-1.5 font-mono text-[11px]">
-                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                            <span>1. Ara Ödeme (%25 Kaba):</span>
-                            <strong className="text-indigo-900">
-                              {Math.round(selectedFlatResult.netRemainingDebt * 0.25).toLocaleString('tr-TR')} TL
-                            </strong>
+                        <span className="text-[10px] text-slate-500 font-mono">Net / Brüt Oranı: %{((selectedFlatResult.netArea / Math.max(1, selectedFlatResult.totalGrossArea)) * 100).toFixed(0)}</span>
+                      </div>
+
+                      <div className="space-y-1.5 text-[11px] pt-1">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">İç Net Alan (Süpürülebilir):</span>
+                          <strong className="font-mono text-emerald-800">{selectedFlatResult.netArea} m²</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Bölüm Brüt Alanı:</span>
+                          <strong className="font-mono text-slate-800">{selectedFlatResult.grossArea} m²</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Bina Ortak Alan Payı:</span>
+                          <strong className="font-mono text-slate-800">+{selectedFlatResult.commonAreaShare} m²</strong>
+                        </div>
+                        {selectedFlatResult.cantileverAreaShare > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Çıkma Katkısı:</span>
+                            <strong className="font-mono text-slate-800">+{selectedFlatResult.cantileverAreaShare} m²</strong>
                           </div>
-                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                            <span>2. Ara Ödeme (%15 İskân):</span>
-                            <strong className="text-purple-900">
-                              {Math.round(selectedFlatResult.netRemainingDebt * 0.15).toLocaleString('tr-TR')} TL
-                            </strong>
-                          </div>
-                          <div className="flex justify-between p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold">
-                            <span>Aylık Taksit ({params.installmentCount || 12} Ay):</span>
-                            <span>
-                              {Math.round(
-                                (selectedFlatResult.netRemainingDebt * 0.6) / Math.max(1, params.installmentCount || 12)
-                              ).toLocaleString('tr-TR')}{' '}
-                              TL / Ay
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Balkon / Teras Alanı:</span>
+                          <strong className="font-mono text-slate-800">
+                            {selectedFlatResult.balconyAreaShare > 0 ? `${selectedFlatResult.balconyAreaShare} m²` : 'Yok'}
+                          </strong>
+                        </div>
+                        <div className="flex justify-between pt-1.5 border-t border-dashed border-slate-200 font-bold text-slate-900 text-xs">
+                          <span>Genel Toplam Brüt Alan:</span>
+                          <strong className="font-mono text-indigo-900">{selectedFlatResult.totalGrossArea} m²</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Ödeme Önceliği & Destek Mahsubu (1. Peşinat -> 2. Hibe -> 3. Kredi) */}
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
+                          3 Aşamalı Ödeme Önceliği & Mahsup
+                        </span>
+                        <span className="text-[9px] bg-indigo-50 text-indigo-800 font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                          1. Peşinat → 2. Hibe → 3. Kredi
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5 text-xs">
+                        <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                          <span className="text-slate-600 font-semibold">Toplam İnşaat Katkı Payı:</span>
+                          <strong className="font-mono text-sm text-slate-900">
+                            {selectedFlatResult.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </strong>
+                        </div>
+
+                        {/* 1. Öncelik: Peşinat */}
+                        <div className="p-3 bg-indigo-50/40 rounded-xl border border-indigo-200/80 space-y-1.5">
+                          <label className="block text-[10px] font-bold text-indigo-900 uppercase tracking-wider">
+                            1. Öncelik: Peşinat Tutarı (TL):
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="5000"
+                              min="0"
+                              value={currentFlat.downPayment || ''}
+                              onChange={(e) =>
+                                handleFlatChange(
+                                  flatIndex,
+                                  'downPayment',
+                                  Math.max(0, parseFloat(e.target.value) || 0)
+                                )
+                              }
+                              className="w-full text-xs px-3 py-1.5 rounded-lg border border-indigo-300 bg-white font-mono font-bold text-indigo-800"
+                              disabled={selectedFlatResult.isContractorShare}
+                              placeholder="0 TL"
+                            />
+                            <span className="text-xs font-mono font-bold text-indigo-700 whitespace-nowrap">
+                              -{selectedFlatResult.downPayment.toLocaleString('tr-TR')} TL
                             </span>
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-                          5 Aşamalı Taksit Takvimi (%{params.stage1Pay} / %{params.stage2Pay} / %{params.stage3Pay} / %{params.stage4Pay} / %{params.stage5Pay})
-                        </span>
-                        <div className="space-y-1.5 font-mono text-[11px]">
-                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                            <span>Aşama 1 (Sözleşme):</span>
-                            <strong className="text-slate-900">
-                              {selectedFlatResult.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                            </strong>
+
+                        {/* 2. Öncelik: Hibe & 3. Öncelik: Kredi */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {/* 2. Hibe */}
+                          <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200 space-y-1.5">
+                            <label className="flex items-center gap-2 text-[10px] font-bold text-emerald-950 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={currentFlat.useGrant !== undefined ? currentFlat.useGrant : (currentFlat.useTransformationCredit ?? false)}
+                                onChange={(e) => {
+                                  handleFlatChange(flatIndex, 'useGrant', e.target.checked);
+                                  handleFlatChange(flatIndex, 'useTransformationCredit', e.target.checked || !!currentFlat.useCredit);
+                                  if (onCalculate) onCalculate();
+                                }}
+                                className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                                disabled={selectedFlatResult.isContractorShare}
+                              />
+                              <span>2. Hibe ({(applicableGrant / 1000).toFixed(0)}k TL)</span>
+                            </label>
+                            {(selectedFlatResult.usedGrant || 0) > 0 ? (
+                              <div className="text-[10px] font-mono font-bold text-emerald-800 pt-1 border-t border-emerald-200/60">
+                                Mahsup: -{(selectedFlatResult.usedGrant || 0).toLocaleString('tr-TR')} TL
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-400 font-mono pt-1">Uygulanmadı</div>
+                            )}
                           </div>
-                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                            <span>Aşama 2 (Temel):</span>
-                            <strong className="text-slate-900">
-                              {selectedFlatResult.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                            </strong>
-                          </div>
-                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                            <span>Aşama 3 (Kaba):</span>
-                            <strong className="text-slate-900">
-                              {selectedFlatResult.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                            </strong>
-                          </div>
-                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                            <span>Aşama 4 (İnce):</span>
-                            <strong className="text-slate-900">
-                              {selectedFlatResult.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                            </strong>
-                          </div>
-                          <div className="flex justify-between p-2 rounded bg-white border border-slate-200/50 text-slate-700">
-                            <span>Aşama 5 (Anahtar):</span>
-                            <strong className="text-slate-900">
-                              {selectedFlatResult.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                            </strong>
+
+                          {/* 3. Kredi */}
+                          <div className="p-3 bg-sky-50/50 rounded-xl border border-sky-200 space-y-1.5">
+                            <label className="flex items-center gap-2 text-[10px] font-bold text-sky-950 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={!!currentFlat.useCredit}
+                                onChange={(e) => {
+                                  handleFlatChange(flatIndex, 'useCredit', e.target.checked);
+                                  handleFlatChange(flatIndex, 'useTransformationCredit', (currentFlat.useGrant !== undefined ? currentFlat.useGrant : !!currentFlat.useTransformationCredit) || e.target.checked);
+                                  if (onCalculate) onCalculate();
+                                }}
+                                className="rounded text-sky-600 focus:ring-sky-500 w-4 h-4"
+                                disabled={selectedFlatResult.isContractorShare}
+                              />
+                              <span>3. Kredi ({(applicableCredit / 1000).toFixed(0)}k TL)</span>
+                            </label>
+                            {(selectedFlatResult.usedCredit || 0) > 0 ? (
+                              <div className="text-[10px] font-mono font-bold text-sky-800 pt-1 border-t border-sky-200/60">
+                                Mahsup: -{(selectedFlatResult.usedCredit || 0).toLocaleString('tr-TR')} TL
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-400 font-mono pt-1">Uygulanmadı</div>
+                            )}
                           </div>
                         </div>
+
+                        {/* Net Kalan Borç Kutusu */}
+                        <div
+                          className={`p-3 rounded-xl border flex items-center justify-between ${
+                            selectedFlatResult.netRemainingDebt <= 0
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                              : 'bg-slate-900 text-white border-slate-800'
+                          }`}
+                        >
+                          <span className="text-xs font-bold uppercase tracking-wider">
+                            Kalan Net Borç (Taksit):
+                          </span>
+                          <span className="font-mono text-base font-bold">
+                            {selectedFlatResult.netRemainingDebt <= 0
+                              ? 'Tamamı Karşılandı'
+                              : `${selectedFlatResult.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Bireysel Taksit & Hakediş Takvimi */}
+                    {selectedFlatResult.netRemainingDebt > 0 && (
+                      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                          <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                            {params.paymentPlanType === 'installments'
+                              ? `Aylık Eşit Taksit Takvimi (${params.installmentCount || 12} Ay)`
+                              : params.paymentPlanType === 'hybrid'
+                              ? 'Karma Ödeme Takvimi'
+                              : '5 Aşamalı İnşaat Hakediş Takvimi'}
+                          </span>
+                        </div>
+
+                        {params.paymentPlanType === 'installments' ? (
+                          <div className="space-y-1.5 font-mono text-[11px]">
+                            {Array.from({ length: Math.min(12, params.installmentCount || 12) }).map((_, idx) => (
+                              <div key={idx} className="flex justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700">
+                                <span>{idx + 1}. Ay Taksiti:</span>
+                                <strong className="text-emerald-800 font-bold">
+                                  {selectedFlatResult.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                </strong>
+                              </div>
+                            ))}
+                          </div>
+                        ) : params.paymentPlanType === 'hybrid' ? (
+                          <div className="space-y-1.5 font-mono text-[11px]">
+                            <div className="flex justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700">
+                              <span>1. Ara Ödeme (%25 Kaba):</span>
+                              <strong className="text-indigo-900">
+                                {Math.round(selectedFlatResult.netRemainingDebt * 0.25).toLocaleString('tr-TR')} TL
+                              </strong>
+                            </div>
+                            <div className="flex justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700">
+                              <span>2. Ara Ödeme (%15 İskân):</span>
+                              <strong className="text-purple-900">
+                                {Math.round(selectedFlatResult.netRemainingDebt * 0.15).toLocaleString('tr-TR')} TL
+                              </strong>
+                            </div>
+                            <div className="flex justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-950 font-bold">
+                              <span>Aylık Taksit ({params.installmentCount || 12} Ay):</span>
+                              <span>
+                                {Math.round(
+                                  (selectedFlatResult.netRemainingDebt * 0.6) / Math.max(1, params.installmentCount || 12)
+                                ).toLocaleString('tr-TR')}{' '}
+                                TL / Ay
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 font-mono text-[11px]">
+                            <div className="flex justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700">
+                              <span>Aşama 1 (Sözleşme - %{params.stage1Pay}):</span>
+                              <strong className="text-slate-900">
+                                {selectedFlatResult.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                              </strong>
+                            </div>
+                            <div className="flex justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700">
+                              <span>Aşama 2 (Temel - %{params.stage2Pay}):</span>
+                              <strong className="text-slate-900">
+                                {selectedFlatResult.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                              </strong>
+                            </div>
+                            <div className="flex justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700">
+                              <span>Aşama 3 (Kaba - %{params.stage3Pay}):</span>
+                              <strong className="text-slate-900">
+                                {selectedFlatResult.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                              </strong>
+                            </div>
+                            <div className="flex justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700">
+                              <span>Aşama 4 (İnce - %{params.stage4Pay}):</span>
+                              <strong className="text-slate-900">
+                                {selectedFlatResult.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                              </strong>
+                            </div>
+                            <div className="flex justify-between p-2 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700">
+                              <span>Aşama 5 (Anahtar - %{params.stage5Pay}):</span>
+                              <strong className="text-slate-900">
+                                {selectedFlatResult.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                              </strong>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                ) : (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center text-xs text-emerald-800 font-semibold">
-                    🎉 Müteahhit Dairesi veya Kalan Borcu Olmayan Hak Sahibi.
-                  </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Panel Alt Eylemler (Sticky Footer) */}
+            <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between gap-3 shrink-0 shadow-lg">
+              <button
+                type="button"
+                onClick={() => setSelectedFlatId(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                Kapat
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenReport(selectedFlatResult.id)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 transition-all cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Resmi Taahhütname</span>
+                </button>
+
+                {onCalculate && (
+                  <button
+                    type="button"
+                    onClick={onCalculate}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Değişiklikleri Kaydet</span>
+                  </button>
                 )}
               </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-2">
-                <FileText className="w-8 h-8" />
-                <p className="text-xs">
-                  Bireysel hakediş, peşinat makbuzu ve 5 aşamalı detaylı takvimini görüntülemek için yan listeden bir daireye tıklayın.
-                </p>
-              </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Resmi A4 Kat Maliki Rapor ve Taahhütname Modalı */}
       <OfficialOwnerReportModal

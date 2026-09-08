@@ -794,22 +794,27 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     const remainingAfterDown = Math.max(0, baseDebtToPay - paid);
 
     // 2. ÖNCELİKLİ ÖDEME: HİBE
-    // Hibe tutarı tek bir yerden manuel belirlenir (varsayılan: 700.000 TL veya params.grantAmountPerFlat)
-    const manualGrantAmount = params.grantAmountPerFlat !== undefined
-      ? params.grantAmountPerFlat
-      : (transformationStatus === 'futureSupport2027' ? 1000000 : 700000);
+    // Konut ve Dükkan/İşyeri hibe limitleri mevzuat ve parametrelere göre ayrıştırılır
+    const isShop = flat.flatType === 'shop';
+    const defaultGrant = isShop ? 350000 : (transformationStatus === 'futureSupport2027' ? 1000000 : 700000);
+    const applicableGrantLimit = isShop
+      ? (params.shopGrantAmountPerFlat !== undefined ? params.shopGrantAmountPerFlat : 350000)
+      : (params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : defaultGrant);
+
     const isGrantActive = !isContractor && (projectModel !== 'contractorShare' || isOwner) &&
       (flat.useGrant !== undefined ? flat.useGrant : (flat.useTransformationCredit ?? false));
-    const usedGrant = isGrantActive ? Math.min(remainingAfterDown, manualGrantAmount) : 0;
+    const usedGrant = isGrantActive ? Math.min(remainingAfterDown, applicableGrantLimit) : 0;
     const remainingAfterGrant = Math.max(0, remainingAfterDown - usedGrant);
 
     // 3. ÖNCELİKLİ ÖDEME: KREDİ
-    // Kredi tutarı tek bir yerden manuel belirlenir (varsayılan: 700.000 TL veya params.creditAmountPerFlat)
-    const manualCreditAmount = params.creditAmountPerFlat !== undefined
-      ? params.creditAmountPerFlat
-      : (transformationStatus === 'futureSupport2027' ? 1500000 : 700000);
+    // Konut ve Dükkan/İşyeri faiz destekli dönüşüm kredi limitleri ayrıştırılır
+    const defaultCredit = isShop ? 350000 : (transformationStatus === 'futureSupport2027' ? 1500000 : 700000);
+    const applicableCreditLimit = isShop
+      ? (params.shopCreditAmountPerFlat !== undefined ? params.shopCreditAmountPerFlat : 350000)
+      : (params.creditAmountPerFlat !== undefined ? params.creditAmountPerFlat : defaultCredit);
+
     const isCreditActive = !isContractor && (projectModel !== 'contractorShare' || isOwner) && !!flat.useCredit;
-    const usedCredit = isCreditActive ? Math.min(remainingAfterGrant, manualCreditAmount) : 0;
+    const usedCredit = isCreditActive ? Math.min(remainingAfterGrant, applicableCreditLimit) : 0;
     const remainingAfterCredit = Math.max(0, remainingAfterGrant - usedCredit);
 
     // 4. NET KALAN BORÇ
@@ -905,6 +910,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       downPayment: paid,
       usedCredit,
       usedGrant,
+      grantLimit: applicableGrantLimit,
+      creditLimit: applicableCreditLimit,
       totalSupport,
       netRemainingDebt: Math.round(netRemainingDebt * 100) / 100,
       isContractorShare: isContractor,
