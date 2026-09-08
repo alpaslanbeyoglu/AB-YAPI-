@@ -39,9 +39,10 @@ import {
   POLYGON_PRESETS,
   InteractiveFacadeUpdateResult,
 } from '../utils/footprintUtils';
-import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel';
+
 import { ThreeBuildingView } from './ThreeBuildingView';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
+import { MunicipalIncentivesPanel } from './MunicipalIncentivesPanel';
 
 interface CalculatorTabProps {
   params: ProjectParams;
@@ -271,15 +272,11 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
               </div>
 
               {/* Live Scannable Metrics Strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
-                <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Arsa Alanı</span>
-                  <div className="text-xs font-mono font-bold text-slate-800">{params.landArea || 0} m²</div>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Taban Oturumu (TAKS)</span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
+                <div className="space-y-0.5 col-span-2">
+                  <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Taban Oturumu / Kat Alanı</span>
                   <div className="text-xs font-mono font-bold text-indigo-900">
-                    {params.baseBuildArea || 0} m² <span className="text-[10px] font-normal text-indigo-500">(%{params.landArea ? ((params.baseBuildArea / params.landArea) * 100).toFixed(1) : 0})</span>
+                    {params.baseBuildArea || 0} m²
                   </div>
                 </div>
                 <div className="space-y-0.5">
@@ -324,23 +321,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   />
                 </div>
 
-                {/* 1. Proje Arsa Alanı */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 uppercase">Proje Arsa Alanı (m²):</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="1"
-                      value={params.landArea || ''}
-                      onChange={(e) => updateParam('landArea', Math.max(0, parseFloat(e.target.value) || 0))}
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border ${inputBg}`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
-                  </div>
-                </div>
-
-                {/* 2. Taban Oturumu / Kat Alanı (m²) */}
-                <div className="space-y-1.5">
+                {/* Taban Oturumu / Kat Alanı (m²) */}
+                <div className="sm:col-span-2 lg:col-span-3 space-y-1.5 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-slate-700 uppercase">Taban Oturumu / Kat Alanı (m²):</label>
                     <span className="text-[10px] font-mono text-slate-500">
@@ -364,48 +346,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
 
-                {/* 3. Bahçe & Parsel Açık Alanı (Oturum / TAKS Dengesi) */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-emerald-700 uppercase">Bahçe / Açık Alan (m²):</label>
-                    <span className="text-[10px] font-bold text-emerald-600 font-mono">
-                      TAKS: %{params.landArea && params.baseBuildArea ? Math.min(100, (params.baseBuildArea / params.landArea) * 100).toFixed(1) : 0}
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      readOnly
-                      value={`${Math.max(0, (params.landArea || 0) - (params.baseBuildArea || 0)).toLocaleString('tr-TR')} m²`}
-                      className="w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 text-emerald-900 cursor-default"
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-emerald-600">Açık Parsel</span>
-                  </div>
-                </div>
 
-                {/* 4 Cepheli Canlı Geometri ve Cephe Ölçüleri (Tam Genişlik CAD Paneli) */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <InteractiveFacadeGeometryPanel
-                    facadeWidth={params.facadeWidth || 10.0}
-                    facadeDepth={params.facadeDepth || 10.0}
-                    backFacadeLength={params.backFacadeLength}
-                    leftFacadeLength={params.leftFacadeLength}
-                    theme={theme}
-                    title="Bina Cephe Ölçüleri & Geometrik Hesaplama"
-                    onUpdateFacades={(res) => {
-                      onChangeParams({
-                        ...params,
-                        facadeWidth: res.front,
-                        facadeDepth: res.right,
-                        backFacadeLength: res.back,
-                        leftFacadeLength: res.left,
-                        baseBuildArea: res.quadrilateral.area,
-                        polygonPoints: res.quadrilateral.polygonPoints,
-                        customFacades: res.customFacades,
-                      });
-                    }}
-                  />
-                </div>
 
                 {/* Zemin Kat Ticari Dükkan Paneli */}
                 <div className="sm:col-span-2 lg:col-span-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
@@ -636,44 +577,23 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
 
-                {/* 7. Toplam Daire Sayısı (Manuel Girilebilir & Kattan Hesapla Butonu) */}
+                {/* 7. Toplam Daire Sayısı (Otomatik Hesaplanan) */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 uppercase">Toplam Daire Sayısı:</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                        const calcTotal = normalFloors * (params.flatsPerFloor || 2);
-                        onChangeParams({
-                          ...params,
-                          flatCount: calcTotal,
-                        });
-                      }}
-                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1"
-                      title="Kat × Katta Daire formülü ile güncelle"
-                    >
-                      <span>⚡ Kattan Hesapla ({params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount}×{params.flatsPerFloor || 2})</span>
-                    </button>
+                    <label className="block text-xs font-bold text-indigo-700 uppercase">Toplam Daire Sayısı:</label>
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg">Otomatik</span>
                   </div>
                   <div className="relative">
                     <input
-                      type="number"
-                      min="1"
-                      value={params.flatCount}
-                      onChange={(e) => {
-                        const count = Math.max(1, parseInt(e.target.value) || 1);
-                        onChangeParams({
-                          ...params,
-                          flatCount: count,
-                        });
-                      }}
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
+                      type="text"
+                      readOnly
+                      value={`${params.flatCount || 10} Daire`}
+                      className="w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-indigo-150 bg-indigo-50/50 text-indigo-900 cursor-not-allowed"
                     />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">Daire</span>
+                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-indigo-600">Fiziki Limit</span>
                   </div>
                   <span className="block text-[10px] text-slate-400">
-                    Özel veya serbest toplam daire adedi girebilirsiniz.
+                    Normal Katlar × Katta Daire {params.roofType === 'mansard' ? '+ Mansart' : ''} şeklinde otomatik hesaplanır.
                   </span>
                 </div>
 
@@ -828,6 +748,15 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     <option value="luxury">Lüks / A+ Segment (Özel Mimari & Akıllı Ev)</option>
                     <option value="commercial">Ticari / Ofis Odaklı Karma Yapı</option>
                   </select>
+                </div>
+
+                {/* Belediye İmar Teşvikleri & Tevhit Kat/Mansart Bonusları */}
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <MunicipalIncentivesPanel
+                    params={params}
+                    onChangeParams={onChangeParams}
+                    theme={theme}
+                  />
                 </div>
 
                 {/* Mimari Çatı Modeli Paneli */}

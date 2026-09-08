@@ -867,8 +867,12 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
         </div>
       </div>
 
-      {/* ⚠️ TOOLBAR ACTIVE MODE NOTIFICATION BANNER */}
-      {toolMode === 'addPoint' && (
+      {/* 🔄 RESPONSIVE CAD GRID LAYOUT: Left side is Interactive Canvas, Right side is Active Controls Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-6 items-start">
+        {/* Left Column: Canvas, Modes, Vertex Fine-Tuning */}
+        <div className="space-y-4 lg:sticky lg:top-6">
+          {/* ⚠️ TOOLBAR ACTIVE MODE NOTIFICATION BANNER */}
+          {toolMode === 'addPoint' && (
         <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 animate-fadeIn">
           <div className="flex items-center gap-2">
             <Crosshair className="w-4 h-4 text-emerald-600 animate-spin" />
@@ -1552,9 +1556,10 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
           )}
         </div>
       </div>
+    </div> {/* Closes Left Column */}
 
-      {/* 🛠️ ACTIVE INTEGRATED CONTROLS PANEL: KENAR UZUNLUĞU, YOL EKLEME, BİNA GİRİŞİ, ÇEKİRDEK YAPISI */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    {/* Right Column: Active Controls Panel */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden lg:sticky lg:top-6 lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-200 bg-slate-50/80 p-1.5 gap-1.5">
           <button
@@ -2129,5 +2134,6 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
         )}
       </div>
     </div>
-  );
+  </div>
+);
 };

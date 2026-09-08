@@ -53,7 +53,7 @@ import {
   updatePolygonEdgeLength,
   syncPolygonToCustomFacades,
 } from '../utils/footprintUtils';
-import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel';
+
 import {
   SolarLocation,
   TURKEY_CITIES,
@@ -146,6 +146,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     viewCut: false,
     dimensions: false,
+    generalStructure: false,
     typology: false,
     roof: false,
     roads: false,
@@ -796,30 +797,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
                     return (
                       <div className="space-y-4">
-                        {/* Mode 1: 4 Cepheli Canlı Geometri ve Cephe Ölçüleri (Eğer Serbest Çizim değilse) */}
-                        {!isPolyDrawMode && (
-                          <InteractiveFacadeGeometryPanel
-                            facadeWidth={modelParams.facadeWidth || 10.0}
-                            facadeDepth={modelParams.facadeDepth || 10.0}
-                            backFacadeLength={modelParams.backFacadeLength}
-                            leftFacadeLength={modelParams.leftFacadeLength}
-                            polygonPoints={modelParams.polygonPoints}
-                            roads={modelParams.roads}
-                            mainEntranceIndex={modelParams.mainEntranceFacadeIndex}
-                            theme={theme}
-                            title="2D Geometri Planı & Canlı Ölçülendirme"
-                            onUpdateFacades={(res) => {
-                              updateParams({
-                                facadeWidth: res.front,
-                                facadeDepth: res.right,
-                                backFacadeLength: res.back,
-                                leftFacadeLength: res.left,
-                                polygonPoints: res.quadrilateral.polygonPoints,
-                                customFacades: res.customFacades,
-                              });
-                            }}
-                          />
-                        )}
+
 
                         {/* Mode: Freehand Polygon Point Drawing (Eğer Serbest Çizim modundaysa) */}
                         {modelParams.footprintInputMode === 'polygonDraw' && (
@@ -1259,6 +1237,203 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Card 1.5: General Structure & Floor Planning (Collapsible) */}
+            <div className={`border rounded-3xl overflow-hidden ${cardBg}`}>
+              <button
+                type="button"
+                onClick={() => toggleSection('generalStructure')}
+                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Building className="w-4 h-4 text-indigo-600" />
+                  <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
+                    1.5 Genel Yapı & Kat Planlaması
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <span>
+                    {modelParams.floorCount} Kat, {modelParams.flatsPerFloor || 2} Daire/Kat
+                  </span>
+                  {collapsedSections.generalStructure ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </div>
+              </button>
+
+              {!collapsedSections.generalStructure && (
+                <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
+                  <div className="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Normal Kat Sayısı */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 uppercase">Yeni Normal Kat Sayısı:</label>
+                        <span className="text-xs font-bold font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">
+                          {modelParams.floorCount} Kat
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = Math.max(1, (modelParams.floorCount || 5) - 1);
+                            updateParams({ floorCount: val });
+                          }}
+                          className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold flex items-center justify-center text-sm active:scale-95 transition-all shadow-2xs"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="range"
+                          min="1"
+                          max="20"
+                          step="1"
+                          value={modelParams.floorCount || 5}
+                          onChange={(e) => updateParams({ floorCount: parseInt(e.target.value) || 5 })}
+                          className="flex-1 accent-indigo-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = Math.min(40, (modelParams.floorCount || 5) + 1);
+                            updateParams({ floorCount: val });
+                          }}
+                          className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold flex items-center justify-center text-sm active:scale-95 transition-all shadow-2xs"
+                        >
+                          +
+                        </button>
+                      </div>
+                      {/* Hızlı Seçim Butonları */}
+                      <div className="flex gap-1">
+                        {[3, 4, 5, 6, 8, 10].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => updateParams({ floorCount: num })}
+                            className={`flex-1 py-1 text-[10px] font-bold rounded-lg border transition-all ${
+                              modelParams.floorCount === num
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {num} Kat
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Katta Daire Sayısı */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 uppercase">Katta Daire Sayısı:</label>
+                        <span className="text-xs font-bold font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">
+                          {modelParams.flatsPerFloor || 2} Daire
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = Math.max(1, (modelParams.flatsPerFloor || 2) - 1);
+                            updateParams({ flatsPerFloor: val });
+                          }}
+                          className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold flex items-center justify-center text-sm active:scale-95 transition-all shadow-2xs"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="range"
+                          min="1"
+                          max="10"
+                          step="1"
+                          value={modelParams.flatsPerFloor || 2}
+                          onChange={(e) => updateParams({ flatsPerFloor: parseInt(e.target.value) || 2 })}
+                          className="flex-1 accent-indigo-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = Math.min(10, (modelParams.flatsPerFloor || 2) + 1);
+                            updateParams({ flatsPerFloor: val });
+                          }}
+                          className="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold flex items-center justify-center text-sm active:scale-95 transition-all shadow-2xs"
+                        >
+                          +
+                        </button>
+                      </div>
+                      {/* Hızlı Seçim Butonları */}
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 6].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => updateParams({ flatsPerFloor: num })}
+                            className={`flex-1 py-1 text-[10px] font-bold rounded-lg border transition-all ${
+                              modelParams.flatsPerFloor === num
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {num} Dr.
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Bodrum Kat Sayısı */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700 uppercase">Bodrum Kat Sayısı:</label>
+                      <select
+                        value={modelParams.basementCount !== undefined ? modelParams.basementCount : 1}
+                        onChange={(e) => updateParams({ basementCount: parseInt(e.target.value) || 0 })}
+                        className={`w-full text-xs font-bold px-3 py-2 rounded-xl border focus:outline-hidden ${inputBg}`}
+                      >
+                        <option value={0}>Yok (0 Bodrum)</option>
+                        <option value={1}>1 Bodrum Kat (Standart Sığınak/Otopark)</option>
+                        <option value={2}>2 Bodrum Kat</option>
+                        <option value={3}>3 Bodrum Kat</option>
+                        <option value={4}>4 Bodrum Kat</option>
+                      </select>
+                    </div>
+
+                    {/* Daire Tipi */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700 uppercase">Oda Tipi / Yerleşimi:</label>
+                      <select
+                        value={modelParams.roomType || '3+1'}
+                        onChange={(e) => updateParams({ roomType: e.target.value as any })}
+                        className={`w-full text-xs font-bold px-3 py-2 rounded-xl border focus:outline-hidden ${inputBg}`}
+                      >
+                        <option value="1+1">1+1 Studio Daireler</option>
+                        <option value="2+1">2+1 Konut Planı</option>
+                        <option value="3+1">3+1 Standart Aile Planı</option>
+                        <option value="4+1">4+1 Lüks Geniş Plan</option>
+                      </select>
+                    </div>
+
+                    {/* Toplam Yeni Daire Sayısı - Otomatik Gösterim */}
+                    <div className="col-span-full p-3 bg-indigo-50/70 border border-indigo-150 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-bold text-indigo-900 block">
+                          Toplam Yeni Daire Sayısı
+                        </span>
+                        <span className="text-[10px] text-indigo-700/80 block">
+                          Katta Daire, Kat Sayısı ve Çatı tipi dikkate alınarak otomatik belirlenir.
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg">
+                          {(modelParams.hasGroundFloorShop ? Math.max(1, modelParams.floorCount - 1) : modelParams.floorCount)} Normal Kat × {modelParams.flatsPerFloor || 2} Daire
+                          {modelParams.roofType === 'mansard' ? ' + Mansart Çatı' : ''}
+                        </span>
+                        <span className="font-mono font-black text-indigo-800 text-sm bg-indigo-200/60 px-3 py-1 rounded-xl">
+                          {metrics.totalFlats} Daire
+                        </span>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               )}

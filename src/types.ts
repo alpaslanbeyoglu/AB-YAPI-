@@ -150,17 +150,44 @@ export type FacadeStyleType =
   | 'mediterranean_white'
   | 'cappadocia_tuff';
 
+export type ShopLocation = 'ground' | 'basement' | 'both';
+
+export type MunicipalIncentiveDistrict = 'none' | 'gungoren' | 'kadikoy' | 'esenler' | 'zeytinburnu' | 'custom';
+
+export interface MunicipalIncentiveConfig {
+  enabled: boolean;
+  district: MunicipalIncentiveDistrict;
+  customDistrictName?: string;
+  minMergingParcelCount?: number; // Tevhit için gereken min parsel/bina sayısı (örn: 2 veya 3)
+  grantedExtraFloors: number; // Verilen ek normal kat hakkı (+1, +2 vb.)
+  grantedMansardRoof: boolean; // Mansart / çatı piyesi bağımsız bölüm teşviki
+  grantedFloorAreaBonusPercent: number; // Emsal / KAKS artış bonusu (%) (örn: %20, %25)
+  description?: string;
+}
+
 export interface ExistingBuilding {
   id: string;
   name: string;
   floorCount: number;
   flatCount: number;
-  landShare?: number; // Total land share of this building if applicable
+  avgFlatArea?: number; // Ortalama daire m² (Net/Brüt)
+  hasShop?: boolean; // Mevcut binada dükkan var mı?
+  shopCount?: number; // Dükkan adedi
+  shopLocation?: ShopLocation; // 'ground': Zemin Kat, 'basement': Bodrum Kat, 'both': Zemin + Bodrum Depolu
+  avgShopArea?: number; // Ortalama dükkan m²
+  baseArea?: number; // Taban oturum alanı (m²)
+  totalExistingArea?: number; // Toplam mevcut inşaat / bağımsız bölüm alanı (m²)
+  landShareNumerator?: number; // Arsa payı payı (örn: 10)
+  landShareDenominator?: number; // Arsa payı paydası (örn: 100)
+  note?: string; // Ek açıklama / ada parsel notu
 }
 
 export interface ProjectParams {
+  projectName?: string;        // Müşteri / Proje Adı
+  projectType?: string;        // Proje Türü: 'kentsel' | 'kat_karsiligi' | 'muteahhitlik' vb.
+  basementPurpose?: string;    // Bodrum kullanım amacı: 'shelter_depot' | 'parking' | 'shop'
+  roofAtticType?: 'independent' | 'duplex_unified'; // Çatı arası bağımsız mı yoksa dubleks mi
   projectAddress: string;
-  landArea?: number;           // Arsa m2
   existingBuildings?: ExistingBuilding[]; // Mevcut birleşecek binalar
   manualFlatUnitPrice?: number;    // Manuel daire birim m2 maliyet fiyatı
   manualShopUnitPrice?: number;    // Manuel dükkan birim m2 maliyet fiyatı
@@ -195,11 +222,18 @@ export interface ProjectParams {
   polygonPoints?: PolygonPoint[]; // Serbest çizilen köşe noktaları (m)
   facadeConfigs?: FacadeDetailConfig[]; // Her cephe için pencere, balkon ve giriş konfigürasyonları
   mainEntranceFacadeIndex?: number; // Ana bina giriş kapısının bulunduğu cephe indeksi (0, 1, 2, ... N)
+  roads?: RoadConfig[]; // Parsel çevresindeki yollar
 
   // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
   hasGroundFloorShop?: boolean;
+  hasBasementShop?: boolean;
+  shopLocation?: ShopLocation; // 'ground' | 'basement' | 'both'
   shopCount?: number;
   shopHeight?: number;
+  shopArea?: number; // Dükkan ortalama m²
+
+  // Belediye Teşvikleri & Tevhit İmar Bonusları (Güngören, Kadıköy, Esenler vb.)
+  municipalIncentives?: MunicipalIncentiveConfig;
 
   // Çıkma / Tabla Konsolu (1. kattan sonra tabla çıkması)
   hasCantilever?: boolean;
@@ -273,7 +307,6 @@ export interface ProjectParams {
 
   // Flats
   flats: FlatItem[];
-  roads?: RoadConfig[];
 }
 
 export interface CashFlowRow {
@@ -448,8 +481,11 @@ export interface BuildingModelParams {
 
   // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
   hasGroundFloorShop?: boolean;
+  hasBasementShop?: boolean;
+  shopLocation?: ShopLocation; // 'ground' | 'basement' | 'both'
   shopCount?: number;
   shopHeight?: number;
+  shopArea?: number;
   // Çıkma / Tabla Konsolu (1. kattan itibaren konsol çıkması)
   hasCantilever?: boolean;
   cantileverDepth?: number;

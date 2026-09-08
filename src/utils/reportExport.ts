@@ -88,7 +88,7 @@ export function generateOfferHtml(
   const flatsPerFloor_rep = Math.max(1, Math.round((res.flatCount || 10) / residentialFloors_rep));
   const physicalGrossArea_rep = Math.max(20, Math.round((upperFloorArea_rep / flatsPerFloor_rep) * 10) / 10);
   const physicalNetArea_rep = Math.max(15, Math.round((physicalGrossArea_rep * 0.8) * 10) / 10);
-  const estimatedLandArea_rep = params.landArea && params.landArea > 0 ? params.landArea : Math.round((params.baseBuildArea || 150) / 0.4);
+  const estimatedLandArea_rep = Math.round((params.baseBuildArea || 150) / 0.4);
 
   const proposalNumber = `${compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-${new Date().getFullYear()}-${String(res.flatCount || 10).padStart(3, '0')}`;
   const proposalDate = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });

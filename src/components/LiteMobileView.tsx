@@ -1054,13 +1054,15 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-500">Bağımsız Bölüm Sayısı:</span>
                   <span className="font-bold text-slate-900">
-                    {results.flatCount || 0} Adet ({contractorFlatsCount} Müteahhit / {Math.max(0, (results.flatCount || 0) - contractorFlatsCount)} Malik)
+                    {results.flatCount || 0} Adet {params.projectModel === 'contractorShare' ? `(${contractorFlatsCount} Müteahhit / ${Math.max(0, (results.flatCount || 0) - contractorFlatsCount)} Malik)` : ''}
                   </span>
                 </div>
-                <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-500">Paylaşım Şartı:</span>
-                  <span className="font-black text-amber-700">%{params.contractorShareRate || 50} Müteahhit Payı</span>
-                </div>
+                {params.projectModel === 'contractorShare' && (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-500">Paylaşım Şartı:</span>
+                    <span className="font-black text-amber-700">%{params.contractorShareRate || 50} Müteahhit Payı</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-500">Taahhüt Edilen Süre:</span>
                   <span className="font-black text-indigo-700">{results.finalMonths || 18} Ay (Anahtar Teslim)</span>
@@ -1091,11 +1093,11 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                     const msg = `🏢 *${comp.toUpperCase()} - KENTSEL DÖNÜŞÜM VE İNŞAAT TEKLİFİ*\n` +
                       `📍 *Proje:* ${params.projectAddress || 'İstanbul'}\n` +
                       `📐 *Toplam İnşaat Alanı:* ${Math.round(results.totalArea || 0)} m²\n` +
-                      `🚪 *Daire Sayısı:* ${results.flatCount || 0} Adet (${contractorFlatsCount} Müteahhit / ${Math.max(0, (results.flatCount || 0) - contractorFlatsCount)} Malik)\n` +
+                      `🚪 *Daire Sayısı:* ${results.flatCount || 0} Adet ${params.projectModel === 'contractorShare' ? `(${contractorFlatsCount} Müteahhit / ${Math.max(0, (results.flatCount || 0) - contractorFlatsCount)} Malik)` : ''}\n` +
                       `⏱️ *Taahhüt Süresi:* ${results.finalMonths || 18} Ay\n` +
                       `📊 *Birim m² Bedeli:* ${formatCurrency(results.grossCostPerSqM)}/m²\n` +
                       `💰 *Toplam Maliyet Bedeli:* ${formatCurrency(results.grandTotal)}\n` +
-                      `🤝 *Paylaşım:* %${params.contractorShareRate || 50} Kat Karşılığı\n\n` +
+                      `${params.projectModel === 'contractorShare' ? `🤝 *Paylaşım:* %${params.contractorShareRate || 50} Kat Karşılığı\n\n` : ''}` +
                       `Detaylı mimari projeler, teknik şartname ve resmi sözleşme için ofisimizle iletişime geçebilirsiniz.\n\n` +
                       `*${profile.authorizedPerson || 'Şirket Yönetimi'}*\n` +
                       `📞 ${profile.phone || '+90 (212) 585 10 20'}`;

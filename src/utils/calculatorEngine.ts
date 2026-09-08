@@ -2,8 +2,11 @@ import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem
 import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint } from './footprintUtils';
 
 export const DEFAULT_PARAMS: ProjectParams = {
+  projectName: 'Müşteri / Proje Adı Belirtilmedi',
+  projectType: 'kentsel',
+  basementPurpose: 'shelter_depot',
+  roofAtticType: 'duplex_unified',
   projectAddress: 'İstanbul, Fatih Kocamustafapaşa Mah. 1024 Ada 15 Parsel',
-  landArea: 250,
   manualFlatUnitPrice: 0,
   manualShopUnitPrice: 0,
   durationOption: 'manual',
@@ -344,7 +347,14 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     : 0;
 
   const basementFloorsCount = Math.max(0, params.basementCount !== undefined && !isNaN(params.basementCount) ? params.basementCount : 1);
-  const rawTotalArea = activeBaseArea * (1 + basementFloorsCount) + upperFloorsCount * upperFloorArea + roofAtticArea;
+  let rawTotalArea = activeBaseArea * (1 + basementFloorsCount) + upperFloorsCount * upperFloorArea + roofAtticArea;
+
+  // Belediye İmar Teşviki Emsal Bonusu (%):
+  if (params.municipalIncentives?.enabled && (params.municipalIncentives.grantedFloorAreaBonusPercent || 0) > 0) {
+    const bonusMultiplier = 1 + (params.municipalIncentives.grantedFloorAreaBonusPercent / 100);
+    rawTotalArea = rawTotalArea * bonusMultiplier;
+  }
+
   const totalArea = Math.round(Math.max(1, rawTotalArea) * 100) / 100;
 
   // Bağımsız Bölüm Sayısı Hesabı:

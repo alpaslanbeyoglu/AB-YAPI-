@@ -445,21 +445,17 @@ export default function App() {
             : Math.max(1, nextFlatsPerFloor))
         : 0;
 
-      let nextFlatCount = prev.flatCount;
-      if (updates.flatCount !== undefined && updates.flatCount > 0) {
-        nextFlatCount = updates.flatCount;
-      } else if (
-        updates.floorCount !== undefined ||
-        updates.flatsPerFloor !== undefined ||
-        updates.hasGroundFloorShop !== undefined ||
-        updates.roofType !== undefined ||
-        updates.mansardFlatCount !== undefined
+      let nextFlatCount = Math.max(1, resFloors * nextFlatsPerFloor + extraMansardFlats);
+      if (
+        updates.flatCount !== undefined &&
+        updates.flatCount > 0 &&
+        updates.floorCount === undefined &&
+        updates.flatsPerFloor === undefined &&
+        updates.hasGroundFloorShop === undefined &&
+        updates.roofType === undefined &&
+        updates.mansardFlatCount === undefined
       ) {
-        nextFlatCount = Math.max(1, resFloors * nextFlatsPerFloor + extraMansardFlats);
-      } else if (nextFlatCount === resFloors && nextFlatsPerFloor > 1) {
-        nextFlatCount = Math.max(1, resFloors * nextFlatsPerFloor + extraMansardFlats);
-      } else if (isMansard && nextFlatCount === resFloors * nextFlatsPerFloor) {
-        nextFlatCount = resFloors * nextFlatsPerFloor + extraMansardFlats;
+        nextFlatCount = updates.flatCount;
       }
 
       const roofAtticArea = isDuplex
@@ -486,42 +482,13 @@ export default function App() {
 
       const nextParams: ProjectParams = {
         ...prev,
+        ...updates,
         baseBuildArea: activeBaseArea,
         floorCount: nextFloorCount,
         flatCount: nextFlatCount,
         flatsPerFloor: nextFlatsPerFloor,
         flats: synchronizedFlats,
         contractorFlatIds: sanitizedContractorIds,
-        ...(updates.footprintInputMode !== undefined && { footprintInputMode: updates.footprintInputMode }),
-        ...(updates.facadeWidth !== undefined && { facadeWidth: updates.facadeWidth }),
-        ...(updates.facadeDepth !== undefined && { facadeDepth: updates.facadeDepth }),
-        ...(updates.backFacadeLength !== undefined && { backFacadeLength: updates.backFacadeLength }),
-        ...(updates.leftFacadeLength !== undefined && { leftFacadeLength: updates.leftFacadeLength }),
-        ...(updates.customFacadeCount !== undefined && { customFacadeCount: updates.customFacadeCount }),
-        ...(updates.customFacades !== undefined && { customFacades: updates.customFacades }),
-        ...(updates.lShapeFrontMain !== undefined && { lShapeFrontMain: updates.lShapeFrontMain }),
-        ...(updates.lShapeDepthMain !== undefined && { lShapeDepthMain: updates.lShapeDepthMain }),
-        ...(updates.lShapeRecessFront !== undefined && { lShapeRecessFront: updates.lShapeRecessFront }),
-        ...(updates.lShapeRecessDepth !== undefined && { lShapeRecessDepth: updates.lShapeRecessDepth }),
-        ...(updates.polygonPoints !== undefined && { polygonPoints: updates.polygonPoints }),
-        ...(updates.facadeConfigs !== undefined && { facadeConfigs: updates.facadeConfigs }),
-        ...(updates.mainEntranceFacadeIndex !== undefined && { mainEntranceFacadeIndex: updates.mainEntranceFacadeIndex }),
-        ...(updates.floorHeight !== undefined && { floorHeight: updates.floorHeight }),
-        ...(updates.basementCount !== undefined && { basementCount: updates.basementCount }),
-        ...(updates.elevatorCount !== undefined && { elevatorCount: updates.elevatorCount }),
-        ...(updates.balconyDepth !== undefined && { balconyDepth: updates.balconyDepth }),
-        ...(updates.roomType !== undefined && { roomType: updates.roomType }),
-        ...(updates.roofType !== undefined && { roofType: updates.roofType }),
-        ...(updates.facadeStyle !== undefined && { facadeStyle: updates.facadeStyle }),
-        ...(updates.hasGroundFloorShop !== undefined && { hasGroundFloorShop: updates.hasGroundFloorShop }),
-        ...(updates.shopCount !== undefined && { shopCount: updates.shopCount }),
-        ...(updates.shopHeight !== undefined && { shopHeight: updates.shopHeight }),
-        ...(updates.hasCantilever !== undefined && { hasCantilever: updates.hasCantilever }),
-        ...(updates.cantileverDepth !== undefined && { cantileverDepth: updates.cantileverDepth }),
-        ...(updates.cantileverDirection !== undefined && { cantileverDirection: updates.cantileverDirection }),
-        ...(updates.contractorShareRate !== undefined && { contractorShareRate: updates.contractorShareRate }),
-        ...(updates.showContractorShare3D !== undefined && { showContractorShare3D: updates.showContractorShare3D }),
-        ...(updates.projectModel !== undefined && { projectModel: updates.projectModel }),
       };
 
       try {
@@ -890,6 +857,8 @@ export default function App() {
             params={params}
             onChangeParams={updateCalculatorParams}
             onNext={() => setActiveTab('hesapla')}
+            onNavigateToModel={() => setActiveTab('model')}
+            onNavigateToOwners={() => setActiveTab('malikler')}
             theme={theme}
           />
         )}
