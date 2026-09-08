@@ -42,7 +42,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
-import { MunicipalIncentivesPanel } from './MunicipalIncentivesPanel';
+import { UnifiedFacadeManager } from './UnifiedFacadeManager';
 import { calculateCantileverDetails } from '../utils/calculatorEngine';
 import {
   POLYGON_PRESETS,
@@ -519,183 +519,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     handlePolygonPointsChange(pointsToApply);
   };
 
-  // Multi-facade adjacent & cantilever handlers (L-Tipi, N-Cephe ve Bitişik Nizam Yönetimi)
-  const handleToggleFacadeAdjacent = (idx: number) => {
-    const activeSides = cantileverInfo.facades;
-    const currentFacade = activeSides[idx];
-    const willBeAdjacent = !currentFacade.isAdjacent;
-
-    const updatedConfigs = [...(params.facadeConfigs || [])];
-    while (updatedConfigs.length < activeSides.length) {
-      const s = activeSides[updatedConfigs.length];
-      updatedConfigs.push({
-        id: updatedConfigs.length + 1,
-        name: s.name,
-        length: s.length,
-        windowCountPerFloor: 2,
-        hasBalcony: true,
-        balconyCountPerFloor: 1,
-        balconyType: 'standard',
-        isAdjacent: false,
-        isBlankWall: false,
-        cantileverDepth: params.cantileverDepth || 1.2,
-      });
-    }
-
-    const existing = updatedConfigs[idx];
-    if (willBeAdjacent) {
-      updatedConfigs[idx] = {
-        ...existing,
-        isAdjacent: true,
-        isBlankWall: true,
-        windowCountPerFloor: 0,
-        hasBalcony: false,
-        balconyCountPerFloor: 0,
-        cantileverDepth: 0,
-      };
-    } else {
-      const defaultWin = Math.max(1, Math.min(6, Math.floor((existing.length || 10) / 3.5)));
-      updatedConfigs[idx] = {
-        ...existing,
-        isAdjacent: false,
-        isBlankWall: false,
-        windowCountPerFloor: defaultWin,
-        hasBalcony: (existing.length || 10) >= 6,
-        balconyCountPerFloor: 1,
-        cantileverDepth: params.cantileverDepth || 1.2,
-      };
-    }
-
-    const updatedCantilevers = [...(params.facadeCantilevers || Array(activeSides.length).fill(params.cantileverDepth || 1.2))];
-    while (updatedCantilevers.length < activeSides.length) {
-      updatedCantilevers.push(params.cantileverDepth || 1.2);
-    }
-    updatedCantilevers[idx] = willBeAdjacent ? 0 : (params.cantileverDepth || 1.2);
-
-    onChangeParams({
-      ...params,
-      cantileverDirection: 'custom',
-      facadeConfigs: updatedConfigs,
-      facadeCantilevers: updatedCantilevers,
-    });
-  };
-
-  const handleUpdateFacadeCantileverDepth = (idx: number, depth: number) => {
-    const activeSides = cantileverInfo.facades;
-    const updatedCantilevers = [...(params.facadeCantilevers || Array(activeSides.length).fill(params.cantileverDepth || 1.2))];
-    while (updatedCantilevers.length < activeSides.length) {
-      updatedCantilevers.push(params.cantileverDepth || 1.2);
-    }
-    updatedCantilevers[idx] = Math.max(0, depth);
-
-    const updatedConfigs = [...(params.facadeConfigs || [])];
-    if (updatedConfigs[idx]) {
-      updatedConfigs[idx] = {
-        ...updatedConfigs[idx],
-        cantileverDepth: Math.max(0, depth),
-      };
-    }
-
-    onChangeParams({
-      ...params,
-      cantileverDirection: 'custom',
-      facadeCantilevers: updatedCantilevers,
-      facadeConfigs: updatedConfigs.length > 0 ? updatedConfigs : undefined,
-    });
-  };
-
-  const handleApplyPresetAdjacent = (preset: 'l_corner' | 'all_open' | 'all_cantilever' | 'clear_cantilever') => {
-    const activeSides = cantileverInfo.facades;
-    const defaultDepth = params.cantileverDepth || 1.2;
-
-    const updatedConfigs = [...(params.facadeConfigs || [])];
-    while (updatedConfigs.length < activeSides.length) {
-      const s = activeSides[updatedConfigs.length];
-      updatedConfigs.push({
-        id: updatedConfigs.length + 1,
-        name: s.name,
-        length: s.length,
-        windowCountPerFloor: 2,
-        hasBalcony: true,
-        balconyCountPerFloor: 1,
-        balconyType: 'standard',
-        isAdjacent: false,
-        isBlankWall: false,
-        cantileverDepth: defaultDepth,
-      });
-    }
-
-    const updatedCantilevers = Array(activeSides.length).fill(0);
-
-    if (preset === 'l_corner') {
-      // For L-shape (6 sides), typical corner adjacent lot:
-      // Facades 2 (back) and 5 (left/inner) are adjacent to neighbors
-      activeSides.forEach((_, i) => {
-        const isAdj = (activeSides.length === 6 && (i === 2 || i === 5)) || (activeSides.length === 4 && (i === 1 || i === 2));
-        const len = updatedConfigs[i].length || 10;
-        if (isAdj) {
-          updatedConfigs[i] = {
-            ...updatedConfigs[i],
-            isAdjacent: true,
-            isBlankWall: true,
-            windowCountPerFloor: 0,
-            hasBalcony: false,
-            balconyCountPerFloor: 0,
-            cantileverDepth: 0,
-          };
-          updatedCantilevers[i] = 0;
-        } else {
-          updatedConfigs[i] = {
-            ...updatedConfigs[i],
-            isAdjacent: false,
-            isBlankWall: false,
-            windowCountPerFloor: Math.max(1, Math.floor(len / 3.5)),
-            hasBalcony: len >= 6,
-            balconyCountPerFloor: 1,
-            cantileverDepth: defaultDepth,
-          };
-          updatedCantilevers[i] = defaultDepth;
-        }
-      });
-    } else if (preset === 'all_open') {
-      activeSides.forEach((_, i) => {
-        const len = updatedConfigs[i].length || 10;
-        updatedConfigs[i] = {
-          ...updatedConfigs[i],
-          isAdjacent: false,
-          isBlankWall: false,
-          windowCountPerFloor: Math.max(1, Math.floor(len / 3.5)),
-          hasBalcony: len >= 6,
-          balconyCountPerFloor: 1,
-          cantileverDepth: defaultDepth,
-        };
-        updatedCantilevers[i] = defaultDepth;
-      });
-    } else if (preset === 'all_cantilever') {
-      activeSides.forEach((_, i) => {
-        const isAdj = updatedConfigs[i]?.isAdjacent || updatedConfigs[i]?.isBlankWall;
-        if (!isAdj) {
-          updatedConfigs[i] = { ...updatedConfigs[i], cantileverDepth: defaultDepth };
-          updatedCantilevers[i] = defaultDepth;
-        } else {
-          updatedCantilevers[i] = 0;
-        }
-      });
-    } else if (preset === 'clear_cantilever') {
-      activeSides.forEach((_, i) => {
-        updatedConfigs[i] = { ...updatedConfigs[i], cantileverDepth: 0 };
-        updatedCantilevers[i] = 0;
-      });
-    }
-
-    onChangeParams({
-      ...params,
-      cantileverDirection: 'custom',
-      facadeConfigs: updatedConfigs,
-      facadeCantilevers: updatedCantilevers,
-    });
-  };
-
   return (
     <div className="space-y-8 pb-12">
       {/* Header Banner */}
@@ -734,12 +557,11 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
         {/* Interactive Mode & Step Selector */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mt-6 pt-5 border-t border-slate-100">
-          <div className="flex-1 max-w-2xl mx-auto md:mx-0">
+          <div className="flex-1 max-w-xl mx-auto md:mx-0">
             <div className="flex items-center justify-between gap-1">
               {[
                 { step: 1, label: 'Müşteri, Proje & Tür', icon: Home },
-                { step: 2, label: 'Ölçüler & 2D Çizim', icon: Ruler },
-                { step: 3, label: 'Yapı Metraj & Teşvikler', icon: Building2 },
+                { step: 2, label: 'Ölçüler, 2D Çizim & Cepheler', icon: Ruler },
               ].map((s) => {
                 const Icon = s.icon;
                 const isActive = activeStep === s.step;
@@ -768,7 +590,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         {isCompleted ? <Check className="w-3.5 h-3.5" /> : s.step}
                       </div>
                       <div className={`h-1 flex-1 rounded-full ${
-                        s.step === 3 ? 'invisible' : isCompleted ? 'bg-indigo-600' : 'bg-slate-200'
+                        s.step === 2 ? 'invisible' : isCompleted ? 'bg-indigo-600' : 'bg-slate-200'
                       }`} />
                     </div>
                     <span className={`text-[10px] font-bold tracking-tight text-center ${
@@ -1667,378 +1489,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           </div>
         </div>
 
-        {/* Cantilever / Çıkma / Konsol Görsel Özellikleri */}
-        <div className="p-4 bg-emerald-50/50 border border-emerald-200/60 rounded-xl space-y-3 shadow-3xs">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <input
-                id="hasCantileverCheckbox"
-                type="checkbox"
-                checked={!!params.hasCantilever}
-                onChange={(e) =>
-                  onChangeParams({
-                    ...params,
-                    hasCantilever: e.target.checked,
-                    cantileverDepth: e.target.checked ? params.cantileverDepth || 1.20 : 0,
-                  })
-                }
-                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-emerald-300 cursor-pointer"
-              />
-              <label htmlFor="hasCantileverCheckbox" className="text-xs font-black text-emerald-950 flex items-center gap-1.5 cursor-pointer">
-                <Ruler className="w-4 h-4 text-emerald-600" />
-                Üst Katlarda Konsol Çıkma (Tabla Çıkması / Konsol) Görsel Olarak Eklensin mi?
-              </label>
-            </div>
-            {params.hasCantilever && (
-              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300/50 animate-fade-in flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                {params.cantileverDepth || 1.20}m Çıkma Planlandı • {cantileverInfo.facades.length} Cepheli Kütle ({cantileverInfo.facades.filter(f => f.isAdjacent).length} Bitişik, {cantileverInfo.facades.filter(f => !f.isAdjacent).length} Açık)
-              </span>
-            )}
-          </div>
-
-          {params.hasCantilever && (
-            <div className="space-y-4 pt-3 border-t border-emerald-200/60 animate-fade-in">
-              {/* Üst Ayar Kontrolleri: Varsayılan Derinlik ve Kapsam */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-bold text-emerald-900">📐 Varsayılan Konsol Çıkma Derinliği</label>
-                    <div className="flex items-center gap-1">
-                      {[1.0, 1.2, 1.5].map((d) => (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => {
-                            onChangeParams({
-                              ...params,
-                              cantileverDepth: d,
-                            });
-                          }}
-                          className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-all cursor-pointer ${
-                            params.cantileverDepth === d
-                              ? 'bg-emerald-600 text-white border-emerald-700'
-                              : 'bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-50'
-                          }`}
-                        >
-                          {d.toFixed(1)}m
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step={0.05}
-                      min={0.2}
-                      max={3.0}
-                      value={params.cantileverDepth || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        onChangeParams({
-                          ...params,
-                          cantileverDepth: val === '' ? 0 : parseFloat(val) || 0,
-                        });
-                      }}
-                      onBlur={(e) => {
-                        const val = parseFloat(e.target.value);
-                        if (isNaN(val) || val < 0.2) {
-                          onChangeParams({
-                            ...params,
-                            cantileverDepth: 1.20,
-                          });
-                        }
-                      }}
-                      className="w-full text-xs font-bold font-mono px-3 py-1.5 rounded-lg border border-emerald-300 bg-white focus:outline-emerald-500"
-                    />
-                    <span className="absolute right-3 top-1.5 text-xs font-semibold text-emerald-600">metre</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-emerald-900 mb-1">🚪 Konsol Çıkma Yönü / Kapsamı</label>
-                  <select
-                    value={params.cantileverDirection || 'open_facades'}
-                    onChange={(e) => {
-                      const newDir = e.target.value as any;
-                      onChangeParams({
-                        ...params,
-                        cantileverDirection: newDir,
-                      });
-                    }}
-                    className="w-full text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-300 bg-white focus:outline-emerald-500 cursor-pointer"
-                  >
-                    <option value="open_facades">🌳 Tüm Açık Cepheler (Bitişik Olmayanlarda Çıkma - Önerilen)</option>
-                    <option value="front_back">🚪 Ön & Arka Cepheler (Cadde ve Bahçe Yönü)</option>
-                    <option value="front">🏠 Yalnızca Ön Cephe (Yol Cephesi)</option>
-                    <option value="all">🌐 Tüm Cephelerde Çıkma (Ayrık Nizam Dört Taraf)</option>
-                    <option value="custom">⚙️ Cephe Bazlı Özel Ayar (Her Kenarı Ayrı Ayarla)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Dinamik N-Cephe & Bitişik Nizam Yönetim Paneli */}
-              <div className="p-3.5 bg-emerald-50/25 border border-emerald-200/70 rounded-xl space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/50 pb-2.5">
-                  <div>
-                    <div className="text-[11px] font-black text-emerald-950 flex items-center gap-1.5 uppercase tracking-wider">
-                      <Layers className="w-3.5 h-3.5 text-emerald-700" />
-                      Cephe Bazlı Bitişik Nizam & Konsol Çıkma Ayarları ({cantileverInfo.facades.length} Cephe)
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
-                      L-Tipi veya çokgen binalarda komşu parsele bakan sağır cepheleri <strong>Bitişik Nizam</strong> yaparak konsol çıkmayı ve pencereyi otomatik sıfırlayabilirsiniz.
-                    </p>
-                  </div>
-
-                  {/* Hızlı Şablon Butonları */}
-                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                    {cantileverInfo.facades.length === 6 && (
-                      <button
-                        type="button"
-                        onClick={() => handleApplyPresetAdjacent('l_corner')}
-                        className="px-2 py-1 text-[10px] font-bold rounded-md bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 transition-colors cursor-pointer flex items-center gap-1"
-                        title="L-Tipi yapılarda klasik köşe parsel: Arka ve Yan cepheleri bitişik yapar"
-                      >
-                        <ShieldAlert className="w-3 h-3 text-amber-700" />
-                        L-Tipi: Arka & Yanı Bitişik Yap
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleApplyPresetAdjacent('all_cantilever')}
-                      className="px-2 py-1 text-[10px] font-bold rounded-md bg-emerald-100 text-emerald-900 hover:bg-emerald-200 border border-emerald-300 transition-colors cursor-pointer"
-                    >
-                      Açık Cephelere {params.cantileverDepth || 1.2}m Ver
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleApplyPresetAdjacent('all_open')}
-                      className="px-2 py-1 text-[10px] font-bold rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 transition-colors cursor-pointer"
-                    >
-                      Tümünü Açık Yap
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleApplyPresetAdjacent('clear_cantilever')}
-                      className="px-2 py-1 text-[10px] font-bold rounded-md bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-300 transition-colors cursor-pointer"
-                    >
-                      Çıkmaları Sıfırla
-                    </button>
-                  </div>
-                </div>
-
-                {/* Cephe Kartları Grid'i */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {cantileverInfo.facades.map((facade) => {
-                    const idx = facade.index;
-                    const isAdjacent = facade.isAdjacent;
-                    const depth = facade.cantileverDepth;
-                    const hasCant = depth > 0;
-
-                    return (
-                      <div
-                        key={idx}
-                        className={`p-3 rounded-xl border flex flex-col justify-between gap-2.5 transition-all shadow-3xs ${
-                          isAdjacent
-                            ? 'bg-rose-50/40 border-rose-200'
-                            : hasCant
-                            ? 'bg-white border-emerald-300 ring-1 ring-emerald-200/50'
-                            : 'bg-white/80 border-slate-200'
-                        }`}
-                      >
-                        {/* Başlık & Ölçü & Bitişiklik Durumu */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-[11px] font-black text-slate-800 truncate flex items-center gap-1.5">
-                              <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[9px] font-bold flex items-center justify-center shrink-0">
-                                {idx + 1}
-                              </span>
-                              <span className="truncate">{facade.name}</span>
-                            </div>
-                            <div className="text-[10px] font-mono font-bold text-slate-500 ml-5.5">
-                              Kenar Uzunluğu: <span className="text-slate-800 font-black">{facade.length.toFixed(1)} m</span>
-                            </div>
-                          </div>
-
-                          {/* Bitişik / Açık Toggle Butonu */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleFacadeAdjacent(idx)}
-                            className={`px-2 py-0.5 rounded text-[10px] font-extrabold border transition-all cursor-pointer shrink-0 ${
-                              isAdjacent
-                                ? 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200'
-                                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700'
-                            }`}
-                            title={isAdjacent ? 'Açık cepheye çevirmek için tıklayın' : 'Komşu parsel sınırı (bitişik) yapmak için tıklayın'}
-                          >
-                            {isAdjacent ? '🏢 Bitişik Nizam' : '🌳 Açık Cephe'}
-                          </button>
-                        </div>
-
-                        {/* Duruma Göre Konsol Ayarı */}
-                        {isAdjacent ? (
-                          <div className="p-2 rounded-lg bg-rose-50 border border-rose-200/80 text-[10px] text-rose-800 space-y-0.5 leading-tight">
-                            <div className="font-bold flex items-center gap-1 text-rose-900">
-                              <ShieldAlert className="w-3 h-3 text-rose-600 shrink-0" />
-                              Komşu Parsel Sınırı (Sağır Duvar)
-                            </div>
-                            <div className="text-rose-700 text-[9px]">
-                              İmar Kanunu Md. 41 uyarınca komşu parsel sınırında konsol çıkma yapılamaz (0.00 m).
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2 pt-1 border-t border-slate-100">
-                            <div className="flex items-center justify-between">
-                              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-700">
-                                <input
-                                  type="checkbox"
-                                  checked={hasCant}
-                                  onChange={(e) => {
-                                    handleUpdateFacadeCantileverDepth(
-                                      idx,
-                                      e.target.checked ? (params.cantileverDepth || 1.2) : 0
-                                    );
-                                  }}
-                                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
-                                />
-                                <span>Konsol Çıkma</span>
-                              </label>
-
-                              {hasCant && (
-                                <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-mono">
-                                  +{(facade.length * depth).toFixed(1)} m²
-                                </span>
-                              )}
-                            </div>
-
-                            {hasCant ? (
-                              <div className="flex items-center gap-1.5">
-                                <div className="relative flex-1">
-                                  <input
-                                    type="number"
-                                    step={0.1}
-                                    min={0.2}
-                                    max={3.0}
-                                    value={depth || ''}
-                                    onChange={(e) => {
-                                      const val = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
-                                      handleUpdateFacadeCantileverDepth(idx, val);
-                                    }}
-                                    className="w-full text-xs font-bold font-mono pl-2 pr-7 py-1 rounded border border-emerald-300 bg-white focus:outline-emerald-500"
-                                  />
-                                  <span className="absolute right-2 top-1 text-[10px] font-bold text-slate-400">m</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  {[1.0, 1.2, 1.5].map((d) => (
-                                    <button
-                                      key={d}
-                                      type="button"
-                                      onClick={() => handleUpdateFacadeCantileverDepth(idx, d)}
-                                      className={`px-1.5 py-1 text-[9px] font-bold rounded border transition-all cursor-pointer ${
-                                        Math.abs(depth - d) < 0.05
-                                          ? 'bg-emerald-600 text-white border-emerald-700'
-                                          : 'bg-white text-slate-600 border-slate-200 hover:bg-emerald-50'
-                                      }`}
-                                    >
-                                      {d.toFixed(1)}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-[10px] text-slate-400 italic">
-                                Bu cephede çıkma yok (Düz bina yüzeyi)
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Çıkma Alanı Etki Analiz Kartı */}
-              {singleFloorCantileverDiff > 0 && (
-                <div className="p-3 bg-white border border-emerald-200 rounded-xl flex flex-col gap-2 shadow-2xs animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-950 uppercase tracking-wide">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Konsol Çıkma Alan Etki Analizi
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      {cantileverInfo.facades.filter(f => f.cantileverDepth > 0).length} Cephede Çıkma Uygulandı
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
-                    <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                      <div className="text-[10px] text-slate-500 font-medium">Zemin Kat (Taban)</div>
-                      <div className="text-xs font-black text-slate-800 font-mono">{activeBaseArea.toFixed(1)} m²</div>
-                    </div>
-                    <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                      <div className="text-[10px] text-slate-500 font-medium">Normal Kat (Çıkmalı)</div>
-                      <div className="text-xs font-black text-emerald-800 font-mono">
-                        {upperFloorArea.toFixed(1)} m²
-                        <span className="text-[9px] text-emerald-600 block">+{percentIncrease.toFixed(1)}% Artış</span>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                      <div className="text-[10px] text-slate-500 font-medium">Tek Katta Çıkma Alanı</div>
-                      <div className="text-xs font-black text-amber-700 font-mono">+{singleFloorCantileverDiff.toFixed(1)} m²</div>
-                    </div>
-                    <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                      <div className="text-[10px] text-slate-500 font-medium">Toplam Çıkma Katkısı</div>
-                      <div className="text-xs font-black text-indigo-700 font-mono">
-                        +{totalCantileverContribution.toFixed(1)} m²
-                        <span className="text-[9px] text-slate-400 block">{upperFloorsCount} Normal Katta</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] text-slate-500 leading-relaxed italic border-t border-slate-100 pt-1.5">
-                    * <strong>Planlı Alanlar İmar Yönetmeliği Md. 41:</strong> Komşu parsel sınırına bitişik sağır cephelerde konsol / tabla çıkması kesinlikle yapılamaz. Çıkmalar sadece parsel içi bahçe mesafesi veya yol cephesi bulunan açık cephelerde geçerlidir.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Interactive Polygon Drawer & Canvas */}
-        <div className="p-4 rounded-2xl border border-indigo-200 bg-slate-50/50 space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-600" />
-              <span className="text-xs font-bold text-indigo-900 uppercase tracking-wider">
-                2D İnteraktif Geometri Çizim Tuvali ({activePoints.length} Köşe / Kenar)
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
-              <span>Genişlik: {currentPolyBounds.width}m</span>
-              <span>•</span>
-              <span>Derinlik: {currentPolyBounds.depth}m</span>
-              <span>•</span>
-              <span>Çevre: {currentPolyPerimeter}m</span>
-            </div>
-          </div>
-
-          <InteractiveFootprintCanvas
-            points={params.polygonPoints}
-            onChangePoints={handlePolygonPointsChange}
-            facadeConfigs={params.facadeConfigs}
-            onChangeFacadeConfigs={(configs) => onChangeParams({ ...params, facadeConfigs: configs })}
-            mainEntranceIndex={params.mainEntranceFacadeIndex || 0}
-            onChangeMainEntranceIndex={(idx) =>
-              onChangeParams({ ...params, mainEntranceFacadeIndex: idx })
-            }
-            flatsPerFloor={params.flatsPerFloor || 2}
-            theme={theme}
-            compact={false}
-            roads={params.roads}
-            onChangeRoads={(roads) => onChangeParams({ ...params, roads })}
-          />
-        </div>
+        {/* MERKEZİ TÜM CEPHE İŞLEMLERİ & GEOMETRİ YÖNETİM MERKEZİ */}
+        <UnifiedFacadeManager
+          params={params}
+          onChangeParams={onChangeParams}
+          theme={theme}
+        />
       </div>
       )}
 
@@ -2147,132 +1603,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
         </div>
       )}
 
-      {(!wizardMode || activeStep === 3) && (
-        /* BELEDİYE İMAR TEŞVİKLERİ & TEVHİT KAT / MANSART BONUSU */
-        <MunicipalIncentivesPanel
-          params={params}
-          onChangeParams={onChangeParams}
-          theme={theme}
-        />
-      )}
-
-      {/* 3. BÖLÜM: GÜNCEL YAPI METRAJ BİLGİLERİ */}
-      {(!wizardMode || activeStep === 3) && (
-        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-6 animate-fade-in`}>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className={`text-base sm:text-lg font-bold ${textTitle}`}>
-                3. Güncel Yapı Metraj Bilgileri
-              </h2>
-              <p className={`text-xs ${textMuted}`}>
-                Planlanan güncel projenin bağımsız bölüm adetleri, imalat alanları ve kat yapıları.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Planned Metrics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className={`p-4 rounded-xl border ${innerCardBg} space-y-2`}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                🏠 Konut Bağımsız Bölüm
-              </span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">
-                Aktif Proje
-              </span>
-            </div>
-            <div className="pt-1">
-              <span className="text-xs text-slate-400 block font-medium">Toplam Planlanan Konut</span>
-              <span className="text-2xl font-black text-indigo-700">{newFlatCount} Daire</span>
-            </div>
-          </div>
-
-          <div className={`p-4 rounded-xl border ${innerCardBg} space-y-2`}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                🏪 Dükkan / Ticari Alan
-              </span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700">
-                Ticari Bağımsız Bölüm
-              </span>
-            </div>
-            <div className="pt-1">
-              <span className="text-xs text-slate-400 block font-medium">Toplam Dükkan Sayısı</span>
-              <span className="text-2xl font-black text-amber-700">
-                {newHasShop ? newShopCount : 0} Adet
-              </span>
-            </div>
-          </div>
-
-          <div className={`p-4 rounded-xl border ${innerCardBg} space-y-2`}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                📐 Toplam İnşaat Alanı
-              </span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700">
-                Brüt Alan
-              </span>
-            </div>
-            <div className="pt-1">
-              <span className="text-xs text-slate-400 block font-medium">Toplam Brüt Metraj</span>
-              <span className="text-2xl font-black text-blue-700">
-                {newTotalConstructionArea.toLocaleString('tr-TR')} m²
-              </span>
-            </div>
-          </div>
-
-          <div className={`p-4 rounded-xl border ${innerCardBg} space-y-2`}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                🏢 Yapı Kat Sayısı
-              </span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700">
-                Düşey Yapı
-              </span>
-            </div>
-            <div className="pt-1">
-              <span className="text-xs text-slate-400 block font-medium">Kat Adedi (Zemin Dahil)</span>
-              <span className="text-2xl font-black text-purple-700">
-                {newFloorCount} Kat
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation & Action Footer */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
-          <p className="text-xs text-slate-500">
-            ✅ Parsel ve planlanan yeni kütle geometrisi diğer tüm hesaplama ve 3D modelleme sayfalarına otomatik aktarılmıştır.
-          </p>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            {onNavigateToModel && (
-              <button
-                type="button"
-                onClick={onNavigateToModel}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
-              >
-                3D Modeli İncele
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onNext}
-              className="flex-1 sm:flex-none px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>Proje Künyesi & Maliyet Detaylarına Geç</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-      )}
-
       {/* Pro Tips & Multi-step Wizard Navigation Panel */}
       {wizardMode && (
         <div className="bg-indigo-600 text-white rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md mt-6">
@@ -2283,13 +1613,11 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             <div className="space-y-1">
               <h4 className="text-sm font-bold">
                 {activeStep === 1 && '💡 1. Adım İpucu: Müşteri, Proje ve Dönüşüm Türünü Belirleyin'}
-                {activeStep === 2 && '💡 2. Adım İpucu: Proje Ölçülerini Belirleyin & 2D Çizim Yapın'}
-                {activeStep === 3 && '💡 3. Adım İpucu: İmar Teşvikleri & Yapı Metrajlarını İnceleyin'}
+                {activeStep === 2 && '💡 2. Adım İpucu: Proje Ölçülerini, Cepheleri & 2D Çizimi Yapın'}
               </h4>
               <p className="text-xs text-indigo-100 leading-relaxed max-w-3xl">
                 {activeStep === 1 && 'Projenizin ismini, adresini, hedeflenen taban oturum alanını m² cinsinden ve kentsel dönüşüm / kat karşılığı gibi sözleşme modelinizi bu adımda tanımlayabilirsiniz.'}
-                {activeStep === 2 && '2D Akıllı Çizim Tuvali üzerinde binanızın taban geometrisini poligon veya kenar uzunluklarıyla tasarlayabilir, üst katlar için Konsol Çıkma (çıkma derinliği ve cephesi) ekleyebilirsiniz.'}
-                {activeStep === 3 && 'İmal edilecek yapının belediye imar teşviklerini, tevhit / mansart bonuslarını ve hesaplanan güncel metraj tablosunu bu adımda inceleyebilir, ardından Proje Künyesine geçebilirsiniz.'}
+                {activeStep === 2 && 'Cephe Yönetim Merkezi ve 2D Canlı Çizim Tuvali üzerinde bina tabanınızı, cephe ölçülerini, bina girişini, yol/kör cepheleri ve konsol çıkmaları kolayca düzenleyebilirsiniz.'}
               </p>
             </div>
           </div>
@@ -2306,7 +1634,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (activeStep < 3) {
+                if (activeStep < 2) {
                   setActiveStep(activeStep + 1);
                 } else {
                   onNext();
@@ -2314,7 +1642,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               }}
               className="flex-1 sm:flex-none px-5 py-2 bg-white hover:bg-slate-50 text-indigo-900 rounded-xl text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5"
             >
-              <span>{activeStep === 3 ? 'Proje Künyesine Geç 🚀' : 'İleri Adım ➡️'}</span>
+              <span>{activeStep === 2 ? 'Proje Künyesine Geç 🚀' : 'İleri Adım ➡️'}</span>
             </button>
           </div>
         </div>

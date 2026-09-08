@@ -42,7 +42,6 @@ import {
 
 import { ThreeBuildingView } from './ThreeBuildingView';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
-import { MunicipalIncentivesPanel } from './MunicipalIncentivesPanel';
 
 interface CalculatorTabProps {
   params: ProjectParams;
@@ -750,15 +749,6 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </select>
                 </div>
 
-                {/* Belediye İmar Teşvikleri & Tevhit Kat/Mansart Bonusları */}
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <MunicipalIncentivesPanel
-                    params={params}
-                    onChangeParams={onChangeParams}
-                    theme={theme}
-                  />
-                </div>
-
                 {/* Mimari Çatı Modeli Paneli */}
                 <div className="sm:col-span-2 lg:col-span-3 p-4 rounded-2xl bg-slate-50/90 border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
@@ -942,58 +932,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
 
-                {/* 14. Konsol / Tabla Çıkması (3D Modelde Canlı Yansır) */}
-                <div className="sm:col-span-2 lg:col-span-3 p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={!!params.hasCantilever}
-                        onChange={(e) => updateParam('hasCantilever', e.target.checked)}
-                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-xs font-bold text-slate-900 uppercase">
-                        1. Kattan İtibaren Konsol / Tabla Çıkması (Balkon & Kat Genişlemesi)
-                      </span>
-                    </label>
-                    <span className="text-[10px] font-mono font-bold text-indigo-600">
-                      {params.hasCantilever ? 'Aktif (3D Modelde Çıkma Modellenir)' : 'Pasif (Düz Cephe)'}
-                    </span>
-                  </div>
-                  {params.hasCantilever && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-indigo-100">
-                      <div className="space-y-1">
-                        <label className="block text-[11px] font-bold text-slate-700 uppercase">Çıkma / Konsol Mesafesi (m):</label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0.5"
-                            max="2.5"
-                            value={params.cantileverDepth || 1.2}
-                            onChange={(e) => updateParam('cantileverDepth', Math.max(0.5, parseFloat(e.target.value) || 1.2))}
-                            className={`w-full text-xs font-mono font-bold px-3 py-2 rounded-xl border ${inputBg}`}
-                          />
-                          <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">m</span>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-[11px] font-bold text-slate-700 uppercase">Çıkma Yönü:</label>
-                        <select
-                          value={params.cantileverDirection || 'front'}
-                          onChange={(e) => updateParam('cantileverDirection', e.target.value as any)}
-                          className={`w-full text-xs px-3 py-2 rounded-xl border ${inputBg}`}
-                        >
-                          <option value="front">Sadece Ön Cephe</option>
-                          <option value="front_back">Ön ve Arka Cephe</option>
-                          <option value="all">Dört Cephe (Tüm Çevre)</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 15. Yapım Modeli */}
+                {/* 14. Yapım Modeli */}
                 <div>
                   <label className="block text-xs font-bold text-emerald-700 mb-1.5 uppercase">
                     Yapım Modeli:

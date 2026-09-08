@@ -188,18 +188,6 @@ export const ZoningAuditPanel: React.FC<ZoningAuditPanelProps> = ({
         { label: 'Aydınlatma / Cam Alanı', val: 'Pencereler oda taban alanının en az %10\'u kadar doğal ışık ve havalandırma sağlamalıdır.' },
       ],
     },
-    {
-      id: 6,
-      title: '6. Belediye Teşvikleri & Tevhit İmar Bonusları (Güngören / Kadıköy vb.)',
-      status: 'PASS',
-      summary: 'Parsel Tevhidi & Teşvik İmarı: +1 Normal Kat & Mansart Çatı Bağımsız Bölüm Hakkı',
-      content: [
-        { label: 'Tevhit İmar Bonusu', val: 'Güngören ve komşu ilçelerde birleşen 2+ parselde +1 veya +2 ek kat teşviki uygulanır.' },
-        { label: 'Mansart Bağımsız Bölüm', val: 'Tevhit şartlarını sağlayan yapılarda çatı piyesi müstakil daire olarak tescillenebilir.' },
-        { label: 'Emsal Teşviki', val: '%20 - %25 emsal (KAKS) artış desteği ve otopark kolaylığı.' },
-        { label: 'Mevzuat Güvencesi', val: '6306 Sayılı Kanun ve İlçe Belediyesi Kentsel Dönüşüm Teşvik Plan Notları.' },
-      ],
-    },
   ];
 
   return (

@@ -62,6 +62,8 @@ export interface InteractiveFootprintCanvasProps {
   flatsPerFloor?: number;
   theme?: AppTheme;
   compact?: boolean;
+  selectedEdgeIndex?: number | null;
+  onSelectEdgeIndex?: (index: number | null) => void;
   // Enhanced features requested by user:
   roads?: RoadConfig[];
   onChangeRoads?: (roads: RoadConfig[]) => void;
@@ -97,6 +99,8 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
   flatsPerFloor = 2,
   theme = 'light',
   compact = false,
+  selectedEdgeIndex: propSelectedEdgeIndex,
+  onSelectEdgeIndex,
   roads = [],
   onChangeRoads,
   stairWidth = 2.6,
@@ -119,7 +123,14 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
 
   // Active selections
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
-  const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(0);
+  const [internalSelectedEdgeIndex, setInternalSelectedEdgeIndex] = useState<number | null>(0);
+  const selectedEdgeIndex = propSelectedEdgeIndex !== undefined ? propSelectedEdgeIndex : internalSelectedEdgeIndex;
+  const setSelectedEdgeIndex = (idx: number | null) => {
+    setInternalSelectedEdgeIndex(idx);
+    if (onSelectEdgeIndex) {
+      onSelectEdgeIndex(idx);
+    }
+  };
 
   // Dragging state
   const [isDraggingPoint, setIsDraggingPoint] = useState<boolean>(false);
@@ -194,7 +205,7 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
   const validation = validatePolygonFootprint(points, gridStep);
 
   // Active feature tab in sidebar
-  const [activeTab, setActiveTab] = useState<'edges' | 'core' | 'facades'>('edges');
+  const [activeTab, setActiveTab] = useState<'edges' | 'core'>('edges');
 
   // Sync facade configurations when edges change
   const currentFacadeConfigs = generateFacadeConfigs(points, facadeConfigs, mainEntranceIndex);
@@ -759,118 +770,201 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
   const isSelectedEdgeEntrance = selectedEdgeIndex === mainEntranceIndex;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* 🧭 TOP HEADER: AREA, PERIMETER, STATUS & TOOL MODES */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-200">
-            <Ruler className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-800">
-                2D Akıllı Poligon Taban Çizim Editörü
-              </span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
-                validation.isValid
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-amber-50 text-amber-700 border-amber-200'
-              }`}>
-                {points.length} Köşe • {area.toFixed(1)} m²
-              </span>
-            </div>
-            <span className="text-xs text-slate-500">
-              Çevre: <b className="text-slate-700">{perimeter.toFixed(1)}m</b> • Boyutlar:{' '}
-              <b className="text-slate-700">{bounds.width.toFixed(1)}m × {bounds.depth.toFixed(1)}m</b>
+      {compact ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-900/90 rounded-xl border border-slate-800 text-white shadow-inner">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <Ruler className="w-3.5 h-3.5 text-indigo-400" />
+              <span>{points.length} Köşe • {area.toFixed(1)} m²</span>
+            </span>
+            <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
+              ({bounds.width.toFixed(1)}m × {bounds.depth.toFixed(1)}m)
             </span>
           </div>
+
+          {/* Quick Tools */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setToolMode('select')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                toolMode === 'select' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-300 hover:bg-slate-800'
+              }`}
+              title="Seç & Düzenle"
+            >
+              <MousePointer className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Seç</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setToolMode('addPoint')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                toolMode === 'addPoint' ? 'bg-emerald-600 text-white animate-pulse' : 'text-slate-300 hover:bg-slate-800'
+              }`}
+              title="+ Nokta Ekle (Çizim alanına tıklayarak yeni köşe ekleyin)"
+            >
+              <Crosshair className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">+ Nokta</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setToolMode('pan')}
+              className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                toolMode === 'pan' ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-800'
+              }`}
+              title="Tuvali Kaydır"
+            >
+              <Move className="w-3.5 h-3.5" />
+            </button>
+
+            <div className="w-[1px] h-4 bg-slate-700 mx-0.5" />
+
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={historyIndex <= 0}
+              className="p-1 rounded-lg text-slate-300 hover:bg-slate-800 disabled:opacity-30 transition-colors"
+              title="Geri Al"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+              className="p-1 rounded-lg text-slate-300 hover:bg-slate-800 disabled:opacity-30 transition-colors"
+              title="İleri Al"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNormalizeAndAlign}
+              className="px-2 py-1 rounded-lg text-xs font-bold text-indigo-300 bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-700/60 flex items-center gap-1 transition-all"
+              title="Aksa Hizala & 90° Dikleştir"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Hizala</span>
+            </button>
+          </div>
         </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-200">
+              <Ruler className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-800">
+                  2D Akıllı Poligon Taban Çizim Editörü
+                </span>
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                  validation.isValid
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}>
+                  {points.length} Köşe • {area.toFixed(1)} m²
+                </span>
+              </div>
+              <span className="text-xs text-slate-500">
+                Çevre: <b className="text-slate-700">{perimeter.toFixed(1)}m</b> • Boyutlar:{' '}
+                <b className="text-slate-700">{bounds.width.toFixed(1)}m × {bounds.depth.toFixed(1)}m</b>
+              </span>
+            </div>
+          </div>
 
-        {/* PRIMARY TOOL MODE SELECTOR BAR */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
-          <button
-            type="button"
-            onClick={() => setToolMode('select')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-              toolMode === 'select'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-700 hover:bg-white/80'
-            }`}
-            title="Seç ve Taşı Modu: Köşeleri ve kenarları seçin veya sürükleyin. Boşluğa tıklamak yanlışlıkla nokta eklemez!"
-          >
-            <MousePointer className="w-3.5 h-3.5" />
-            <span>Seç & Düzenle</span>
-          </button>
+          {/* PRIMARY TOOL MODE SELECTOR BAR */}
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setToolMode('select')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                toolMode === 'select'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-white/80'
+              }`}
+              title="Seç ve Taşı Modu: Köşeleri ve kenarları seçin veya sürükleyin. Boşluğa tıklamak yanlışlıkla nokta eklemez!"
+            >
+              <MousePointer className="w-3.5 h-3.5" />
+              <span>Seç & Düzenle</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setToolMode('addPoint')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-              toolMode === 'addPoint'
-                ? 'bg-emerald-600 text-white shadow-sm animate-pulse'
-                : 'text-slate-700 hover:bg-white/80'
-            }`}
-            title="Serbest Nokta Ekleme Modu: Çizim alanına tıklayarak yeni köşe noktası ekleyin."
-          >
-            <Crosshair className="w-3.5 h-3.5" />
-            <span>+ Nokta Ekle</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setToolMode('addPoint')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                toolMode === 'addPoint'
+                  ? 'bg-emerald-600 text-white shadow-sm animate-pulse'
+                  : 'text-slate-700 hover:bg-white/80'
+              }`}
+              title="Serbest Nokta Ekleme Modu: Çizim alanına tıklayarak yeni köşe noktası ekleyin."
+            >
+              <Crosshair className="w-3.5 h-3.5" />
+              <span>+ Nokta Ekle</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setToolMode('pan')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-              toolMode === 'pan'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-700 hover:bg-white/80'
-            }`}
-            title="Çizim alanını kaydırmak için tuvali sürükleyin"
-          >
-            <Move className="w-3.5 h-3.5" />
-            <span>Kaydır</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setToolMode('pan')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                toolMode === 'pan'
+                  ? 'bg-slate-800 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-white/80'
+              }`}
+              title="Çizim alanını kaydırmak için tuvali sürükleyin"
+            >
+              <Move className="w-3.5 h-3.5" />
+              <span>Kaydır</span>
+            </button>
 
-          <div className="w-[1px] h-5 bg-slate-300 mx-1" />
+            <div className="w-[1px] h-5 bg-slate-300 mx-1" />
 
-          {/* UNDO / REDO */}
-          <button
-            type="button"
-            onClick={handleUndo}
-            disabled={historyIndex <= 0}
-            className="p-1.5 rounded-lg text-slate-700 hover:bg-white disabled:opacity-30 transition-all"
-            title="Geri Al (Undo)"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={handleRedo}
-            disabled={historyIndex >= history.length - 1}
-            className="p-1.5 rounded-lg text-slate-700 hover:bg-white disabled:opacity-30 transition-all"
-            title="İleri Al (Redo)"
-          >
-            <RotateCw className="w-3.5 h-3.5" />
-          </button>
+            {/* UNDO / REDO */}
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={historyIndex <= 0}
+              className="p-1.5 rounded-lg text-slate-700 hover:bg-white disabled:opacity-30 transition-all"
+              title="Geri Al (Undo)"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+              className="p-1.5 rounded-lg text-slate-700 hover:bg-white disabled:opacity-30 transition-all"
+              title="İleri Al (Redo)"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
 
-          <div className="w-[1px] h-5 bg-slate-300 mx-1" />
+            <div className="w-[1px] h-5 bg-slate-300 mx-1" />
 
-          {/* Aksa Hizala & Dikleştir */}
-          <button
-            type="button"
-            onClick={handleNormalizeAndAlign}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 flex items-center gap-1 transition-all"
-            title="Köşeleri 90° ve 45° dik açılara bağlar, çakışan noktaları temizler."
-          >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden sm:inline">Aksa Hizala</span>
-          </button>
+            {/* Aksa Hizala & Dikleştir */}
+            <button
+              type="button"
+              onClick={handleNormalizeAndAlign}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 flex items-center gap-1 transition-all"
+              title="Köşeleri 90° ve 45° dik açılara bağlar, çakışan noktaları temizler."
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="hidden sm:inline">Aksa Hizala</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 🔄 RESPONSIVE CAD GRID LAYOUT: Left side is Interactive Canvas, Right side is Active Controls Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-6 items-start">
+      {/* 🔄 RESPONSIVE CAD GRID LAYOUT: If compact, full width single column; otherwise Left Canvas + Right Sidebar */}
+      <div className={compact ? "w-full space-y-3" : "grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-6 items-start"}>
         {/* Left Column: Canvas, Modes, Vertex Fine-Tuning */}
-        <div className="space-y-4 lg:sticky lg:top-6">
+        <div className={`space-y-3 ${compact ? 'w-full' : 'lg:sticky lg:top-6'}`}>
           {/* ⚠️ TOOLBAR ACTIVE MODE NOTIFICATION BANNER */}
           {toolMode === 'addPoint' && (
         <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs text-emerald-900 animate-fadeIn">
@@ -893,7 +987,11 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
       {/* 🖥️ MAIN CANVAS & DRAWING STAGE */}
       <div className="relative w-full rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-inner">
         {/* SVG Drawing Surface */}
-        <div className="w-full aspect-[16/10] min-h-[380px] max-h-[560px] relative select-none">
+        <div className={`w-full relative select-none ${
+          compact
+            ? 'aspect-[4/3] sm:aspect-[16/11] min-h-[320px] max-h-[460px]'
+            : 'aspect-[16/10] min-h-[380px] max-h-[560px]'
+        }`}>
           <svg
             ref={svgRef}
             viewBox={`${-halfSize} ${-halfSize} ${viewBoxSize} ${viewBoxSize}`}
@@ -1558,8 +1656,9 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
       </div>
     </div> {/* Closes Left Column */}
 
-    {/* Right Column: Active Controls Panel */}
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden lg:sticky lg:top-6 lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
+    {/* Right Column: Active Controls Panel (ONLY shown when NOT compact) */}
+    {!compact && (
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden lg:sticky lg:top-6 lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-200 bg-slate-50/80 p-1.5 gap-1.5">
           <button
@@ -1572,7 +1671,7 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
             }`}
           >
             <Ruler className="w-4 h-4 text-indigo-600" />
-            <span>Kenar Boyutu, Yol & Bina Girişi</span>
+            <span>Kenar Boyutu & Geometri</span>
           </button>
 
           <button
@@ -1585,20 +1684,7 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
             }`}
           >
             <Building2 className="w-4 h-4 text-amber-600" />
-            <span>Merdiven & Asansör Çekirdek Yapısı</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('facades')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-              activeTab === 'facades'
-                ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Layers className="w-4 h-4 text-slate-600" />
-            <span>Tüm Cephe Listesi ({edges.length})</span>
+            <span>Merdiven & Çekirdek</span>
           </button>
         </div>
 
@@ -2005,135 +2091,9 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
             </div>
           </div>
         )}
-
-        {/* TAB 3: TÜM CEPHE LİSTESİ & PENCERE/BALKON/GİRİŞ AYARLARI */}
-        {activeTab === 'facades' && (
-          <div className="p-4 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
-              {currentFacadeConfigs.map((cfg, idx) => {
-                const edge = edges[idx];
-                const isEntrance = idx === mainEntranceIndex;
-                const road = roads.find(r => r.facadeIndex === idx);
-
-                return (
-                  <div
-                    key={cfg.id || idx}
-                    className={`p-3 rounded-2xl border transition-all ${
-                      isEntrance
-                        ? 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-300'
-                        : 'bg-slate-50/90 border-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
-                          {idx + 1}
-                        </span>
-                        <span className="text-xs font-bold text-slate-800">
-                          {cfg.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {road && (
-                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
-                            🛣️ {road.name || `${road.width}m Yol`}
-                          </span>
-                        )}
-                        <span className="font-mono text-xs font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                          {edge ? edge.length : cfg.length} m
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 pt-2.5 text-xs">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                          🪟 Pencere Sayısı:
-                        </label>
-                        <select
-                          value={cfg.windowCountPerFloor}
-                          onChange={(e) => handleUpdateFacadeConfig(idx, { windowCountPerFloor: parseInt(e.target.value) || 0 })}
-                          className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold"
-                        >
-                          <option value={0}>0 (Kör Cephe)</option>
-                          <option value={1}>1 Pencere</option>
-                          <option value={2}>2 Pencere</option>
-                          <option value={3}>3 Pencere</option>
-                          <option value={4}>4 Pencere</option>
-                          <option value={5}>5 Pencere</option>
-                          <option value={6}>6 Pencere</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                          🏞️ Balkon:
-                        </label>
-                        <select
-                          value={cfg.hasBalcony ? cfg.balconyCountPerFloor || 1 : 0}
-                          disabled={cfg.windowCountPerFloor === 0}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            handleUpdateFacadeConfig(idx, {
-                              hasBalcony: val > 0,
-                              balconyCountPerFloor: val,
-                            });
-                          }}
-                          className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-semibold"
-                        >
-                          <option value={0}>Balkon Yok</option>
-                          <option value={1}>1 Adet Balkon</option>
-                          <option value={2}>2 Adet Balkon</option>
-                          <option value={3}>3 Adet Balkon</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Tabla Çıkması (Konsol) Durumu */}
-                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500 font-medium">Tabla Çıkması (Konsol):</span>
-                      {cfg.windowCountPerFloor === 0 ? (
-                        <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                          ⛔ Yapılamaz (Kör Cephe)
-                        </span>
-                      ) : (
-                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                          ✓ Açık (İzinli)
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="pt-2 mt-2 border-t border-slate-200 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => handleSetMainEntrance(idx)}
-                        className={`text-xs font-bold flex items-center gap-1.5 ${
-                          isEntrance ? 'text-emerald-700' : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        <DoorOpen className="w-3.5 h-3.5" />
-                        <span>{isEntrance ? '✓ Ana Giriş Kapısı' : 'Giriş Olarak Seç'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedEdgeIndex(idx);
-                          setActiveTab('edges');
-                        }}
-                        className="text-[11px] font-bold text-indigo-600 hover:underline"
-                      >
-                        Kenarı Düzenle →
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+    )}
   </div>
+</div>
 );
 };
