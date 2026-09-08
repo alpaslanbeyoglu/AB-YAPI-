@@ -262,6 +262,22 @@ export function synchronizeFlats(
   });
 }
 
+export function calculateFlatCount(params: ProjectParams): number {
+  const floorCount = params.floorCount || 5;
+  const flatCount = params.flatCount || 10;
+  const isMansard = params.roofType === 'mansard';
+  const resFloors = params.hasGroundFloorShop ? Math.max(1, floorCount - 1) : floorCount;
+  const flatsPerFloor = params.flatsPerFloor || 2;
+  const normalFloorFlats = resFloors * flatsPerFloor;
+  const extraMansardFlats = isMansard
+    ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : Math.max(1, flatsPerFloor))
+    : 0;
+
+  return isMansard
+    ? Math.max(flatCount, normalFloorFlats + extraMansardFlats)
+    : (flatCount === floorCount && flatsPerFloor > 1 ? normalFloorFlats : (flatCount || normalFloorFlats));
+}
+
 export function calculateProject(params: ProjectParams): CalculationResult {
   const {
     baseBuildArea,
@@ -311,7 +327,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     let bCant = 0;
     let lCant = 0;
 
-    if (params.facadeCantilevers && params.facadeCantilevers.length >= 4) {
+    if (cantileverDirection === 'custom' && params.facadeCantilevers && params.facadeCantilevers.length >= 4) {
       fCant = isBlind(0) ? 0 : (params.facadeCantilevers[0] || 0);
       rCant = isBlind(1) ? 0 : (params.facadeCantilevers[1] || 0);
       bCant = isBlind(2) ? 0 : (params.facadeCantilevers[2] || 0);

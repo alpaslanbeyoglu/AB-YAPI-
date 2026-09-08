@@ -1142,12 +1142,26 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                             <span className="text-[11px] font-bold text-slate-700">Genel Çıkma Modu:</span>
                             <select
                               value={modelParams.cantileverDirection || 'front_back'}
-                              onChange={(e) => updateParams({ cantileverDirection: e.target.value as any })}
+                              onChange={(e) => {
+                                const newDir = e.target.value as any;
+                                let newFacades = modelParams.facadeCantilevers;
+                                if (newDir !== 'custom') {
+                                  newFacades = undefined;
+                                } else {
+                                  const d = modelParams.cantileverDepth || 1.2;
+                                  newFacades = [d, 0, d, 0]; // default to front_back
+                                }
+                                updateParams({
+                                  cantileverDirection: newDir,
+                                  facadeCantilevers: newFacades,
+                                });
+                              }}
                               className={`w-32 text-[10px] px-2 py-1 rounded-lg border focus:outline-hidden ${inputBg}`}
                             >
                               <option value="front_back">Ön ve Arka</option>
                               <option value="front">Yalnız Ön</option>
                               <option value="all">Dört Cephe</option>
+                              <option value="custom">Özel Cepheler</option>
                             </select>
                           </div>
 

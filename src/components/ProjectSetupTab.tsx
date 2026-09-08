@@ -311,6 +311,50 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       (params.basementCount ? newBaseArea * params.basementCount : 0)
   );
 
+  // Konsol Çıkma Alan Etkisi Hesabı
+  const footprintCalc = calculateFootprint(params.footprintInputMode, params);
+  const activeBaseArea = footprintCalc.area || 100;
+  const estW = footprintCalc.effectiveWidth || 10;
+  const estD = footprintCalc.effectiveDepth || 10;
+
+  let upperFloorArea = activeBaseArea;
+  let fCant = 0, rCant = 0, bCant = 0, lCant = 0;
+  const isBlind = (idx: number) => {
+    const cfg = params.facadeConfigs?.[idx];
+    return cfg && (cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true);
+  };
+  const cantileverDepth = params.cantileverDepth || 1.2;
+  const cantileverDirection = params.cantileverDirection || 'front_back';
+
+  if (params.hasCantilever && cantileverDepth > 0) {
+    if (cantileverDirection === 'custom' && params.facadeCantilevers && params.facadeCantilevers.length >= 4) {
+      fCant = isBlind(0) ? 0 : (params.facadeCantilevers[0] || 0);
+      rCant = isBlind(1) ? 0 : (params.facadeCantilevers[1] || 0);
+      bCant = isBlind(2) ? 0 : (params.facadeCantilevers[2] || 0);
+      lCant = isBlind(3) ? 0 : (params.facadeCantilevers[3] || 0);
+    } else {
+      if (cantileverDirection === 'all') {
+        fCant = isBlind(0) ? 0 : cantileverDepth;
+        rCant = isBlind(1) ? 0 : cantileverDepth;
+        bCant = isBlind(2) ? 0 : cantileverDepth;
+        lCant = isBlind(3) ? 0 : cantileverDepth;
+      } else if (cantileverDirection === 'front') {
+        fCant = isBlind(0) ? 0 : cantileverDepth;
+      } else {
+        // front_back
+        fCant = isBlind(0) ? 0 : cantileverDepth;
+        bCant = isBlind(2) ? 0 : cantileverDepth;
+      }
+    }
+    upperFloorArea = (estW + lCant + rCant) * (estD + fCant + bCant);
+    upperFloorArea = Math.round(upperFloorArea * 100) / 100;
+  }
+
+  const singleFloorCantileverDiff = Math.max(0, upperFloorArea - activeBaseArea);
+  const percentIncrease = activeBaseArea > 0 ? (singleFloorCantileverDiff / activeBaseArea) * 100 : 0;
+  const upperFloorsCount = Math.max(0, (params.floorCount || 5) - 1);
+  const totalCantileverContribution = singleFloorCantileverDiff * upperFloorsCount;
+
   // Calculation difference (New vs Old)
   const flatDifference = newFlatCount - totalExistingFlats;
   const shopDifference = (newHasShop ? newShopCount : 0) - totalExistingShops;
@@ -806,19 +850,156 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 <label className="block text-[11px] font-bold text-emerald-900 mb-1">🚪 Konsol Çıkma Cephesi / Yönü</label>
                 <select
                   value={params.cantileverDirection || 'front_back'}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newDir = e.target.value as any;
+                    let newFacades = params.facadeCantilevers;
+                    if (newDir !== 'custom') {
+                      // reset facadeCantilevers array or clear it so it doesn't pollute standard ones
+                      newFacades = undefined;
+                    } else {
+                      const d = params.cantileverDepth || 1.2;
+                      newFacades = [d, 0, d, 0]; // default to front_back
+                    }
                     onChangeParams({
                       ...params,
-                      cantileverDirection: e.target.value as any,
-                    })
-                  }
+                      cantileverDirection: newDir,
+                      facadeCantilevers: newFacades,
+                    });
+                  }}
                   className="w-full text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-300 bg-white focus:outline-emerald-500"
                 >
                   <option value="front_back">Ön & Arka Cepheler (Sokak ve Bahçe Yönü)</option>
                   <option value="front">Yalnızca Ön Cephe (Yol Cephesi)</option>
                   <option value="all">Ayrık Nizam / Tüm Cephelerde Çıkma (Dört Taraf)</option>
+                  <option value="custom">Özel Cephe Seçimi (Her Kenarı Ayrı Ayarla)</option>
                 </select>
               </div>
+
+              {/* Özel Cephe Seçici Grid */}
+              {params.cantileverDirection === 'custom' && (
+                <div className="col-span-1 sm:col-span-2 p-3.5 bg-emerald-50/20 border border-emerald-200/50 rounded-xl space-y-3 animate-fade-in">
+                  <div className="text-[11px] font-black text-emerald-950 flex items-center gap-1.5 uppercase tracking-wider border-b border-emerald-200/40 pb-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Kenar Bazlı Özelleştirilmiş Çıkma Derinlikleri
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { idx: 0, label: 'Ön Cephe (Yol)' },
+                      { idx: 1, label: 'Sağ Yan Cephe' },
+                      { idx: 2, label: 'Arka Cephe (Bahçe)' },
+                      { idx: 3, label: 'Sol Yan Cephe' },
+                    ].map(({ idx, label }) => {
+                      const blind = isBlind(idx);
+                      const currentList = params.facadeCantilevers && params.facadeCantilevers.length >= 4
+                        ? [...params.facadeCantilevers]
+                        : [params.cantileverDepth || 1.2, 0, params.cantileverDepth || 1.2, 0];
+                      
+                      const val = currentList[idx] || 0;
+                      const hasCant = val > 0;
+
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`p-2.5 rounded-lg border flex flex-col gap-2 transition-all ${
+                            blind 
+                              ? 'bg-slate-100/60 border-slate-200 opacity-60 select-none' 
+                              : hasCant 
+                                ? 'bg-white border-emerald-300 shadow-3xs' 
+                                : 'bg-slate-50 border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-extrabold text-slate-700">{label}</span>
+                            {blind && (
+                              <span className="text-[9px] font-bold text-red-600 bg-red-50 px-1 rounded border border-red-200">
+                                Sağır Duvar
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              disabled={blind}
+                              checked={!blind && hasCant}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                const updated = [...currentList];
+                                updated[idx] = checked ? (params.cantileverDepth || 1.2) : 0;
+                                onChangeParams({
+                                  ...params,
+                                  facadeCantilevers: updated,
+                                });
+                              }}
+                              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-50 cursor-pointer"
+                            />
+                            <span className="text-xs text-slate-600 font-bold">Çıkma Aktif</span>
+                          </div>
+
+                          {!blind && hasCant && (
+                            <div className="relative mt-1 animate-fade-in">
+                              <input
+                                type="number"
+                                step={0.1}
+                                min={0.2}
+                                max={3.0}
+                                value={val || ''}
+                                onChange={(e) => {
+                                  const updated = [...currentList];
+                                  updated[idx] = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                                  onChangeParams({
+                                    ...params,
+                                    facadeCantilevers: updated,
+                                  });
+                                }}
+                                className="w-full text-xs font-bold font-mono pl-2 pr-8 py-1 rounded border border-emerald-200 bg-white focus:outline-emerald-500"
+                              />
+                              <span className="absolute right-2 top-1 text-[10px] font-bold text-slate-400">m</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Çıkma Alanı Etki Analiz Kartı */}
+              {singleFloorCantileverDiff > 0 && (
+                <div className="col-span-1 sm:col-span-2 mt-3 p-3 bg-white border border-emerald-200 rounded-lg flex flex-col gap-2 shadow-2xs animate-fade-in">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-950 uppercase tracking-wide">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Konsol Çıkma Alan Etki Analizi
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                    <div className="p-2 bg-slate-50 border border-slate-100 rounded">
+                      <div className="text-[10px] text-slate-500 font-medium">Zemin Kat (Taban)</div>
+                      <div className="text-xs font-black text-slate-800 font-mono">{activeBaseArea.toFixed(1)} m²</div>
+                    </div>
+                    <div className="p-2 bg-slate-50 border border-slate-100 rounded">
+                      <div className="text-[10px] text-slate-500 font-medium">Normal Kat (Çıkmalı)</div>
+                      <div className="text-xs font-black text-emerald-800 font-mono">
+                        {upperFloorArea.toFixed(1)} m²
+                        <span className="text-[9px] text-emerald-600 block">+{percentIncrease.toFixed(1)}% Artış</span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-slate-50 border border-slate-100 rounded">
+                      <div className="text-[10px] text-slate-500 font-medium">Tek Katta Çıkma Alanı</div>
+                      <div className="text-xs font-black text-amber-700 font-mono">+{singleFloorCantileverDiff.toFixed(1)} m²</div>
+                    </div>
+                    <div className="p-2 bg-slate-50 border border-slate-100 rounded">
+                      <div className="text-[10px] text-slate-500 font-medium">Toplam Çıkma Katkısı</div>
+                      <div className="text-xs font-black text-indigo-700 font-mono">
+                        +{totalCantileverContribution.toFixed(1)} m²
+                        <span className="text-[9px] text-slate-400 block">{upperFloorsCount} Normal Katta</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed italic">
+                    * İmar yönetmeliğine göre, kör cephelerde (bina yan/arka sağır duvarı) konsol çıkma yapılamaz. Çıkmalar sadece pencereli / açık cephelerde hesaplanmıştır.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

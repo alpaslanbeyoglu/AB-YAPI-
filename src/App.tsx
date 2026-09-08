@@ -45,7 +45,7 @@ import { MenuSettingsModal } from './components/MenuSettingsModal';
 import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
 
 
-import { DEFAULT_PARAMS, calculateProject, synchronizeFlats } from './utils/calculatorEngine';
+import { DEFAULT_PARAMS, calculateProject, synchronizeFlats, calculateFlatCount } from './utils/calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS } from './utils/buildingModelUtils';
 import { calculateFootprint } from './utils/footprintUtils';
 import { initAuth, setCachedToken } from './services/auth';
@@ -277,20 +277,7 @@ export default function App() {
     // KURAL:
     // 1) Mansart çatı tek seçildiğinde çatı katında ekstra bağımsız bölüm(ler) oluşur ve hesaplara dahil edilir.
     // 2) Mansart çatı + dubleks seçilirse tek bağımsız bölüm olarak kabul edilir (ekstra daire eklenmez).
-    const extraMansardFlats = isMansard
-      ? (newParams.mansardFlatCount && newParams.mansardFlatCount > 0 ? newParams.mansardFlatCount : Math.max(1, flatsPerFloor))
-      : 0;
-
-    let totalFlats = (newParams.flatCount && newParams.flatCount > 0)
-      ? newParams.flatCount
-      : Math.max(1, normalFloorFlats + extraMansardFlats);
-
-    // Otomatik Düzeltme: Eğer daire sayısı kat sayısına eşit kalmışsa ve katta daire > 1 ise (ör. 5 kat * 2 daire = 10 yerine 5 kalmışsa)
-    if (totalFlats === resFloors && flatsPerFloor > 1) {
-      totalFlats = normalFloorFlats + extraMansardFlats;
-    } else if (isMansard && totalFlats === normalFloorFlats) {
-      totalFlats = normalFloorFlats + extraMansardFlats;
-    }
+    const totalFlats = calculateFlatCount(newParams);
 
     const roofAtticArea = isDuplex
       ? Math.round(activeBaseArea * 0.65 * 100) / 100

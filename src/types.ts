@@ -239,7 +239,7 @@ export interface ProjectParams {
   // Çıkma / Tabla Konsolu (1. kattan sonra tabla çıkması)
   hasCantilever?: boolean;
   cantileverDepth?: number;
-  cantileverDirection?: 'front_back' | 'front' | 'all';
+  cantileverDirection?: 'front_back' | 'front' | 'all' | 'custom';
   facadeCantilevers?: number[]; // Her cephe için ayrı çıkma mesafesi (m)
 
   // Mimari Çatı ve Kütle Özellikleri
@@ -497,7 +497,7 @@ export interface BuildingModelParams {
   // Çıkma / Tabla Konsolu (1. kattan itibaren konsol çıkması)
   hasCantilever?: boolean;
   cantileverDepth?: number;
-  cantileverDirection?: 'front_back' | 'front' | 'all';
+  cantileverDirection?: 'front_back' | 'front' | 'all' | 'custom';
   facadeCantilevers?: number[]; // Her cephe için ayrı çıkma mesafesi (m)
   // Müteahhit Payı / Daire Paylaşımı
   contractorFlatIds?: number[];          // Müteahhite kalacak dairelerin ID listesi

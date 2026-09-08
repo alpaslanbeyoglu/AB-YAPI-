@@ -3300,7 +3300,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     camera.position.set(28, 22, 34);
 
     // 3. Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      preserveDrawingBuffer: true,
+      logarithmicDepthBuffer: true
+    });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;

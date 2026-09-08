@@ -149,50 +149,27 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
   // Synchronized parameter step handlers
   const handleUpdateFloorCount = (delta: number) => {
     const nextCount = Math.max(1, (params.floorCount || 5) + delta);
-    const normalFloors = params.hasGroundFloorShop ? Math.max(1, nextCount - 1) : nextCount;
-    const fpf = params.flatsPerFloor || 2;
-    const isMansard = params.roofType === 'mansard';
-    const extraMansard = isMansard ? (params.mansardFlatCount || fpf) : 0;
-    const totalFlats = normalFloors * fpf + extraMansard;
     onChangeParams({
       floorCount: nextCount,
-      flatCount: totalFlats,
     });
   };
 
   const handleUpdateFlatsPerFloor = (delta: number) => {
     const nextFpf = Math.max(1, (params.flatsPerFloor || 2) + delta);
-    const normalFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : (params.floorCount || 5);
-    const isMansard = params.roofType === 'mansard';
-    const extraMansard = isMansard ? (params.mansardFlatCount || nextFpf) : 0;
-    const totalFlats = normalFloors * nextFpf + extraMansard;
     onChangeParams({
       flatsPerFloor: nextFpf,
-      flatCount: totalFlats,
     });
   };
 
   const handleToggleShop = (hasShop: boolean) => {
-    const normalFloors = hasShop ? Math.max(1, (params.floorCount || 5) - 1) : (params.floorCount || 5);
-    const fpf = params.flatsPerFloor || 2;
-    const isMansard = params.roofType === 'mansard';
-    const extraMansard = isMansard ? (params.mansardFlatCount || fpf) : 0;
-    const totalFlats = normalFloors * fpf + extraMansard;
     onChangeParams({
       hasGroundFloorShop: hasShop,
-      flatCount: totalFlats,
     });
   };
 
   const handleUpdateRoofType = (roof: 'flat' | 'gable' | 'duplex' | 'mansard') => {
-    const normalFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : (params.floorCount || 5);
-    const fpf = params.flatsPerFloor || 2;
-    const isMansard = roof === 'mansard';
-    const extraMansard = isMansard ? (params.mansardFlatCount || fpf) : 0;
-    const totalFlats = normalFloors * fpf + extraMansard;
     onChangeParams({
       roofType: roof,
-      flatCount: totalFlats,
     });
   };
 
