@@ -781,16 +781,32 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     // Pre-calculate floor heights and base Y positions to support taller ground floor shop
     const floorHeights: number[] = [];
     const floorBaseYs: number[] = [];
-    let cumulativeY = 0;
 
+    // First populate heights
     for (let f = 0; f < totalFloors; f++) {
       const isBasement = f < B;
       const floorIndex = f - B;
       const isShop = !isBasement && floorIndex === 0 && hasGroundFloorShop;
       const fh = isShop ? shopHeight : H;
       floorHeights.push(fh);
-      floorBaseYs.push(cumulativeY + f * (explodeRatio * 4.5));
-      cumulativeY += fh;
+    }
+
+    // Now calculate baseY relative to ground floor (index B) at Y = 0
+    for (let f = 0; f < totalFloors; f++) {
+      let heightOffset = 0;
+      if (f >= B) {
+        // Above or at ground level
+        for (let i = B; i < f; i++) {
+          heightOffset += floorHeights[i];
+        }
+      } else {
+        // Below ground level (basements)
+        for (let i = f; i < B; i++) {
+          heightOffset -= floorHeights[i];
+        }
+      }
+      const explodeOffset = (f - B) * (explodeRatio * 4.5);
+      floorBaseYs.push(heightOffset + explodeOffset);
     }
 
     for (let f = 0; f < totalFloors; f++) {
