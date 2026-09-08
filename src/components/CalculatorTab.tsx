@@ -1156,7 +1156,8 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
             </div>
 
             {params.projectModel === 'contractorShare' && (
-              <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-4 animate-fade-in mt-5`}>
+              <>
+                <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-4 animate-fade-in mt-5`}>
                 <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
                   <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
                     <Users className="w-4 h-4" />
@@ -1273,7 +1274,124 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </label>
                 </div>
               </div>
-            )}
+
+              <div className={`${cardBg} rounded-3xl border p-6 shadow-sm space-y-6 animate-fade-in mt-5`}>
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                  <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+                    <BarChart3 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Müteahhit Maliyet & Kâr Analizi (Fizibilite)</h3>
+                    <p className="text-[10px] text-slate-500">Müteahhite kalan dairelerin satış fiyatlarını belirleyin ve yapım maliyetine göre net kârlılık raporunu inceleyin.</p>
+                  </div>
+                </div>
+
+                {(() => {
+                  const totalBuildCost = results.subTotalCost;
+                  const totalRevenue = results.flatResults
+                    .filter(fr => fr.isContractorShare)
+                    .reduce((sum, fr) => {
+                      const flatInParams = params.flats.find(f => f.id === fr.id);
+                      const displayPrice = flatInParams?.salePrice !== undefined ? flatInParams.salePrice : fr.salePrice || 0;
+                      return sum + displayPrice;
+                    }, 0);
+                  const netProfit = totalRevenue - totalBuildCost;
+                  const profitMargin = totalBuildCost > 0 ? (netProfit / totalBuildCost) * 100 : 0;
+                  const isProfitable = netProfit >= 0;
+
+                  return (
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase block">Toplam İnşaat Maliyeti</span>
+                          <span className="text-lg font-mono font-black text-slate-800">
+                            {totalBuildCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </span>
+                          <span className="text-[10px] text-slate-400 block mt-1">Harç, SGK ve imalat dahil</span>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200">
+                          <span className="text-[10px] font-bold text-emerald-700 uppercase block">Öngörülen Satış Geliri</span>
+                          <span className="text-lg font-mono font-black text-emerald-800">
+                            {totalRevenue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </span>
+                          <span className="text-[10px] text-emerald-600/70 block mt-1">
+                            {results.flatResults.filter(fr => fr.isContractorShare).length} Adet Bölüm Satışı
+                          </span>
+                        </div>
+
+                        <div className={`p-4 rounded-2xl border ${isProfitable ? 'bg-teal-50/50 border-teal-200 text-teal-900' : 'bg-rose-50/50 border-rose-200 text-rose-900'}`}>
+                          <span className="text-[10px] font-bold uppercase block">{isProfitable ? 'Öngörülen Net Kâr' : 'Öngörülen Net Zarar'}</span>
+                          <span className="text-lg font-mono font-black block">
+                            {netProfit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                          </span>
+                          <span className="text-[10px] font-bold block mt-1">
+                            Kârlılık Oranı: {isProfitable ? '+' : ''}{profitMargin.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Daire Satış Fiyatları Listesi */}
+                      <div className="space-y-3">
+                        <h4 className="text-xs font-bold text-slate-700 uppercase">Müteahhit Daire / Dükkan Satış Fiyatları:</h4>
+                        <p className="text-[10px] text-slate-500 leading-relaxed bg-amber-50/50 border border-amber-100 p-3 rounded-xl">
+                          💡 Satış fiyatları başlangıçta daire büyüklüğü (m²), tipi ve <strong>şerefiye çarpanına</strong> göre piyasa ortalaması (+%50 kâr marjıyla) otomatik hesaplanmıştır. İstediğiniz dairenin fiyatını manuel olarak güncelleyebilirsiniz.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                          {results.flatResults
+                            .filter(fr => fr.isContractorShare)
+                            .map((flat) => {
+                              const flatInParams = params.flats.find(f => f.id === flat.id);
+                              const displayPrice = flatInParams?.salePrice !== undefined ? flatInParams.salePrice : flat.salePrice || 0;
+
+                              return (
+                                <div key={flat.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-white shadow-xs hover:border-slate-200 transition-all gap-4">
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-bold text-slate-800">Daire D{flat.id}</span>
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
+                                        {flat.flatType === 'shop' ? 'Dükkan' : flat.flatType === 'duplex' ? 'Dubleks' : flat.flatType === 'mansard' ? 'Mansart' : 'Konut'}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                                      {flat.area} m² | Şerefiye: x{flat.serefiyeMultiplier || '1.0'} | Kat {flat.floorNumber}
+                                    </span>
+                                  </div>
+
+                                  <div className="relative shrink-0 w-36">
+                                    <input
+                                      type="number"
+                                      value={displayPrice || ''}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                        const updatedFlats = params.flats.map(f => {
+                                          if (f.id === flat.id) {
+                                            return { ...f, salePrice: val };
+                                          }
+                                          return f;
+                                        });
+                                        onChangeParams({
+                                          ...params,
+                                          flats: updatedFlats
+                                        });
+                                      }}
+                                      placeholder="Fiyat girin"
+                                      className={`w-full text-xs font-mono font-bold pl-2.5 pr-8 py-1.5 rounded-lg border border-slate-200 focus:border-indigo-500 bg-slate-50/50`}
+                                    />
+                                    <span className="absolute right-2 top-2 text-[9px] font-bold text-slate-400">TL</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </>
+          )}
           </div>
         </div>
 

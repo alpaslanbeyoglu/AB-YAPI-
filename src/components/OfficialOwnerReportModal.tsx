@@ -217,6 +217,59 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                 </div>
               </div>
 
+              {/* Bağımsız Bölüm Metraj ve İmalat Dağılım Detayları */}
+              {selectedCalc && (
+                <div className="space-y-2">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-100 px-3 py-1.5 rounded">
+                    1.1 BAĞIMSIZ BÖLÜM METRAJ VE İMALAT DAĞILIM DETAYLARI
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs border border-slate-200 rounded-lg p-3.5 bg-slate-50/50">
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">İç Net Kullanım Alanı:</span>
+                      <strong className="text-emerald-800 text-xs font-mono font-bold">
+                        {selectedCalc.netArea} m²
+                      </strong>
+                      <span className="text-slate-400 block text-[9px] mt-0.5">(Süpürülebilir iç net alan)</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Bağımsız Bölüm Brüt Alanı:</span>
+                      <strong className="text-indigo-900 text-xs font-mono font-bold">
+                        {selectedCalc.grossArea} m²
+                      </strong>
+                      <span className="text-slate-400 block text-[9px] mt-0.5">(Dış duvarlar ve balkonlar dahil)</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Bina Ortak Alan Payı:</span>
+                      <strong className="text-slate-900 text-xs font-mono font-bold">
+                        +{selectedCalc.commonAreaShare} m²
+                      </strong>
+                      <span className="text-slate-400 block text-[9px] mt-0.5">(Sığınak, merdiven, lobilerden gelen pay)</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Konsol Çıkma Katkısı:</span>
+                      <strong className="text-slate-900 text-xs font-mono font-bold">
+                        {selectedCalc.cantileverAreaShare > 0 ? `+${selectedCalc.cantileverAreaShare} m²` : '0 m²'}
+                      </strong>
+                      <span className="text-slate-400 block text-[9px] mt-0.5">(Konsol döşeme imalat payı)</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Balkon / Teras İmalat Alanı:</span>
+                      <strong className="text-slate-900 text-xs font-mono font-bold">
+                        {selectedCalc.balconyAreaShare > 0 ? `${selectedCalc.balconyAreaShare} m²` : 'Yok'}
+                      </strong>
+                      <span className="text-slate-400 block text-[9px] mt-0.5">(Balkon ve çatı terası betonarme alanı)</span>
+                    </div>
+                    <div className="bg-indigo-50/50 p-1.5 rounded border border-indigo-100">
+                      <span className="text-indigo-950 block text-[10px] uppercase font-bold">Genel Toplam Brüt:</span>
+                      <strong className="text-indigo-900 text-xs font-mono font-bold">
+                        {selectedCalc.totalGrossArea} m²
+                      </strong>
+                      <span className="text-indigo-950/70 block text-[9px] mt-0.5">(Sözleşmeye esas toplam imalat)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* 2. Finansal Maliyet ve Mahsup Tablosu */}
               <div className="space-y-2">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-100 px-3 py-1.5 rounded">
@@ -441,14 +494,16 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                 <table className="w-full text-[11px] border-collapse border border-slate-300">
                   <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px]">
                     <tr>
-                      <th className="p-2 border border-slate-300 text-center w-12">No</th>
+                      <th className="p-2 border border-slate-300 text-center w-10">No</th>
                       <th className="p-2 border border-slate-300 text-left">Hak Sahibi Adı Soyadı</th>
-                      <th className="p-2 border border-slate-300 text-center w-24">TC No</th>
-                      <th className="p-2 border border-slate-300 text-right w-16">Alan (m²)</th>
-                      <th className="p-2 border border-slate-300 text-right w-24">Toplam Pay</th>
-                      <th className="p-2 border border-slate-300 text-right w-24">Peşinat</th>
-                      <th className="p-2 border border-slate-300 text-right w-24">Net Kalan Borç</th>
-                      <th className="p-2 border border-slate-300 text-center w-20">İmza</th>
+                      <th className="p-2 border border-slate-300 text-center w-20">TC No</th>
+                      <th className="p-2 border border-slate-300 text-right w-12">Net (m²)</th>
+                      <th className="p-2 border border-slate-300 text-right w-12">Brüt (m²)</th>
+                      <th className="p-2 border border-slate-300 text-right w-14">G.Brüt (m²)</th>
+                      <th className="p-2 border border-slate-300 text-right w-20">Toplam Pay</th>
+                      <th className="p-2 border border-slate-300 text-right w-20">Peşinat</th>
+                      <th className="p-2 border border-slate-300 text-right w-20">Net Kalan Borç</th>
+                      <th className="p-2 border border-slate-300 text-center w-16">İmza</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-mono">
@@ -467,7 +522,9 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                             )}
                           </td>
                           <td className="p-1.5 border border-slate-300 text-center">{flat.tc || '-'}</td>
-                          <td className="p-1.5 border border-slate-300 text-right font-bold">{flat.area}</td>
+                          <td className="p-1.5 border border-slate-300 text-right font-bold text-emerald-800">{calc ? calc.netArea : '-'}</td>
+                          <td className="p-1.5 border border-slate-300 text-right font-bold text-indigo-900">{calc ? calc.grossArea : '-'}</td>
+                          <td className="p-1.5 border border-slate-300 text-right font-bold text-slate-700">{calc ? calc.totalGrossArea : '-'}</td>
                           <td className="p-1.5 border border-slate-300 text-right">
                             {calc ? calc.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) : '-'}
                           </td>

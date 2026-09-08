@@ -129,6 +129,7 @@ export interface FlatItem {
   downPayment: number;
   useTransformationCredit: boolean;
   isContractorShare?: boolean; // true = Müteahhit Dairesi, false = Hak Sahibi Dairesi
+  salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
   flatType?: 'standard' | 'mansard' | 'duplex' | 'shop'; // Daire tipi
   description?: string; // Ek açıklama (örn: "Çatı Katı Mansart - Ayrı Bağımsız Bölüm", "Çatı Dubleksi - Tek Bağımsız Bölüm")
   floorNumber?: number; // Bulunduğu Kat No (örn: 0 Zemin, 1, 2, 3...)
@@ -328,6 +329,7 @@ export interface FlatCalcResult {
   usedCredit: number;
   netRemainingDebt: number;
   isContractorShare?: boolean;
+  salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
   flatType?: 'standard' | 'mansard' | 'duplex' | 'shop';
   description?: string;
   floorNumber?: number;
@@ -338,6 +340,12 @@ export interface FlatCalcResult {
   landShareDenominator?: number;
   landShareRatio?: number; // Arsa payı oranı (%)
   landShareDifference?: number; // Arsa payı ile bağımsız bölüm değeri arasındaki mahsuplaşma farkı (+ / - TL)
+  netArea: number; // Bağımsız bölüm net alanı (m²)
+  grossArea: number; // Bağımsız bölüm brüt alanı (m²)
+  totalGrossArea: number; // Proportional share of total building gross area (m²)
+  commonAreaShare: number; // Proportional share of common building areas (m²)
+  cantileverAreaShare: number; // Area gained from cantilevers / çıkmalar (m²)
+  balconyAreaShare: number; // Balcony / terrace area (m²)
   stagePayments: [number, number, number, number, number];
   monthlyInstallment: number; // Aylık taksit tutarı (TL)
 }

@@ -630,6 +630,11 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
   const equalShareCost = ownerFlatsCountActual > 0 ? safeManualExtraCost / ownerFlatsCountActual : 0;
 
+  const duplexCount = Math.min(Math.max(1, flatsPerFloor), effectiveFlatCount);
+  const duplexAddArea = isDuplex && roofAtticArea > 0
+    ? parseFloat((roofAtticArea / duplexCount).toFixed(2))
+    : 0;
+
   const flatResults: FlatCalcResult[] = [];
   const totalStageIncomes = [0, 0, 0, 0, 0];
 
@@ -710,6 +715,66 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     totalStageIncomes[3] += p4;
     totalStageIncomes[4] += p5;
 
+    const floorNumber = flat.floorNumber !== undefined ? flat.floorNumber : Math.floor(idx / (params.flatsPerFloor || 2));
+    const flatType = flat.flatType || 'standard';
+
+    // Toplam Ortak Alan: Temel zemin altı bodrum + kat sahanlıkları
+    const totalBasementArea = (params.basementCount !== undefined ? params.basementCount : 1) * activeBaseArea;
+    const commonCirculationArea = floorCount * 22; // Asansör, merdiven vb. kat başı ortak imalat alanları
+    const totalCommonArea = totalBasementArea + commonCirculationArea;
+
+    // Dükkanlar ortak alandan daha az pay alır (Örn: %35 oranında ortak alan payı)
+    const commonWeights = synchronizedFlats.map(f => {
+      if (f.flatType === 'shop') return 0.35;
+      return 1.0;
+    });
+    const totalCommonWeight = commonWeights.reduce((sum, w) => sum + w, 0) || 1;
+    const commonAreaShare = Math.round((totalCommonArea * commonWeights[idx] / totalCommonWeight) * 100) / 100;
+
+    // Çıkma Payı Alanı: Üst katlarda konsol/tabla çıkması varsa bağımsız bölüme katılan çıkma m²'si
+    const floorCantileverTotal = upperFloorArea - activeBaseArea;
+    const cantileverAreaShare = (floorNumber > 0 && floorCantileverTotal > 0)
+      ? Math.round((floorCantileverTotal / (params.flatsPerFloor || 2)) * 100) / 100
+      : 0;
+
+    // Balkon Alanı Hesaplama
+    let balconyAreaShare = 0;
+    if (flatType === 'shop') {
+      balconyAreaShare = 0;
+    } else if (flatType === 'mansard') {
+      balconyAreaShare = Math.round(flat.area * 0.12 * 100) / 100;
+    } else if (flatType === 'duplex') {
+      const lowerBalcony = Math.round((flat.area - duplexAddArea) * 0.08 * 100) / 100;
+      const roofTerrace = Math.round(duplexAddArea * 0.25 * 100) / 100;
+      balconyAreaShare = Math.round((lowerBalcony + roofTerrace) * 100) / 100;
+    } else {
+      if (floorNumber === 0) {
+        balconyAreaShare = Math.round(flat.area * 0.04 * 100) / 100;
+      } else {
+        balconyAreaShare = Math.round(flat.area * 0.08 * 100) / 100;
+      }
+    }
+
+    // Bağımsız Bölüm Brüt Alanı (Balkonlar dahil)
+    const grossArea = Math.round((flat.area + balconyAreaShare) * 100) / 100;
+
+    // Toplam Brüt Alan (Bağımsız Bölüm Brüt + Ortak Alan Payı)
+    const totalGrossArea = Math.round((grossArea + commonAreaShare) * 100) / 100;
+
+    // Bağımsız Bölüm Net Alanı (Net usable space)
+    let netArea = 0;
+    if (flatType === 'shop') {
+      netArea = Math.round(flat.area * 0.88 * 100) / 100;
+    } else if (flatType === 'mansard') {
+      netArea = Math.round(flat.area * 0.72 * 100) / 100;
+    } else if (flatType === 'duplex') {
+      const lowerNet = (flat.area - duplexAddArea) * 0.80;
+      const upperNet = duplexAddArea * 0.70;
+      netArea = Math.round((lowerNet + upperNet) * 100) / 100;
+    } else {
+      netArea = Math.round(flat.area * 0.81 * 100) / 100;
+    }
+
     flatResults.push({
       id: flat.id,
       name: isContractor && (!flat.name || flat.name.startsWith('Daire Sahibi'))
@@ -722,9 +787,10 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       usedCredit,
       netRemainingDebt: Math.round(netRemainingDebt * 100) / 100,
       isContractorShare: isContractor,
+      salePrice: flat.salePrice !== undefined ? flat.salePrice : Math.round(flat.area * (flat.flatType === 'shop' ? finalShopPrice : finalFlatPrice) * 1.5 * (flat.serefiyeMultiplier || 1.0)),
       flatType: flat.flatType || 'standard',
       description: flat.description,
-      floorNumber: flat.floorNumber,
+      floorNumber: flat.floorNumber !== undefined ? flat.floorNumber : floorNumber,
       facade: flat.facade,
       serefiyeMultiplier: flat.serefiyeMultiplier,
       serefiyeAdjustedCost: Math.round(serefiyeAdjustedCost * 100) / 100,
@@ -732,6 +798,12 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       landShareDenominator: den,
       landShareRatio: Math.round(landShareRatio * 100) / 100,
       landShareDifference: Math.round(landShareDifference * 100) / 100,
+      netArea,
+      grossArea,
+      totalGrossArea,
+      commonAreaShare,
+      cantileverAreaShare,
+      balconyAreaShare,
       stagePayments: [p1, p2, p3, p4, p5],
       monthlyInstallment,
     });

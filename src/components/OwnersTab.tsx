@@ -1696,22 +1696,35 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
                             {/* Brüt Alan m² (Inline Input) */}
                             <td className="p-2 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <input
-                                  type="number"
-                                  step="0.5"
-                                  min="1"
-                                  value={flat.area || ''}
-                                  onChange={(e) =>
-                                    handleFlatChange(
-                                      originalIndex,
-                                      'area',
-                                      Math.max(1, parseFloat(e.target.value) || 0)
-                                    )
-                                  }
-                                  className={`w-16 text-xs px-1.5 py-1.5 rounded-lg border font-mono font-bold text-right ${inputBg} shadow-2xs`}
-                                />
-                                <span className="text-[10px] text-slate-400">m²</span>
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center justify-end gap-1">
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="1"
+                                    value={flat.area || ''}
+                                    onChange={(e) =>
+                                      handleFlatChange(
+                                        originalIndex,
+                                        'area',
+                                        Math.max(1, parseFloat(e.target.value) || 0)
+                                      )
+                                    }
+                                    className={`w-16 text-xs px-1.5 py-1.5 rounded-lg border font-mono font-bold text-right ${inputBg} shadow-2xs`}
+                                  />
+                                  <span className="text-[10px] text-slate-400">m²</span>
+                                </div>
+                                {calc && (
+                                  <div className="text-[9px] text-slate-500 font-mono text-right leading-tight border-t border-slate-200/50 pt-1 mt-1 w-full max-w-[130px]">
+                                    <div>Net: <span className="font-bold text-emerald-700">{calc.netArea} m²</span></div>
+                                    <div>Ortak: <span className="font-bold text-slate-600">+{calc.commonAreaShare} m²</span></div>
+                                    <div>Balkon: <span className="font-bold text-indigo-600">{calc.balconyAreaShare > 0 ? `${calc.balconyAreaShare} m²` : 'Yok'}</span></div>
+                                    {calc.cantileverAreaShare > 0 && (
+                                      <div>Çıkma: <span className="font-bold text-amber-700">+{calc.cantileverAreaShare} m²</span></div>
+                                    )}
+                                    <div className="font-bold text-slate-900 border-t border-dashed border-slate-200 pt-0.5 mt-0.5">Topl: {calc.totalGrossArea} m²</div>
+                                  </div>
+                                )}
                               </div>
                             </td>
 
@@ -2371,9 +2384,38 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     </strong>
                   </p>
                   <p className="flex justify-between">
-                    <span className="text-slate-500">Bağımsız Bölüm Brüt:</span>
+                    <span className="text-slate-500">Bağımsız Bölüm Alanı:</span>
                     <strong className="font-mono text-slate-800">{selectedFlatResult.area} m²</strong>
                   </p>
+                  <div className="bg-white/80 p-3 rounded-xl border border-slate-200/50 space-y-1.5 text-[11px] my-2 shadow-2xs">
+                    <div className="text-[10px] font-bold text-indigo-900 tracking-wider uppercase mb-1">Fiziki Metraj Dağılımı</div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">İç Net Alan (Süpürülebilir):</span>
+                      <strong className="font-mono text-emerald-800">{selectedFlatResult.netArea} m²</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Bölüm Brüt Alanı:</span>
+                      <strong className="font-mono text-slate-800">{selectedFlatResult.grossArea} m²</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Bina Ortak Alan Payı:</span>
+                      <strong className="font-mono text-slate-800">+{selectedFlatResult.commonAreaShare} m²</strong>
+                    </div>
+                    {selectedFlatResult.cantileverAreaShare > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Çıkma Katkısı:</span>
+                        <strong className="font-mono text-slate-800">+{selectedFlatResult.cantileverAreaShare} m²</strong>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Balkon / Teras Alanı:</span>
+                      <strong className="font-mono text-slate-800">{selectedFlatResult.balconyAreaShare > 0 ? `${selectedFlatResult.balconyAreaShare} m²` : 'Yok'}</strong>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t border-dashed border-slate-200 font-bold text-slate-900">
+                      <span>Genel Toplam Brüt:</span>
+                      <strong className="font-mono">{selectedFlatResult.totalGrossArea} m²</strong>
+                    </div>
+                  </div>
                   {params.enableSerefiye && (
                     <p className="flex justify-between text-amber-900 bg-amber-50/70 px-2 py-1 rounded border border-amber-200/60">
                       <span>Şerefiye Katsayısı:</span>
