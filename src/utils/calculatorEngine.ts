@@ -790,20 +790,34 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       ? 0
       : grossPay;
 
+    // 1. ÖNCELİKLİ ÖDEME: PEŞİNAT
     const remainingAfterDown = Math.max(0, baseDebtToPay - paid);
 
-    let usedCredit = 0;
-    if (flat.useTransformationCredit && !isContractor && (projectModel !== 'contractorShare' || isOwner)) {
-      if (transformationStatus === 'currentSupport') {
-        usedCredit = Math.min(remainingAfterDown, 1750000);
-      } else if (transformationStatus === 'futureSupport2027') {
-        usedCredit = Math.min(remainingAfterDown, 3000000);
-      }
-    }
+    // 2. ÖNCELİKLİ ÖDEME: HİBE
+    // Hibe tutarı tek bir yerden manuel belirlenir (varsayılan: 700.000 TL veya params.grantAmountPerFlat)
+    const manualGrantAmount = params.grantAmountPerFlat !== undefined
+      ? params.grantAmountPerFlat
+      : (transformationStatus === 'futureSupport2027' ? 1000000 : 700000);
+    const isGrantActive = !isContractor && (projectModel !== 'contractorShare' || isOwner) &&
+      (flat.useGrant !== undefined ? flat.useGrant : (flat.useTransformationCredit ?? false));
+    const usedGrant = isGrantActive ? Math.min(remainingAfterDown, manualGrantAmount) : 0;
+    const remainingAfterGrant = Math.max(0, remainingAfterDown - usedGrant);
 
+    // 3. ÖNCELİKLİ ÖDEME: KREDİ
+    // Kredi tutarı tek bir yerden manuel belirlenir (varsayılan: 700.000 TL veya params.creditAmountPerFlat)
+    const manualCreditAmount = params.creditAmountPerFlat !== undefined
+      ? params.creditAmountPerFlat
+      : (transformationStatus === 'futureSupport2027' ? 1500000 : 700000);
+    const isCreditActive = !isContractor && (projectModel !== 'contractorShare' || isOwner) && !!flat.useCredit;
+    const usedCredit = isCreditActive ? Math.min(remainingAfterGrant, manualCreditAmount) : 0;
+    const remainingAfterCredit = Math.max(0, remainingAfterGrant - usedCredit);
+
+    // 4. NET KALAN BORÇ
     const netRemainingDebt = isContractor
       ? 0
-      : Math.max(0, remainingAfterDown - usedCredit);
+      : remainingAfterCredit;
+
+    const totalSupport = usedGrant + usedCredit;
 
     const p1 = Math.round(netRemainingDebt * s1 * 100) / 100;
     const p2 = Math.round(netRemainingDebt * s2 * 100) / 100;
@@ -890,6 +904,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       grossPay: Math.round(grossPay * 100) / 100,
       downPayment: paid,
       usedCredit,
+      usedGrant,
+      totalSupport,
       netRemainingDebt: Math.round(netRemainingDebt * 100) / 100,
       isContractorShare: isContractor,
       salePrice: flat.salePrice !== undefined ? flat.salePrice : Math.round(flat.area * (flat.flatType === 'shop' ? finalShopPrice : finalFlatPrice) * 1.5 * (flat.serefiyeMultiplier || 1.0)),

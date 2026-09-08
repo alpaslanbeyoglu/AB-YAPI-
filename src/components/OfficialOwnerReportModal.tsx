@@ -287,7 +287,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                     </tr>
                     <tr className="border-b border-slate-200">
                       <td className="p-2.5 font-medium text-slate-700 bg-slate-50">
-                        B) Tahsil Edilen / Ödenecek Peşinat Tutarı:
+                        B) 1. Öncelikli Ödeme — Tahsil Edilen / Ödenecek Peşinat:
                       </td>
                       <td className="p-2.5 text-right font-mono font-bold text-indigo-700">
                         (-) {selectedCalc?.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
@@ -295,15 +295,23 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                     </tr>
                     <tr className="border-b border-slate-200">
                       <td className="p-2.5 font-medium text-slate-700 bg-slate-50">
-                        C) 6306 Sayılı Kanun Kapsamı Kentsel Dönüşüm Hibe/Kredi Desteği:
+                        C) 2. Öncelikli Destek — 6306 Kentsel Dönüşüm Hibe Yardımı:
                       </td>
                       <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                        (-) {selectedCalc?.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        (-) {(selectedCalc?.usedGrant !== undefined ? selectedCalc.usedGrant : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-200">
+                      <td className="p-2.5 font-medium text-slate-700 bg-slate-50">
+                        D) 3. Öncelikli Destek — Faiz Destekli Dönüşüm Kredisi:
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-sky-700">
+                        (-) {(selectedCalc?.usedCredit !== undefined ? selectedCalc.usedCredit : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                       </td>
                     </tr>
                     <tr className="bg-slate-900 text-white font-bold">
                       <td className="p-3 uppercase text-xs">
-                        NET KALAN ÖDENECEK MALİK BAKİYESİ (A - B - C):
+                        NET KALAN ÖDENECEK MALİK BAKİYESİ (A - B - C - D):
                       </td>
                       <td className="p-3 text-right font-mono text-sm">
                         {selectedCalc?.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL

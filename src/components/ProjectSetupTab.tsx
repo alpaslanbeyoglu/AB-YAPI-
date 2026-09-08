@@ -739,7 +739,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               {[
                 { step: 1, label: 'Müşteri, Proje & Tür', icon: Home },
                 { step: 2, label: 'Ölçüler & 2D Çizim', icon: Ruler },
-                { step: 3, label: 'Yapı Özellikleri', icon: Building2 },
+                { step: 3, label: 'Yapı Metraj & Teşvikler', icon: Building2 },
               ].map((s) => {
                 const Icon = s.icon;
                 const isActive = activeStep === s.step;
@@ -1505,30 +1505,44 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       )}
                     </div>
                     {params.hasGroundFloorShop ? (
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <select
-                          value={params.shopLocation || 'ground'}
-                          onChange={(e) => onChangeParams({ ...params, shopLocation: e.target.value as ShopLocation })}
-                          className="text-[10px] font-semibold px-1.5 py-1 rounded border bg-white border-amber-300"
-                        >
-                          <option value="ground">Zemin</option>
-                          <option value="basement">Bodrum</option>
-                          <option value="both">Zemin+Bodrum</option>
-                        </select>
-                        <div className="flex items-center gap-1 text-[10px]">
-                          <span className="text-slate-500 font-bold">Yükseklik:</span>
+                      <>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <select
+                            value={params.shopLocation || 'ground'}
+                            onChange={(e) => onChangeParams({ ...params, shopLocation: e.target.value as ShopLocation })}
+                            className="text-[10px] font-semibold px-1.5 py-1 rounded border bg-white border-amber-300"
+                          >
+                            <option value="ground">Zemin</option>
+                            <option value="basement">Bodrum</option>
+                            <option value="both">Zemin+Bodrum</option>
+                          </select>
+                          <div className="flex items-center gap-1 text-[10px]">
+                            <span className="text-slate-500 font-bold">Yükseklik:</span>
+                            <input
+                              type="number"
+                              step={0.1}
+                              min={2.8}
+                              max={5.5}
+                              value={params.shopHeight || 3.8}
+                              onChange={(e) => onChangeParams({ ...params, shopHeight: parseFloat(e.target.value) || 3.8 })}
+                              className="w-12 text-[10px] font-mono px-1 py-0.5 rounded border border-slate-200 bg-white"
+                            />
+                            <span className="text-slate-400">m</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] pt-1 border-t border-amber-100/60">
+                          <span className="text-slate-500 font-bold">Ortalama Dükkan Alanı:</span>
                           <input
                             type="number"
-                            step={0.1}
-                            min={2.8}
-                            max={5.5}
-                            value={params.shopHeight || 3.8}
-                            onChange={(e) => onChangeParams({ ...params, shopHeight: parseFloat(e.target.value) || 3.8 })}
-                            className="w-12 text-[10px] font-mono px-1 py-0.5 rounded border border-slate-200 bg-white"
+                            min={10}
+                            max={2000}
+                            value={params.shopArea || 80}
+                            onChange={(e) => onChangeParams({ ...params, shopArea: parseFloat(e.target.value) || 80 })}
+                            className="w-14 text-[10px] font-mono px-1 py-0.5 rounded border border-amber-300 bg-white text-slate-800"
                           />
-                          <span className="text-slate-400">m</span>
+                          <span className="text-slate-400">m²</span>
                         </div>
-                      </div>
+                      </>
                     ) : (
                       <div className="text-[10px] text-slate-400">Zeminde konut daireleri var ({params.flatsPerFloor || 2} Daire)</div>
                     )}
@@ -2028,9 +2042,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       </div>
       )}
 
-      {/* 3. BÖLÜM: YAPILACAK (YENİ) BİNA KONFİGÜRASYONU (İMAL EDİLECEK YAPININ ÖZELLİKLERİ) */}
+      {/* 3. BÖLÜM: BELİRLENEN YAPI KONFİGÜRASYONU ÖZETİ */}
       {(!wizardMode || activeStep === 3) && (
-        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-6 animate-fade-in`}>
+        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-4 animate-fade-in`}>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 font-bold">
@@ -2038,422 +2052,95 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
               <div>
                 <h2 className={`text-base sm:text-lg font-bold ${textTitle}`}>
-                  3. İmal Edilecek Yeni Yapı Konfigürasyonu & Özellikleri
+                  3. İmal Edilecek Yapı Özeti & İmar Parametreleri
                 </h2>
                 <p className={`text-xs ${textMuted}`}>
-                  Yeni projenin kat adetlerini, dairesel iç bölümlerini, bodrum ve zemin kat kullanımları ile çatı detaylarını girin.
+                  Önceki adımlarda belirlenen yapı parametreleri özeti. Değiştirmek için doğrudan 2. Adıma dönebilirsiniz.
                 </p>
               </div>
             </div>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-800">
-              {newTotalConstructionArea.toLocaleString('tr-TR')} m² Yeni İnşaat
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-800">
+                {newTotalConstructionArea.toLocaleString('tr-TR')} m² Yeni İnşaat
+              </span>
+              {wizardMode && (
+                <button
+                  type="button"
+                  onClick={() => setActiveStep(2)}
+                  className="px-3 py-1 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  title="2. Adıma dönerek parametreleri düzenle"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>Ölçüleri Düzenle</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-6">
-            {/* GRUP 1: NORMAL KATLAR & DAİRE İÇ BÖLÜMLERİ */}
-            <div className="p-5 border border-slate-200/80 rounded-xl space-y-4 bg-white/50">
-              <h3 className="text-xs font-black uppercase tracking-wider text-purple-900 flex items-center gap-2">
-                <span className="w-1.5 h-3 rounded-sm bg-purple-600"></span>
-                Normal Katlar & Daire Planlaması
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Yeni Normal Kat Sayısı</label>
-                  <input
-                    id="newNormalFloorCountInput"
-                    type="number"
-                    min={1}
-                    max={40}
-                    value={params.floorCount || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const parsed = parseInt(val) || 0;
-                      const normalFloors = params.hasGroundFloorShop ? Math.max(1, parsed - 1) : parsed;
-                      const totalFlats = normalFloors * (params.flatsPerFloor || 2);
-                      onChangeParams({
-                        ...params,
-                        floorCount: val === '' ? 0 : parsed,
-                        flatCount: val === '' ? 0 : totalFlats,
-                      });
-                    }}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (isNaN(val) || val < 1) {
-                        const defaultVal = 5;
-                        const normalFloors = params.hasGroundFloorShop ? Math.max(1, defaultVal - 1) : defaultVal;
-                        onChangeParams({
-                          ...params,
-                          floorCount: defaultVal,
-                          flatCount: normalFloors * (params.flatsPerFloor || 2),
-                        });
-                      }
-                    }}
-                    className={`w-full text-xs font-bold font-mono px-3 py-2 rounded-lg border ${inputBg}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Normal Katta Daire Sayısı</label>
-                  <input
-                    id="flatsPerFloorInput"
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={params.flatsPerFloor || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const parsed = parseInt(val) || 0;
-                      const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                      onChangeParams({
-                        ...params,
-                        flatsPerFloor: val === '' ? 0 : parsed,
-                        flatCount: val === '' ? 0 : normalFloors * parsed,
-                      });
-                    }}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (isNaN(val) || val < 1) {
-                        const defaultVal = 2;
-                        const normalFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-                        onChangeParams({
-                          ...params,
-                          flatsPerFloor: defaultVal,
-                          flatCount: normalFloors * defaultVal,
-                        });
-                      }
-                    }}
-                    className={`w-full text-xs font-bold font-mono px-3 py-2 rounded-lg border ${inputBg}`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">🚪 Daire İç Bölümleri (Oda Tipi)</label>
-                  <select
-                    id="roomTypeSelect"
-                    value={params.roomType || '3+1'}
-                    onChange={(e) =>
-                      onChangeParams({
-                        ...params,
-                        roomType: e.target.value as RoomType,
-                      })
-                    }
-                    className={`w-full text-xs font-bold px-3 py-2 rounded-lg border bg-white`}
-                  >
-                    <option value="1+1">Stüdyo / 1+1 Daire Planı</option>
-                    <option value="2+1">Standart 2+1 Aile Planı</option>
-                    <option value="3+1">Geniş 3+1 Konut Planı</option>
-                    <option value="4+1">Büyük 4+1 Lüsk Konut Planı</option>
-                    <option value="5+1">Geniş Aile / 5+1 Konut Planı</option>
-                  </select>
-                </div>
+          {/* Özet Kartları Izgarası */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
+            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Kat Düzeni</span>
               </div>
-
-              <div className="p-3 bg-indigo-50/50 rounded-lg flex items-center justify-between text-xs text-indigo-900 border border-indigo-100">
-                <span className="font-semibold">Toplam Planlanan Bağımsız Daire Sayısı (Otomatik):</span>
-                <span className="font-mono font-black text-sm text-indigo-700 bg-white px-3 py-1 rounded-md border border-indigo-200">
-                  {params.flatCount || (resFloors * newFlatsPerFloor)} Adet Daire
-                </span>
+              <div className="text-xs font-black text-slate-800">
+                {params.floorCount || 5} Normal Kat
+              </div>
+              <div className="text-[10px] text-slate-500">
+                {params.hasGroundFloorShop ? '+ 1 Zemin Dükkan' : '+ Zemin Konut'} • {params.basementCount ? `${params.basementCount} Kat Bodrum` : 'Bodrumsuz'}
               </div>
             </div>
 
-            {/* GRUP 2: BODRUM KAT DURUMU */}
-            <div className="p-5 border border-slate-200/80 rounded-xl space-y-4 bg-white/50">
-              <h3 className="text-xs font-black uppercase tracking-wider text-purple-900 flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <span className="w-1.5 h-3 rounded-sm bg-purple-600"></span>
-                  Bodrum Kat Planlaması
-                </span>
-                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold normal-case text-slate-600 select-none">
-                  <input
-                    id="hasBasementToggle"
-                    type="checkbox"
-                    checked={params.basementCount !== undefined ? params.basementCount > 0 : true}
-                    onChange={(e) => {
-                      onChangeParams({
-                        ...params,
-                        basementCount: e.target.checked ? 1 : 0,
-                      });
-                    }}
-                    className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 border-slate-300"
-                  />
-                  <span>Bodrum Kat Var mı?</span>
-                </label>
-              </h3>
-
-              {(params.basementCount !== undefined ? params.basementCount > 0 : true) ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 animate-fade-in">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Bodrum Kat Sayısı</label>
-                    <input
-                      id="basementCountInput"
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={params.basementCount || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        onChangeParams({
-                          ...params,
-                          basementCount: val === '' ? 0 : parseInt(val) || 0,
-                        });
-                      }}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (isNaN(val) || val < 1) {
-                          onChangeParams({
-                            ...params,
-                            basementCount: 1,
-                          });
-                        }
-                      }}
-                      className={`w-full text-xs font-bold font-mono px-3 py-2 rounded-lg border ${inputBg}`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">🏢 Bodrum Kat Kullanım Amacı</label>
-                    <select
-                      id="basementPurposeSelect"
-                      value={params.basementPurpose || 'shelter_depot'}
-                      onChange={(e) =>
-                        onChangeParams({
-                          ...params,
-                          basementPurpose: e.target.value,
-                        })
-                      }
-                      className="w-full text-xs font-bold px-3 py-2 rounded-lg border bg-white"
-                    >
-                      <option value="shelter_depot">🛡️ Sığınak & Ortak Depo Alanları</option>
-                      <option value="parking">🚗 Kapalı Otopark Alanı</option>
-                      <option value="shop">🛍️ Ticari Dükkan / İşyeri Deposu</option>
-                    </select>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs text-slate-400 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  ℹ️ Bodrum kat planlanmadı. Bina doğrudan temel üzerine zemin kat ile başlayacaktır.
-                </div>
-              )}
-            </div>
-
-            {/* GRUP 3: ZEMİN KAT DAİRE Mİ / DÜKKAN MI & ADET */}
-            <div className="p-5 border border-slate-200/80 rounded-xl space-y-4 bg-white/50">
-              <h3 className="text-xs font-black uppercase tracking-wider text-purple-900 flex items-center gap-2">
-                <span className="w-1.5 h-3 rounded-sm bg-purple-600"></span>
-                Zemin Kat Kullanımı
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Zemin Kat Fonksiyonu</label>
-                  <div className="flex gap-2">
-                    <button
-                      id="zeminKonutBtn"
-                      type="button"
-                      onClick={() =>
-                        onChangeParams({
-                          ...params,
-                          hasGroundFloorShop: false,
-                        })
-                      }
-                      className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold transition-all ${
-                        !params.hasGroundFloorShop
-                          ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      🏠 Konut Daireleri
-                    </button>
-                    <button
-                      id="zeminTicariBtn"
-                      type="button"
-                      onClick={() =>
-                        onChangeParams({
-                          ...params,
-                          hasGroundFloorShop: true,
-                          shopCount: params.shopCount || 1,
-                        })
-                      }
-                      className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold transition-all ${
-                        params.hasGroundFloorShop
-                          ? 'bg-amber-50 border-amber-500 text-amber-700'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      🛍️ Ticari Dükkanlar
-                    </button>
-                  </div>
-                </div>
-
-                {params.hasGroundFloorShop ? (
-                  <div className="animate-fade-in">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Zemin Dükkan Adedi</label>
-                    <input
-                      id="zeminDukkanCountInput"
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={params.shopCount || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        onChangeParams({
-                          ...params,
-                          shopCount: val === '' ? 0 : parseInt(val) || 0,
-                        });
-                      }}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (isNaN(val) || val < 1) {
-                          onChangeParams({
-                            ...params,
-                            shopCount: 1,
-                          });
-                        }
-                      }}
-                      className="w-full text-xs font-bold font-mono px-3 py-2 rounded-lg border border-amber-300 bg-white"
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Zemin Kat Daire Sayısı (Otomatik)</label>
-                    <div className="px-3 py-2 border border-slate-200 bg-slate-50 rounded-lg text-xs font-mono font-bold text-slate-700">
-                      {params.flatsPerFloor || 2} Adet Konut Dairesi
-                    </div>
-                  </div>
-                )}
+            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Home className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Konut Daireler</span>
               </div>
-
-              {params.hasGroundFloorShop && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-amber-100 bg-amber-50/20 p-3 rounded-lg border border-amber-100 animate-fade-in">
-                  <div>
-                    <label className="block text-[11px] font-bold text-amber-900 mb-1">Dükkan Konumu</label>
-                    <select
-                      id="shopLocationSelect"
-                      value={params.shopLocation || 'ground'}
-                      onChange={(e) =>
-                        onChangeParams({
-                          ...params,
-                          shopLocation: e.target.value as ShopLocation,
-                        })
-                      }
-                      className="w-full text-xs font-bold px-3 py-1.5 rounded-lg border border-amber-300 bg-white"
-                    >
-                      <option value="ground">Sadece Zemin Kat Dükkan</option>
-                      <option value="basement">Sadece Bodrum Kat Dükkan</option>
-                      <option value="both">Zemin + Bodrum Bağlantılı Dükkan</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-amber-900 mb-1">Dükkan Kat Yüksekliği (m)</label>
-                    <input
-                      id="shopHeightInput"
-                      type="number"
-                      step="0.1"
-                      min={2.8}
-                      max={6.0}
-                      value={params.shopHeight || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        onChangeParams({
-                          ...params,
-                          shopHeight: val === '' ? 0 : parseFloat(val) || 0,
-                        });
-                      }}
-                      onBlur={(e) => {
-                        const val = parseFloat(e.target.value);
-                        if (isNaN(val) || val < 2.5) {
-                          onChangeParams({
-                            ...params,
-                            shopHeight: 3.8,
-                          });
-                        }
-                      }}
-                      className="w-full text-xs font-bold font-mono px-3 py-1.5 rounded-lg border border-amber-300 bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-amber-900 mb-1">Ortalama Dükkan Alanı (m²)</label>
-                    <input
-                      id="shopAreaInput"
-                      type="number"
-                      min={20}
-                      max={2000}
-                      value={params.shopArea || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        onChangeParams({
-                          ...params,
-                          shopArea: val === '' ? 0 : parseFloat(val) || 0,
-                        });
-                      }}
-                      onBlur={(e) => {
-                        const val = parseFloat(e.target.value);
-                        if (isNaN(val) || val < 10) {
-                          onChangeParams({
-                            ...params,
-                            shopArea: 80,
-                          });
-                        }
-                      }}
-                      className="w-full text-xs font-bold font-mono px-3 py-1.5 rounded-lg border border-amber-300 bg-white"
-                    />
-                  </div>
-                </div>
-              )}
+              <div className="text-xs font-black text-indigo-700">
+                {newFlatCount} Daire ({params.roomType || '3+1'})
+              </div>
+              <div className="text-[10px] text-slate-500">
+                Katta {params.flatsPerFloor || 2} daire • {params.floorHeight || 2.9}m kat yüksekliği
+              </div>
             </div>
 
-            {/* GRUP 4: ÇATI TİPİ & ÇATI ARASI KULLANIMI */}
-            <div className="p-5 border border-slate-200/80 rounded-xl space-y-4 bg-white/50">
-              <h3 className="text-xs font-black uppercase tracking-wider text-purple-900 flex items-center gap-2">
-                <span className="w-1.5 h-3 rounded-sm bg-purple-600"></span>
-                Çatı Yapısı & Çatı Katı Kullanımı
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">🏠 Çatı Tipi</label>
-                  <select
-                    id="roofTypeSelect"
-                    value={params.roofType || 'gable'}
-                    onChange={(e) =>
-                      onChangeParams({
-                        ...params,
-                        roofType: e.target.value as any,
-                      })
-                    }
-                    className="w-full text-xs font-bold px-3 py-2 rounded-lg border bg-white"
-                  >
-                    <option value="gable">📐 Kırma Çatı (Geleneksel Eğik Çatı)</option>
-                    <option value="flat">🧱 Teras Çatı (Düz Modern Çatı)</option>
-                    <option value="mansard">🏢 Mansart Çatı (Kırıklı Geniş Hacim Çatı)</option>
-                    <option value="duplex">💎 Çatı Dubleksi (Alt Katla Birleşik Lüks Dubleks)</option>
-                  </select>
-                </div>
+            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Store className="w-3.5 h-3.5 text-amber-600" />
+                <span>Zemin & Ticari</span>
+              </div>
+              <div className="text-xs font-black text-amber-700">
+                {params.hasGroundFloorShop ? `${params.shopCount || 1} Dükkan` : 'Konut Katı'}
+              </div>
+              <div className="text-[10px] text-slate-500 truncate">
+                {params.hasGroundFloorShop ? `${params.shopLocation === 'both' ? 'Zemin+Bodrum' : params.shopLocation === 'basement' ? 'Bodrum' : 'Zemin'} • ${params.shopHeight || 3.8}m h • ${params.shopArea || 80}m²` : 'Zeminde konut'}
+              </div>
+            </div>
 
-                {params.roofType !== 'flat' ? (
-                  <div className="animate-fade-in">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">🏠 Çatı Arası / Çatı Katı Kullanımı</label>
-                    <select
-                      id="roofAtticTypeSelect"
-                      value={params.roofAtticType || 'duplex_unified'}
-                      onChange={(e) =>
-                        onChangeParams({
-                          ...params,
-                          roofAtticType: e.target.value as any,
-                        })
-                      }
-                      className="w-full text-xs font-bold px-3 py-2 rounded-lg border bg-white"
-                    >
-                      <option value="duplex_unified">🔗 Alt Katla Birleşik Çatı Dubleksi (Paylaşımlı Hacim)</option>
-                      <option value="independent">🚪 Tamamen Bağımsız Ayrı Daire / Kat (Ayrı Malik Meskeni)</option>
-                    </select>
-                  </div>
-                ) : (
-                  <div className="text-xs text-slate-400 bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center">
-                    ℹ️ Düz teras çatıda çatı arası bağımsız daire veya dubleks hacmi imal edilemez. Teras alanı ortak kullanım alanı olarak ayrılır.
-                  </div>
-                )}
+            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Building className="w-3.5 h-3.5 text-purple-600" />
+                <span>Çatı & Çatı Katı</span>
+              </div>
+              <div className="text-xs font-black text-purple-700">
+                {params.roofType === 'mansard' ? 'Mansart Çatı' : params.roofType === 'flat' ? 'Teras Çatı' : params.roofType === 'duplex' ? 'Çatı Dubleksi' : 'Kırma Çatı'}
+              </div>
+              <div className="text-[10px] text-slate-500 truncate">
+                {params.roofType !== 'flat' ? (params.roofAtticType === 'independent' ? 'Ayrı Bağımsız Daire' : 'Alt Katla Birleşik') : 'Düz Teras'}
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Compass className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Taban & Konsol</span>
+              </div>
+              <div className="text-xs font-black text-emerald-700">
+                {currentPolyArea.toFixed(1)} m² Oturum
+              </div>
+              <div className="text-[10px] text-slate-500">
+                {params.hasCantilever ? `${params.cantileverDepth || 1.2}m Konsol Çıkma` : 'Konsol Çıkmasız'}
               </div>
             </div>
           </div>
@@ -2597,12 +2284,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               <h4 className="text-sm font-bold">
                 {activeStep === 1 && '💡 1. Adım İpucu: Müşteri, Proje ve Dönüşüm Türünü Belirleyin'}
                 {activeStep === 2 && '💡 2. Adım İpucu: Proje Ölçülerini Belirleyin & 2D Çizim Yapın'}
-                {activeStep === 3 && '💡 3. Adım İpucu: Yapı Özelliklerini Planlayın'}
+                {activeStep === 3 && '💡 3. Adım İpucu: İmar Teşvikleri & Yapı Metrajlarını İnceleyin'}
               </h4>
               <p className="text-xs text-indigo-100 leading-relaxed max-w-3xl">
                 {activeStep === 1 && 'Projenizin ismini, adresini, hedeflenen taban oturum alanını m² cinsinden ve kentsel dönüşüm / kat karşılığı gibi sözleşme modelinizi bu adımda tanımlayabilirsiniz.'}
                 {activeStep === 2 && '2D Akıllı Çizim Tuvali üzerinde binanızın taban geometrisini poligon veya kenar uzunluklarıyla tasarlayabilir, üst katlar için Konsol Çıkma (çıkma derinliği ve cephesi) ekleyebilirsiniz.'}
-                {activeStep === 3 && 'İmal edilecek yeni yapının bodrum amaçlarını (otopark, sığınak, depo), zemin kat fonksiyonunu (konut / dükkan), normal kat adetleri ile daire tiplerini (2+1, 3+1 vb.) ve çatı yapısını (dubleks/bağımsız) belirleyebilirsiniz.'}
+                {activeStep === 3 && 'İmal edilecek yapının belediye imar teşviklerini, tevhit / mansart bonuslarını ve hesaplanan güncel metraj tablosunu bu adımda inceleyebilir, ardından Proje Künyesine geçebilirsiniz.'}
               </p>
             </div>
           </div>

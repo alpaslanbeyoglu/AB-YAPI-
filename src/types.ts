@@ -134,6 +134,8 @@ export interface FlatItem {
   area: number;
   downPayment: number;
   useTransformationCredit: boolean;
+  useGrant?: boolean; // 6306 Kentsel Dönüşüm Hibesi kullanımı
+  useCredit?: boolean; // Kentsel Dönüşüm Faiz Destekli Kredisi kullanımı
   isContractorShare?: boolean; // true = Müteahhit Dairesi, false = Hak Sahibi Dairesi
   salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
   flatType?: 'standard' | 'mansard' | 'duplex' | 'shop'; // Daire tipi
@@ -311,6 +313,10 @@ export interface ProjectParams {
   enableLandShareBalancing?: boolean; // Arsa Payı Mahsuplaşma ve Dengelemesini uygula
   totalLandShareDenominator?: number; // Toplam arsa payı paydası (örn: 240, 1000)
 
+  // Manuel Hibe & Kredi Desteği Parametreleri (Tek bir yerden belirlenir)
+  grantAmountPerFlat?: number; // Daire başı manuel belirlenen hibe tutarı (TL) - Örn: 700.000 TL
+  creditAmountPerFlat?: number; // Daire başı manuel belirlenen kredi tutarı (TL) - Örn: 700.000 TL
+
   // Özel Sözleşme Notları & İlave Maddeler
   customContractNotes?: string;
 
@@ -335,6 +341,8 @@ export interface FlatCalcResult {
   grossPay: number;
   downPayment: number;
   usedCredit: number;
+  usedGrant?: number; // Kullanılan hibe tutarı (TL)
+  totalSupport?: number; // Toplam destek tutarı (Hibe + Kredi)
   netRemainingDebt: number;
   isContractorShare?: boolean;
   salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
