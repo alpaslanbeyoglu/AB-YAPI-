@@ -103,10 +103,13 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
     });
   };
 
-  const handleFlatChange = (idx: number, field: keyof FlatItem, val: any) => {
+  const handleFlatChange = (idx: number, fieldOrUpdates: keyof FlatItem | Partial<FlatItem>, val?: any) => {
     const updatedFlats = params.flats.map((flat, i) => {
       if (i === idx) {
-        return { ...flat, [field]: val };
+        if (typeof fieldOrUpdates === 'string') {
+          return { ...flat, [fieldOrUpdates]: val };
+        }
+        return { ...flat, ...fieldOrUpdates };
       }
       return flat;
     });
@@ -114,6 +117,44 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
       ...params,
       flats: updatedFlats,
     });
+    if (onCalculate) onCalculate();
+  };
+
+  const handleToggleFlatGrant = (idx: number, enable: boolean) => {
+    const updatedFlats = params.flats.map((flat, i) => {
+      if (i === idx) {
+        return {
+          ...flat,
+          useGrant: enable,
+          useTransformationCredit: enable || !!flat.useCredit,
+        };
+      }
+      return flat;
+    });
+    onChangeParams({
+      ...params,
+      flats: updatedFlats,
+    });
+    if (onCalculate) onCalculate();
+  };
+
+  const handleToggleFlatCredit = (idx: number, enable: boolean) => {
+    const updatedFlats = params.flats.map((flat, i) => {
+      if (i === idx) {
+        const currentGrant = flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit;
+        return {
+          ...flat,
+          useCredit: enable,
+          useTransformationCredit: currentGrant || enable,
+        };
+      }
+      return flat;
+    });
+    onChangeParams({
+      ...params,
+      flats: updatedFlats,
+    });
+    if (onCalculate) onCalculate();
   };
 
   // Auto-Presets for Serefiye
@@ -234,10 +275,11 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const handleToggleAllCredit = (enable: boolean) => {
     const updatedFlats = params.flats.map((flat) => {
       const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
+      const currentGrant = flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit;
       return {
         ...flat,
         useCredit: isContractor ? false : enable,
-        useTransformationCredit: isContractor ? false : (!!flat.useGrant || enable),
+        useTransformationCredit: isContractor ? false : (currentGrant || enable),
       };
     });
     onChangeParams({
@@ -266,10 +308,11 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
     const updatedFlats = params.flats.map((flat) => {
       const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
       if (flat.flatType === 'shop' || isContractor) return flat;
+      const currentGrant = flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit;
       return {
         ...flat,
         useCredit: enable,
-        useTransformationCredit: !!flat.useGrant || enable,
+        useTransformationCredit: currentGrant || enable,
       };
     });
     onChangeParams({ ...params, flats: updatedFlats });
@@ -295,10 +338,11 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
     const updatedFlats = params.flats.map((flat) => {
       const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
       if (flat.flatType !== 'shop' || isContractor) return flat;
+      const currentGrant = flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit;
       return {
         ...flat,
         useCredit: enable,
-        useTransformationCredit: !!flat.useGrant || enable,
+        useTransformationCredit: currentGrant || enable,
       };
     });
     onChangeParams({ ...params, flats: updatedFlats });
@@ -1636,31 +1680,90 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                   </div>
                 </div>
 
+                {/* Hızlı Toplu Destek Butonları */}
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-slate-200/50">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                    <span>Tüm Hak Sahipleri:</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAllGrant(true)}
+                      className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200/80 px-2.5 py-1 rounded-lg border border-emerald-300 transition-all cursor-pointer shadow-2xs"
+                      title="Tüm hak sahiplerine hibe desteğini aç"
+                    >
+                      ✓ Tümüne Hibe Aç
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAllGrant(false)}
+                      className="text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg border border-slate-300 transition-all cursor-pointer"
+                      title="Tüm hak sahiplerinden hibeyi kapat"
+                    >
+                      ✕ Hibe Kapat
+                    </button>
+                    <span className="text-slate-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAllCredit(true)}
+                      className="text-[10px] font-bold text-sky-800 bg-sky-100/80 hover:bg-sky-200/80 px-2.5 py-1 rounded-lg border border-sky-300 transition-all cursor-pointer shadow-2xs"
+                      title="Tüm hak sahiplerine kredi desteğini aç"
+                    >
+                      ✓ Tümüne Kredi Aç
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAllCredit(false)}
+                      className="text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg border border-slate-300 transition-all cursor-pointer"
+                      title="Tüm hak sahiplerinden krediyi kapat"
+                    >
+                      ✕ Kredi Kapat
+                    </button>
+                  </div>
+                </div>
+
                 {/* Konut ve Dükkan Parametreleri Yan Yana */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   {/* 1. KONUT (DAİRE) DESTEKLERİ */}
-                  <div className="bg-white p-3 rounded-xl border border-emerald-200/80 shadow-2xs space-y-2">
-                    <div className="flex items-center justify-between">
+                  <div className="bg-white p-3.5 rounded-xl border border-emerald-200/80 shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
                       <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1.5">
                         <Home className="w-3.5 h-3.5 text-emerald-600" />
-                        🏠 Konut (Daire) Destek Tutarları
+                        🏠 Konut (Daire) Destekleri
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <button
                           type="button"
                           onClick={() => handleToggleFlatsGrant(true)}
-                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-all cursor-pointer"
+                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200 transition-all cursor-pointer"
                           title="Tüm dairelere hibe aç"
                         >
                           Hibe Aç
                         </button>
                         <button
                           type="button"
+                          onClick={() => handleToggleFlatsGrant(false)}
+                          className="text-[9px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300 transition-all cursor-pointer"
+                          title="Tüm dairelerde hibeyi kapat"
+                        >
+                          Hibe Kapat
+                        </button>
+                        <span className="text-slate-200">|</span>
+                        <button
+                          type="button"
                           onClick={() => handleToggleFlatsCredit(true)}
-                          className="text-[9px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded border border-sky-200 transition-all cursor-pointer"
+                          className="text-[9px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 px-1.5 py-0.5 rounded border border-sky-200 transition-all cursor-pointer"
                           title="Tüm dairelere kredi aç"
                         >
                           Kredi Aç
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFlatsCredit(false)}
+                          className="text-[9px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300 transition-all cursor-pointer"
+                          title="Tüm dairelerde krediyi kapat"
+                        >
+                          Kredi Kapat
                         </button>
                       </div>
                     </div>
@@ -1705,28 +1808,45 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                   </div>
 
                   {/* 2. DÜKKAN (TİCARİ) DESTEKLERİ */}
-                  <div className="bg-white p-3 rounded-xl border border-amber-200/80 shadow-2xs space-y-2">
-                    <div className="flex items-center justify-between">
+                  <div className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
                       <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
                         <Store className="w-3.5 h-3.5 text-amber-600" />
-                        🏪 Dükkan (Ticari) Destek Tutarları
+                        🏪 Dükkan (Ticari) Destekleri
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <button
                           type="button"
                           onClick={() => handleToggleShopsGrant(true)}
-                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-all cursor-pointer"
+                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200 transition-all cursor-pointer"
                           title="Tüm dükkanlara hibe aç"
                         >
                           Hibe Aç
                         </button>
                         <button
                           type="button"
+                          onClick={() => handleToggleShopsGrant(false)}
+                          className="text-[9px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300 transition-all cursor-pointer"
+                          title="Tüm dükkanlarda hibeyi kapat"
+                        >
+                          Hibe Kapat
+                        </button>
+                        <span className="text-slate-200">|</span>
+                        <button
+                          type="button"
                           onClick={() => handleToggleShopsCredit(true)}
-                          className="text-[9px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded border border-sky-200 transition-all cursor-pointer"
+                          className="text-[9px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 px-1.5 py-0.5 rounded border border-sky-200 transition-all cursor-pointer"
                           title="Tüm dükkanlara kredi aç"
                         >
                           Kredi Aç
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleShopsCredit(false)}
+                          className="text-[9px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300 transition-all cursor-pointer"
+                          title="Tüm dükkanlarda krediyi kapat"
+                        >
+                          Kredi Kapat
                         </button>
                       </div>
                     </div>
@@ -2185,11 +2305,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                 <input
                                   type="checkbox"
                                   checked={flat.useGrant !== undefined ? flat.useGrant : (flat.useTransformationCredit ?? false)}
-                                  onChange={(e) => {
-                                    handleFlatChange(originalIndex, 'useGrant', e.target.checked);
-                                    handleFlatChange(originalIndex, 'useTransformationCredit', e.target.checked || !!flat.useCredit);
-                                    if (onCalculate) onCalculate();
-                                  }}
+                                  onChange={(e) => handleToggleFlatGrant(originalIndex, e.target.checked)}
                                   disabled={isContractor}
                                   className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 disabled:opacity-40 cursor-pointer"
                                 />
@@ -2209,11 +2325,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                 <input
                                   type="checkbox"
                                   checked={!!flat.useCredit}
-                                  onChange={(e) => {
-                                    handleFlatChange(originalIndex, 'useCredit', e.target.checked);
-                                    handleFlatChange(originalIndex, 'useTransformationCredit', (flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit) || e.target.checked);
-                                    if (onCalculate) onCalculate();
-                                  }}
+                                  onChange={(e) => handleToggleFlatCredit(originalIndex, e.target.checked)}
                                   disabled={isContractor}
                                   className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300 disabled:opacity-40 cursor-pointer"
                                 />
@@ -2562,12 +2674,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                     <input
                                       type="checkbox"
                                       checked={flat.useGrant !== undefined ? flat.useGrant : (flat.useTransformationCredit ?? false)}
-                                      onChange={(e) => {
-                                        handleFlatChange(originalIndex, 'useGrant', e.target.checked);
-                                        handleFlatChange(originalIndex, 'useTransformationCredit', e.target.checked || !!flat.useCredit);
-                                        if (onCalculate) onCalculate();
-                                      }}
-                                      className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+                                      onChange={(e) => handleToggleFlatGrant(originalIndex, e.target.checked)}
+                                      className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
                                       disabled={isContractor}
                                     />
                                     <span>2. Hibe ({(applicableGrant / 1000).toFixed(0)}k TL)</span>
@@ -2585,12 +2693,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                     <input
                                       type="checkbox"
                                       checked={!!flat.useCredit}
-                                      onChange={(e) => {
-                                        handleFlatChange(originalIndex, 'useCredit', e.target.checked);
-                                        handleFlatChange(originalIndex, 'useTransformationCredit', (flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit) || e.target.checked);
-                                        if (onCalculate) onCalculate();
-                                      }}
-                                      className="rounded text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                                      onChange={(e) => handleToggleFlatCredit(originalIndex, e.target.checked)}
+                                      className="rounded text-sky-600 focus:ring-sky-500 w-3.5 h-3.5 cursor-pointer"
                                       disabled={isContractor}
                                     />
                                     <span>3. Kredi ({(applicableCredit / 1000).toFixed(0)}k TL)</span>
@@ -3147,12 +3251,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                               <input
                                 type="checkbox"
                                 checked={currentFlat.useGrant !== undefined ? currentFlat.useGrant : (currentFlat.useTransformationCredit ?? false)}
-                                onChange={(e) => {
-                                  handleFlatChange(flatIndex, 'useGrant', e.target.checked);
-                                  handleFlatChange(flatIndex, 'useTransformationCredit', e.target.checked || !!currentFlat.useCredit);
-                                  if (onCalculate) onCalculate();
-                                }}
-                                className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                                onChange={(e) => handleToggleFlatGrant(flatIndex, e.target.checked)}
+                                className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                                 disabled={selectedFlatResult.isContractorShare}
                               />
                               <span>2. Hibe ({(applicableGrant / 1000).toFixed(0)}k TL)</span>
@@ -3172,12 +3272,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                               <input
                                 type="checkbox"
                                 checked={!!currentFlat.useCredit}
-                                onChange={(e) => {
-                                  handleFlatChange(flatIndex, 'useCredit', e.target.checked);
-                                  handleFlatChange(flatIndex, 'useTransformationCredit', (currentFlat.useGrant !== undefined ? currentFlat.useGrant : !!currentFlat.useTransformationCredit) || e.target.checked);
-                                  if (onCalculate) onCalculate();
-                                }}
-                                className="rounded text-sky-600 focus:ring-sky-500 w-4 h-4"
+                                onChange={(e) => handleToggleFlatCredit(flatIndex, e.target.checked)}
+                                className="rounded text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer"
                                 disabled={selectedFlatResult.isContractorShare}
                               />
                               <span>3. Kredi ({(applicableCredit / 1000).toFixed(0)}k TL)</span>
