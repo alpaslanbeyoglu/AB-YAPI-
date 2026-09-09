@@ -58,9 +58,9 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
 
   // 3. Kat ve Bağımsız Bölüm Bilgileri
   const floorCount = params.floorCount || 5;
-  const flatCount = results.flatCount || params.flatCount || 10;
+  const totalUnits = results.flatCount || params.flatCount || 10;
   const shopCount = params.hasGroundFloorShop ? (params.shopCount || 1) : 0;
-  const totalUnits = flatCount + shopCount;
+  const normalFlats = results.normalFlats !== undefined ? results.normalFlats : Math.max(0, totalUnits - shopCount);
   const basementCount = params.basementCount || 0;
 
   // 4. Toplam İnşaat Alanı Bilgileri
@@ -73,7 +73,9 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
       label: 'TABAN ALANI',
       value: `${formatNumber(baseArea)}`,
       unit: 'm²',
-      subValue: 'Zemin oturum alanı',
+      subValue: params.landArea && params.landArea > 0
+        ? `Zemin Oturum (TAKS: %${Math.min(100, Math.round((baseArea / params.landArea) * 100))})`
+        : 'Zemin oturum alanı',
       icon: Maximize2,
       badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
       valueColor: 'text-emerald-950',
@@ -97,7 +99,7 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
       label: 'KAT & BAĞIMSIZ BÖLÜM',
       value: `${floorCount} Kat • ${totalUnits}`,
       unit: 'Bölüm',
-      subValue: `${flatCount} Daire${shopCount > 0 ? ` + ${shopCount} Dükkan` : ''}${basementCount > 0 ? ` • ${basementCount} Bodrum` : ''}`,
+      subValue: `${normalFlats} Daire${shopCount > 0 ? ` + ${shopCount} Dükkan` : ''}${basementCount > 0 ? ` • ${basementCount} Bodrum` : ''}`,
       icon: Layers,
       badgeColor: 'bg-purple-50 text-purple-700 border-purple-200/80',
       valueColor: 'text-purple-950',

@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 import { UnifiedFacadeManager } from './UnifiedFacadeManager';
-import { calculateCantileverDetails, calculateFlatCount } from '../utils/calculatorEngine';
+import { calculateCantileverDetails, calculateFlatCount, calculateProject } from '../utils/calculatorEngine';
 import {
   POLYGON_PRESETS,
   calculatePolygonArea,
@@ -318,7 +318,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     [existingBuildings]
   );
 
-  // New building planned metrics
+  // New building planned metrics using central calculator engine
+  const calcResult = useMemo(() => calculateProject(params), [params]);
   const newFloorCount = params.floorCount || 5;
   const newFlatsPerFloor = params.flatsPerFloor || 2;
   const newHasShop = !!params.hasGroundFloorShop;
@@ -326,19 +327,17 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const newShopLocation = params.shopLocation || 'ground';
   const newShopArea = params.shopArea || 80;
   const resFloors = newHasShop ? Math.max(1, newFloorCount - 1) : newFloorCount;
-  const newFlatCount = params.flatCount || (resFloors * newFlatsPerFloor);
+  const newFlatCount = calcResult.normalFlats !== undefined ? calcResult.normalFlats : (params.flatCount || (resFloors * newFlatsPerFloor));
+  const newTotalUnits = calcResult.flatCount;
   const newApartmentSize = params.apartmentSize || 90;
-  const newBaseArea = params.baseBuildArea || 140;
-  const newTotalConstructionArea = Math.round(
-    newBaseArea * newFloorCount +
-      (params.basementCount ? newBaseArea * params.basementCount : 0)
-  );
+  const newBaseArea = calcResult.baseArea || params.baseBuildArea || 140;
+  const newTotalConstructionArea = Math.round(calcResult.totalArea);
 
   // Konsol Çıkma Alan Etkisi Hesabı (N-Cephe, L-Tipi ve Bitişik Nizam Uyumlu)
   const footprintCalc = calculateFootprint(params.footprintInputMode, params);
-  const activeBaseArea = footprintCalc.area || 100;
+  const activeBaseArea = calcResult.baseArea || footprintCalc.area || 100;
   const cantileverInfo = calculateCantileverDetails(params, activeBaseArea, footprintCalc);
-  const upperFloorArea = cantileverInfo.upperFloorArea;
+  const upperFloorArea = calcResult.upperFloorArea || cantileverInfo.upperFloorArea;
   const singleFloorCantileverDiff = cantileverInfo.singleFloorDiff;
   const percentIncrease = activeBaseArea > 0 ? (singleFloorCantileverDiff / activeBaseArea) * 100 : 0;
   const upperFloorsCount = Math.max(0, (params.floorCount || 5) - 1);
@@ -347,7 +346,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   // Calculation difference (New vs Old)
   const flatDifference = newFlatCount - totalExistingFlats;
   const shopDifference = (newHasShop ? newShopCount : 0) - totalExistingShops;
-  const totalUnitDifference = newFlatCount + (newHasShop ? newShopCount : 0) - totalExistingUnits;
+  const totalUnitDifference = newTotalUnits - totalExistingUnits;
 
   // Contractor shares in new building
   const contractorFlatCount =
@@ -488,6 +487,18 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const currentPolyArea = calculatePolygonArea(activePoints);
   const currentPolyPerimeter = calculatePolygonPerimeter(activePoints);
   const currentPolyBounds = getPolygonBounds(activePoints);
+
+  useEffect(() => {
+    if (params.footprintInputMode === 'polygonDraw' && currentPolyArea > 0) {
+      const rounded = Math.round(currentPolyArea * 10) / 10;
+      if (Math.abs((params.baseBuildArea || 0) - rounded) > 0.5) {
+        onChangeParams({
+          ...params,
+          baseBuildArea: rounded,
+        });
+      }
+    }
+  }, [currentPolyArea, params.footprintInputMode]);
 
   const handlePolygonPointsChange = (newPoints: PolygonPoint[]) => {
     const bounds = getPolygonBounds(newPoints);

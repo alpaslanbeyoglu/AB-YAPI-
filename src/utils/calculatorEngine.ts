@@ -977,7 +977,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
   return {
     totalArea,
-    baseArea: baseBuildArea,
+    baseArea: Math.round(activeBaseArea * 100) / 100,
     flatCount: effectiveFlatCount,
     normalFlats: normalFloorFlats,
     extraMansardFlats,
