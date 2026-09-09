@@ -40,7 +40,6 @@ import {
   InteractiveFacadeUpdateResult,
 } from '../utils/footprintUtils';
 
-import { ThreeBuildingView } from './ThreeBuildingView';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
 
 interface CalculatorTabProps {
@@ -65,38 +64,6 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
   theme = 'light',
 }) => {
   const isGray = theme === 'gray';
-
-  const calcBuildingModelParams: BuildingModelParams = React.useMemo(() => {
-    const resFloors = params.hasGroundFloorShop ? Math.max(1, params.floorCount - 1) : params.floorCount;
-    const calcFlatsPerFloor = Math.max(
-      1,
-      Math.min(4, Math.round(params.flatCount / Math.max(1, resFloors)))
-    );
-
-    return {
-      facadeWidth: params.facadeWidth || 14,
-      facadeDepth: params.facadeDepth || 18,
-      floorCount: params.floorCount,
-      flatsPerFloor: params.flatsPerFloor || calcFlatsPerFloor,
-      flatArea: params.apartmentSize,
-      hasGroundFloorShop: !!params.hasGroundFloorShop,
-      shopCount: params.shopCount || 1,
-      shopHeight: params.shopHeight || 3.8,
-      footprintInputMode: params.footprintInputMode || 'polygonDraw',
-      polygonPoints: params.polygonPoints,
-      facadeConfigs: params.facadeConfigs,
-      mainEntranceFacadeIndex: params.mainEntranceFacadeIndex || 0,
-      customFacadeCount: params.customFacadeCount,
-      customFacades: params.customFacades,
-      facadeStyle: 'modern_glass',
-      roofType: params.roofType || 'gable',
-      basementCount: params.basementCount !== undefined ? params.basementCount : 1,
-      showCoreHighlight: true,
-      balconyDepth: 1.4,
-      cantileverDepth: 1.2,
-      cantileverFloors: 'all_upper',
-    };
-  }, [params]);
 
   // Request: "Kat malikleri bilgiler kısmı varsayılan gizli gelsin."
   const [isFlatsOpen, setIsFlatsOpen] = useState(false);

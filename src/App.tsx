@@ -7,14 +7,14 @@ import {
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Header } from './components/Header';
-import { CalculatorTab } from './components/CalculatorTab';
-import { ProjectSetupTab } from './components/ProjectSetupTab';
 import { TabNavigation } from './components/TabNavigation';
 import { CompactSummaryBar } from './components/CompactSummaryBar';
 import { ConfirmModal } from './components/ConfirmModal';
 import { TabLoadingSkeleton } from './components/TabLoadingSkeleton';
 
-// Code-split heavy secondary tabs and mobile view for near-instant page load and low memory footprint
+// Code-split all tabs and mobile view for near-instant page load and ultra-fast initial paint
+const ProjectSetupTab = React.lazy(() => import('./components/ProjectSetupTab').then(m => ({ default: m.ProjectSetupTab })));
+const CalculatorTab = React.lazy(() => import('./components/CalculatorTab').then(m => ({ default: m.CalculatorTab })));
 const LiteMobileView = React.lazy(() => import('./components/LiteMobileView').then(m => ({ default: m.LiteMobileView })));
 const BuildingModelTab = React.lazy(() => import('./components/BuildingModelTab').then(m => ({ default: m.BuildingModelTab })));
 const FloorPlanTab = React.lazy(() => import('./components/FloorPlanTab').then(m => ({ default: m.FloorPlanTab })));
@@ -918,33 +918,33 @@ export default function App() {
           )}
 
         {/* Tab Views */}
-        {activeTab === 'kurulum' && (
-          <ProjectSetupTab
-            params={params}
-            onChangeParams={updateCalculatorParams}
-            onNext={() => setActiveTab('hesapla')}
-            onNavigateToModel={() => setActiveTab('model')}
-            onNavigateToOwners={() => setActiveTab('malikler')}
-            theme={theme}
-            requestedStep={requestedSetupStep}
-            onStepChange={setRequestedSetupStep}
-          />
-        )}
-
-        {activeTab === 'hesapla' && (
-          <CalculatorTab
-            params={params}
-            results={results}
-            onChangeParams={updateCalculatorParams}
-            onCalculate={handleCalculate}
-            onNavigateToModel={() => setActiveTab('model')}
-            onNavigateToCostDetails={() => setActiveTab('maliyet')}
-            onNavigateToOwners={() => setActiveTab('malikler')}
-            theme={theme}
-          />
-        )}
-
         <Suspense fallback={<TabLoadingSkeleton theme={theme} />}>
+          {activeTab === 'kurulum' && (
+            <ProjectSetupTab
+              params={params}
+              onChangeParams={updateCalculatorParams}
+              onNext={() => setActiveTab('hesapla')}
+              onNavigateToModel={() => setActiveTab('model')}
+              onNavigateToOwners={() => setActiveTab('malikler')}
+              theme={theme}
+              requestedStep={requestedSetupStep}
+              onStepChange={setRequestedSetupStep}
+            />
+          )}
+
+          {activeTab === 'hesapla' && (
+            <CalculatorTab
+              params={params}
+              results={results}
+              onChangeParams={updateCalculatorParams}
+              onCalculate={handleCalculate}
+              onNavigateToModel={() => setActiveTab('model')}
+              onNavigateToCostDetails={() => setActiveTab('maliyet')}
+              onNavigateToOwners={() => setActiveTab('malikler')}
+              theme={theme}
+            />
+          )}
+
           {activeTab === 'model' && (
             <BuildingModelTab
               params={buildingModelParams}

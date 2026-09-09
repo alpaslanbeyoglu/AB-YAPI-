@@ -14,7 +14,31 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['apple-touch-icon.png', 'logo.svg'],
         workbox: {
-          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4MB
+          globPatterns: ['index.html', 'manifest.webmanifest', 'assets/index-*.css', 'assets/index-*.js', 'assets/react-vendor-*.js'],
+          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+          runtimeCaching: [
+            {
+              urlPattern: ({ request }) => request.destination === 'script' || request.destination === 'style',
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'app-chunks',
+                expiration: {
+                  maxEntries: 60,
+                  maxAgeSeconds: 30 * 24 * 60 * 60,
+                },
+              },
+            },
+            {
+              urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'google-fonts',
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+          ],
         },
         manifest: {
           id: '/',
@@ -48,10 +72,26 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 4000,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'three-vendor': ['three'],
-            'react-vendor': ['react', 'react-dom', 'lucide-react', 'motion'],
-            'utils-vendor': ['d3', 'html2canvas', 'jspdf'],
+          manualChunks(id) {
+            if (id.includes('node_modules/three')) {
+              return 'three-vendor';
+            }
+            if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) {
+              return 'firebase-vendor';
+            }
+            if (id.includes('node_modules/jspdf') || id.includes('node_modules/html2canvas')) {
+              return 'pdf-vendor';
+            }
+            if (id.includes('node_modules/d3')) {
+              return 'd3-vendor';
+            }
+            if (
+              id.includes('node_modules/react') ||
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/motion')
+            ) {
+              return 'react-vendor';
+            }
           },
         },
       },
