@@ -22,3 +22,6 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
+(window as any).__APP_MOUNTED__ = true;
+
+
