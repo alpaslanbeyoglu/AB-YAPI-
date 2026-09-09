@@ -20,7 +20,7 @@ interface CompactSummaryBarProps {
   onNavigateToItem?: (itemId: string) => void;
 }
 
-export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = ({ results, params, theme, onNavigateToItem }) => {
+export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({ results, params, theme, onNavigateToItem }) => {
   const isGray = theme === 'gray';
   const [activeView, setActiveView] = useState<'project' | 'financial' | 'all'>('all');
 
@@ -297,4 +297,6 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = ({ results, p
       </div>
     </div>
   );
-};
+});
+
+CompactSummaryBar.displayName = 'CompactSummaryBar';

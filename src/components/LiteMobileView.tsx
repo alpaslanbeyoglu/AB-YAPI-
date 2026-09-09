@@ -42,7 +42,10 @@ import {
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { Logo } from './Logo';
 import { CompactSummaryBar } from './CompactSummaryBar';
-import { AiAssistantTab } from './AiAssistantTab';
+
+const AiAssistantTab = React.lazy(() =>
+  import('./AiAssistantTab').then((m) => ({ default: m.AiAssistantTab }))
+);
 
 interface LiteMobileViewProps {
   params: ProjectParams;
@@ -404,13 +407,6 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                 {formatCurrency(results.flatCount ? results.grandTotal / results.flatCount : 0)}
               </span>
             </div>
-
-            <div className="p-2 rounded-xl bg-amber-50/80 border border-amber-200/70">
-              <span className="text-[10px] font-bold text-amber-900 block">Müteahhit Payı</span>
-              <span className="text-xs font-black text-amber-700">
-                %{params.contractorShareRate || 50} ({contractorFlatsCount} Daire)
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -487,28 +483,16 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                 </div>
               </div>
 
-              {/* Numeric Inputs: Arsa Alanı & Taban Alanı */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Arsa Alanı (m²)</label>
-                  <input
-                    type="number"
-                    value={params.landArea || ''}
-                    onChange={(e) => onChangeParams({ landArea: Number(e.target.value) || 0 })}
-                    placeholder="Örn: 450"
-                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Taban Oturumu (m²)</label>
-                  <input
-                    type="number"
-                    value={params.baseBuildArea || ''}
-                    onChange={(e) => onChangeParams({ baseBuildArea: Number(e.target.value) || 0 })}
-                    placeholder="Örn: 180"
-                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-white"
-                  />
-                </div>
+              {/* Numeric Input: Taban Alanı */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                <label className="text-xs font-extrabold text-slate-800 block mb-1">Taban Oturumu (m²)</label>
+                <input
+                  type="number"
+                  value={params.baseBuildArea || ''}
+                  onChange={(e) => onChangeParams({ baseBuildArea: Number(e.target.value) || 0 })}
+                  placeholder="Örn: 180"
+                  className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-white"
+                />
               </div>
 
               {/* Quick Toggle: Zemin Kat Dükkan */}
@@ -524,6 +508,19 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                   className="w-5 h-5 rounded text-indigo-600 cursor-pointer"
                 />
               </div>
+
+              {params.hasGroundFloorShop && (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                  <label className="text-xs font-extrabold text-slate-800 block mb-1">Dükkan Adeti</label>
+                  <input
+                    type="number"
+                    value={params.shopCount || ''}
+                    onChange={(e) => onChangeParams({ shopCount: Number(e.target.value) || 0 })}
+                    placeholder="Örn: 2"
+                    className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+              )}
 
               {/* Quick Select: Çatı Tipi */}
               <div className="space-y-1.5">
@@ -552,12 +549,11 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
               </div>
             </div>
 
-            {/* Maliyet ve Paylaşım Ayarları */}
             <div className={`${cardBg} rounded-2xl border p-4 shadow-xs space-y-4`}>
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                   <DollarSign className="w-4 h-4 text-emerald-600" />
-                  <span>Birim Maliyet & Paylaşım Oranı</span>
+                  <span>Birim Maliyet Ayarları</span>
                 </h3>
               </div>
 
@@ -595,32 +591,6 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                   className="w-full text-xs font-bold p-2.5 rounded-xl border border-slate-200 bg-white mt-1"
                 />
               </div>
-
-              {/* Müteahhit Payı Butonları */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-extrabold text-slate-500 uppercase">
-                    Müteahhit Paylaşım Oranı (%)
-                  </label>
-                  <span className="text-xs font-black text-amber-700">%{params.contractorShareRate || 50}</span>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[40, 45, 50, 55].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => onChangeParams({ contractorShareRate: pct })}
-                      className={`py-1.5 px-1 rounded-xl text-[10px] font-bold border transition cursor-pointer text-center ${
-                        params.contractorShareRate === pct
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      %{pct}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Mini Finansal Döküm */}
@@ -650,12 +620,6 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
                   <span className="text-slate-600">Proje, SGK & Ruhsat Harçları</span>
                   <span className="font-bold text-slate-900">{formatCurrency(results.officialCost + results.sgkSalesCost)}</span>
                 </div>
-                {results.profitAmount > 0 && (
-                  <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-600">Müteahhit Kârı / Payı (%{params.profitRate || 25})</span>
-                    <span className="font-bold text-emerald-700">{formatCurrency(results.profitAmount)}</span>
-                  </div>
-                )}
                 <div className="flex items-center justify-between pt-1.5 font-black text-emerald-800 text-sm">
                   <span>TOPLAM PROJE MALİYETİ</span>
                   <span className="text-indigo-700 font-mono text-sm">{formatCurrency(results.grandTotal)}</span>
@@ -1105,12 +1069,20 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
 
         {activeTab === 'ai' && (
           <div className="p-3">
-            <AiAssistantTab
-              params={params}
-              results={results}
-              onChangeParams={(updates) => onChangeParams(updates)}
-              isLight={theme === 'light'}
-            />
+            <React.Suspense
+              fallback={
+                <div className="p-6 text-center text-xs font-bold text-slate-500 rounded-2xl bg-white border border-slate-200 animate-pulse">
+                  Yapay Zeka Danışmanı Yükleniyor...
+                </div>
+              }
+            >
+              <AiAssistantTab
+                params={params}
+                results={results}
+                onChangeParams={(updates) => onChangeParams(updates)}
+                isLight={theme === 'light'}
+              />
+            </React.Suspense>
           </div>
         )}
       </div>

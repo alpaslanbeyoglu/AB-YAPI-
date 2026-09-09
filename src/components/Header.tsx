@@ -20,7 +20,7 @@ interface HeaderProps {
   onOpenAiUzman?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+export const Header: React.FC<HeaderProps> = React.memo(({
   user,
   hasToken,
   isSavingToDrive,
@@ -233,4 +233,6 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
     </header>
   );
-};
+});
+
+Header.displayName = 'Header';

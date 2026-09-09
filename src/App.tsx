@@ -1,49 +1,37 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import {
-  Calculator,
-  FileText,
-  FileSpreadsheet,
-  ScrollText,
-  BarChart3,
-  History,
-  Cloud,
   CheckCircle2,
   AlertCircle,
-  Share2,
-  Box,
-  Compass,
-  Building,
-  ChevronLeft,
-  ChevronRight,
-  Users,
-  Building2,
   Settings2,
   Smartphone,
-  Monitor,
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Header } from './components/Header';
-import { LiteMobileView } from './components/LiteMobileView';
-import { DrivePanel } from './components/DrivePanel';
-import { ConfirmModal } from './components/ConfirmModal';
 import { CalculatorTab } from './components/CalculatorTab';
 import { ProjectSetupTab } from './components/ProjectSetupTab';
-import { BuildingModelTab } from './components/BuildingModelTab';
-import { FloorPlanTab } from './components/FloorPlanTab';
-import { OfferTab } from './components/OfferTab';
-import { ConstructionProgressTab } from './components/ConstructionProgressTab';
-import { ContractTab } from './components/ContractTab';
-import { SpecificationTab } from './components/SpecificationTab';
-import { AdminReportTab } from './components/AdminReportTab';
-import { HistoryTab } from './components/HistoryTab';
-import { CompanyProfileTab } from './components/CompanyProfileTab';
-import { CostDetailsTab } from './components/CostDetailsTab';
-import { OwnersTab } from './components/OwnersTab';
-import { CompletedProjectsTab } from './components/CompletedProjectsTab';
-import { AiAssistantTab } from './components/AiAssistantTab';
 import { TabNavigation } from './components/TabNavigation';
 import { CompactSummaryBar } from './components/CompactSummaryBar';
-import { MenuSettingsModal } from './components/MenuSettingsModal';
+import { ConfirmModal } from './components/ConfirmModal';
+import { TabLoadingSkeleton } from './components/TabLoadingSkeleton';
+
+// Code-split heavy secondary tabs and mobile view for near-instant page load and low memory footprint
+const LiteMobileView = React.lazy(() => import('./components/LiteMobileView').then(m => ({ default: m.LiteMobileView })));
+const BuildingModelTab = React.lazy(() => import('./components/BuildingModelTab').then(m => ({ default: m.BuildingModelTab })));
+const FloorPlanTab = React.lazy(() => import('./components/FloorPlanTab').then(m => ({ default: m.FloorPlanTab })));
+const CostDetailsTab = React.lazy(() => import('./components/CostDetailsTab').then(m => ({ default: m.CostDetailsTab })));
+const OwnersTab = React.lazy(() => import('./components/OwnersTab').then(m => ({ default: m.OwnersTab })));
+const OfferTab = React.lazy(() => import('./components/OfferTab').then(m => ({ default: m.OfferTab })));
+const ConstructionProgressTab = React.lazy(() => import('./components/ConstructionProgressTab').then(m => ({ default: m.ConstructionProgressTab })));
+const ContractTab = React.lazy(() => import('./components/ContractTab').then(m => ({ default: m.ContractTab })));
+const SpecificationTab = React.lazy(() => import('./components/SpecificationTab').then(m => ({ default: m.SpecificationTab })));
+const AdminReportTab = React.lazy(() => import('./components/AdminReportTab').then(m => ({ default: m.AdminReportTab })));
+const CompanyProfileTab = React.lazy(() => import('./components/CompanyProfileTab').then(m => ({ default: m.CompanyProfileTab })));
+const CompletedProjectsTab = React.lazy(() => import('./components/CompletedProjectsTab').then(m => ({ default: m.CompletedProjectsTab })));
+const HistoryTab = React.lazy(() => import('./components/HistoryTab').then(m => ({ default: m.HistoryTab })));
+const AiAssistantTab = React.lazy(() => import('./components/AiAssistantTab').then(m => ({ default: m.AiAssistantTab })));
+const DrivePanel = React.lazy(() => import('./components/DrivePanel').then(m => ({ default: m.DrivePanel })));
+const MenuSettingsModal = React.lazy(() => import('./components/MenuSettingsModal').then(m => ({ default: m.MenuSettingsModal })));
+
 import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
 
 
@@ -380,9 +368,6 @@ export default function App() {
     };
 
     setParams(sanitizedParams);
-    try {
-      localStorage.setItem('ab_yapi_last_params', JSON.stringify(sanitizedParams));
-    } catch (e) {}
 
     // Live Sync from Proje Künyesi / Hesap to Building Model:
     setBuildingModelParams((prevModel) => {
@@ -430,9 +415,6 @@ export default function App() {
         mainEntranceFacadeIndex: sanitizedParams.mainEntranceFacadeIndex !== undefined ? sanitizedParams.mainEntranceFacadeIndex : prevModel.mainEntranceFacadeIndex,
       };
 
-      try {
-        localStorage.setItem('ab_yapi_building_model', JSON.stringify(nextModel));
-      } catch (e) {}
       return nextModel;
     });
   };
@@ -442,9 +424,6 @@ export default function App() {
     // 1. Update 3D Building Model state
     setBuildingModelParams((prevModel) => {
       const nextModel: BuildingModelParams = { ...prevModel, ...updates };
-      try {
-        localStorage.setItem('ab_yapi_building_model', JSON.stringify(nextModel));
-      } catch (e) {}
       return nextModel;
     });
 
@@ -546,9 +525,6 @@ export default function App() {
         contractorFlatIds: sanitizedContractorIds,
       };
 
-      try {
-        localStorage.setItem('ab_yapi_last_params', JSON.stringify(nextParams));
-      } catch (e) {}
       return nextParams;
     });
   };
@@ -574,9 +550,6 @@ export default function App() {
         );
       }
 
-      try {
-        localStorage.setItem('ab_yapi_last_params', JSON.stringify(next));
-      } catch (e) {}
       return next;
     });
     showNotification(
@@ -619,11 +592,36 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // High-performance debounced persistence (prevents input lag and stutter)
   useEffect(() => {
-    try {
-      localStorage.setItem('ab_yapi_last_params', JSON.stringify(params));
-    } catch (e) {}
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('ab_yapi_last_params', JSON.stringify(params));
+      } catch (e) {}
+    }, 300);
+    return () => clearTimeout(timer);
   }, [params]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('ab_yapi_building_model', JSON.stringify(buildingModelParams));
+      } catch (e) {}
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [buildingModelParams]);
+
+  // Flush pending data immediately if page closes
+  useEffect(() => {
+    const flushData = () => {
+      try {
+        localStorage.setItem('ab_yapi_last_params', JSON.stringify(params));
+        localStorage.setItem('ab_yapi_building_model', JSON.stringify(buildingModelParams));
+      } catch (e) {}
+    };
+    window.addEventListener('beforeunload', flushData);
+    return () => window.removeEventListener('beforeunload', flushData);
+  }, [params, buildingModelParams]);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setFeedback({ type, message });
@@ -754,21 +752,23 @@ export default function App() {
   // If mobile Lite mode is active, render the dedicated LiteMobileView
   if (appMode === 'lite') {
     return (
-      <LiteMobileView
-        params={params}
-        results={results}
-        onChangeParams={updateCalculatorParams}
-        onSwitchToFull={() => {
-          setAppMode('full');
-          try {
-            localStorage.setItem('ab_yapi_mode', 'full');
-          } catch (e) {}
-        }}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onQuickSave={handleQuickSave}
-        isSavingToDrive={isSavingToDrive}
-      />
+      <Suspense fallback={<TabLoadingSkeleton theme={theme} title="Mobil Lite Sürüm Hazırlanıyor..." />}>
+        <LiteMobileView
+          params={params}
+          results={results}
+          onChangeParams={updateCalculatorParams}
+          onSwitchToFull={() => {
+            setAppMode('full');
+            try {
+              localStorage.setItem('ab_yapi_mode', 'full');
+            } catch (e) {}
+          }}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onQuickSave={handleQuickSave}
+          isSavingToDrive={isSavingToDrive}
+        />
+      </Suspense>
     );
   }
 
@@ -944,176 +944,187 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'model' && (
-          <BuildingModelTab
-            params={buildingModelParams}
-            onUpdateParams={updateBuildingModelParams}
-            onSyncWithCalculator={handleSyncModelToCalculator}
-            onNavigateToCalculator={() => setActiveTab('hesapla')}
-            onNavigateToFloorPlan={() => setActiveTab('katplani')}
-            theme={theme}
-          />
-        )}
+        <Suspense fallback={<TabLoadingSkeleton theme={theme} />}>
+          {activeTab === 'model' && (
+            <BuildingModelTab
+              params={buildingModelParams}
+              onUpdateParams={updateBuildingModelParams}
+              onSyncWithCalculator={handleSyncModelToCalculator}
+              onNavigateToCalculator={() => setActiveTab('hesapla')}
+              onNavigateToFloorPlan={() => setActiveTab('katplani')}
+              theme={theme}
+            />
+          )}
 
-        {activeTab === 'katplani' && (
-          <FloorPlanTab
-            params={buildingModelParams}
-            onUpdateParams={updateBuildingModelParams}
-            onSyncWithCalculator={handleSyncModelToCalculator}
-            onNavigateToCalculator={() => setActiveTab('hesapla')}
-            onNavigateToModel={() => setActiveTab('model')}
-            theme={theme}
-          />
-        )}
+          {activeTab === 'katplani' && (
+            <FloorPlanTab
+              params={buildingModelParams}
+              onUpdateParams={updateBuildingModelParams}
+              onSyncWithCalculator={handleSyncModelToCalculator}
+              onNavigateToCalculator={() => setActiveTab('hesapla')}
+              onNavigateToModel={() => setActiveTab('model')}
+              theme={theme}
+            />
+          )}
 
-        {activeTab === 'maliyet' && (
-          <CostDetailsTab
-            params={params}
-            results={results}
-            theme={theme}
-            onChangeParams={updateCalculatorParams}
-            onCalculate={handleCalculate}
-          />
-        )}
+          {activeTab === 'maliyet' && (
+            <CostDetailsTab
+              params={params}
+              results={results}
+              theme={theme}
+              onChangeParams={updateCalculatorParams}
+              onCalculate={handleCalculate}
+            />
+          )}
 
-        {activeTab === 'malikler' && (
-          <OwnersTab
-            params={params}
-            results={results}
-            onChangeParams={updateCalculatorParams}
-            onCalculate={handleCalculate}
-            theme={theme}
-          />
-        )}
+          {activeTab === 'malikler' && (
+            <OwnersTab
+              params={params}
+              results={results}
+              onChangeParams={updateCalculatorParams}
+              onCalculate={handleCalculate}
+              theme={theme}
+            />
+          )}
 
-        {activeTab === 'teklif' && (
-          <OfferTab
-            params={params}
-            results={results}
-            hasToken={hasToken}
-            onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
-            onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
-            onNavigateToSurec={() => setActiveTab('surec')}
-            theme={theme}
-          />
-        )}
+          {activeTab === 'teklif' && (
+            <OfferTab
+              params={params}
+              results={results}
+              hasToken={hasToken}
+              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
+              onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
+              onNavigateToSurec={() => setActiveTab('surec')}
+              theme={theme}
+            />
+          )}
 
-        {activeTab === 'surec' && (
-          <ConstructionProgressTab
-            params={params}
-            results={results}
-            theme={theme}
-            onNavigateToOffer={() => setActiveTab('teklif')}
-            onNavigateToContract={() => setActiveTab('sozlesme')}
-          />
-        )}
+          {activeTab === 'surec' && (
+            <ConstructionProgressTab
+              params={params}
+              results={results}
+              theme={theme}
+              onNavigateToOffer={() => setActiveTab('teklif')}
+              onNavigateToContract={() => setActiveTab('sozlesme')}
+            />
+          )}
 
-        {activeTab === 'sozlesme' && (
-          <ContractTab
-            params={params}
-            results={results}
-            hasToken={hasToken}
-            onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
-            onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
-            theme={theme}
-          />
-        )}
+          {activeTab === 'sozlesme' && (
+            <ContractTab
+              params={params}
+              results={results}
+              hasToken={hasToken}
+              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
+              onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
+              theme={theme}
+            />
+          )}
 
-        {activeTab === 'sartname' && (
-          <SpecificationTab
-            params={params}
-            results={results}
-            hasToken={hasToken}
-            onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
-            theme={theme}
-          />
-        )}
+          {activeTab === 'sartname' && (
+            <SpecificationTab
+              params={params}
+              results={results}
+              hasToken={hasToken}
+              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
+              theme={theme}
+            />
+          )}
 
-        {activeTab === 'raporlar' && (
-          <AdminReportTab
-            params={params}
-            results={results}
-            hasToken={hasToken}
-            onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
-            theme={theme}
-          />
-        )}
+          {activeTab === 'raporlar' && (
+            <AdminReportTab
+              params={params}
+              results={results}
+              hasToken={hasToken}
+              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
+              theme={theme}
+            />
+          )}
 
-        {activeTab === 'profile' && (
-          <CompanyProfileTab
-            theme={theme}
-          />
-        )}
+          {activeTab === 'profile' && (
+            <CompanyProfileTab
+              theme={theme}
+            />
+          )}
 
-        {activeTab === 'tamamlanan' && (
-          <CompletedProjectsTab
-            theme={theme}
-          />
-        )}
+          {activeTab === 'tamamlanan' && (
+            <CompletedProjectsTab
+              theme={theme}
+            />
+          )}
 
-        {activeTab === 'ai_uzman' && (
-          <AiAssistantTab
-            params={params}
-            results={results}
-            onChangeParams={updateCalculatorParams}
-            isLight={isLight}
-          />
-        )}
+          {activeTab === 'ai_uzman' && (
+            <AiAssistantTab
+              params={params}
+              results={results}
+              onChangeParams={updateCalculatorParams}
+              isLight={isLight}
+            />
+          )}
 
-        {activeTab === 'gecmis' && (
-          <HistoryTab
-            historyList={historyList}
-            onLoadItem={handleLoadProject}
-            onClearHistory={handleClearHistory}
-            onDeleteItem={handleDeleteHistoryItem}
-            onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
-            hasDriveToken={hasToken}
-            theme={theme}
-          />
-        )}
+          {activeTab === 'gecmis' && (
+            <HistoryTab
+              historyList={historyList}
+              onLoadItem={handleLoadProject}
+              onClearHistory={handleClearHistory}
+              onDeleteItem={handleDeleteHistoryItem}
+              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
+              hasDriveToken={hasToken}
+              theme={theme}
+            />
+          )}
+        </Suspense>
         
-          <TabNavigation
-            activeTab={activeTab}
-            tabs={tabsConfig}
-            onNavigate={setActiveTab}
-            theme={theme}
-          />
-        </div>
-      </main>
+        <TabNavigation
+          activeTab={activeTab}
+          tabs={tabsConfig}
+          onNavigate={setActiveTab}
+          theme={theme}
+        />
+      </div>
+    </main>
 
-      <DrivePanel
-        isOpen={isDrivePanelOpen}
-        onClose={() => setIsDrivePanelOpen(false)}
-        user={user}
-        hasToken={hasToken}
-        params={params}
-        results={results}
-        onLoadProject={handleLoadProject}
-        onRequestDeleteConfirm={(file) => setFileToDelete(file)}
-        onAuthSuccess={(u, token) => {
-          setUser(u);
-          setHasToken(true);
-          setCachedToken(token);
-        }}
-      />
+    {isDrivePanelOpen && (
+      <Suspense fallback={null}>
+        <DrivePanel
+          isOpen={isDrivePanelOpen}
+          onClose={() => setIsDrivePanelOpen(false)}
+          user={user}
+          hasToken={hasToken}
+          params={params}
+          results={results}
+          onLoadProject={handleLoadProject}
+          onRequestDeleteConfirm={(file) => setFileToDelete(file)}
+          onAuthSuccess={(u, token) => {
+            setUser(u);
+            setHasToken(true);
+            setCachedToken(token);
+          }}
+        />
+      </Suspense>
+    )}
 
-      <ConfirmModal
-        isOpen={!!fileToDelete}
-        title="Google Drive Dosyasını Sil"
-        message={`"${fileToDelete?.name}" adlı dosya Google Drive'dan kalıcı olarak silinecektir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?`}
-        confirmLabel={isDeletingFile ? 'Siliniyor...' : 'Evet, Dosyayı Sil'}
-        cancelLabel="Vazgeç"
-        isDestructive={true}
-        onConfirm={handleConfirmDeleteDriveFile}
-        onCancel={() => setFileToDelete(null)}
-      />
-      <MenuSettingsModal
-        isOpen={isMenuSettingsOpen}
-        onClose={() => setIsMenuSettingsOpen(false)}
-        tabs={tabsConfig}
-        onSave={handleSaveTabs}
-        theme={theme}
-      />
+    <ConfirmModal
+      isOpen={!!fileToDelete}
+      title="Google Drive Dosyasını Sil"
+      message={`"${fileToDelete?.name}" adlı dosya Google Drive'dan kalıcı olarak silinecektir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?`}
+      confirmLabel={isDeletingFile ? 'Siliniyor...' : 'Evet, Dosyayı Sil'}
+      cancelLabel="Vazgeç"
+      isDestructive={true}
+      onConfirm={handleConfirmDeleteDriveFile}
+      onCancel={() => setFileToDelete(null)}
+    />
+
+    {isMenuSettingsOpen && (
+      <Suspense fallback={null}>
+        <MenuSettingsModal
+          isOpen={isMenuSettingsOpen}
+          onClose={() => setIsMenuSettingsOpen(false)}
+          tabs={tabsConfig}
+          onSave={handleSaveTabs}
+          theme={theme}
+        />
+      </Suspense>
+    )}
 
     </div>
   );

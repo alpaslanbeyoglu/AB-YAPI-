@@ -9,7 +9,7 @@ interface TabNavigationProps {
   theme: 'light' | 'gray';
 }
 
-export const TabNavigation: React.FC<TabNavigationProps> = ({
+export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
   activeTab,
   tabs,
   onNavigate,
@@ -78,4 +78,6 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
       </div>
     </div>
   );
-};
+});
+
+TabNavigation.displayName = 'TabNavigation';
