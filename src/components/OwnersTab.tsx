@@ -580,7 +580,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                 👥 Kat Malikleri, Ödeme Planları & Pay Oranları Yönetimi
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Kat maliklerinin alan paylaşımlarını, peşinatlarını, devlet hibelerini, müteahhit kâr paylarını ve 5 aşamalı taksit ödemelerini tek sayfadan yönetin.
+                Kat maliklerinin alan paylaşımlarını, peşinatlarını, devlet hibelerini, maliyet dağılımlarını ve 5 aşamalı taksit ödemelerini tek sayfadan yönetin.
               </p>
             </div>
           </div>
@@ -685,25 +685,15 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
             )}
 
             <div>
-              <label className={`block text-xs ${labelColor} mb-1.5`}>Maliklere Müteahhit Kârı Yansıtılsın mı?:</label>
+              <label className={`block text-xs ${labelColor} mb-1.5`}>Malik Maliyet Hesabı Esası:</label>
               <select
                 value={params.includeProfitOwner}
                 onChange={(e) => updateParam('includeProfitOwner', e.target.value as any)}
                 className={`w-full text-xs px-3.5 py-2.5 rounded-xl border ${inputBg}`}
               >
-                <option value="yes">Evet (Maliyet + Kâr Payı %{params.profitRate} Yansıtılsın)</option>
-                <option value="no">Hayır (Yalnızca Net İnşaat Maliyeti Üzerinden)</option>
+                <option value="yes">Genel Proje Bedeli Üzerinden</option>
+                <option value="no">Yalnızca Net İnşaat Maliyeti Üzerinden</option>
               </select>
-            </div>
-
-            <div>
-              <label className={`block text-xs ${labelColor} mb-1.5`}>Müteahhit Kâr Oranı (%):</label>
-              <input
-                type="number"
-                value={params.profitRate}
-                onChange={(e) => updateParam('profitRate', parseFloat(e.target.value) || 0)}
-                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold ${inputBg}`}
-              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

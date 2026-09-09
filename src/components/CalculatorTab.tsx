@@ -982,26 +982,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
 
-                {/* 18. Müteahhit Kâr Oranı (%) */}
-                <div id="input-profit-rate" className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 uppercase">Müteahhit Kâr Oranı (%):</label>
-                    <span className="text-[10px] font-bold text-indigo-600 font-mono">%{params.profitRate ?? 25}</span>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={params.profitRate ?? 25}
-                      onChange={(e) => updateParam('profitRate', Math.max(0, parseFloat(e.target.value) || 0))}
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border transition-all ${inputBg}`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">%</span>
-                  </div>
-                </div>
-
-                {/* 19. Teklif Birim m2 Maliyet Fiyatları (Daire ve Dükkan Ayrı) */}
+                {/* 18. Teklif Birim m2 Maliyet Fiyatları (Daire ve Dükkan Ayrı) */}
                 <div id="input-manual-flat-price" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
@@ -1350,7 +1331,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
           <span className="text-xs font-normal text-slate-600">TL</span>
         </p>
         <p className="text-xs font-semibold text-emerald-700 mt-1 font-mono">
-          Kâr: {results.profitAmount.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL (%{params.profitRate})
+          ${(results.grandTotal / (params.usdRate || 34)).toLocaleString('en-US', { maximumFractionDigits: 0 })} USD (Hedef Hakediş)
         </p>
       </div>
 

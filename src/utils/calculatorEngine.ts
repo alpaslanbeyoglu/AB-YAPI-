@@ -143,7 +143,7 @@ export const DEFAULT_PARAMS: ProjectParams = {
   roomType: '3+1',
   usdRate: 48.24,
   costMultiplier: 1.0,
-  profitRate: 25,
+  profitRate: 0,
 
   // Taban Oturumu ve Çoklu Cephe Seçenekleri
   footprintInputMode: 'directArea',
@@ -412,7 +412,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     buildingType,
     costMultiplier,
     usdRate,
-    profitRate,
+    profitRate = 0,
     durationOption,
     manualMonths,
     transformationStatus,

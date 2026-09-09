@@ -141,7 +141,7 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
       label: 'HEDEF BEDEL',
       value: formatCurrency(results.grandTotal),
       unit: 'TL',
-      subValue: `Kâr: %${params.profitRate || 25}`,
+      subValue: `$${formatUsd(results.grandTotal / (params.usdRate || 34))} USD`,
       badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
       valueColor: 'text-slate-900',
     },

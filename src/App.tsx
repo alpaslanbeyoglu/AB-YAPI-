@@ -135,7 +135,7 @@ export default function App() {
         break;
       case 'hedef-bedel':
         targetTab = 'hesapla';
-        targetId = 'input-profit-rate';
+        targetId = 'input-manual-flat-price';
         break;
       case 'teslim-suresi':
         targetTab = 'hesapla';
@@ -199,6 +199,7 @@ export default function App() {
         return {
           ...DEFAULT_PARAMS,
           ...parsed,
+          profitRate: 0,
           floorCount: fc,
           flatsPerFloor: fpf,
           flatCount: fcCorrected,

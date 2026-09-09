@@ -216,7 +216,7 @@ export interface ProjectParams {
   roomType?: RoomType;
   usdRate: number;
   costMultiplier: number;
-  profitRate: number;
+  profitRate?: number;
 
   // Taban Oturumu ve Cephe Ölçü Giriş Seçenekleri
   footprintInputMode?: FootprintInputMode; // 'directArea': Doğrudan m², 'dimensions': Ön x Yan Cephe, 'customFacades': Çoklu Cepheler, 'lShape': L-Tipi Kademeli, 'polygonDraw': Serbest Çizim

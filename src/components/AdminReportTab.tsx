@@ -77,15 +77,15 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
   <p style="text-align:center;font-size:11px;color:#666;">Rapor Tarihi: ${results.calculatedAt} | Proje: ${params.projectAddress}</p>
   
   <p style="background:#fff3cd;padding:10px;border-left:4px solid #ffc107;">
-    <strong>📌 Yönetici Özeti:</strong> Bu rapor şirket içi gizli finansal tablodur. Net inşaat maliyeti, hedeflenen müteahhitlik kârı ve aşama bazlı kasa nakit dengesi aşağıda sunulmuştur.
+    <strong>📌 Yönetici Özeti:</strong> Bu rapor şirket içi gizli finansal tablodur. Net inşaat maliyeti, genel hakediş ve aşama bazlı kasa nakit dengesi aşağıda sunulmuştur.
   </p>
 
   <h3>1. PROJE FİNANSAL GÖSTERGELERİ</h3>
   <table>
     <tr><th>Kalem</th><th>TL Değeri</th><th>USD Değeri ($)</th></tr>
-    <tr><td>Net İnşaat Maliyeti (Kârsız)</td><td><strong>${results.subTotalCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong></td><td>$${(results.subTotalCost / params.usdRate).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
+    <tr><td>Net İnşaat Maliyeti</td><td><strong>${results.subTotalCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong></td><td>$${(results.subTotalCost / params.usdRate).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
     <tr><td>Net Birim m² Maliyeti</td><td><strong>${results.netCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong></td><td>$${results.netUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })}/m²</td></tr>
-    <tr class="profit-row"><td>Hedeflenen Müteahhitlik Kârı (%${params.profitRate})</td><td><strong>${results.profitAmount.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong></td><td>$${(results.profitAmount / params.usdRate).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
+    <tr class="profit-row"><td>Müteahhitlik Kâr / Hizmet Payı</td><td><strong>${results.profitAmount.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong></td><td>$${(results.profitAmount / params.usdRate).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
     <tr class="total-row"><td>Genel Hakediş / Satış Değeri</td><td><strong>${results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong></td><td>$${(results.grandTotal / params.usdRate).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
   </table>
 
@@ -264,7 +264,7 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
                     </td>
                   </tr>
                   <tr className="hover:bg-slate-50">
-                    <td className="p-3 text-slate-700 font-medium">Net Birim m² Maliyeti (Kârsız)</td>
+                    <td className="p-3 text-slate-700 font-medium">Net Birim m² Maliyeti</td>
                     <td className="p-3 font-semibold text-slate-900 font-mono">
                       {results.netCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²
                     </td>
@@ -274,7 +274,7 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
                   </tr>
                   <tr className="bg-amber-50 hover:bg-amber-100/50 font-semibold text-amber-900">
                     <td className="p-3">
-                      Hedeflenen Müteahhitlik Kârı (%{params.profitRate})
+                      Müteahhitlik Kâr / Hizmet Payı
                     </td>
                     <td className="p-3 font-mono">
                       {results.profitAmount.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
