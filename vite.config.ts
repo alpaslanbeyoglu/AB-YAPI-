@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'logo.svg'],
+        includeAssets: ['apple-touch-icon.png', 'logo.svg'],
         workbox: {
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4MB
         },
@@ -51,6 +51,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             'three-vendor': ['three'],
             'react-vendor': ['react', 'react-dom', 'lucide-react', 'motion'],
+            'utils-vendor': ['d3', 'html2canvas', 'jspdf'],
           },
         },
       },
