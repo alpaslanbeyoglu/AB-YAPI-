@@ -32,9 +32,11 @@ export interface CompanyProfile {
   authorizedPerson: string;     // Örn: "Müh. Alpaslan Beyoğlu"
   authorizedTitle: string;      // Örn: "Genel Müdür / İnşaat Mühendisi"
   authorizedChamberNo?: string; // Örn: "İMO-74120"
+  authorizedChamber?: string;   // Alias
   authorizedPerson2?: string;   // Örn: "2. Yetkili (İsteğe bağlı)"
   authorizedTitle2?: string;    // Örn: "Şantiye Şefi / Mimar"
   authorizedChamberNo2?: string;// Örn: "MO-55210"
+  authorizedChamber2?: string;  // Alias
   phone: string;                // Örn: "+90 (212) 585 10 20"
   email: string;                // Örn: "info@abyapi.com.tr"
   website: string;              // Örn: "www.abyapi.com.tr"
@@ -49,6 +51,7 @@ export interface CompanyProfile {
   bankName?: string;            // Örn: "Ziraat Bankası A.Ş."
   logoBase64?: string;          // Yüklenen özel firma logosu (Base64 dataURL formatında)
   stampBase64?: string;         // Yüklenen dijital kaşe ve imza görseli (Base64 dataURL formatında)
+  stampUrl?: string;            // Alias
   printOptions?: CompanyProfilePrintOptions; // Çıktılarda hangi alanların görüneceği tercihleri
 }
 
@@ -199,6 +202,8 @@ export interface ProjectParams {
   basementPurpose?: string;    // Bodrum kullanım amacı: 'shelter_depot' | 'parking' | 'shop'
   roofAtticType?: 'independent' | 'duplex_unified'; // Çatı arası bağımsız mı yoksa dubleks mi
   projectAddress: string;
+  landArea?: number;           // Arsa Alanı (m²)
+  apartmentSize?: number;      // Ortalama Daire Büyüklüğü (m²)
   existingBuildings?: ExistingBuilding[]; // Mevcut birleşecek binalar
   manualFlatUnitPrice?: number;    // Manuel daire birim m2 maliyet fiyatı
   manualShopUnitPrice?: number;    // Manuel dükkan birim m2 maliyet fiyatı
@@ -213,10 +218,12 @@ export interface ProjectParams {
   contractorFlatIds?: number[]; // IDs of flats designated for contractor
   showContractorShare3D?: boolean; // Show contractor share on 3D model
   buildingType: 'standard' | 'luxury' | 'commercial';
+  quality?: 'standard' | 'luxury' | 'premium';
   roomType?: RoomType;
   usdRate: number;
   costMultiplier: number;
   profitRate?: number;
+  basementFloors?: number;
 
   // Taban Oturumu ve Cephe Ölçü Giriş Seçenekleri
   footprintInputMode?: FootprintInputMode; // 'directArea': Doğrudan m², 'dimensions': Ön x Yan Cephe, 'customFacades': Çoklu Cepheler, 'lShape': L-Tipi Kademeli, 'polygonDraw': Serbest Çizim
@@ -343,6 +350,9 @@ export interface FlatCalcResult {
   grossPay: number;
   downPayment: number;
   usedCredit: number;
+  useGrant?: boolean;
+  useTransformationCredit?: boolean;
+  useCredit?: boolean;
   usedGrant?: number; // Kullanılan hibe tutarı (TL)
   grantLimit?: number; // Uygulanabilir azami hibe limiti (TL) - Daire için örn: 700k, Dükkan için: 350k
   creditLimit?: number; // Uygulanabilir azami kredi limiti (TL) - Daire için örn: 700k, Dükkan için: 350k
@@ -493,6 +503,7 @@ export interface BuildingModelParams {
   showFurniture: boolean;    // Mobilya katmanı
   showDimensions: boolean;   // Ölçülendirme çizgileri
   showInteriorRooms: boolean;// 3D modelde odaların ve bölmelerin görünmesi
+  showDebugOverlay3D?: boolean; // Geometri ve sınır kutusu hata ayıklama katmanı
   interiorCutMode: 'solid' | 'xray' | 'cutaway'; // 'solid': dolu cephe, 'xray': şeffaf dış duvar, 'cutaway': açık kat kesiti
 
   // Taban Oturumu ve Çoklu Cephe Parametreleri

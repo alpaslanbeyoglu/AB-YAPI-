@@ -69,11 +69,8 @@ export const SolarAnalysisPanel: React.FC<SolarAnalysisPanelProps> = ({
   useEffect(() => {
     if (!isPlaying || onTogglePlay) return;
     const interval = setInterval(() => {
-      onChangeTimeHour((prev: number) => {
-        const next = prev + 0.15;
-        if (next > 20.0) return 6.0;
-        return Math.round(next * 100) / 100;
-      });
+      const next = timeHour + 0.15;
+      onChangeTimeHour(next > 20.0 ? 6.0 : Math.round(next * 100) / 100);
     }, 60);
 
     return () => clearInterval(interval);

@@ -12,25 +12,43 @@ import { CompactSummaryBar } from './components/CompactSummaryBar';
 import { ConfirmModal } from './components/ConfirmModal';
 import { TabLoadingSkeleton } from './components/TabLoadingSkeleton';
 
-// Code-split all tabs and mobile view for near-instant page load and ultra-fast initial paint
-const ProjectSetupTab = React.lazy(() => import('./components/ProjectSetupTab').then(m => ({ default: m.ProjectSetupTab })));
-const CalculatorTab = React.lazy(() => import('./components/CalculatorTab').then(m => ({ default: m.CalculatorTab })));
-const LiteMobileView = React.lazy(() => import('./components/LiteMobileView').then(m => ({ default: m.LiteMobileView })));
-const BuildingModelTab = React.lazy(() => import('./components/BuildingModelTab').then(m => ({ default: m.BuildingModelTab })));
-const FloorPlanTab = React.lazy(() => import('./components/FloorPlanTab').then(m => ({ default: m.FloorPlanTab })));
-const CostDetailsTab = React.lazy(() => import('./components/CostDetailsTab').then(m => ({ default: m.CostDetailsTab })));
-const OwnersTab = React.lazy(() => import('./components/OwnersTab').then(m => ({ default: m.OwnersTab })));
-const OfferTab = React.lazy(() => import('./components/OfferTab').then(m => ({ default: m.OfferTab })));
-const ConstructionProgressTab = React.lazy(() => import('./components/ConstructionProgressTab').then(m => ({ default: m.ConstructionProgressTab })));
-const ContractTab = React.lazy(() => import('./components/ContractTab').then(m => ({ default: m.ContractTab })));
-const SpecificationTab = React.lazy(() => import('./components/SpecificationTab').then(m => ({ default: m.SpecificationTab })));
-const AdminReportTab = React.lazy(() => import('./components/AdminReportTab').then(m => ({ default: m.AdminReportTab })));
-const CompanyProfileTab = React.lazy(() => import('./components/CompanyProfileTab').then(m => ({ default: m.CompanyProfileTab })));
-const CompletedProjectsTab = React.lazy(() => import('./components/CompletedProjectsTab').then(m => ({ default: m.CompletedProjectsTab })));
-const HistoryTab = React.lazy(() => import('./components/HistoryTab').then(m => ({ default: m.HistoryTab })));
-const AiAssistantTab = React.lazy(() => import('./components/AiAssistantTab').then(m => ({ default: m.AiAssistantTab })));
-const DrivePanel = React.lazy(() => import('./components/DrivePanel').then(m => ({ default: m.DrivePanel })));
-const MenuSettingsModal = React.lazy(() => import('./components/MenuSettingsModal').then(m => ({ default: m.MenuSettingsModal })));
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+// Primary tabs imported directly for instant, rock-solid mobile & Safari initial paint
+import { ProjectSetupTab } from './components/ProjectSetupTab';
+import { CalculatorTab } from './components/CalculatorTab';
+import { LiteMobileView } from './components/LiteMobileView';
+
+// Resilient lazy loader for secondary tabs that retries once on network hiccups
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return React.lazy(async () => {
+    try {
+      return await factory();
+    } catch (err) {
+      console.warn('Sekme modülü yüklenirken ağ gecikmesi, tekrar deneniyor...', err);
+      await new Promise((res) => setTimeout(res, 1200));
+      return await factory();
+    }
+  });
+}
+
+const BuildingModelTab = lazyWithRetry(() => import('./components/BuildingModelTab').then(m => ({ default: m.BuildingModelTab })));
+const FloorPlanTab = lazyWithRetry(() => import('./components/FloorPlanTab').then(m => ({ default: m.FloorPlanTab })));
+const CostDetailsTab = lazyWithRetry(() => import('./components/CostDetailsTab').then(m => ({ default: m.CostDetailsTab })));
+const OwnersTab = lazyWithRetry(() => import('./components/OwnersTab').then(m => ({ default: m.OwnersTab })));
+const OfferTab = lazyWithRetry(() => import('./components/OfferTab').then(m => ({ default: m.OfferTab })));
+const ConstructionProgressTab = lazyWithRetry(() => import('./components/ConstructionProgressTab').then(m => ({ default: m.ConstructionProgressTab })));
+const ContractTab = lazyWithRetry(() => import('./components/ContractTab').then(m => ({ default: m.ContractTab })));
+const SpecificationTab = lazyWithRetry(() => import('./components/SpecificationTab').then(m => ({ default: m.SpecificationTab })));
+const AdminReportTab = lazyWithRetry(() => import('./components/AdminReportTab').then(m => ({ default: m.AdminReportTab })));
+const CompanyProfileTab = lazyWithRetry(() => import('./components/CompanyProfileTab').then(m => ({ default: m.CompanyProfileTab })));
+const CompletedProjectsTab = lazyWithRetry(() => import('./components/CompletedProjectsTab').then(m => ({ default: m.CompletedProjectsTab })));
+const HistoryTab = lazyWithRetry(() => import('./components/HistoryTab').then(m => ({ default: m.HistoryTab })));
+const AiAssistantTab = lazyWithRetry(() => import('./components/AiAssistantTab').then(m => ({ default: m.AiAssistantTab })));
+const DrivePanel = lazyWithRetry(() => import('./components/DrivePanel').then(m => ({ default: m.DrivePanel })));
+const MenuSettingsModal = lazyWithRetry(() => import('./components/MenuSettingsModal').then(m => ({ default: m.MenuSettingsModal })));
 
 import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
 
@@ -908,8 +926,9 @@ export default function App() {
           )}
 
         {/* Tab Views */}
-        <Suspense fallback={<TabLoadingSkeleton theme={theme} />}>
-          {activeTab === 'kurulum' && (
+        <ErrorBoundary fallbackTitle="Sekme Yüklenirken Bir Hata Oluştu">
+          <Suspense fallback={<TabLoadingSkeleton theme={theme} />}>
+            {activeTab === 'kurulum' && (
             <ProjectSetupTab
               params={params}
               onChangeParams={updateCalculatorParams}
@@ -1062,7 +1081,8 @@ export default function App() {
               theme={theme}
             />
           )}
-        </Suspense>
+          </Suspense>
+        </ErrorBoundary>
         
         <TabNavigation
           activeTab={activeTab}

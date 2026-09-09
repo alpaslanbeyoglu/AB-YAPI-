@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { CompanyProfileProvider } from './context/CompanyProfileContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Ignore benign Firebase IndexedDB error when user clears browser data
 window.addEventListener('unhandledrejection', (event) => {
@@ -13,8 +14,11 @@ window.addEventListener('unhandledrejection', (event) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <CompanyProfileProvider>
-      <App />
-    </CompanyProfileProvider>
+    <ErrorBoundary>
+      <CompanyProfileProvider>
+        <App />
+      </CompanyProfileProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );
+

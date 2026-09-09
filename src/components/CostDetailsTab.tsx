@@ -52,7 +52,7 @@ interface CostGroup {
 
 interface MaterialTakeoffItem {
   id: string;
-  category: 'kaba' | 'ince' | 'tesisat' | 'resmi';
+  category: 'kaba' | 'ince' | 'tesisat' | 'resmi' | 'ortak';
   name: string;
   unit: string;
   quantity: number;

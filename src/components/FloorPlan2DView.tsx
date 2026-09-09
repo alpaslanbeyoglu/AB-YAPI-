@@ -1158,7 +1158,7 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
               onPrint={handlePrint}
               getHtmlContent={getPlanHtml}
               documentTitle={`2D Mimari Kat Planı (${selectedFloorTab})`}
-              theme={theme}
+              theme={theme === 'dark' ? 'light' : theme}
             />
           </div>
         </div>
@@ -1887,8 +1887,8 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
               id="common-circulation-corridor"
               onMouseDown={handleCoreMouseDown}
               style={{ cursor: 'move' }}
-              title="Sürükleyerek merdiven/asansör sirkülasyon çekirdeğini taşıyın"
             >
+              <title>Sürükleyerek merdiven/asansör sirkülasyon çekirdeğini taşıyın</title>
               <rect
                 x={corrX}
                 y={corrY}
@@ -1917,8 +1917,8 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
               id="staircase-core"
               onMouseDown={handleCoreMouseDown}
               style={{ cursor: 'move' }}
-              title="Sürükleyerek merdiven/asansör sirkülasyon çekirdeğini taşıyın"
             >
+              <title>Sürükleyerek merdiven/asansör sirkülasyon çekirdeğini taşıyın</title>
               {/* Staircase Enclosing Concrete Shaft (Perde Duvar) */}
               <rect
                 x={stairX}
@@ -2013,8 +2013,8 @@ export const FloorPlan2DView: React.FC<FloorPlan2DViewProps> = ({
               id="elevator-core"
               onMouseDown={handleCoreMouseDown}
               style={{ cursor: 'move' }}
-              title="Sürükleyerek merdiven/asansör sirkülasyon çekirdeğini taşıyın"
             >
+              <title>Sürükleyerek merdiven/asansör sirkülasyon çekirdeğini taşıyın</title>
               {/* Concrete Shaft Wall */}
               <rect
                 x={elevX}

@@ -57,6 +57,7 @@ import {
 import {
   SolarLocation,
   TURKEY_CITIES,
+  SOLAR_SEASONS,
   calculateSolarPosition,
 } from '../utils/solarCalculations';
 import { ThreeBuildingView } from './ThreeBuildingView';
@@ -136,7 +137,8 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
     return () => clearInterval(interval);
   }, [isPlayingSolar]);
 
-  const solarPos = calculateSolarPosition(solarLocation.lat, solarSeasonId, solarTimeHour);
+  const currentSeasonDay = SOLAR_SEASONS.find(s => s.id === solarSeasonId)?.dayOfYear ?? 172;
+  const solarPos = calculateSolarPosition(solarLocation.lat, currentSeasonDay, solarTimeHour);
 
   // User Request: "3d model sayfasındaki ölçü girilen bölümler gizlenebilen yapıda olsun"
   // 1. Master toggle to collapse/hide the entire measurement panel for immersive 3D view
@@ -604,14 +606,16 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 <SolarAnalysisPanel
                   location={solarLocation}
                   onChangeLocation={setSolarLocation}
-                  seasonId={solarSeasonId}
-                  onChangeSeason={setSolarSeasonId}
+                  selectedSeasonId={solarSeasonId}
+                  onChangeSeasonId={setSolarSeasonId}
                   timeHour={solarTimeHour}
                   onChangeTimeHour={setSolarTimeHour}
                   buildingRotation={solarBuildingRotation}
                   onChangeBuildingRotation={setSolarBuildingRotation}
-                  isHeatmap={isSolarHeatmap}
-                  onChangeHeatmap={setIsSolarHeatmap}
+                  isSolarHeatmap={isSolarHeatmap}
+                  onChangeSolarHeatmap={setIsSolarHeatmap}
+                  isPlaying={isPlayingSolar}
+                  onTogglePlay={() => setIsPlayingSolar(!isPlayingSolar)}
                   theme={theme}
                 />
               </div>

@@ -14,16 +14,23 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['apple-touch-icon.png', 'logo.svg'],
         workbox: {
-          globPatterns: ['index.html', 'manifest.webmanifest', 'assets/index-*.css', 'assets/index-*.js', 'assets/react-vendor-*.js'],
-          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+          maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+          navigateFallback: 'index.html',
+          navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
             {
-              urlPattern: ({ request }) => request.destination === 'script' || request.destination === 'style',
+              urlPattern: ({ request, url }) =>
+                request.destination === 'script' ||
+                request.destination === 'style' ||
+                url.pathname.endsWith('.js') ||
+                url.pathname.endsWith('.css') ||
+                url.pathname.includes('/assets/'),
               handler: 'StaleWhileRevalidate',
               options: {
-                cacheName: 'app-chunks',
+                cacheName: 'app-assets',
                 expiration: {
-                  maxEntries: 60,
+                  maxEntries: 100,
                   maxAgeSeconds: 30 * 24 * 60 * 60,
                 },
               },
@@ -67,6 +74,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      target: ['es2020', 'safari14'],
       outDir: 'dist',
       emptyOutDir: true,
       chunkSizeWarningLimit: 4000,
@@ -88,7 +96,8 @@ export default defineConfig(({ mode }) => {
             if (
               id.includes('node_modules/react') ||
               id.includes('node_modules/react-dom') ||
-              id.includes('node_modules/motion')
+              id.includes('node_modules/motion') ||
+              id.includes('node_modules/lucide-react')
             ) {
               return 'react-vendor';
             }

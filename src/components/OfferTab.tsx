@@ -90,14 +90,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        if (e.target?.result && typeof e.target.result === 'string') {
+        const resultUrl = e.target?.result;
+        if (typeof resultUrl === 'string') {
           // Default caption from filename (remove extension)
           const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
           setUploadedImages((prev) => [
             ...prev,
             {
               id: `${Date.now()}-${Math.random()}`,
-              url: e.target.result,
+              url: resultUrl,
               name: file.name,
               caption: baseName.charAt(0).toUpperCase() + baseName.slice(1),
             },

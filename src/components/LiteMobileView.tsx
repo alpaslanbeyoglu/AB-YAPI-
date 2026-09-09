@@ -36,6 +36,7 @@ import {
   AppTheme,
   FlatItem,
   ConstructionStage,
+  ConstructionStageStatus,
   ConstructionProgressLog,
   CompanyProfile
 } from '../types';
@@ -119,7 +120,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
     setStages(prev => {
       const next = prev.map(s => {
         if (s.id === stageId) {
-          const status = clamped === 100 ? 'completed' : clamped > 0 ? 'in_progress' : 'pending';
+          const status = (clamped === 100 ? 'completed' : clamped > 0 ? 'in_progress' : 'not_started') as ConstructionStageStatus;
           return { ...s, progressPercent: clamped, status };
         }
         return s;
