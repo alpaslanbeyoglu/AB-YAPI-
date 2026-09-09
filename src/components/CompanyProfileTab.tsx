@@ -956,24 +956,31 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
                 <div className="text-center p-4 text-slate-400 space-y-1">
                   <Building className="w-8 h-8 mx-auto stroke-1" />
                   <p className="text-xs font-medium">Logo Yüklenmedi</p>
-                  <p className="text-[10px] text-slate-400">Teklif antetinde metin olarak görünür</p>
+                  <p className="text-[10px] text-slate-400">Teklif, sözleşme, şartname ve başlıklarda kurumsal monogram gösterilir</p>
                 </div>
               )}
             </div>
+
+            <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">
+              💡 <strong>Tek Merkezden Yönetim:</strong> Yüklediğiniz logo; Üst Başlık, Mobil Ekran, Teklif, Sözleşme, Şartname, Şantiye Takip ve PDF çıktılarının tamamında otomatik olarak tek ve aynı logo olarak kullanılır.
+            </p>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => logoInputRef.current?.click()}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-bold transition"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-bold transition cursor-pointer"
               >
-                <Upload className="w-3.5 h-3.5" /> Logo Yükle
+                <Upload className="w-3.5 h-3.5" /> Logo Yükle / Değiştir
               </button>
               {formData.logoBase64 && (
                 <button
                   type="button"
-                  onClick={removeLogo}
-                  className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs transition"
+                  onClick={() => {
+                    removeLogo();
+                    setFormData((prev) => ({ ...prev, logoBase64: '' }));
+                  }}
+                  className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs transition cursor-pointer"
                   title="Logoyu Kaldır"
                 >
                   <Trash2 className="w-4 h-4" />

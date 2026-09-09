@@ -203,9 +203,12 @@
           </div>
         `;
       } else {
-        // Safe relative fallback to our public/logo.svg
+        const words = (profile.companyName || 'AB YAPI').trim().split(/\s+/).filter(Boolean);
+        const initials = words.length === 1 ? words[0].substring(0, 2).toUpperCase() : (words[0][0] + (words[1] ? words[1][0] : '')).toUpperCase();
         logoArea.innerHTML = `
-          <img src="./logo.svg" alt="${profile.companyName} Logo" class="h-24 object-contain" onerror="this.onerror=null; this.src='https://via.placeholder.com/180x80?text=AB+YAPI';">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 text-white font-black flex items-center justify-center shadow-xs border border-indigo-500/20 text-xl font-mono">
+            ${initials}
+          </div>
         `;
       }
     }

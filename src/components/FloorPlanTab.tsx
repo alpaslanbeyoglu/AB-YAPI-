@@ -15,7 +15,6 @@ import { BuildingModelParams, ProjectParams, AppTheme } from '../types';
 import { calculateBuildingMetrics } from '../utils/buildingModelUtils';
 import { FloorPlan2DView } from './FloorPlan2DView';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
-import { Logo } from './Logo';
 
 interface FloorPlanTabProps {
   params: BuildingModelParams;
@@ -103,7 +102,9 @@ export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
         className={`border rounded-3xl p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${cardBg}`}
       >
         <div className="flex items-center gap-3.5">
-          <Logo size="md" variant="icon" theme={theme} />
+          <div className="w-10 h-10 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-700 flex items-center justify-center shrink-0">
+            <Layers className="w-5 h-5" />
+          </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className={`text-lg font-bold leading-tight ${textTitle}`}>

@@ -65,7 +65,6 @@ import { FloorPlan2DView } from './FloorPlan2DView';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 import { SolarAnalysisPanel } from './SolarAnalysisPanel';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
-import { Logo } from './Logo';
 
 interface BuildingModelTabProps {
   params?: BuildingModelParams;
@@ -244,7 +243,9 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
       {/* Top Header & View Switcher Bento Card */}
       <div className={`border rounded-3xl p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${cardBg}`}>
         <div className="flex items-center gap-3.5">
-          <Logo size="md" variant="icon" theme={theme} />
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0">
+            <Box className="w-5 h-5" />
+          </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className={`text-lg font-bold leading-tight ${textTitle}`}>

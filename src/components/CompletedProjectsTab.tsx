@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Building2, Search, Plus, MapPin, Trash2, Printer, CheckCircle2 } from 'lucide-react';
 import { AppTheme } from '../types';
+import { useCompanyProfile } from '../context/CompanyProfileContext';
+import { Logo } from './Logo';
 
 interface ProjectItem {
   id: number;
@@ -49,6 +51,8 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
     ? 'bg-white border-slate-300 focus:ring-slate-500/10 focus:border-slate-500'
     : 'bg-slate-50 border-slate-200 focus:ring-indigo-500/10 focus:border-indigo-500';
 
+  const { profile } = useCompanyProfile();
+
   const [projects, setProjects] = useState<ProjectItem[]>(() => {
     try {
       const saved = localStorage.getItem('abyapi_completed_projects');
@@ -63,12 +67,6 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
     return INITIAL_PROJECTS;
   });
 
-  const [companyProfile, setCompanyProfile] = useState({
-    companyName: 'AB YAPI',
-    slogan: 'GÜVENE YÜKSELEN YAPILAR',
-    logoBase64: ''
-  });
-
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'ongoing'>('all');
 
@@ -78,20 +76,6 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
   const [newDistrict, setNewDistrict] = useState('Fatih / İstanbul');
   const [newCoords, setNewCoords] = useState('');
   const [newStatus, setNewStatus] = useState<'completed' | 'ongoing'>('completed');
-
-  useEffect(() => {
-    try {
-      const storedStr = localStorage.getItem('ab_yapi_company_profile');
-      if (storedStr) {
-        const parsed = JSON.parse(storedStr);
-        setCompanyProfile({
-          companyName: parsed.companyName || 'AB YAPI',
-          slogan: parsed.slogan || 'GÜVENE YÜKSELEN YAPILAR',
-          logoBase64: parsed.logoBase64 || ''
-        });
-      }
-    } catch (e) {}
-  }, []);
 
   const saveToStorage = (updatedList: ProjectItem[]) => {
     try {
@@ -185,17 +169,11 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
 
       {/* COMPACT PRINT-ONLY HEADER */}
       <div className="hidden print:block text-center space-y-3 pb-6 border-b border-slate-200">
-        {companyProfile.logoBase64 ? (
-          <div className="flex justify-center mb-2">
-            <img src={companyProfile.logoBase64} alt={companyProfile.companyName} className="h-16 object-contain" referrerPolicy="no-referrer" />
-          </div>
-        ) : (
-          <div className="flex justify-center mb-2">
-            <img src="/logo.svg" alt="AB YAPI Logo" className="h-16 object-contain" referrerPolicy="no-referrer" />
-          </div>
-        )}
-        <h1 className="text-2xl font-black text-slate-900">{companyProfile.companyName} A.Ş.</h1>
-        <p className="text-[10px] font-mono tracking-widest text-indigo-600 uppercase font-bold">{companyProfile.slogan}</p>
+        <div className="flex justify-center mb-2">
+          <Logo size="lg" variant="compact" theme={theme} />
+        </div>
+        <h1 className="text-2xl font-black text-slate-900">{profile.companyName} A.Ş.</h1>
+        <p className="text-[10px] font-mono tracking-widest text-indigo-600 uppercase font-bold">{profile.slogan}</p>
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border text-[10px] font-bold text-slate-700">
           ✓ {filteredProjects.length} Tamamlanan Proje Listesi
         </div>

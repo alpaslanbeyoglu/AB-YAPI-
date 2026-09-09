@@ -5,6 +5,7 @@ import { saveReportDocumentToDrive } from '../services/drive';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
+import { useCompanyProfile } from '../context/CompanyProfileContext';
 
 interface AdminReportTabProps {
   params: ProjectParams;
@@ -21,22 +22,26 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
   onOpenDrivePanel,
   theme = 'light',
 }) => {
+  const { profile } = useCompanyProfile();
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const adminDocRef = useRef<HTMLDivElement>(null);
 
   const isGray = theme === 'gray';
 
+  const compName = profile?.companyName || 'AB YAPI';
+  const compLogo = profile?.logoBase64 || '';
+
   const handleExportPdf = async () => {
     if (!adminDocRef.current) return;
     const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
-    const fileName = `AB_YAPI_Yonetici_Finans_Raporu_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const fileName = `${compName.replace(/\s+/g, '_')}_Yonetici_Finans_Raporu_${safeAddr || 'Proje'}_${new Date().toISOString().slice(0, 10)}.pdf`;
     await exportElementToPdf(adminDocRef.current, fileName);
   };
 
   const handlePrint = () => {
     const html = generateAdminReportHtml();
-    printHtmlContent(html, `AB_YAPI_Yonetici_Finans_Raporu_${params.projectAddress || 'Proje'}`);
+    printHtmlContent(html, `${compName}_Yonetici_Finans_Raporu_${params.projectAddress || 'Proje'}`);
   };
 
   const generateAdminReportHtml = () => {
@@ -61,10 +66,10 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>AB YAPI - İç Maliyet ve Finans Raporu</title>
+  <title>${compName} - İç Maliyet ve Finans Raporu</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; color: #111; max-width: 1000px; margin: 0 auto; line-height: 1.7; font-size: 13px; }
-    h2 { color: #d9534f; text-align: center; }
+    h2 { color: #d9534f; text-align: left; }
     h3 { color: #1f7a7a; border-bottom: 2px solid #1f7a7a; padding-bottom: 4px; margin-top: 25px; font-size: 14px; text-transform: uppercase; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
     th { background: #37474f; color: white; padding: 8px; border: 1px solid #ddd; text-align: left; }
@@ -73,8 +78,15 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
   </style>
 </head>
 <body>
-  <h2>AB YAPI - İÇ MALİYET VE FİNANSAL YÖNETİM RAPORU (GİZLİ / ŞİRKET İÇİ)</h2>
-  <p style="text-align:center;font-size:11px;color:#666;">Rapor Tarihi: ${results.calculatedAt} | Proje: ${params.projectAddress}</p>
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #d9534f;padding-bottom:12px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
+      <div>
+        <h2 style="margin:0;font-size:16px;">${compName} - İÇ MALİYET VE FİNANSAL YÖNETİM RAPORU</h2>
+        <p style="margin:2px 0 0 0;font-size:11px;color:#666;">Rapor Tarihi: ${results.calculatedAt} | Proje: ${params.projectAddress}</p>
+      </div>
+    </div>
+  </div>
   
   <p style="background:#fff3cd;padding:10px;border-left:4px solid #ffc107;">
     <strong>📌 Yönetici Özeti:</strong> Bu rapor şirket içi gizli finansal tablodur. Net inşaat maliyeti, genel hakediş ve aşama bazlı kasa nakit dengesi aşağıda sunulmuştur.
@@ -226,7 +238,7 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
           </div>
           <div className="text-center sm:text-right">
             <h2 className="text-base sm:text-lg font-bold text-red-700 uppercase tracking-wide">
-              AB YAPI - İÇ MALİYET VE FİNANSAL YÖNETİM RAPORU
+              {compName} - İÇ MALİYET VE FİNANSAL YÖNETİM RAPORU
             </h2>
             <p className="text-[11px] text-slate-500 mt-1 font-mono">
               Rapor Tarihi: {results.calculatedAt} | Proje: {params.projectAddress}
