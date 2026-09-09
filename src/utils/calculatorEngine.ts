@@ -266,7 +266,8 @@ export function synchronizeFlats(
   hasGroundFloorShop?: boolean,
   shopCount: number = 1
 ): FlatItem[] {
-  const newCount = Math.max(1, flatCount);
+  const activeShopCount = hasGroundFloorShop ? Math.max(1, shopCount || 1) : 0;
+  const resFloors = hasGroundFloorShop ? Math.max(0, floorCount - 1) : floorCount;
   const isMansard = roofType === 'mansard';
   const isDuplex = roofType === 'duplex';
   
@@ -276,97 +277,101 @@ export function synchronizeFlats(
     ? (mansardFlatCount && mansardFlatCount > 0 ? mansardFlatCount : Math.max(1, flatsPerFloor))
     : 0;
 
-  const normalFlatsCount = isMansard ? Math.max(1, newCount - extraMansardFlats) : newCount;
-  const normalTotalArea = baseBuildArea * floorCount;
-  const normalAvg = parseFloat((normalTotalArea / normalFlatsCount).toFixed(2));
+  const standardResidentialUnits = resFloors * flatsPerFloor;
+  const calculatedTotalUnits = standardResidentialUnits + activeShopCount + extraMansardFlats;
+  const newCount = Math.max(1, flatCount || calculatedTotalUnits);
+
+  const residentialFlatsCount = Math.max(1, newCount - activeShopCount - extraMansardFlats);
+  const residentialTotalArea = baseBuildArea * resFloors;
+  const normalAvg = parseFloat((residentialTotalArea / residentialFlatsCount).toFixed(2));
   
+  // Dükkan başına zemin kat alanı
+  const shopAvg = activeShopCount > 0 ? parseFloat((baseBuildArea / activeShopCount).toFixed(2)) : 0;
+
   // Mansart bağımsız bölüm alanı (çatı piyesi inşaat alanına göre)
   const mansardAvg = extraMansardFlats > 0 && roofAtticArea > 0
     ? parseFloat((roofAtticArea / extraMansardFlats).toFixed(2))
     : parseFloat((normalAvg * 0.70).toFixed(2));
 
   // Dubleks için son kattaki dairelere eklenen çatı teras alanı
-  const duplexCount = Math.min(Math.max(1, flatsPerFloor), newCount);
+  const duplexCount = Math.min(Math.max(1, flatsPerFloor), residentialFlatsCount);
   const duplexAddArea = isDuplex && roofAtticArea > 0
     ? parseFloat((roofAtticArea / duplexCount).toFixed(2))
     : 0;
 
   return Array.from({ length: newCount }, (_, i) => {
     const existing = flats[i];
-    const isMansardFlat = isMansard && i >= normalFlatsCount;
-    const isDuplexFlat = isDuplex && i >= newCount - duplexCount;
-    const isShopFlat = !!hasGroundFloorShop && i < (shopCount || 1);
+    const isShopFlat = activeShopCount > 0 && i < activeShopCount;
+    const isMansardFlat = isMansard && i >= newCount - extraMansardFlats;
+    const residentialIdx = i - activeShopCount;
+    const isDuplexFlat = isDuplex && !isShopFlat && !isMansardFlat && residentialIdx >= residentialFlatsCount - duplexCount;
 
     let area = normalAvg;
-    let flatType: FlatItem['flatType'] = isShopFlat ? 'shop' : 'standard';
+    let flatType: FlatItem['flatType'] = 'standard';
     let description: string | undefined;
-
-    if (isShopFlat) {
-      description = 'Zemin Kat Ticari Bağımsız Bölüm (Dükkan/Mağaza)';
-    }
-
-    // Automatic floor calculation: 0 = Ground, 1 = 1st floor, etc.
-    const calculatedFloor = Math.floor(i / Math.max(1, flatsPerFloor));
-
-    // Default Serefiye based on floor & flat type
+    let calculatedFloor = 1;
     let defaultSerefiye = 1.0;
-    if (isShopFlat) {
-      defaultSerefiye = 1.25; // Dükkanlar genellikle daha değerlidir
-    } else if (isDuplexFlat) {
-      defaultSerefiye = 1.18;
-    } else if (isMansardFlat) {
-      defaultSerefiye = 1.08;
-    } else if (calculatedFloor === 0) {
-      defaultSerefiye = 0.92; // Zemin Kat
-    } else if (calculatedFloor === 1) {
-      defaultSerefiye = 0.98; // 1. Kat
-    } else if (calculatedFloor >= floorCount - 1) {
-      defaultSerefiye = 1.10; // En Üst Kat
-    } else {
-      defaultSerefiye = 1.02; // Ara Katlar
-    }
+    let defaultName = `Kat Maliki ${i + 1}`;
 
-    if (isMansardFlat) {
-      area = mansardAvg;
+    if (isShopFlat) {
+      flatType = 'shop';
+      area = shopAvg;
+      calculatedFloor = 0; // Zemin Kat
+      defaultSerefiye = 1.25;
+      defaultName = activeShopCount === 1 ? 'Zemin Dükkan' : `Dükkan ${i + 1} (Zemin Kat)`;
+      description = 'Zemin Kat Ticari Bağımsız Bölüm (Dükkan/İşyeri)';
+    } else if (isMansardFlat) {
       flatType = 'mansard';
+      area = mansardAvg;
+      calculatedFloor = floorCount; // Çatı Katı
+      defaultSerefiye = 1.08;
+      defaultName = `Kat Maliki ${i + 1} (Mansart Çatı)`;
       description = 'Çatı Katı Mansart - Ayrı Bağımsız Bölüm';
     } else if (isDuplexFlat) {
-      area = parseFloat((normalAvg + duplexAddArea).toFixed(2));
       flatType = 'duplex';
+      area = parseFloat((normalAvg + duplexAddArea).toFixed(2));
+      calculatedFloor = 1 + Math.floor(Math.max(0, residentialIdx) / Math.max(1, flatsPerFloor));
+      defaultSerefiye = 1.18;
+      defaultName = `Kat Maliki ${i + 1} (Çatı Dubleksi)`;
       description = 'Çatı Dubleksi - Tek Bağımsız Bölüm (Alt Kat + Çatı Terası)';
+    } else {
+      flatType = 'standard';
+      area = normalAvg;
+      calculatedFloor = 1 + Math.floor(Math.max(0, residentialIdx) / Math.max(1, flatsPerFloor));
+      defaultName = activeShopCount > 0
+        ? `Kat Maliki ${i + 1} (Daire ${residentialIdx + 1})`
+        : `Kat Maliki ${i + 1}`;
+      description = 'Konut (Daire)';
+      if (calculatedFloor === 0) defaultSerefiye = 0.92;
+      else if (calculatedFloor === 1) defaultSerefiye = 0.98;
+      else if (calculatedFloor >= floorCount - 1) defaultSerefiye = 1.10;
+      else defaultSerefiye = 1.02;
     }
 
     if (existing) {
+      const mergedFlatType = isShopFlat ? 'shop' : (existing.flatType === 'shop' ? 'standard' : (existing.flatType || flatType));
+      const mergedArea = existing.area !== undefined && existing.area > 0 && !(isShopFlat && existing.flatType !== 'shop') ? existing.area : area;
+
+      // Auto update generic default names if flatType changed
+      let mergedName = existing.name;
+      if (!mergedName || mergedName.startsWith('Kat Maliki') || mergedName.startsWith('Dükkan') || mergedName.startsWith('Zemin Dükkan')) {
+        mergedName = defaultName;
+      }
+
       return {
         ...existing,
         id: i + 1,
-        area: existing.area !== undefined && existing.area > 0 ? existing.area : area,
-        flatType: existing.flatType !== undefined ? existing.flatType : flatType,
+        area: mergedArea,
+        flatType: mergedFlatType,
         description: existing.description !== undefined ? existing.description : description,
-        floorNumber: existing.floorNumber !== undefined ? existing.floorNumber : calculatedFloor,
+        floorNumber: existing.floorNumber !== undefined && !(isShopFlat && existing.floorNumber !== 0) ? existing.floorNumber : calculatedFloor,
         facade: existing.facade || (i % 2 === 0 ? 'guney' : 'kuzey'),
         serefiyeMultiplier: existing.serefiyeMultiplier !== undefined ? existing.serefiyeMultiplier : defaultSerefiye,
-        landShareNumerator: existing.landShareNumerator !== undefined ? existing.landShareNumerator : Math.round(area * 10),
+        landShareNumerator: existing.landShareNumerator !== undefined ? existing.landShareNumerator : Math.round(mergedArea * 10),
         landShareDenominator: existing.landShareDenominator !== undefined ? existing.landShareDenominator : 1000,
-        name: (existing.name && (existing.name.startsWith('Kat Maliki') || existing.name.startsWith('Dükkan')))
-          ? (existing.flatType === 'shop' || (existing.flatType === undefined && isShopFlat) 
-              ? `Dükkan ${i + 1}` 
-              : isMansardFlat 
-                ? `Kat Maliki ${i + 1} (Mansart Çatı)` 
-                : isDuplexFlat 
-                  ? `Kat Maliki ${i + 1} (Çatı Dubleksi)` 
-                  : `Kat Maliki ${i + 1}`)
-          : existing.name,
+        name: mergedName,
       };
     }
-
-    const defaultName = isShopFlat
-      ? `Dükkan ${i + 1}`
-      : isMansardFlat
-      ? `Kat Maliki ${i + 1} (Mansart Çatı)`
-      : isDuplexFlat
-      ? `Kat Maliki ${i + 1} (Çatı Dubleksi)`
-      : `Kat Maliki ${i + 1}`;
 
     return {
       id: i + 1,
@@ -389,19 +394,19 @@ export function synchronizeFlats(
 }
 
 export function calculateFlatCount(params: ProjectParams): number {
-  const floorCount = params.floorCount || 5;
-  const flatCount = params.flatCount || 10;
+  const floorCount = Math.max(1, params.floorCount || 5);
+  const flatsPerFloor = Math.max(1, params.flatsPerFloor || 2);
+  const hasShop = !!params.hasGroundFloorShop;
+  const shopCount = hasShop ? Math.max(1, params.shopCount || 1) : 0;
   const isMansard = params.roofType === 'mansard';
-  const resFloors = params.hasGroundFloorShop ? Math.max(1, floorCount - 1) : floorCount;
-  const flatsPerFloor = params.flatsPerFloor || 2;
+  const resFloors = hasShop ? Math.max(0, floorCount - 1) : floorCount;
   const normalFloorFlats = resFloors * flatsPerFloor;
   const extraMansardFlats = isMansard
     ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : Math.max(1, flatsPerFloor))
     : 0;
 
-  return isMansard
-    ? Math.max(flatCount, normalFloorFlats + extraMansardFlats)
-    : (flatCount === floorCount && flatsPerFloor > 1 ? normalFloorFlats : (flatCount || normalFloorFlats));
+  const totalCalculatedUnits = normalFloorFlats + shopCount + extraMansardFlats;
+  return totalCalculatedUnits;
 }
 
 export function calculateProject(params: ProjectParams): CalculationResult {
@@ -467,18 +472,16 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const totalArea = Math.round(Math.max(1, rawTotalArea) * 100) / 100;
 
   // Bağımsız Bölüm Sayısı Hesabı:
-  // KURAL: Mansart çatı tek seçildiğinde çatı katında ekstra bağımsız bölüm çıkar ve hesaplara dahil edilir.
-  // Mansart çatı + dubleks seçildiğinde son katla birleştiği için tek bağımsız bölüm kabul edilir (ekstra daire eklenmez).
-  const resFloors = params.hasGroundFloorShop ? Math.max(1, floorCount - 1) : floorCount;
-  const flatsPerFloor = params.flatsPerFloor || 2;
+  // KURAL: Zemin dükkan, normal konutlar ve çatı/mansart bağımsız bölümlerinin tamamı eksiksiz toplanır.
+  const flatsPerFloor = Math.max(1, params.flatsPerFloor || 2);
+  const hasShop = !!params.hasGroundFloorShop;
+  const shopCount = hasShop ? Math.max(1, params.shopCount || 1) : 0;
+  const resFloors = hasShop ? Math.max(0, floorCount - 1) : floorCount;
   const normalFloorFlats = resFloors * flatsPerFloor;
   const extraMansardFlats = isMansard
     ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : Math.max(1, flatsPerFloor))
     : 0;
-
-  const effectiveFlatCount = isMansard
-    ? Math.max(flatCount, normalFloorFlats + extraMansardFlats)
-    : (flatCount === floorCount && flatsPerFloor > 1 ? normalFloorFlats : (flatCount || normalFloorFlats));
+  const effectiveFlatCount = calculateFlatCount(params);
 
   let kabaDaysPerFloor = 22;
   let inceDaysPerFloor = 28;

@@ -409,7 +409,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const contractorFlats = results.flatResults?.filter((f) => f.isContractorShare) || [];
 
   const totalDownPayments = ownerFlats.reduce((sum, f) => sum + (f.downPayment || 0), 0);
-  const totalStateSupport = ownerFlats.reduce((sum, f) => sum + (f.usedCredit || 0), 0);
+  const totalStateSupport = ownerFlats.reduce((sum, f) => sum + (f.usedGrant || 0) + (f.usedCredit || 0), 0);
   const totalOwnerDebt = ownerFlats.reduce((sum, f) => sum + (f.grossPay || 0), 0);
   const totalRemainingDebt = ownerFlats.reduce((sum, f) => sum + (f.netRemainingDebt || 0), 0);
 
@@ -436,10 +436,12 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
       const q = searchQuery.toLowerCase().trim();
       list = list.filter((item) => {
         const flatNo = `daire ${item.flat.id}`.toLowerCase();
+        const shopNo = `dükkan ${item.flat.id}`.toLowerCase();
         const idStr = `${item.flat.id}`;
         const name = (item.flat.name || '').toLowerCase();
         const tc = (item.flat.tc || '').toLowerCase();
-        return flatNo.includes(q) || idStr.includes(q) || name.includes(q) || tc.includes(q);
+        const desc = (item.flat.description || '').toLowerCase();
+        return flatNo.includes(q) || shopNo.includes(q) || idStr.includes(q) || name.includes(q) || tc.includes(q) || desc.includes(q);
       });
     }
 
@@ -2461,18 +2463,22 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         <span className="flex items-center gap-1.5">
                           <span
                             className={`w-2.5 h-2.5 rounded-full ${
-                              isContractor ? 'bg-amber-500' : 'bg-indigo-500'
+                              isContractor ? 'bg-amber-500' : flat.flatType === 'shop' ? 'bg-amber-600' : 'bg-indigo-500'
                             }`}
                           />
-                          <span>Daire {flat.id}</span>
+                          <span className="font-extrabold">
+                            {flat.flatType === 'shop' ? `🏪 Dükkan ${flat.id}` : `Daire ${flat.id}`}
+                          </span>
                           <span
                             className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                               isContractor
                                 ? 'bg-amber-100 text-amber-800'
+                                : flat.flatType === 'shop'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
                                 : 'bg-indigo-100 text-indigo-800'
                             }`}
                           >
-                            {isContractor ? 'Müteahhit' : 'Hak Sahibi'}
+                            {isContractor ? 'Müteahhit' : flat.flatType === 'shop' ? 'Zemin Dükkan' : 'Hak Sahibi'}
                           </span>
                         </span>
                         <div className="flex items-center gap-1.5">

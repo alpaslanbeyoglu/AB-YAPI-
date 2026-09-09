@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 import { UnifiedFacadeManager } from './UnifiedFacadeManager';
-import { calculateCantileverDetails } from '../utils/calculatorEngine';
+import { calculateCantileverDetails, calculateFlatCount } from '../utils/calculatorEngine';
 import {
   POLYGON_PRESETS,
   calculatePolygonArea,
@@ -1256,16 +1256,18 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     <span className="text-[9px] text-slate-400 mt-0.5 block">Döşemeden döşemeye</span>
                   </div>
 
-                  {/* Toplam Daire (Otomatik) */}
+                  {/* Toplam Bağımsız Bölüm (Otomatik) */}
                   <div>
                     <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                      🏠 Toplam Daire (Oto)
+                      🏢 Toplam Bağımsız Bölüm
                     </label>
                     <div className="w-full text-xs font-black font-mono px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 flex items-center justify-between">
-                      <span>{params.flatCount || (resFloors * newFlatsPerFloor)} Adet</span>
-                      <span className="text-[10px] text-emerald-600 font-sans">Otomatik</span>
+                      <span>{calculateFlatCount(params)} Bölüm</span>
+                      <span className="text-[10px] text-emerald-600 font-sans">
+                        {newHasShop ? `${resFloors * newFlatsPerFloor} Daire + ${newShopCount} Dükkan` : `${resFloors * newFlatsPerFloor} Daire`}
+                      </span>
                     </div>
-                    <span className="text-[9px] text-slate-400 mt-0.5 block">Hesaplanan bağımsız bölüm</span>
+                    <span className="text-[9px] text-slate-400 mt-0.5 block">Hesaplanan tüm bağımsız bölümler</span>
                   </div>
                 </div>
 
