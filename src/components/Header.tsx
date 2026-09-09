@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Cloud, Save, HardDrive, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor, Sparkles } from 'lucide-react';
+import { Cloud, Save, HardDrive, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { Logo } from './Logo';
 import { AppTheme } from '../types';
@@ -17,7 +17,6 @@ interface HeaderProps {
   onNavigateToCompletedProjects?: () => void;
   appMode?: 'full' | 'lite';
   onToggleAppMode?: () => void;
-  onOpenAiUzman?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -33,7 +32,6 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   onNavigateToCompletedProjects,
   appMode = 'full',
   onToggleAppMode,
-  onOpenAiUzman,
 }) => {
   const isGray = theme === 'gray';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,19 +63,6 @@ export const Header: React.FC<HeaderProps> = React.memo(({
 
         {/* Right Actions: Mode Switch, Theme toggle, Google Drive sync & quick save */}
         <div className="flex items-center gap-2 sm:gap-3">
-
-          {/* AI Uzmanı Button */}
-          {onOpenAiUzman && (
-            <button
-              type="button"
-              onClick={onOpenAiUzman}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black shadow-xs transition-all active:scale-95 cursor-pointer"
-              title="Yapay Zeka Kentsel Dönüşüm Danışmanını Aç"
-            >
-              <Sparkles className="w-3.5 h-3.5 animate-pulse text-emerald-200" />
-              <span>AI Uzmanı</span>
-            </button>
-          )}
 
           {/* App Mode Conversion Button (Mobil Lite vs Tam Sürüm) */}
           {onToggleAppMode && (

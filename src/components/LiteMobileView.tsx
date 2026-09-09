@@ -19,7 +19,6 @@ import {
   Building2,
   Calendar,
   Layers,
-  Sparkles,
   Share2,
   Save,
   Check,
@@ -44,10 +43,6 @@ import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { Logo } from './Logo';
 import { CompactSummaryBar } from './CompactSummaryBar';
 
-const AiAssistantTab = React.lazy(() =>
-  import('./AiAssistantTab').then((m) => ({ default: m.AiAssistantTab }))
-);
-
 interface LiteMobileViewProps {
   params: ProjectParams;
   results: CalculationResult;
@@ -59,7 +54,7 @@ interface LiteMobileViewProps {
   isSavingToDrive: boolean;
 }
 
-type LiteTab = 'hesapla' | 'santiye' | 'malikler' | 'teklif' | 'ai';
+type LiteTab = 'hesapla' | 'santiye' | 'malikler' | 'teklif';
 
 export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
   params,
@@ -1067,25 +1062,6 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
             </div>
           </div>
         )}
-
-        {activeTab === 'ai' && (
-          <div className="p-3">
-            <React.Suspense
-              fallback={
-                <div className="p-6 text-center text-xs font-bold text-slate-500 rounded-2xl bg-white border border-slate-200 animate-pulse">
-                  Yapay Zeka Danışmanı Yükleniyor...
-                </div>
-              }
-            >
-              <AiAssistantTab
-                params={params}
-                results={results}
-                onChangeParams={(updates) => onChangeParams(updates)}
-                isLight={theme === 'light'}
-              />
-            </React.Suspense>
-          </div>
-        )}
       </div>
 
       {/* ------------------------------------------------------------- */}
@@ -1137,19 +1113,6 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
         >
           <HardHat className="w-5 h-5" />
           <span className="text-[10px]">Şantiye</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('ai')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl transition cursor-pointer ${
-            activeTab === 'ai'
-              ? 'text-emerald-600 font-black'
-              : 'text-slate-500 font-semibold hover:text-slate-900'
-          }`}
-        >
-          <Sparkles className="w-5 h-5 text-emerald-500" />
-          <span className="text-[10px]">AI Danışman</span>
         </button>
 
         <button

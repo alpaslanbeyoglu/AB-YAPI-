@@ -46,7 +46,6 @@ const AdminReportTab = lazyWithRetry(() => import('./components/AdminReportTab')
 const CompanyProfileTab = lazyWithRetry(() => import('./components/CompanyProfileTab').then(m => ({ default: m.CompanyProfileTab })));
 const CompletedProjectsTab = lazyWithRetry(() => import('./components/CompletedProjectsTab').then(m => ({ default: m.CompletedProjectsTab })));
 const HistoryTab = lazyWithRetry(() => import('./components/HistoryTab').then(m => ({ default: m.HistoryTab })));
-const AiAssistantTab = lazyWithRetry(() => import('./components/AiAssistantTab').then(m => ({ default: m.AiAssistantTab })));
 const DrivePanel = lazyWithRetry(() => import('./components/DrivePanel').then(m => ({ default: m.DrivePanel })));
 const MenuSettingsModal = lazyWithRetry(() => import('./components/MenuSettingsModal').then(m => ({ default: m.MenuSettingsModal })));
 
@@ -800,7 +799,6 @@ export default function App() {
           onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}
           appMode={appMode}
           onToggleAppMode={toggleAppMode}
-          onOpenAiUzman={() => setActiveTab('ai_uzman')}
         />
       </div>
 
@@ -1058,15 +1056,6 @@ export default function App() {
           {activeTab === 'tamamlanan' && (
             <CompletedProjectsTab
               theme={theme}
-            />
-          )}
-
-          {activeTab === 'ai_uzman' && (
-            <AiAssistantTab
-              params={params}
-              results={results}
-              onChangeParams={updateCalculatorParams}
-              isLight={isLight}
             />
           )}
 
