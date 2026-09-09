@@ -166,24 +166,13 @@ export default function App() {
     }, 120);
   };
 
-  // App mode: 'full' (pro desktop) or 'lite' (fast mobile)
-  const [appMode, setAppMode] = useState<'full' | 'lite'>(() => {
-    try {
-      const saved = localStorage.getItem('ab_yapi_mode');
-      if (saved === 'lite' || saved === 'full') return saved as 'full' | 'lite';
-      if (typeof window !== 'undefined' && window.innerWidth < 768) {
-        return 'lite';
-      }
-    } catch (e) {}
-    return 'full';
-  });
+  // App mode: 'full' (standart tam sürüm) or 'lite' (kullanıcı isterse geçebileceği hafif sürüm)
+  // Kullanıcı isteği doğrultusunda sayfa ilk yüklemede daima 'full' (tam) sürüm olarak açılır.
+  const [appMode, setAppMode] = useState<'full' | 'lite'>('full');
 
   const toggleAppMode = () => {
     const next = appMode === 'full' ? 'lite' : 'full';
     setAppMode(next);
-    try {
-      localStorage.setItem('ab_yapi_mode', next);
-    } catch (e) {}
   };
 
   const handleSaveTabs = (newTabs: TabConfig[]) => {
@@ -760,7 +749,7 @@ export default function App() {
           onSwitchToFull={() => {
             setAppMode('full');
             try {
-              localStorage.setItem('ab_yapi_mode', 'full');
+              localStorage.removeItem('ab_yapi_mode');
             } catch (e) {}
           }}
           theme={theme}
