@@ -10,6 +10,11 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 // Lazy GoogleGenAI client helper
 let aiClient: GoogleGenAI | null = null;
 function getAiClient(): GoogleGenAI {
