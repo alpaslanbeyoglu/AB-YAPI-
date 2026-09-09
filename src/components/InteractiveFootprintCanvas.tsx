@@ -880,7 +880,7 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
           </div>
 
           {/* PRIMARY TOOL MODE SELECTOR BAR */}
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto no-scrollbar max-w-full">
             <button
               type="button"
               onClick={() => setToolMode('select')}

@@ -781,11 +781,11 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 ${
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 w-full max-w-full overflow-x-hidden ${
         isGray ? 'bg-slate-200/80 text-slate-900' : 'bg-slate-50 text-slate-900'
       }`}
     >
-      <div className="sticky top-0 z-30 print:hidden">
+      <div className="sticky top-0 z-30 print:hidden w-full max-w-full overflow-hidden">
         <Header
           user={user}
           hasToken={hasToken}
@@ -803,10 +803,10 @@ export default function App() {
       </div>
 
       {/* Top Menu Bar (Categorized & Sticky) */}
-      <div className={`sticky top-[64px] z-20 border-b shadow-sm transition-colors print:hidden ${
+      <div className={`sticky top-[64px] z-20 border-b shadow-sm transition-colors print:hidden w-full max-w-full overflow-hidden ${
         isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'
       }`}>
-        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-4 overflow-x-auto no-scrollbar">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar w-full max-w-full">
           {categorizedTabs.map((cat, catIdx) => (
             <div key={cat.id} className="flex items-center gap-1 shrink-0">
               {catIdx > 0 && <div className="w-[1px] h-4 bg-slate-300 mx-1" />}
@@ -879,7 +879,7 @@ export default function App() {
       </div>
 
       {/* Global Live Summary Bar */}
-      <div className="sticky top-[118px] z-10 print:hidden">
+      <div className="sticky top-[118px] z-10 print:hidden w-full max-w-full overflow-hidden">
         <CompactSummaryBar
           results={results}
           params={params}
@@ -888,9 +888,9 @@ export default function App() {
         />
       </div>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6">
+      <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 w-full max-w-full overflow-x-hidden min-w-0">
         {/* Tab Views */}
-        <div className="flex-1 w-full min-w-0">
+        <div className="flex-1 w-full min-w-0 max-w-full overflow-x-hidden">
           {feedback && (
             <div
               className={`mb-5 p-4 rounded-2xl text-xs flex items-center justify-between border shadow-sm transition-all animate-fade-in print:hidden ${

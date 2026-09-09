@@ -146,7 +146,7 @@ export const Logo: React.FC<LogoProps> = ({
         </div>
         {activeSlogan && (
           <span
-            className={`font-mono ${currentSize.slogan} tracking-[0.15em] uppercase font-bold mt-0.5 ${
+            className={`hidden sm:block font-mono ${currentSize.slogan} tracking-[0.15em] uppercase font-bold mt-0.5 truncate max-w-[280px] lg:max-w-none ${
               isDark ? 'text-indigo-400' : 'text-indigo-600'
             }`}
           >
