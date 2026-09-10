@@ -129,6 +129,7 @@ export const DEFAULT_PARAMS: ProjectParams = {
   basementPurpose: 'shelter_depot',
   roofAtticType: 'duplex_unified',
   projectAddress: 'İstanbul, Fatih Kocamustafapaşa Mah. 1024 Ada 15 Parsel',
+  landArea: 350,
   manualFlatUnitPrice: 0,
   manualShopUnitPrice: 0,
   durationOption: 'manual',

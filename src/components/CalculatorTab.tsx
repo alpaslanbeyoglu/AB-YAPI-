@@ -287,30 +287,99 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   />
                 </div>
 
-                {/* Taban Oturumu / Kat Alanı (m²) */}
-                <div className="sm:col-span-2 lg:col-span-3 space-y-1.5 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 uppercase">Taban Oturumu / Kat Alanı (m²):</label>
-                    <span className="text-[10px] font-mono text-slate-500">
-                      {params.facadeWidth && params.facadeDepth ? `~${params.facadeWidth}m × ${params.facadeDepth}m` : ''}
-                    </span>
+                {/* Arsa / Parsel Alanı (m²) ve Taban Oturumu (m²) Grid */}
+                <div className="sm:col-span-2 lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-indigo-50/30 border border-indigo-100">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-emerald-900 uppercase">Arsa / Parsel Alanı (m²):</label>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                        Ana Parsel
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        id="calculator-land-area-input"
+                        type="number"
+                        min="10"
+                        value={params.landArea || ''}
+                        onChange={(e) => {
+                          const area = Math.max(0, parseFloat(e.target.value) || 0);
+                          onChangeParams({
+                            ...params,
+                            landArea: area,
+                          });
+                        }}
+                        placeholder="Örn: 350"
+                        className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-emerald-300 bg-white ${inputBg}`}
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs font-bold text-emerald-600">m²</span>
+                    </div>
                   </div>
-                  <div className="relative">
-                    <input
-                      id="input-base-build-area"
-                      type="number"
-                      value={params.baseBuildArea || ''}
-                      onChange={(e) => {
-                        const area = Math.max(0, parseFloat(e.target.value) || 0);
-                        onChangeParams({
-                          ...params,
-                          baseBuildArea: area,
-                        });
-                      }}
-                      className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border ${inputBg}`}
-                    />
-                    <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">m²</span>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-indigo-900 uppercase">Taban Oturumu / Zemin Kat (m²):</label>
+                      <span className="text-[10px] font-mono font-bold text-indigo-600">
+                        {params.facadeWidth && params.facadeDepth ? `~${params.facadeWidth}m × ${params.facadeDepth}m` : ''}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        id="input-base-build-area"
+                        type="number"
+                        min="10"
+                        value={params.baseBuildArea || ''}
+                        onChange={(e) => {
+                          const area = Math.max(0, parseFloat(e.target.value) || 0);
+                          onChangeParams({
+                            ...params,
+                            baseBuildArea: area,
+                          });
+                        }}
+                        className={`w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-indigo-300 bg-white ${inputBg}`}
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs font-bold text-indigo-600">m²</span>
+                    </div>
                   </div>
+
+                  {/* TAKS ve Emsal Bilgi & Hızlı Seçim Çubuğu */}
+                  {params.landArea && params.landArea > 0 ? (
+                    <div className="sm:col-span-2 pt-2 border-t border-indigo-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="font-bold text-slate-700">TAKS Oranı:</span>
+                        <span className="font-mono font-black text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded">
+                          %{((params.baseBuildArea / params.landArea) * 100).toFixed(1)}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className="font-bold text-slate-700">Tahmini KAKS (Emsal):</span>
+                        <span className="font-mono font-black text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded">
+                          {(((params.baseBuildArea * (params.floorCount || 5)) / params.landArea)).toFixed(2)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-bold text-slate-500 mr-1">Hızlı TAKS:</span>
+                        {[25, 30, 35, 40, 50].map((taks) => {
+                          const calculatedBase = Math.round((params.landArea! * taks) / 100);
+                          const isActive = Math.abs((params.baseBuildArea / params.landArea!) * 100 - taks) < 1;
+                          return (
+                            <button
+                              key={taks}
+                              type="button"
+                              onClick={() => onChangeParams({ ...params, baseBuildArea: calculatedBase })}
+                              className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-indigo-600 text-white shadow-xs'
+                                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >
+                              %{taks} ({calculatedBase}m²)
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
 

@@ -128,6 +128,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       // Standart Apartman (Tek Yapı)
       scenarioParams = {
         projectAddress: 'İstanbul, Kadıköy, 124 Ada 5 Parsel (Huzur Apartmanı)',
+        landArea: 400,
         baseBuildArea: 140,
         floorCount: 5,
         flatsPerFloor: 2,
@@ -164,6 +165,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       // Tevhitli Ada (3 Blok + Ticari)
       scenarioParams = {
         projectAddress: 'İstanbul, Beşiktaş, Kentsel Sit Alanı (Yıldız Sitesi Tevhit Projesi)',
+        landArea: 1200,
         baseBuildArea: 480,
         floorCount: 8,
         flatsPerFloor: 4,
@@ -234,6 +236,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       // Çarpık İmar / Dar Parsel (Sıkışık Bölge)
       scenarioParams = {
         projectAddress: 'İstanbul, Fatih, Tarihi Yarımada (Kadırga Konakları Sokağı)',
+        landArea: 250,
         baseBuildArea: 125,
         floorCount: 4,
         flatsPerFloor: 2,
@@ -651,7 +654,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   👤 Müşteri / Proje Adı
@@ -686,9 +689,39 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 </span>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-indigo-950 mb-1">
-                  📐 Planlanan Yapı Taban Alanı (m²)
+              <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200/80 space-y-1">
+                <label className="block text-xs font-bold text-emerald-950 flex items-center justify-between">
+                  <span>📐 Arsa / Parsel Alanı (m²)</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded">
+                    Temel Giriş
+                  </span>
+                </label>
+                <div className="relative">
+                  <input
+                    id="projectLandAreaInput"
+                    type="number"
+                    min="10"
+                    value={params.landArea || ''}
+                    onChange={(e) => {
+                      const newLandArea = Math.max(0, parseFloat(e.target.value) || 0);
+                      onChangeParams({ ...params, landArea: newLandArea });
+                    }}
+                    placeholder="Örn: 350"
+                    className={`w-full text-xs font-black px-3 py-2 rounded-lg border border-emerald-300 bg-white text-emerald-950 focus:ring-2 focus:ring-emerald-500/30`}
+                  />
+                  <span className="absolute right-3 top-2 text-xs font-bold text-emerald-600">m²</span>
+                </div>
+                <span className="text-[10px] text-emerald-700 block font-medium">
+                  Tüm modüllerdeki (TAKS, KAKS, Arsa Payı) hesaplamaları doğrudan günceller.
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-indigo-50/50 border border-indigo-200/80 space-y-1">
+                <label className="block text-xs font-bold text-indigo-950 flex items-center justify-between">
+                  <span>🏗️ Taban Oturumu (m²)</span>
+                  <span className="text-[10px] bg-indigo-100 text-indigo-800 font-extrabold px-1.5 py-0.5 rounded">
+                    Zemin Kat
+                  </span>
                 </label>
                 <div className="relative">
                   <input
@@ -697,16 +730,58 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     min="10"
                     value={params.baseBuildArea || ''}
                     onChange={(e) => onChangeParams({ ...params, baseBuildArea: Math.max(0, parseFloat(e.target.value) || 0) })}
-                    placeholder="Örn: 150"
-                    className={`w-full text-xs font-black px-3 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50/20 text-indigo-900 ${inputBg}`}
+                    placeholder="Örn: 140"
+                    className={`w-full text-xs font-black px-3 py-2 rounded-lg border border-indigo-300 bg-white text-indigo-950 focus:ring-2 focus:ring-indigo-500/30`}
                   />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-indigo-500">m²</span>
+                  <span className="absolute right-3 top-2 text-xs font-bold text-indigo-600">m²</span>
                 </div>
-                <span className="text-[10px] text-indigo-500 mt-1 block font-semibold animate-pulse">
-                  Binanın oturacağı taban alan ölçüsü (m²).
+                <span className="text-[10px] text-indigo-700 block font-medium">
+                  Binanın arsa üzerine oturacağı net zemin alanı (m²).
                 </span>
               </div>
             </div>
+
+            {/* Live TAKS & KAKS Hızlı İmar Oranları Çubuğu */}
+            {params.landArea && params.landArea > 0 ? (
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-600">TAKS (Taban Oturum Oranı):</span>
+                    <span className="font-mono font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+                      %{((params.baseBuildArea / params.landArea) * 100).toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-600">Tahmini KAKS (Emsal):</span>
+                    <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                      {(((params.baseBuildArea * (params.floorCount || 5)) / params.landArea)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-500 mr-1">Hızlı TAKS Seçin:</span>
+                  {[25, 30, 35, 40, 50].map((taks) => {
+                    const calculatedBase = Math.round((params.landArea! * taks) / 100);
+                    const isActive = Math.abs((params.baseBuildArea / params.landArea!) * 100 - taks) < 1;
+                    return (
+                      <button
+                        key={taks}
+                        type="button"
+                        onClick={() => onChangeParams({ ...params, baseBuildArea: calculatedBase })}
+                        className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        %{taks} ({calculatedBase}m²)
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
 
             {/* Proje Türü Seçimi */}
             <div className="pt-5 border-t border-slate-100/80 space-y-3.5">
