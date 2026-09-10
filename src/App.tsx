@@ -877,7 +877,6 @@ export default function App() {
               params={buildingModelParams}
               onUpdateParams={updateBuildingModelParams}
               onSyncWithCalculator={handleSyncModelToCalculator}
-              onNavigateToCalculator={() => setActiveTab('kurulum')}
               onNavigateToFloorPlan={() => setActiveTab('katplani')}
               theme={theme}
             />
@@ -888,7 +887,6 @@ export default function App() {
               params={buildingModelParams}
               onUpdateParams={updateBuildingModelParams}
               onSyncWithCalculator={handleSyncModelToCalculator}
-              onNavigateToCalculator={() => setActiveTab('kurulum')}
               onNavigateToModel={() => setActiveTab('model')}
               theme={theme}
             />

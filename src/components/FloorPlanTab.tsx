@@ -20,7 +20,6 @@ interface FloorPlanTabProps {
   params: BuildingModelParams;
   onUpdateParams: (updates: Partial<BuildingModelParams>) => void;
   onSyncWithCalculator?: (newParams: Partial<ProjectParams>) => void;
-  onNavigateToCalculator?: () => void;
   onNavigateToModel?: () => void;
   theme?: AppTheme;
 }
@@ -29,7 +28,6 @@ export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
   params,
   onUpdateParams,
   onSyncWithCalculator,
-  onNavigateToCalculator,
   onNavigateToModel,
   theme = 'light',
 }) => {
@@ -84,16 +82,6 @@ export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-semibold">{syncedFeedback}</span>
           </div>
-          {onNavigateToCalculator && (
-            <button
-              type="button"
-              onClick={onNavigateToCalculator}
-              className="inline-flex items-center gap-1.5 font-bold underline text-emerald-700 hover:text-emerald-900"
-            >
-              <span>Hesaplama Tablosuna Git</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
       )}
 
@@ -141,18 +129,6 @@ export const FloorPlanTab: React.FC<FloorPlanTabProps> = ({
             >
               <Box className="w-3.5 h-3.5 text-indigo-400" />
               <span>3D Modele Geç</span>
-            </button>
-          )}
-
-          {onNavigateToCalculator && (
-            <button
-              type="button"
-              onClick={onNavigateToCalculator}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold transition-all active:scale-95 shrink-0"
-              title="Hesaplama ve Proje Künyesi sayfasına git"
-            >
-              <span>Hesaba Git</span>
-              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

@@ -114,6 +114,47 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   // Calculate live project results for metrics and feasibility analysis
   const results = useMemo(() => calculateProject(params), [params]);
 
+  // Group flats by floor for visual consistency and layout logic
+  const groupedFlats = useMemo(() => {
+    const groups: Record<number, any[]> = {};
+    params.flats.forEach(flat => {
+      const floor = flat.floorNumber ?? 0;
+      if (!groups[floor]) groups[floor] = [];
+      groups[floor].push(flat);
+    });
+    // Sort floors from top to bottom (highest floor number first)
+    return Object.entries(groups).sort((a, b) => Number(b[0]) - Number(a[0]));
+  }, [params.flats]);
+
+  const getFlatStyles = (flat: any, isContractor: boolean) => {
+    if (isContractor) return 'bg-amber-50 border-amber-300 text-amber-950 shadow-sm ring-1 ring-amber-400/20';
+    
+    const type = flat.flatType || 'standard';
+    const desc = (flat.description || '').toLowerCase();
+    const floor = flat.floorNumber ?? 0;
+
+    // Bodrum sığınak gri
+    if (desc.includes('sığınak') || desc.includes('depo') || desc.includes('ortak')) {
+      return 'bg-slate-200 border-slate-300 text-slate-700';
+    }
+    
+    // Bodrum daire açık mavi
+    if (floor < 0) {
+      return 'bg-sky-50 border-sky-200 text-sky-800';
+    }
+    
+    // Zemin dükkan mavi
+    if (type === 'shop' || (floor === 0 && desc.includes('dükkan'))) {
+      return 'bg-blue-100 border-blue-300 text-blue-900 shadow-sm';
+    }
+
+    // Dubleks ve Mansart
+    if (type === 'duplex') return 'bg-purple-50 border-purple-200 text-purple-900';
+    if (type === 'mansard') return 'bg-amber-50 border-amber-200 text-amber-900';
+    
+    return 'bg-white border-slate-200 text-slate-800 hover:border-indigo-300';
+  };
+
   const setActiveStep = (step: number) => {
     setActiveStepState(step);
     if (onStepChange) onStepChange(step);
@@ -1888,58 +1929,85 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   <span className="text-[11px] text-slate-500">Müteahhit payı olarak seçilen daireler renklendirilir</span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {params.flats.map((flat) => {
-                    const isContractor = (params.contractorFlatIds || []).includes(flat.id);
-                    return (
-                      <div
-                        key={flat.id}
-                        className={`p-2.5 rounded-xl border transition-all space-y-1.5 text-xs ${
-                          isContractor
-                            ? 'bg-amber-50/90 border-amber-300 text-amber-950 shadow-xs'
-                            : 'bg-slate-50 border-slate-200 text-slate-800'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between font-bold">
-                          <span className="truncate">{flat.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const currentIds = params.contractorFlatIds || [];
-                              const newIds = isContractor
-                                ? currentIds.filter((id) => id !== flat.id)
-                                : [...currentIds, flat.id];
-                              onChangeParams({ ...params, contractorFlatIds: newIds });
-                            }}
-                            className={`px-1.5 py-0.5 text-[9px] font-extrabold rounded cursor-pointer ${
-                              isContractor
-                                ? 'bg-amber-600 text-white'
-                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                            }`}
-                          >
-                            {isContractor ? 'Müteahhit' : 'Arsa Sahibi'}
-                          </button>
-                        </div>
-                        <div className="text-[10px] text-slate-500 flex items-center justify-between">
-                          <span>{flat.description || flat.flatType || 'Daire'} • {flat.area} m²</span>
-                        </div>
-                        <div className="pt-1 border-t border-slate-200/60">
-                          <label className="text-[9px] font-bold text-slate-500 block">Satış Değeri (TL):</label>
-                          <input
-                            type="number"
-                            value={flat.salePrice || ''}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, salePrice: val } : f));
-                              onChangeParams({ ...params, flats: updatedFlats });
-                            }}
-                            placeholder="Örn: 4.500.000"
-                            className="w-full text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-slate-200 bg-white"
-                          />
-                        </div>
+                <div className="space-y-6">
+                  {groupedFlats.map(([floor, floorFlats]) => (
+                    <div key={floor} className="space-y-2.5">
+                      <div className="flex items-center gap-3 px-1">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                          {Number(floor) === 0 ? 'Zemin Kat' : Number(floor) > 0 ? `${floor}. Kat` : `${Math.abs(Number(floor))}. Bodrum`}
+                        </span>
+                        <div className="h-px flex-1 bg-slate-200/80"></div>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">{floorFlats.length} Bağımsız Bölüm</span>
                       </div>
-                    );
-                  })}
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                        {floorFlats.map((flat) => {
+                          const isContractor = (params.contractorFlatIds || []).includes(flat.id);
+                          const styles = getFlatStyles(flat, isContractor);
+                          return (
+                            <div
+                              key={flat.id}
+                              className={`p-3 rounded-2xl border transition-all duration-300 space-y-2 text-xs relative overflow-hidden group ${styles}`}
+                            >
+                              <div className="flex items-center justify-between font-bold relative z-10">
+                                <span className="truncate pr-1">{flat.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const currentIds = params.contractorFlatIds || [];
+                                    const newIds = isContractor
+                                      ? currentIds.filter((id) => id !== flat.id)
+                                      : [...currentIds, flat.id];
+                                    onChangeParams({ ...params, contractorFlatIds: newIds });
+                                  }}
+                                  className={`px-1.5 py-0.5 text-[9px] font-black rounded-lg cursor-pointer shadow-sm transition-transform active:scale-90 shrink-0 ${
+                                    isContractor
+                                      ? 'bg-amber-600 text-white hover:bg-amber-700'
+                                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                  }`}
+                                >
+                                  {isContractor ? 'MÜTEAHHİT' : 'SAHİBİ'}
+                                </button>
+                              </div>
+                              
+                              <div className="text-[10px] opacity-70 flex items-center justify-between relative z-10">
+                                <span className="flex items-center gap-1 font-medium">
+                                  {flat.flatType === 'shop' ? <Store className="w-3 h-3" /> : <Home className="w-3 h-3" />}
+                                  {flat.description || flat.flatType || 'Daire'}
+                                </span>
+                                <span className="font-bold">{flat.area} m²</span>
+                              </div>
+                              
+                              <div className="pt-2 border-t border-black/5 relative z-10">
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-[9px] font-bold opacity-60 uppercase tracking-tighter">Satış Değeri</label>
+                                  <span className="text-[9px] font-black text-indigo-600">TL</span>
+                                </div>
+                                <input
+                                  type="number"
+                                  value={flat.salePrice || ''}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, salePrice: val } : f));
+                                    onChangeParams({ ...params, flats: updatedFlats });
+                                  }}
+                                  placeholder="0"
+                                  className="w-full text-[11px] font-mono font-bold px-2 py-1 rounded-lg border border-slate-200 bg-white/70 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 outline-hidden transition-all"
+                                />
+                              </div>
+                              
+                              {/* Background Pattern for specific types */}
+                              {flat.flatType === 'shop' && (
+                                <div className="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12">
+                                  <Store className="w-12 h-12" />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

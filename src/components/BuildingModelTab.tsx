@@ -70,7 +70,6 @@ interface BuildingModelTabProps {
   params?: BuildingModelParams;
   onUpdateParams?: (updates: Partial<BuildingModelParams>) => void;
   onSyncWithCalculator?: (newParams: Partial<ProjectParams>) => void;
-  onNavigateToCalculator?: () => void;
   onNavigateToFloorPlan?: () => void;
   theme?: AppTheme;
 }
@@ -86,7 +85,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   params: propParams,
   onUpdateParams,
   onSyncWithCalculator,
-  onNavigateToCalculator,
   onNavigateToFloorPlan,
   theme = 'light',
 }) => {
@@ -227,16 +225,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-semibold">{syncedFeedback}</span>
           </div>
-          {onNavigateToCalculator && (
-            <button
-              type="button"
-              onClick={onNavigateToCalculator}
-              className="inline-flex items-center gap-1.5 font-bold underline text-emerald-800 hover:text-emerald-950"
-            >
-              <span>Hesaplama Tablosuna Git</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
       )}
 
@@ -350,18 +338,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <span>Hesap ile Canlı Senkron</span>
           </div>
-
-          {onNavigateToCalculator && (
-            <button
-              type="button"
-              onClick={onNavigateToCalculator}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold transition-all active:scale-95 shrink-0"
-              title="Hesaplama ve Proje Künyesi sayfasına git"
-            >
-              <span>Hesaba Git</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
       </div>
 
