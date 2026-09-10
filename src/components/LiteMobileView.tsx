@@ -27,7 +27,8 @@ import {
   Filter,
   ArrowRightLeft,
   DollarSign,
-  Briefcase
+  Briefcase,
+  FileUp,
 } from 'lucide-react';
 import {
   ProjectParams,
@@ -51,6 +52,7 @@ interface LiteMobileViewProps {
   theme: AppTheme;
   onToggleTheme: () => void;
   onQuickSave: () => void;
+  onOpenTransferModal?: () => void;
 }
 
 type LiteTab = 'hesapla' | 'santiye' | 'malikler' | 'teklif';
@@ -63,6 +65,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
   theme,
   onToggleTheme,
   onQuickSave,
+  onOpenTransferModal,
 }) => {
   const { profile } = useCompanyProfile();
   const isGray = theme === 'gray';
@@ -309,6 +312,20 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
           >
             {isGray ? '☀️' : '🎨'}
           </button>
+
+          {/* Transfer button */}
+          {onOpenTransferModal && (
+            <button
+              type="button"
+              onClick={onOpenTransferModal}
+              className={`p-2 rounded-xl border text-xs font-bold transition active:scale-95 ${
+                isGray ? 'bg-white border-slate-300 text-indigo-700' : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+              }`}
+              title="Proje İçe / Dışa Aktar"
+            >
+              <FileUp className="w-4 h-4 text-indigo-600" />
+            </button>
+          )}
 
           {/* Quick save */}
           <button

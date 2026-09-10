@@ -16,6 +16,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 // Primary tabs imported directly for instant, rock-solid mobile & Safari initial paint
 import { ProjectSetupTab } from './components/ProjectSetupTab';
 import { LiteMobileView } from './components/LiteMobileView';
+import { ProjectTransferModal } from './components/ProjectTransferModal';
 
 // Resilient lazy loader for secondary tabs that retries once on network hiccups
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -110,6 +111,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('kurulum');
   const [requestedSetupStep, setRequestedSetupStep] = useState<number | undefined>(2);
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
+  const [isProjectTransferOpen, setIsProjectTransferOpen] = useState(false);
 
   const handleSummaryChipNavigate = (itemId: string) => {
     let targetTab: TabId = 'kurulum';
@@ -631,16 +633,26 @@ export default function App() {
     handleCalculate();
   };
 
-  const handleExportJson = () => {
-    const data = JSON.stringify({ params, buildingModelParams });
+  const handleExportJson = (includeHistory = false) => {
+    const exportData = {
+      version: '2.0.0',
+      exportedAt: new Date().toISOString(),
+      params,
+      buildingModelParams,
+      ...(includeHistory ? { historyList } : {}),
+    };
+    const data = JSON.stringify(exportData, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `proje_${params.projectAddress?.replace(/[^a-zA-Z0-9]/g, '_') || 'export'}_${new Date().toISOString().slice(0, 10)}.json`;
+    const cleanAddress = (params.projectAddress || 'AB_YAPI_Proje')
+      .replace(/[^a-zA-Z0-9]/g, '_')
+      .slice(0, 30);
+    a.download = `${cleanAddress}_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showNotification('success', 'Proje başarıyla dışa aktarıldı (JSON).');
+    showNotification('success', 'Proje verileri başarıyla dışa aktarıldı (JSON).');
   };
 
   const handleImportJson = (file: File) => {
@@ -649,19 +661,49 @@ export default function App() {
       try {
         const content = e.target?.result as string;
         const data = JSON.parse(content);
-        if (data.params) {
-          setParams(data.params);
+        const paramsObj = data.params || data;
+        if (paramsObj && (paramsObj.landArea !== undefined || paramsObj.projectAddress)) {
+          setParams(paramsObj);
           if (data.buildingModelParams) setBuildingModelParams(data.buildingModelParams);
-          showNotification('success', 'Proje başarıyla yüklendi.');
-          setActiveTab('hesapla');
+          if (data.historyList && Array.isArray(data.historyList)) {
+            setHistoryList(data.historyList);
+            try {
+              localStorage.setItem('ab_yapi_history', JSON.stringify(data.historyList));
+            } catch (err) {}
+          }
+          showNotification('success', `"${paramsObj.projectAddress || 'Proje'}" başarıyla yüklendi.`);
+          setActiveTab('kurulum');
         } else {
-          throw new Error('Geçersiz dosya formatı.');
+          throw new Error('Geçersiz veya eksik dosya formatı.');
         }
       } catch (err: any) {
         showNotification('error', 'Dosya okunamadı: ' + err.message);
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleImportProjectData = (imported: {
+    params: ProjectParams;
+    buildingModelParams?: BuildingModelParams;
+    historyList?: SavedProjectData[];
+  }) => {
+    try {
+      if (imported.params) {
+        setParams(imported.params);
+        if (imported.buildingModelParams) setBuildingModelParams(imported.buildingModelParams);
+        if (imported.historyList && Array.isArray(imported.historyList)) {
+          setHistoryList(imported.historyList);
+          try {
+            localStorage.setItem('ab_yapi_history', JSON.stringify(imported.historyList));
+          } catch (e) {}
+        }
+        showNotification('success', `"${imported.params.projectAddress || 'Proje'}" verileri çalışma alanına yüklendi.`);
+        setActiveTab('kurulum');
+      }
+    } catch (err: any) {
+      showNotification('error', 'Proje aktarılamadı: ' + err.message);
+    }
   };
 
   const handleLoadProject = (savedData: SavedProjectData) => {
@@ -712,6 +754,7 @@ export default function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onQuickSave={handleQuickSave}
+          onOpenTransferModal={() => setIsProjectTransferOpen(true)}
         />
       </Suspense>
     );
@@ -727,6 +770,7 @@ export default function App() {
         <Header
           onExportJson={handleExportJson}
           onImportJson={handleImportJson}
+          onOpenTransferModal={() => setIsProjectTransferOpen(true)}
           theme={theme}
           onToggleTheme={toggleTheme}
           onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}
@@ -866,6 +910,7 @@ export default function App() {
               onNext={() => setActiveTab('model')}
               onNavigateToModel={() => setActiveTab('model')}
               onNavigateToOwners={() => setActiveTab('malikler')}
+              onOpenTransferModal={() => setIsProjectTransferOpen(true)}
               theme={theme}
               requestedStep={requestedSetupStep}
               onStepChange={setRequestedSetupStep}
@@ -975,6 +1020,7 @@ export default function App() {
               onLoadItem={handleLoadProject}
               onClearHistory={handleClearHistory}
               onDeleteItem={handleDeleteHistoryItem}
+              onOpenTransferModal={() => setIsProjectTransferOpen(true)}
               theme={theme}
             />
           )}
@@ -1001,6 +1047,17 @@ export default function App() {
         />
       </Suspense>
     )}
+
+    <ProjectTransferModal
+      isOpen={isProjectTransferOpen}
+      onClose={() => setIsProjectTransferOpen(false)}
+      currentParams={params}
+      currentBuildingModelParams={buildingModelParams}
+      onImportProject={handleImportProjectData}
+      onExportProject={handleExportJson}
+      historyList={historyList}
+      theme={theme}
+    />
 
     </div>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, Download, Trash2, Calendar, MapPin, Building2 } from 'lucide-react';
+import { History, Download, Trash2, Calendar, MapPin, Building2, FileUp } from 'lucide-react';
 import { SavedProjectData, AppTheme } from '../types';
 
 interface HistoryTabProps {
@@ -7,6 +7,7 @@ interface HistoryTabProps {
   onLoadItem: (data: SavedProjectData) => void;
   onClearHistory: () => void;
   onDeleteItem: (index: number) => void;
+  onOpenTransferModal?: () => void;
   theme?: AppTheme;
 }
 
@@ -15,6 +16,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   onLoadItem,
   onClearHistory,
   onDeleteItem,
+  onOpenTransferModal,
   theme = 'light',
 }) => {
   const isGray = theme === 'gray';
@@ -44,6 +46,16 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
+          {onOpenTransferModal && (
+            <button
+              type="button"
+              onClick={onOpenTransferModal}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200"
+            >
+              <FileUp className="w-4 h-4 text-indigo-600" />
+              <span>İçe / Dışa Aktar</span>
+            </button>
+          )}
           {historyList.length > 0 && (
             <button
               type="button"

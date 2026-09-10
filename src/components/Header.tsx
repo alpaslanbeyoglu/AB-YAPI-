@@ -6,6 +6,7 @@ import { AppTheme } from '../types';
 interface HeaderProps {
   onExportJson: () => void;
   onImportJson: (file: File) => void;
+  onOpenTransferModal?: () => void;
   theme?: AppTheme;
   onToggleTheme?: () => void;
   onNavigateToCompletedProjects?: () => void;
@@ -16,6 +17,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = React.memo(({
   onExportJson,
   onImportJson,
+  onOpenTransferModal,
   theme = 'light',
   onToggleTheme,
   onNavigateToCompletedProjects,
@@ -109,33 +111,51 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             </button>
           )}
 
-          {/* Local Import/Export */}
-          <button
-            type="button"
-            onClick={onExportJson}
-            className={`flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
-              isGray
-                ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-sm'
-            }`}
-            title="Projeyi Bilgisayara Kaydet (JSON)"
-          >
-            <FileDown className="w-3.5 h-3.5 text-slate-600" />
-            <span className="hidden md:inline">Kaydet</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className={`hidden xs:flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
-              isGray
-                ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-sm'
-            }`}
-            title="Projeyi Bilgisayardan Yükle (JSON)"
-          >
-            <FileUp className="w-3.5 h-3.5 text-slate-600" />
-            <span className="hidden md:inline">Yükle</span>
-          </button>
+          {/* Proje İçe/Dışa Aktarma (Transfer Merkezi) */}
+          {onOpenTransferModal ? (
+            <button
+              type="button"
+              onClick={onOpenTransferModal}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer ${
+                isGray
+                  ? 'bg-white hover:bg-slate-50 text-indigo-700 border-indigo-200'
+                  : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200/90'
+              }`}
+              title="Proje İçe ve Dışa Aktarma Merkezi (JSON / Şablonlar)"
+            >
+              <FileUp className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="hidden sm:inline">İçe / Dışa Aktar</span>
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onExportJson}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+                  isGray
+                    ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs'
+                }`}
+                title="Projeyi Bilgisayara Kaydet (JSON)"
+              >
+                <FileDown className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="hidden sm:inline">Dışa Aktar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+                  isGray
+                    ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs'
+                }`}
+                title="Projeyi Bilgisayardan Yükle (JSON)"
+              >
+                <FileUp className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">İçe Aktar</span>
+              </button>
+            </>
+          )}
           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
         </div>
       </div>
