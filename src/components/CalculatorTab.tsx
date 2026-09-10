@@ -67,6 +67,7 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
 
   // Request: "Kat malikleri bilgiler kısmı varsayılan gizli gelsin."
   const [isFlatsOpen, setIsFlatsOpen] = useState(false);
+  const [isStructureOpen, setIsStructureOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<'project' | 'structure'>('project');
   const [activeCostTab, setActiveCostTab] = useState<'sozlesme' | 'kaba' | 'ince' | 'malik' | 'gelir'>('sozlesme');
   const [bulkDownPayment, setBulkDownPayment] = useState<number>(0);
@@ -234,10 +235,20 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Canlı 3D Model Senkronu Aktif</span>
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsStructureOpen(!isStructureOpen)}
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                  >
+                    <span>{isStructureOpen ? 'Bölümü Gizle' : 'Genişlet / Düzenle'}</span>
+                    {isStructureOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
-              {/* Live Scannable Metrics Strip */}
+              {isStructureOpen && (
+                <>
+                  {/* Live Scannable Metrics Strip */}
               <div id="calculator-core-summary" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/80">
                 <div className="space-y-0.5 col-span-2">
                   <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Taban Oturumu / Kat Alanı</span>
@@ -1112,7 +1123,9 @@ export const CalculatorTab: React.FC<CalculatorTabProps> = ({
                   </div>
                 </div>
               </div>
-            </div>
+            </>
+          )}
+        </div>
 
             {params.projectModel === 'contractorShare' && (
               <>

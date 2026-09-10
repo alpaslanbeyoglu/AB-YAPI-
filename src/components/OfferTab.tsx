@@ -31,7 +31,6 @@ import {
   Plus
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
-import { saveReportDocumentToDrive } from '../services/drive';
 import { generateOfferHtml } from '../utils/reportExport';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
@@ -42,8 +41,6 @@ import { getRoofTypeShortTitle } from '../utils/roofUtils';
 interface OfferTabProps {
   params: ProjectParams;
   results: CalculationResult;
-  hasToken: boolean;
-  onOpenDrivePanel: () => void;
   onUpdateParam?: (key: keyof ProjectParams, val: any) => void;
   onNavigateToSurec?: () => void;
   theme?: AppTheme;
@@ -52,15 +49,11 @@ interface OfferTabProps {
 export const OfferTab: React.FC<OfferTabProps> = ({
   params,
   results,
-  hasToken,
-  onOpenDrivePanel,
   onUpdateParam,
   onNavigateToSurec,
   theme = 'light',
 }) => {
   const { profile } = useCompanyProfile();
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const offerDocRef = useRef<HTMLDivElement>(null);
 
   // Image & Document Upload State and Handlers
@@ -224,35 +217,6 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     printHtmlContent(html, `${safeName}_Teklif_${params.projectAddress || 'Proje'}`);
   };
 
-  const handleSaveToDrive = async () => {
-    if (!hasToken) {
-      onOpenDrivePanel();
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveStatus(null);
-    try {
-      const html = generateOfferHtml(params, results, false, profile, uploadedImages);
-      const safeAddr = (params.projectAddress || 'Proje').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
-      const safeName = compName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
-      const fileName = `${safeName}_Teklif_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
-      const res = await saveReportDocumentToDrive(
-        fileName,
-        html,
-        `${compName} Müşteri Teklifi - ${params.projectAddress}`
-      );
-      setSaveStatus({
-        type: 'success',
-        msg: `Teklif belgesi Google Drive'a başarıyla kaydedildi: "${res.name}"`,
-      });
-    } catch (err: any) {
-      setSaveStatus({ type: 'error', msg: err?.message || 'Drive kaydı başarısız oldu.' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Copy protection side effects and handlers
   React.useEffect(() => {
     const blockShortcuts = (e: KeyboardEvent) => {
@@ -298,15 +262,6 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               <span>Teklif Kabul Edildi ➔ Süreç Takibini Başlat</span>
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleSaveToDrive}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
-          >
-            <Cloud className="w-4 h-4" />
-            <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
-          </button>
           <PrintAndPdfButtons
             onExportPdf={handleExportPdf}
             onPrint={handlePrint}
@@ -316,23 +271,6 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           />
         </div>
       </div>
-
-      {saveStatus && (
-        <div
-          className={`p-4 rounded-2xl text-xs flex items-center gap-2.5 print:hidden border ${
-            saveStatus.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-red-50 text-red-800 border-red-200'
-          }`}
-        >
-          {saveStatus.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-          )}
-          <span>{saveStatus.msg}</span>
-        </div>
-      )}
 
       {/* ========================================================
           INTERACTIVE IMAGE & ATTACHMENTS UPLOAD PANEL (GÖRSEL VE EVRAK UPLOAD)

@@ -141,18 +141,18 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
   // User Request: "3d model sayfasındaki ölçü girilen bölümler gizlenebilen yapıda olsun"
   // 1. Master toggle to collapse/hide the entire measurement panel for immersive 3D view
-  const [showMeasurementPanel, setShowMeasurementPanel] = useState<boolean>(true);
+  const [showMeasurementPanel, setShowMeasurementPanel] = useState<boolean>(false);
 
-  // 2. Collapsible accordion states for each individual measurement card
+  // 2. Collapsible accordion states for each individual measurement card (defaults to closed / collapsed)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    viewCut: false,
-    dimensions: false,
-    generalStructure: false,
-    typology: false,
-    roof: false,
-    roads: false,
-    shafts: false,
-    contractorShare: false,
+    viewCut: true,
+    dimensions: true,
+    generalStructure: true,
+    typology: true,
+    roof: true,
+    roads: true,
+    shafts: true,
+    contractorShare: true,
   });
 
   const toggleSection = (sectionKey: string) => {

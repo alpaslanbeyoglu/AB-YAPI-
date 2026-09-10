@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Cloud, CheckCircle2, AlertCircle, Sparkles, ShieldCheck, FileText, FileSpreadsheet, Layers, Compass, Building, Check, Copy, Search, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Sparkles, ShieldCheck, FileText, FileSpreadsheet, Layers, Compass, Building, Check, Copy, Search, X } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
-import { saveReportDocumentToDrive } from '../services/drive';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
@@ -11,22 +10,16 @@ import { useCompanyProfile } from '../context/CompanyProfileContext';
 interface SpecificationTabProps {
   params: ProjectParams;
   results: CalculationResult;
-  hasToken: boolean;
-  onOpenDrivePanel: () => void;
   theme?: AppTheme;
 }
 
 export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   params,
   results,
-  hasToken,
-  onOpenDrivePanel,
   theme = 'light',
 }) => {
   const { profile } = useCompanyProfile();
   const [activeTab, setActiveTab] = useState<'common' | 'project'>('common');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedStatus, setCopiedStatus] = useState(false);
   const specContainerRef = useRef<HTMLDivElement>(null);
@@ -490,41 +483,6 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     }
   };
 
-  const handleSaveToDrive = async () => {
-    if (!hasToken) {
-      onOpenDrivePanel();
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveStatus(null);
-    try {
-      const htmlContent = generateSpecHtml();
-      const prefix = activeTab === 'common' ? 'Ortak_Teknik_Sartname' : 'Projeye_Ozel_Teknik_Sartname';
-      const safeAddr = safeAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 20);
-      const safeName = profile.companyName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
-      const fileName = `${safeName}_${prefix}_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
-      await saveReportDocumentToDrive(
-        fileName,
-        htmlContent,
-        activeTab === 'common'
-          ? `${profile.companyName} Ortak Teknik Şartname - ${safeAddress}`
-          : `${profile.companyName} Projeye Özel Teknik Şartname - ${safeAddress}`
-      );
-      setSaveStatus({
-        type: 'success',
-        msg: `${activeTab === 'common' ? 'Ortak' : 'Projeye Özel'} teknik şartname Google Drive hesabınıza başarıyla kaydedildi: "${fileName}"`,
-      });
-    } catch (err: any) {
-      setSaveStatus({
-        type: 'error',
-        msg: `Drive kaydı başarısız: ${err?.message || 'Bilinmeyen hata'}`,
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const cardBg = isGray
     ? 'bg-slate-100 border-slate-300 text-slate-900 shadow-sm'
     : 'bg-white border-slate-200 text-slate-900 shadow-sm';
@@ -599,7 +557,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             <div className="flex bg-slate-200/80 p-1 rounded-xl border border-slate-300 mr-2">
               <button
                 type="button"
-                onClick={() => { setActiveTab('common'); setSaveStatus(null); }}
+                onClick={() => setActiveTab('common')}
                 className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'common'
                     ? 'bg-white text-indigo-700 shadow-sm'
@@ -611,7 +569,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => { setActiveTab('project'); setSaveStatus(null); }}
+                onClick={() => setActiveTab('project')}
                 className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'project'
                     ? 'bg-indigo-600 text-white shadow-sm'
@@ -634,16 +592,6 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             >
               {copiedStatus ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               <span>{copiedStatus ? 'Metin Kopyalandı!' : 'Metni Kopyala'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSaveToDrive}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
-            >
-              <Cloud className="w-4 h-4" />
-              <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
             </button>
 
             <PrintAndPdfButtons
@@ -684,23 +632,6 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
           )}
         </div>
       </div>
-
-      {saveStatus && (
-        <div
-          className={`p-4 rounded-2xl text-xs flex items-center gap-2.5 print:hidden border ${
-            saveStatus.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-              : 'bg-red-50 text-red-800 border-red-300'
-          }`}
-        >
-          {saveStatus.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-          )}
-          <span>{saveStatus.msg}</span>
-        </div>
-      )}
 
       {/* RENDER ACTIVE TAB BODY */}
       <div ref={specContainerRef}>

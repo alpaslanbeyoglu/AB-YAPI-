@@ -90,11 +90,11 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const [sortBy, setSortBy] = useState<SortType>('id_asc');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
 
-  // States to toggle sections
-  const [isPolicyOpen, setIsPolicyOpen] = useState(true);
+  // States to toggle sections (defaults to closed / collapsed)
+  const [isPolicyOpen, setIsPolicyOpen] = useState(false);
   const [isStagesOpen, setIsStagesOpen] = useState(false);
-  const [isSerefiyeOpen, setIsSerefiyeOpen] = useState(true);
-  const [isOwnersGridOpen, setIsOwnersGridOpen] = useState(true);
+  const [isSerefiyeOpen, setIsSerefiyeOpen] = useState(false);
+  const [isOwnersGridOpen, setIsOwnersGridOpen] = useState(false);
 
   const updateParam = <K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) => {
     onChangeParams({

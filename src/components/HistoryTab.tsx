@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, Cloud, Download, Trash2, Calendar, MapPin, Building2 } from 'lucide-react';
+import { History, Download, Trash2, Calendar, MapPin, Building2 } from 'lucide-react';
 import { SavedProjectData, AppTheme } from '../types';
 
 interface HistoryTabProps {
@@ -7,8 +7,6 @@ interface HistoryTabProps {
   onLoadItem: (data: SavedProjectData) => void;
   onClearHistory: () => void;
   onDeleteItem: (index: number) => void;
-  onOpenDrivePanel: () => void;
-  hasDriveToken: boolean;
   theme?: AppTheme;
 }
 
@@ -17,8 +15,6 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   onLoadItem,
   onClearHistory,
   onDeleteItem,
-  onOpenDrivePanel,
-  hasDriveToken,
   theme = 'light',
 }) => {
   const isGray = theme === 'gray';
@@ -48,14 +44,6 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={onOpenDrivePanel}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all active:scale-95 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200"
-          >
-            <Cloud className="w-4 h-4" />
-            <span>Google Drive Dosyaları</span>
-          </button>
           {historyList.length > 0 && (
             <button
               type="button"

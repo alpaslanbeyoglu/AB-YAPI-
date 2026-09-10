@@ -84,7 +84,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isCostSettingsOpen, setIsCostSettingsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<'kaba' | 'ince' | 'tesisat' | 'resmi' | 'ortak'>('kaba');
-  const [isSimulatorOpen, setIsSimulatorOpen] = useState(true);
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
 
   // Live Market Data States (2026 Verified Market Baseline)
   const [usdTry, setUsdTry] = useState<number>(params.usdRate || 34.5);

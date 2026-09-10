@@ -1,7 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Cloud, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useRef } from 'react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
-import { saveReportDocumentToDrive } from '../services/drive';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
@@ -10,21 +8,15 @@ import { useCompanyProfile } from '../context/CompanyProfileContext';
 interface AdminReportTabProps {
   params: ProjectParams;
   results: CalculationResult;
-  hasToken: boolean;
-  onOpenDrivePanel: () => void;
   theme?: AppTheme;
 }
 
 export const AdminReportTab: React.FC<AdminReportTabProps> = ({
   params,
   results,
-  hasToken,
-  onOpenDrivePanel,
   theme = 'light',
 }) => {
   const { profile } = useCompanyProfile();
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const adminDocRef = useRef<HTMLDivElement>(null);
 
   const isGray = theme === 'gray';
@@ -140,36 +132,6 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
 </html>`;
   };
 
-  const handleSaveToDrive = async () => {
-    if (!hasToken) {
-      onOpenDrivePanel();
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveStatus(null);
-    try {
-      const htmlContent = generateAdminReportHtml();
-      const fileName = `Yonetici_Finans_Raporu_${params.projectAddress.replace(/\s+/g, '_') || 'Proje'}.html`;
-      await saveReportDocumentToDrive(
-        fileName,
-        htmlContent,
-        `AB YAPI Yönetici Finans Raporu - ${params.projectAddress}`
-      );
-      setSaveStatus({
-        type: 'success',
-        msg: 'Yönetici finans raporu Google Drive hesabınıza başarıyla kaydedildi.',
-      });
-    } catch (err: any) {
-      setSaveStatus({
-        type: 'error',
-        msg: `Drive kaydı başarısız: ${err?.message || 'Bilinmeyen hata'}`,
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const cardBg = isGray
     ? 'bg-slate-100 border-slate-300 text-slate-900 shadow-sm'
     : 'bg-white border-slate-200 text-slate-900 shadow-sm';
@@ -191,15 +153,6 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleSaveToDrive}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
-          >
-            <Cloud className="w-4 h-4" />
-            <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
-          </button>
           <PrintAndPdfButtons
             onExportPdf={handleExportPdf}
             onPrint={handlePrint}
@@ -209,23 +162,6 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
           />
         </div>
       </div>
-
-      {saveStatus && (
-        <div
-          className={`p-4 rounded-2xl text-xs flex items-center gap-2.5 print:hidden border ${
-            saveStatus.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-              : 'bg-red-50 text-red-800 border-red-300'
-          }`}
-        >
-          {saveStatus.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-          )}
-          <span>{saveStatus.msg}</span>
-        </div>
-      )}
 
       {/* Admin Document Content */}
       <div

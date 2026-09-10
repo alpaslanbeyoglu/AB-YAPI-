@@ -5,7 +5,6 @@ import {
   Settings2,
   Smartphone,
 } from 'lucide-react';
-import { User } from 'firebase/auth';
 import { Header } from './components/Header';
 import { TabNavigation } from './components/TabNavigation';
 import { CompactSummaryBar } from './components/CompactSummaryBar';
@@ -46,7 +45,6 @@ const AdminReportTab = lazyWithRetry(() => import('./components/AdminReportTab')
 const CompanyProfileTab = lazyWithRetry(() => import('./components/CompanyProfileTab').then(m => ({ default: m.CompanyProfileTab })));
 const CompletedProjectsTab = lazyWithRetry(() => import('./components/CompletedProjectsTab').then(m => ({ default: m.CompletedProjectsTab })));
 const HistoryTab = lazyWithRetry(() => import('./components/HistoryTab').then(m => ({ default: m.HistoryTab })));
-const DrivePanel = lazyWithRetry(() => import('./components/DrivePanel').then(m => ({ default: m.DrivePanel })));
 const MenuSettingsModal = lazyWithRetry(() => import('./components/MenuSettingsModal').then(m => ({ default: m.MenuSettingsModal })));
 
 import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
@@ -55,13 +53,10 @@ import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
 import { DEFAULT_PARAMS, calculateProject, synchronizeFlats, calculateFlatCount } from './utils/calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS } from './utils/buildingModelUtils';
 import { calculateFootprint } from './utils/footprintUtils';
-import { initAuth, setCachedToken } from './services/auth';
-import { saveProjectJsonToDrive, deleteDriveFile } from './services/drive';
 import {
   ProjectParams,
   CalculationResult,
   SavedProjectData,
-  DriveProjectFile,
   BuildingModelParams,
   AppTheme,
 } from './types';
@@ -116,7 +111,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('kurulum');
   const [requestedSetupStep, setRequestedSetupStep] = useState<number | undefined>(2);
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
-  const [isDrivePanelOpen, setIsDrivePanelOpen] = useState(false);
 
   const handleSummaryChipNavigate = (itemId: string) => {
     let targetTab: TabId = 'hesapla';
@@ -569,13 +563,7 @@ export default function App() {
     return calculateProject(params);
   }, [params]);
 
-  const [user, setUser] = useState<User | null>(null);
-  const [hasToken, setHasToken] = useState(false);
-  const [isSavingToDrive, setIsSavingToDrive] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  const [fileToDelete, setFileToDelete] = useState<DriveProjectFile | null>(null);
-  const [isDeletingFile, setIsDeletingFile] = useState(false);
 
   const [historyList, setHistoryList] = useState<SavedProjectData[]>(() => {
     try {
@@ -584,20 +572,6 @@ export default function App() {
     } catch (e) {}
     return [];
   });
-
-  useEffect(() => {
-    const unsubscribe = initAuth(
-      (currentUser, token) => {
-        setUser(currentUser);
-        setHasToken(!!token);
-      },
-      () => {
-        setUser(null);
-        setHasToken(false);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
 
   // High-performance debounced persistence (prevents input lag and stutter)
   useEffect(() => {
@@ -653,29 +627,8 @@ export default function App() {
     showNotification('success', 'Hesaplama tamamlandı ve tüm tablolar güncellendi!');
   };
 
-  const handleQuickSave = async () => {
-    if (!hasToken || !user) {
-      setIsDrivePanelOpen(true);
-      showNotification('error', 'Lütfen önce Google Drive hesabınızı bağlayın.');
-      return;
-    }
-
-    setIsSavingToDrive(true);
-    try {
-      const payload: SavedProjectData = {
-        version: '1.0.0',
-        savedAt: new Date().toISOString(),
-        projectAddress: params.projectAddress,
-        params,
-        results,
-      };
-      const res = await saveProjectJsonToDrive(payload);
-      showNotification('success', `"${res.name}" Google Drive'a başarıyla kaydedildi!`);
-    } catch (err: any) {
-      showNotification('error', err.message || 'Google Drive kaydı başarısız oldu.');
-    } finally {
-      setIsSavingToDrive(false);
-    }
+  const handleQuickSave = () => {
+    handleCalculate();
   };
 
   const handleExportJson = () => {
@@ -719,20 +672,6 @@ export default function App() {
     }
   };
 
-  const handleConfirmDeleteDriveFile = async () => {
-    if (!fileToDelete) return;
-    setIsDeletingFile(true);
-    try {
-      await deleteDriveFile(fileToDelete.id);
-      showNotification('success', `"${fileToDelete.name}" Google Drive'dan kalıcı olarak silindi.`);
-      setFileToDelete(null);
-    } catch (err: any) {
-      showNotification('error', err.message || 'Dosya silinemedi.');
-    } finally {
-      setIsDeletingFile(false);
-    }
-  };
-
   const handleClearHistory = () => {
     setHistoryList([]);
     try {
@@ -773,7 +712,6 @@ export default function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onQuickSave={handleQuickSave}
-          isSavingToDrive={isSavingToDrive}
         />
       </Suspense>
     );
@@ -787,11 +725,6 @@ export default function App() {
     >
       <div className="sticky top-0 z-30 print:hidden w-full max-w-full overflow-hidden">
         <Header
-          user={user}
-          hasToken={hasToken}
-          isSavingToDrive={isSavingToDrive}
-          onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
-          onQuickSave={handleQuickSave}
           onExportJson={handleExportJson}
           onImportJson={handleImportJson}
           theme={theme}
@@ -998,8 +931,6 @@ export default function App() {
             <OfferTab
               params={params}
               results={results}
-              hasToken={hasToken}
-              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
               onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
               onNavigateToSurec={() => setActiveTab('surec')}
               theme={theme}
@@ -1020,8 +951,6 @@ export default function App() {
             <ContractTab
               params={params}
               results={results}
-              hasToken={hasToken}
-              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
               onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
               theme={theme}
             />
@@ -1031,8 +960,6 @@ export default function App() {
             <SpecificationTab
               params={params}
               results={results}
-              hasToken={hasToken}
-              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
               theme={theme}
             />
           )}
@@ -1041,8 +968,6 @@ export default function App() {
             <AdminReportTab
               params={params}
               results={results}
-              hasToken={hasToken}
-              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
               theme={theme}
             />
           )}
@@ -1065,8 +990,6 @@ export default function App() {
               onLoadItem={handleLoadProject}
               onClearHistory={handleClearHistory}
               onDeleteItem={handleDeleteHistoryItem}
-              onOpenDrivePanel={() => setIsDrivePanelOpen(true)}
-              hasDriveToken={hasToken}
               theme={theme}
             />
           )}
@@ -1081,37 +1004,6 @@ export default function App() {
         />
       </div>
     </main>
-
-    {isDrivePanelOpen && (
-      <Suspense fallback={null}>
-        <DrivePanel
-          isOpen={isDrivePanelOpen}
-          onClose={() => setIsDrivePanelOpen(false)}
-          user={user}
-          hasToken={hasToken}
-          params={params}
-          results={results}
-          onLoadProject={handleLoadProject}
-          onRequestDeleteConfirm={(file) => setFileToDelete(file)}
-          onAuthSuccess={(u, token) => {
-            setUser(u);
-            setHasToken(true);
-            setCachedToken(token);
-          }}
-        />
-      </Suspense>
-    )}
-
-    <ConfirmModal
-      isOpen={!!fileToDelete}
-      title="Google Drive Dosyasını Sil"
-      message={`"${fileToDelete?.name}" adlı dosya Google Drive'dan kalıcı olarak silinecektir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?`}
-      confirmLabel={isDeletingFile ? 'Siliniyor...' : 'Evet, Dosyayı Sil'}
-      cancelLabel="Vazgeç"
-      isDestructive={true}
-      onConfirm={handleConfirmDeleteDriveFile}
-      onCancel={() => setFileToDelete(null)}
-    />
 
     {isMenuSettingsOpen && (
       <Suspense fallback={null}>

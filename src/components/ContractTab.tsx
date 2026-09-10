@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Cloud, CheckCircle2, AlertCircle, Copy, Search, FileText, PlusCircle, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Copy, Search, FileText, PlusCircle, X } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
-import { saveReportDocumentToDrive } from '../services/drive';
 import { generateContractHtml } from '../utils/reportExport';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
@@ -11,8 +10,6 @@ import { useCompanyProfile } from '../context/CompanyProfileContext';
 interface ContractTabProps {
   params: ProjectParams;
   results: CalculationResult;
-  hasToken: boolean;
-  onOpenDrivePanel: () => void;
   onUpdateParam?: (key: keyof ProjectParams, value: any) => void;
   theme?: AppTheme;
 }
@@ -20,14 +17,10 @@ interface ContractTabProps {
 export const ContractTab: React.FC<ContractTabProps> = ({
   params,
   results,
-  hasToken,
-  onOpenDrivePanel,
   onUpdateParam,
   theme = 'light',
 }) => {
   const { profile } = useCompanyProfile();
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [copiedStatus, setCopiedStatus] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotesEditor, setShowNotesEditor] = useState(false);
@@ -59,35 +52,6 @@ export const ContractTab: React.FC<ContractTabProps> = ({
     const html = generateContractHtml(params, results, profile);
     const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
     printHtmlContent(html, `${safeName}_Resmi_Sozlesme_${params.projectAddress || 'Proje'}`);
-  };
-
-  const handleSaveToDrive = async () => {
-    if (!hasToken) {
-      onOpenDrivePanel();
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveStatus(null);
-    try {
-      const html = generateContractHtml(params, results, profile);
-      const safeAddr = params.projectAddress.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
-      const safeName = (profile.companyName || 'AB_YAPI').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
-      const fileName = `${safeName}_Sozlesme_${safeAddr}_${new Date().toISOString().slice(0, 10)}.html`;
-      const res = await saveReportDocumentToDrive(
-        fileName,
-        html,
-        `${profile.companyName} Resmi İnşaat Sözleşmesi - ${params.projectAddress}`
-      );
-      setSaveStatus({
-        type: 'success',
-        msg: `Sözleşme belgesi Google Drive'a başarıyla kaydedildi: "${res.name}"`,
-      });
-    } catch (err: any) {
-      setSaveStatus({ type: 'error', msg: err.message || 'Drive kaydı başarısız oldu.' });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handleCopyToClipboard = () => {
@@ -157,15 +121,6 @@ export const ContractTab: React.FC<ContractTabProps> = ({
               <span>İlave Özel Şartlar {params.customContractNotes ? '(Aktif)' : ''}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleSaveToDrive}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
-            >
-              <Cloud className="w-4 h-4" />
-              <span>{isSaving ? 'Kaydediliyor...' : "Drive'a Kaydet"}</span>
-            </button>
             <PrintAndPdfButtons
               onExportPdf={handleExportPdf}
               onPrint={handlePrint}
@@ -235,23 +190,6 @@ export const ContractTab: React.FC<ContractTabProps> = ({
           </div>
         )}
       </div>
-
-      {saveStatus && (
-        <div
-          className={`p-4 rounded-2xl text-xs flex items-center gap-2.5 print:hidden border ${
-            saveStatus.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-red-50 text-red-800 border-red-200'
-          }`}
-        >
-          {saveStatus.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-          )}
-          <span>{saveStatus.msg}</span>
-        </div>
-      )}
 
       {/* Contract Document Content */}
       <div

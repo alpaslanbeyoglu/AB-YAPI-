@@ -51,7 +51,6 @@ interface LiteMobileViewProps {
   theme: AppTheme;
   onToggleTheme: () => void;
   onQuickSave: () => void;
-  isSavingToDrive: boolean;
 }
 
 type LiteTab = 'hesapla' | 'santiye' | 'malikler' | 'teklif';
@@ -64,7 +63,6 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
   theme,
   onToggleTheme,
   onQuickSave,
-  isSavingToDrive,
 }) => {
   const { profile } = useCompanyProfile();
   const isGray = theme === 'gray';
@@ -283,7 +281,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
   const cardBg = isGray ? 'bg-white/90 border-slate-300' : 'bg-white border-slate-200';
 
   return (
-    <div className={`min-h-screen pb-24 font-sans ${isGray ? 'bg-slate-200 text-slate-900' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen pb-24 font-sans w-full max-w-full overflow-x-hidden ${isGray ? 'bg-slate-200 text-slate-900' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* ------------------------------------------------------------- */}
       {/* TOP STICKY BAR: LOGO, QUICK ACTIONS, CONVERSION BUTTON        */}
@@ -316,15 +314,10 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
           <button
             type="button"
             onClick={onQuickSave}
-            disabled={isSavingToDrive}
-            className="p-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 disabled:opacity-50"
-            title="Google Drive Kaydet"
+            className="p-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95"
+            title="Hesaplamayı Kaydet"
           >
-            {isSavingToDrive ? (
-              <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
+            <Save className="w-4 h-4" />
           </button>
 
           {/* PROMINENT SWITCH TO FULL / DESKTOP BUTTON */}

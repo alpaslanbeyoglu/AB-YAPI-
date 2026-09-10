@@ -441,17 +441,6 @@ export interface CalculationResult {
   calculatedAt: string;
 }
 
-export interface DriveProjectFile {
-  id: string;
-  name: string;
-  mimeType: string;
-  modifiedTime?: string;
-  size?: string;
-  webViewLink?: string;
-  description?: string;
-  properties?: Record<string, string>;
-}
-
 export interface SavedProjectData {
   version: string;
   savedAt: string;

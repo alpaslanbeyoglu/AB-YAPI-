@@ -887,7 +887,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   </span>
                   <span className="text-[10px] text-slate-400 font-normal">Teklif ve sözleşmeye yansır</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">
                       👤 Müşteri / Proje Adı
@@ -913,21 +913,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       onChange={(e) => onChangeParams({ ...params, projectAddress: e.target.value })}
                       placeholder="Örn: Kadıköy, 124 Ada 5 Parsel"
                       className={`w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      📐 Arsa / Parsel Alanı (m²)
-                    </label>
-                    <input
-                      id="minimalLandAreaInput"
-                      type="number"
-                      min={0}
-                      value={params.landArea || ''}
-                      onChange={(e) => onChangeParams({ ...params, landArea: Number(e.target.value) || 0 })}
-                      placeholder="Örn: 450"
-                      className={`w-full text-xs font-bold font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
                     />
                   </div>
 
