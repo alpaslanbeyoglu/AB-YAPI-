@@ -32,6 +32,7 @@ interface InteractiveFacadeGeometryPanelProps {
   title?: string;
   compact?: boolean;
   onUpdateFacades: (result: InteractiveFacadeUpdateResult) => void;
+  onUpdateRoads?: (roads: RoadConfig[]) => void;
   onEditInSmartPolygon?: () => void;
 }
 
@@ -47,6 +48,7 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
   title = '2D Geometri Planı ve Cephe Ölçüleri',
   compact = false,
   onUpdateFacades,
+  onUpdateRoads,
   onEditInSmartPolygon,
 }) => {
   const isGray = theme === 'gray';
@@ -259,128 +261,252 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
         {/* 4 Facade Inputs */}
         <div className={`${compact ? 'w-full' : 'lg:col-span-7'} grid grid-cols-1 sm:grid-cols-2 gap-2.5`}>
           {/* 1. Ön Cephe */}
-          <div className="p-2.5 bg-white rounded-xl border border-indigo-200/90 shadow-2xs space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <label className="font-bold text-indigo-700 flex items-center gap-1">
-                <span>1. Ön Cephe</span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-600 font-semibold">Yol/Giriş</span>
-              </label>
-              <div className="flex items-center gap-1">
+          {(() => {
+            const frontRoad = (roads || []).find(r => r.facadeIndex === 0);
+            return (
+              <div className="p-2.5 bg-white rounded-xl border border-indigo-200/90 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <label className="font-bold text-indigo-700 flex items-center gap-1">
+                    <span>1. Ön Cephe</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-600 font-semibold">
+                      {frontRoad ? `🛣️ ${frontRoad.name || 'Yol'}` : 'Giriş / Yol'}
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      max="60"
+                      value={front}
+                      onChange={(e) => handleSideChange('front', parseFloat(e.target.value))}
+                      className={`w-16 px-2 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                    />
+                    <span className="text-xs font-semibold text-slate-400">m</span>
+                  </div>
+                </div>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="range"
                   min="1"
-                  max="60"
+                  max="45"
+                  step="0.5"
                   value={front}
                   onChange={(e) => handleSideChange('front', parseFloat(e.target.value))}
-                  className={`w-16 px-2 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                  className="w-full accent-indigo-600 cursor-pointer h-1.5"
                 />
-                <span className="text-xs font-semibold text-slate-400">m</span>
+                <div className="flex items-center justify-between pt-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentRoads = roads || [];
+                      const exists = currentRoads.find(r => r.facadeIndex === 0);
+                      let newRoads;
+                      if (exists) {
+                        newRoads = currentRoads.filter(r => r.facadeIndex !== 0);
+                      } else {
+                        newRoads = [...currentRoads, { id: `road-${Date.now()}-0`, facadeIndex: 0, name: 'Ön İmar Yolu', type: 'street' as const, width: 7 }];
+                      }
+                      if (onUpdateRoads) onUpdateRoads(newRoads);
+                    }}
+                    className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
+                      frontRoad
+                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {frontRoad ? '🛣️ Yol Var (%7m)' : '+ Yol Ekle'}
+                  </button>
+                  <span className="text-slate-400 font-mono">0. Cephe</span>
+                </div>
               </div>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="45"
-              step="0.5"
-              value={front}
-              onChange={(e) => handleSideChange('front', parseFloat(e.target.value))}
-              className="w-full accent-indigo-600 cursor-pointer h-1.5"
-            />
-          </div>
+            );
+          })()}
 
           {/* 2. Sağ Yan Cephe */}
-          <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <label className={`font-bold ${textTitle} flex items-center gap-1`}>
-                <span>2. Sağ Cephe</span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold">Yan</span>
-              </label>
-              <div className="flex items-center gap-1">
+          {(() => {
+            const rightRoad = (roads || []).find(r => r.facadeIndex === 1);
+            return (
+              <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <label className={`font-bold ${textTitle} flex items-center gap-1`}>
+                    <span>2. Sağ Cephe</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold">
+                      {rightRoad ? `🛣️ ${rightRoad.name || 'Yol'}` : 'Yan'}
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      max="60"
+                      value={right}
+                      onChange={(e) => handleSideChange('right', parseFloat(e.target.value))}
+                      className={`w-16 px-2 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                    />
+                    <span className="text-xs font-semibold text-slate-400">m</span>
+                  </div>
+                </div>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="range"
                   min="1"
-                  max="60"
+                  max="45"
+                  step="0.5"
                   value={right}
                   onChange={(e) => handleSideChange('right', parseFloat(e.target.value))}
-                  className={`w-16 px-2 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                  className="w-full accent-indigo-600 cursor-pointer h-1.5"
                 />
-                <span className="text-xs font-semibold text-slate-400">m</span>
+                <div className="flex items-center justify-between pt-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentRoads = roads || [];
+                      const exists = currentRoads.find(r => r.facadeIndex === 1);
+                      let newRoads;
+                      if (exists) {
+                        newRoads = currentRoads.filter(r => r.facadeIndex !== 1);
+                      } else {
+                        newRoads = [...currentRoads, { id: `road-${Date.now()}-1`, facadeIndex: 1, name: 'Sağ İmar Yolu', type: 'street' as const, width: 7 }];
+                      }
+                      if (onUpdateRoads) onUpdateRoads(newRoads);
+                    }}
+                    className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
+                      rightRoad
+                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {rightRoad ? '🛣️ Yol Var (%7m)' : '+ Yol Ekle'}
+                  </button>
+                  <span className="text-slate-400 font-mono">1. Cephe</span>
+                </div>
               </div>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="45"
-              step="0.5"
-              value={right}
-              onChange={(e) => handleSideChange('right', parseFloat(e.target.value))}
-              className="w-full accent-indigo-600 cursor-pointer h-1.5"
-            />
-          </div>
+            );
+          })()}
 
           {/* 3. Arka Cephe */}
-          <div className={`p-2.5 bg-white rounded-xl border shadow-2xs space-y-1.5 ${quad.isSkewed ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200/90'}`}>
-            <div className="flex items-center justify-between text-xs">
-              <label className={`font-bold ${textTitle} flex items-center gap-1`}>
-                <span>3. Arka Cephe</span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold">Bahçe</span>
-              </label>
-              <div className="flex items-center gap-1">
+          {(() => {
+            const backRoad = (roads || []).find(r => r.facadeIndex === 2);
+            return (
+              <div className={`p-2.5 bg-white rounded-xl border shadow-2xs space-y-1.5 ${quad.isSkewed ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200/90'}`}>
+                <div className="flex items-center justify-between text-xs">
+                  <label className={`font-bold ${textTitle} flex items-center gap-1`}>
+                    <span>3. Arka Cephe</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold">
+                      {backRoad ? `🛣️ ${backRoad.name || 'Yol'}` : 'Bahçe'}
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      max="60"
+                      value={back}
+                      onChange={(e) => handleSideChange('back', parseFloat(e.target.value))}
+                      className={`w-16 px-2 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                    />
+                    <span className="text-xs font-semibold text-slate-400">m</span>
+                  </div>
+                </div>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="range"
                   min="1"
-                  max="60"
+                  max="45"
+                  step="0.5"
                   value={back}
                   onChange={(e) => handleSideChange('back', parseFloat(e.target.value))}
-                  className={`w-16 px-2 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                  className="w-full accent-indigo-600 cursor-pointer h-1.5"
                 />
-                <span className="text-xs font-semibold text-slate-400">m</span>
+                <div className="flex items-center justify-between pt-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentRoads = roads || [];
+                      const exists = currentRoads.find(r => r.facadeIndex === 2);
+                      let newRoads;
+                      if (exists) {
+                        newRoads = currentRoads.filter(r => r.facadeIndex !== 2);
+                      } else {
+                        newRoads = [...currentRoads, { id: `road-${Date.now()}-2`, facadeIndex: 2, name: 'Arka İmar Yolu', type: 'street' as const, width: 7 }];
+                      }
+                      if (onUpdateRoads) onUpdateRoads(newRoads);
+                    }}
+                    className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
+                      backRoad
+                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {backRoad ? '🛣️ Yol Var (%7m)' : '+ Yol Ekle'}
+                  </button>
+                  <span className="text-slate-400 font-mono">2. Cephe</span>
+                </div>
               </div>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="45"
-              step="0.5"
-              value={back}
-              onChange={(e) => handleSideChange('back', parseFloat(e.target.value))}
-              className="w-full accent-indigo-600 cursor-pointer h-1.5"
-            />
-          </div>
+            );
+          })()}
 
           {/* 4. Sol Yan Cephe */}
-          <div className={`p-2.5 bg-white rounded-xl border shadow-2xs space-y-1.5 ${quad.isSkewed ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200/90'}`}>
-            <div className="flex items-center justify-between text-xs">
-              <label className={`font-bold ${textTitle} flex items-center gap-1`}>
-                <span>4. Sol Cephe</span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold">Yan</span>
-              </label>
-              <div className="flex items-center gap-1">
+          {(() => {
+            const leftRoad = (roads || []).find(r => r.facadeIndex === 3);
+            return (
+              <div className={`p-2.5 bg-white rounded-xl border shadow-2xs space-y-1.5 ${quad.isSkewed ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200/90'}`}>
+                <div className="flex items-center justify-between text-xs">
+                  <label className={`font-bold ${textTitle} flex items-center gap-1`}>
+                    <span>4. Sol Cephe</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold">
+                      {leftRoad ? `🛣️ ${leftRoad.name || 'Yol'}` : 'Yan'}
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      max="60"
+                      value={left}
+                      onChange={(e) => handleSideChange('left', parseFloat(e.target.value))}
+                      className={`w-16 px-2 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                    />
+                    <span className="text-xs font-semibold text-slate-400">m</span>
+                  </div>
+                </div>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="range"
                   min="1"
-                  max="60"
+                  max="45"
+                  step="0.5"
                   value={left}
                   onChange={(e) => handleSideChange('left', parseFloat(e.target.value))}
-                  className={`w-16 px-2 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                  className="w-full accent-indigo-600 cursor-pointer h-1.5"
                 />
-                <span className="text-xs font-semibold text-slate-400">m</span>
+                <div className="flex items-center justify-between pt-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentRoads = roads || [];
+                      const exists = currentRoads.find(r => r.facadeIndex === 3);
+                      let newRoads;
+                      if (exists) {
+                        newRoads = currentRoads.filter(r => r.facadeIndex !== 3);
+                      } else {
+                        newRoads = [...currentRoads, { id: `road-${Date.now()}-3`, facadeIndex: 3, name: 'Sol İmar Yolu', type: 'street' as const, width: 7 }];
+                      }
+                      if (onUpdateRoads) onUpdateRoads(newRoads);
+                    }}
+                    className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
+                      leftRoad
+                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {leftRoad ? '🛣️ Yol Var (%7m)' : '+ Yol Ekle'}
+                  </button>
+                  <span className="text-slate-400 font-mono">3. Cephe</span>
+                </div>
               </div>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="45"
-              step="0.5"
-              value={left}
-              onChange={(e) => handleSideChange('left', parseFloat(e.target.value))}
-              className="w-full accent-indigo-600 cursor-pointer h-1.5"
-            />
-          </div>
+            );
+          })()}
         </div>
 
         {/* 2D Geometric SVG Canvas */}

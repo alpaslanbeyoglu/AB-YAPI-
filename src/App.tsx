@@ -15,7 +15,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Primary tabs imported directly for instant, rock-solid mobile & Safari initial paint
 import { ProjectSetupTab } from './components/ProjectSetupTab';
-import { CalculatorTab } from './components/CalculatorTab';
 import { LiteMobileView } from './components/LiteMobileView';
 
 // Resilient lazy loader for secondary tabs that retries once on network hiccups
@@ -113,7 +112,7 @@ export default function App() {
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
 
   const handleSummaryChipNavigate = (itemId: string) => {
-    let targetTab: TabId = 'hesapla';
+    let targetTab: TabId = 'kurulum';
     let targetId = '';
     let setupStep: number | undefined = undefined;
 
@@ -129,28 +128,29 @@ export default function App() {
         targetId = 'facade-cantilever-controls';
         break;
       case 'kat-bolum':
-        targetTab = 'hesapla';
-        targetId = 'input-floor-count';
+        targetTab = 'kurulum';
+        setupStep = 2;
+        targetId = 'minimalFloorCountInput';
         break;
       case 'toplam-insaat':
-        targetTab = 'hesapla';
-        targetId = 'calculator-core-summary';
+        targetTab = 'kurulum';
+        setupStep = 2;
         break;
       case 'birim-satis':
-        targetTab = 'hesapla';
-        targetId = 'input-manual-flat-price';
+        targetTab = 'kurulum';
+        setupStep = 2;
         break;
       case 'net-maliyet':
         targetTab = 'maliyet';
         targetId = 'cost-details-header';
         break;
       case 'hedef-bedel':
-        targetTab = 'hesapla';
-        targetId = 'input-manual-flat-price';
+        targetTab = 'kurulum';
+        setupStep = 2;
         break;
       case 'teslim-suresi':
-        targetTab = 'hesapla';
-        targetId = 'input-project-duration';
+        targetTab = 'kurulum';
+        setupStep = 2;
         break;
       default:
         break;
@@ -863,7 +863,7 @@ export default function App() {
             <ProjectSetupTab
               params={params}
               onChangeParams={updateCalculatorParams}
-              onNext={() => setActiveTab('hesapla')}
+              onNext={() => setActiveTab('model')}
               onNavigateToModel={() => setActiveTab('model')}
               onNavigateToOwners={() => setActiveTab('malikler')}
               theme={theme}
@@ -872,25 +872,12 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'hesapla' && (
-            <CalculatorTab
-              params={params}
-              results={results}
-              onChangeParams={updateCalculatorParams}
-              onCalculate={handleCalculate}
-              onNavigateToModel={() => setActiveTab('model')}
-              onNavigateToCostDetails={() => setActiveTab('maliyet')}
-              onNavigateToOwners={() => setActiveTab('malikler')}
-              theme={theme}
-            />
-          )}
-
           {activeTab === 'model' && (
             <BuildingModelTab
               params={buildingModelParams}
               onUpdateParams={updateBuildingModelParams}
               onSyncWithCalculator={handleSyncModelToCalculator}
-              onNavigateToCalculator={() => setActiveTab('hesapla')}
+              onNavigateToCalculator={() => setActiveTab('kurulum')}
               onNavigateToFloorPlan={() => setActiveTab('katplani')}
               theme={theme}
             />
@@ -901,7 +888,7 @@ export default function App() {
               params={buildingModelParams}
               onUpdateParams={updateBuildingModelParams}
               onSyncWithCalculator={handleSyncModelToCalculator}
-              onNavigateToCalculator={() => setActiveTab('hesapla')}
+              onNavigateToCalculator={() => setActiveTab('kurulum')}
               onNavigateToModel={() => setActiveTab('model')}
               theme={theme}
             />

@@ -14,11 +14,11 @@ import {
   Sparkles,
   Info,
 } from 'lucide-react';
-import { BuildingModelParams } from '../types';
-import { calculateBuildingMetrics } from '../utils/buildingModelUtils';
+import { BuildingModelParams, ProjectParams } from '../types';
+import { calculateBuildingMetrics, DEFAULT_BUILDING_PARAMS } from '../utils/buildingModelUtils';
 
 interface ZoningAuditPanelProps {
-  params: BuildingModelParams;
+  params: ProjectParams | BuildingModelParams;
   theme?: 'light' | 'gray' | 'dark';
 }
 
@@ -28,7 +28,11 @@ export const ZoningAuditPanel: React.FC<ZoningAuditPanelProps> = ({
 }) => {
   const [isPanelCollapsed, setIsPanelCollapsed] = useState<boolean>(true);
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
-  const metrics = calculateBuildingMetrics(params);
+  const fullModelParams: BuildingModelParams = {
+    ...DEFAULT_BUILDING_PARAMS,
+    ...params,
+  };
+  const metrics = calculateBuildingMetrics(fullModelParams);
 
   const isGray = theme === 'gray';
   const cardBg = isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200';
