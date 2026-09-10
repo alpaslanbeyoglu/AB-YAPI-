@@ -113,6 +113,52 @@ export function getFacadeStyleConfig(styleId?: FacadeStyleType): FacadeStyleOpti
   return found || FACADE_STYLES[0];
 }
 
+export interface ColorPreset {
+  id: string;
+  name: string;
+  hex: string;
+}
+
+export const WALL_COLOR_PRESETS: ColorPreset[] = [
+  { id: 'white', name: 'Kar Beyaz', hex: '#f8fafc' },
+  { id: 'warm_beige', name: 'Bej Traverten', hex: '#f5efe6' },
+  { id: 'light_gray', name: 'Açık Gri', hex: '#e2e8f0' },
+  { id: 'stone_sand', name: 'Doğal Kumtaşı', hex: '#eaddcf' },
+  { id: 'slate_gray', name: 'Grafit Gri', hex: '#64748b' },
+  { id: 'anthracite', name: 'Koyu Antrasit', hex: '#22252a' },
+  { id: 'terracotta', name: 'Terracotta Tuğla', hex: '#9a3412' },
+  { id: 'cream_latte', name: 'Krem Latte', hex: '#fef3c7' },
+];
+
+export const ROOF_COLOR_PRESETS: ColorPreset[] = [
+  { id: 'tile_red', name: 'Kiremit Kırmızı', hex: '#b91c1c' },
+  { id: 'anthracite_zinc', name: 'Antrasit Çinko', hex: '#1e293b' },
+  { id: 'dark_charcoal', name: 'Koyu Grafit', hex: '#0f172a' },
+  { id: 'terracotta_roof', name: 'Klinker Kırmızı', hex: '#7f1d1d' },
+  { id: 'chestnut_brown', name: 'Kestane Kahve', hex: '#451a03' },
+  { id: 'slate_blue', name: 'Gece Mavisi', hex: '#1e3a8a' },
+  { id: 'silver_metal', name: 'Gümüş Metalik', hex: '#94a3b8' },
+  { id: 'olive_bronze', name: 'Bronz Çinko', hex: '#3f3f46' },
+];
+
+export const ACCENT_COLOR_PRESETS: ColorPreset[] = [
+  { id: 'teak_wood', name: 'Teak Ahşap', hex: '#b5734c' },
+  { id: 'walnut_wood', name: 'Koyu Ceviz', hex: '#8c6239' },
+  { id: 'anthracite_accent', name: 'Antrasit Panel', hex: '#334155' },
+  { id: 'warm_bronze', name: 'Altın Bronz', hex: '#b45309' },
+  { id: 'clean_white', name: 'Beyaz Söve', hex: '#ffffff' },
+  { id: 'deep_black', name: 'Siyah Kompozit', hex: '#18181b' },
+  { id: 'indigo_modern', name: 'Modern İndigo', hex: '#4f46e5' },
+];
+
+export const FRAME_COLOR_PRESETS: ColorPreset[] = [
+  { id: 'black_alu', name: 'Siyah Alüminyum', hex: '#18181b' },
+  { id: 'anthracite_frame', name: 'Antrasit PVC', hex: '#334155' },
+  { id: 'white_pvc', name: 'Beyaz PVC', hex: '#f8fafc' },
+  { id: 'oak_wood_frame', name: 'Meşe Ahşap', hex: '#92400e' },
+  { id: 'champagne_metal', name: 'Şampanya Metal', hex: '#a89f91' },
+];
+
 export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   facadeWidth: 14.0,       // Ön cephe 14 metre
   facadeDepth: 18.0,       // Sağ yan cephe derinlik 18 metre
@@ -137,7 +183,12 @@ export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   elevatorCount: 1,        // 1 adet asansör
   balconyDepth: 1.40,      // Balkon çıkması 1.40 metre
   roofType: 'gable',       // Kırma çatı
-  facadeStyle: 'wood_anthracite', // Ahşap + Antrasit modern cephe
+  wallColor: '#f1f5f9',    // Dış cephe açık gri / doğal beyaz
+  roofColor: '#b91c1c',    // Kiremit kırmızısı çatı
+  accentColor: '#b5734c',  // Sıcak teak ahşap söve & vurgu
+  frameColor: '#18181b',   // Siyah / koyu antrasit doğrama
+  slabColor: '#cbd5e1',    // Açık gri kat silmesi
+  facadeStyle: 'wood_anthracite', // Geriye dönük uyumluluk
   wallThickness: 0.25,     // 25 cm dış duvar
   showFurniture: true,     // Mobilya gösterimi açık
   showDimensions: true,    // Ölçülendirme açık
@@ -270,10 +321,10 @@ export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = 
 
   const totalFlats = normalFlats + extraMansardFlats;
 
-  const stairTotalArea = Math.round(stairWidth * stairDepth * 100) / 100;
-  const elevatorTotalArea = Math.round(elevatorWidth * elevatorDepth * elevatorCount * 100) / 100;
-  const coreHallArea = Math.round(stairWidth * 2.0 * 100) / 100; // Kat koridoru
-  const coreArea = Math.round((stairTotalArea + elevatorTotalArea + coreHallArea) * 100) / 100;
+  const stairTotalArea = 0;
+  const elevatorTotalArea = 0;
+  const coreHallArea = 0;
+  const coreArea = 0;
 
   // Normal kat bazında alan
   const activeGross = hasCantilever ? upperFloorGrossArea : footprintArea;

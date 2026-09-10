@@ -1,4 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+declare const google: any;
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import {
+  Map,
+  AdvancedMarker,
+  useMap,
+  useApiIsLoaded,
+} from '@vis.gl/react-google-maps';
 import {
   ProjectParams,
   ExistingBuilding,
@@ -45,8 +52,6 @@ import {
   BarChart3,
   Palette,
 } from 'lucide-react';
-import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
-import { UnifiedFacadeManager } from './UnifiedFacadeManager';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
 import { calculateCantileverDetails, calculateFlatCount, calculateProject } from '../utils/calculatorEngine';
 import {
@@ -95,6 +100,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     ? 'bg-slate-900 text-gray-100 border-slate-700 focus:border-indigo-500'
     : 'bg-white text-slate-900 border-slate-200 focus:border-indigo-500';
 
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const minimalAddressInputRef = useRef<HTMLInputElement>(null);
+
   // State for new existing building creation
   const [editingBuildingId, setEditingBuildingId] = useState<string | null>(null);
   const [bldgName, setBldgName] = useState<string>('A Blok (Eski Yapı)');
@@ -114,6 +122,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const [wizardMode, setWizardMode] = useState<boolean>(true);
   const [activeStepState, setActiveStepState] = useState<number>(requestedStep || 2);
   const activeStep = requestedStep !== undefined ? requestedStep : activeStepState;
+
+  const apiIsLoaded = useApiIsLoaded();
 
   // Calculate live project results for metrics and feasibility analysis
   const results = useMemo(() => calculateProject(params), [params]);
@@ -738,16 +748,19 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   📍 Yapı / Proje Adresi (Ada & Parsel)
                 </label>
-                <input
-                  id="projectAddressInput"
-                  type="text"
-                  value={params.projectAddress || ''}
-                  onChange={(e) => onChangeParams({ ...params, projectAddress: e.target.value })}
-                  placeholder="Örn: İstanbul, Kadıköy, Göztepe Mah. 1024 Ada 15 Parsel"
-                  className={`w-full text-xs font-bold px-3 py-2.5 rounded-lg border ${inputBg}`}
-                />
+                <div className="relative">
+                  <input
+                    ref={addressInputRef}
+                    id="projectAddressInput"
+                    type="text"
+                    value={params.projectAddress || ''}
+                    onChange={(e) => onChangeParams({ ...params, projectAddress: e.target.value })}
+                    placeholder="Örn: İstanbul, Kadıköy, Göztepe Mah. 1024 Ada 15 Parsel"
+                    className={`w-full text-xs font-bold px-3 py-2.5 rounded-lg border ${inputBg}`}
+                  />
+                </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">
-                  Tapu kaydı, ada parsel ve belediye yazışmalarında kullanılacak resmi adres.
+                  Google Maps Autocomplete ile hızlıca adres seçebilirsiniz.
                 </span>
               </div>
 
@@ -845,6 +858,76 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
             ) : null}
 
+            {/* Google Map Preview */}
+            <div className="pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-red-500" />
+                  Konum Önizleme (Harita)
+                </h3>
+                {params.realWorldLocation && (
+                  <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                    {params.realWorldLocation.lat.toFixed(6)}, {params.realWorldLocation.lng.toFixed(6)}
+                  </span>
+                )}
+              </div>
+              <div className="h-[250px] w-full rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative group">
+                {apiIsLoaded ? (
+                  <Map
+                    defaultCenter={params.realWorldLocation || { lat: 41.0082, lng: 28.9784 }}
+                    defaultZoom={15}
+                    mapId="DEMO_MAP_ID"
+                    gestureHandling={'greedy'}
+                    disableDefaultUI={false}
+                    internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+                    onClick={(e: any) => {
+                      if (e.detail?.latLng) {
+                        onChangeParams({
+                          ...params,
+                          realWorldLocation: {
+                            lat: e.detail.latLng.lat,
+                            lng: e.detail.latLng.lng,
+                            address: params.projectAddress || 'Seçilen Harita Konumu'
+                          }
+                        });
+                      }
+                    }}
+                  >
+                    {params.realWorldLocation && (
+                      <AdvancedMarker 
+                        position={{ lat: params.realWorldLocation.lat, lng: params.realWorldLocation.lng }}
+                        title="Proje Konumu"
+                      />
+                    )}
+                  </Map>
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-slate-50 to-indigo-50/40 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-11 h-11 rounded-2xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-600 mb-2.5 shadow-sm">
+                      <MapPin className="w-5 h-5 text-indigo-500" />
+                    </div>
+                    <div className="text-xs font-bold text-slate-800 mb-1">
+                      {params.projectAddress || 'Proje Konum & Arsa Analizi'}
+                    </div>
+                    <p className="text-[11px] text-slate-500 max-w-sm leading-relaxed">
+                      Google Maps API anahtarı girildiğinde interaktif uydu haritası, ada/parsel işaretleme ve fotogerçekçi 3D çevre simülasyonu aktifleşir.
+                    </p>
+                    {params.realWorldLocation && (
+                      <div className="mt-2 text-[10px] font-mono text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200/60 shadow-xs">
+                        📍 Koordinat: {params.realWorldLocation.lat.toFixed(5)}, {params.realWorldLocation.lng.toFixed(5)}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {apiIsLoaded && !params.realWorldLocation && (
+                  <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
+                    <div className="bg-white/90 px-4 py-2 rounded-xl shadow-lg border border-white text-[11px] font-bold text-slate-600">
+                      Haritaya tıklayarak arsa konumunu işaretleyebilirsiniz
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Proje Türü Seçimi */}
             <div className="pt-5 border-t border-slate-100/80 space-y-3.5">
               <label className="block text-xs font-black text-indigo-950 uppercase tracking-wider">
@@ -895,10 +978,10 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             </div>
             <div>
               <h2 className={`text-base sm:text-lg font-bold ${textTitle}`}>
-                2. Proje Ölçüleri & 2D Çizim (Tüm Proje Parametreleri)
+                2. Proje Ölçüleri & Yapı Parametreleri
               </h2>
               <p className={`text-xs ${textMuted}`}>
-                Müşteri, mevcut binalar, planlanan kat/daire özellikleri ve bina taban geometrisini buradan doğrudan yönetin; 2D akıllı çizim tuvalinde geometriyi oluşturun.
+                Müşteri, mevcut binalar ve planlanan kat/daire/yapı parametrelerini buradan doğrudan yönetebilirsiniz.
               </p>
             </div>
           </div>
@@ -968,14 +1051,17 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">
                       📍 Yapı / Proje Adresi (Ada & Parsel)
                     </label>
-                    <input
-                      id="minimalProjectAddressInput"
-                      type="text"
-                      value={params.projectAddress || ''}
-                      onChange={(e) => onChangeParams({ ...params, projectAddress: e.target.value })}
-                      placeholder="Örn: Kadıköy, 124 Ada 5 Parsel"
-                      className={`w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                    />
+                    <div className="relative">
+                      <input
+                        ref={minimalAddressInputRef}
+                        id="minimalProjectAddressInput"
+                        type="text"
+                        value={params.projectAddress || ''}
+                        onChange={(e) => onChangeParams({ ...params, projectAddress: e.target.value })}
+                        placeholder="Örn: Kadıköy, 124 Ada 5 Parsel"
+                        className={`w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${inputBg}`}
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -1755,52 +1841,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             </div>
           )}
         </div>
-
-        {/* Parcel Info & Input Mode Selector */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Geometrik Giriş Metodu</label>
-            <select
-              value={activeInputMode}
-              onChange={(e) =>
-                onChangeParams({
-                  ...params,
-                  footprintInputMode: e.target.value as FootprintInputMode,
-                })
-              }
-              className={`w-full text-xs font-bold px-3 py-2 rounded-lg border ${inputBg}`}
-            >
-              <option value="polygonDraw">📐 İnteraktif Poligon Çizimi (Serbest Çokgen)</option>
-              <option value="dimensions">📏 4 Cephe / Çarpık Dörtgen (Ön x Yan)</option>
-              <option value="customFacades">📐 Çoklu Cephe (5, 6, 8 Kenarlı)</option>
-              <option value="lShape">🔲 L-Tipi Kademeli Kütle</option>
-              <option value="directArea">🏷️ Doğrudan Taban m² Alanı</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Hazır Geometri Şablonları</label>
-            <div className="flex items-center gap-1.5">
-              {Object.entries(POLYGON_PRESETS).map(([key, preset]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => handleApplyPreset(key)}
-                  className="px-2.5 py-2 text-[11px] font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 text-slate-700 hover:text-indigo-700 transition-colors"
-                >
-                  {preset.name.split(' ')[0]}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* MERKEZİ TÜM CEPHE İŞLEMLERİ & GEOMETRİ YÖNETİM MERKEZİ */}
-        <UnifiedFacadeManager
-          params={params}
-          onChangeParams={onChangeParams}
-          theme={theme}
-        />
       </div>
       )}
 

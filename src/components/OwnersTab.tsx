@@ -40,9 +40,12 @@ import {
   Store,
   Home,
   Wrench,
+  Equal,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, FlatItem, AppTheme, FlatCalcResult } from '../types';
 import { OfficialOwnerReportModal } from './OfficialOwnerReportModal';
+import { calculateFootprint } from '../utils/footprintUtils';
+import { calculateCantileverDetails } from '../utils/calculatorEngine';
 
 interface OwnersTabProps {
   params: ProjectParams;
@@ -104,15 +107,99 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   };
 
   const handleFlatChange = (idx: number, fieldOrUpdates: keyof FlatItem | Partial<FlatItem>, val?: any) => {
+    const floorCount = Math.max(1, params.floorCount || 1);
     const updatedFlats = params.flats.map((flat, i) => {
       if (i === idx) {
+        let merged: FlatItem;
         if (typeof fieldOrUpdates === 'string') {
-          return { ...flat, [fieldOrUpdates]: val };
+          merged = { ...flat, [fieldOrUpdates]: val };
+        } else {
+          merged = { ...flat, ...fieldOrUpdates };
         }
-        return { ...flat, ...fieldOrUpdates };
+
+        // KURAL 1: Mansart sadece en üst katta olur!
+        if (merged.flatType === 'mansard') {
+          merged.floorNumber = floorCount;
+          if (!merged.description || merged.description.includes('Kat')) {
+            merged.description = `En Üst Kat (${floorCount}. Kat) Mansart - Ayrı Bağımsız Bölüm`;
+          }
+        } else if (merged.floorNumber !== undefined && merged.floorNumber < floorCount && flat.flatType === 'mansard') {
+          // Alt kata taşınırsa mimari kural gereği mansart kalamaz, konut olur
+          merged.flatType = 'standard';
+        }
+
+        return merged;
       }
       return flat;
     });
+    onChangeParams({
+      ...params,
+      flats: updatedFlats,
+    });
+    if (onCalculate) onCalculate();
+  };
+
+  // KURAL: 1 katta N daire varsa aksi belirtilmemişse o kat alanı eşit olarak kattaki daire sayısına bölünerek bulunur
+  const handleDistributeFloorAreasEqually = () => {
+    const floorCount = Math.max(1, params.floorCount || 1);
+    const flatsPerFloor = Math.max(1, params.flatsPerFloor || 2);
+    const hasShop = !!params.hasGroundFloorShop;
+    const shopCount = hasShop ? Math.max(1, params.shopCount || 1) : 0;
+
+    // Aktif taban alanı ve çıkmalı üst kat alanı
+    const footprintCalc = calculateFootprint(params.footprintInputMode, params);
+    const baseArea = footprintCalc.area;
+    const cantileverInfo = calculateCantileverDetails(params, baseArea, footprintCalc);
+    const upperFloorArea = cantileverInfo.upperFloorArea;
+    const roofType = params.roofType || 'gable';
+    const isMansard = roofType === 'mansard';
+    const isDuplex = roofType === 'duplex';
+    const roofAtticArea = isDuplex
+      ? Math.round(upperFloorArea * 0.65 * 100) / 100
+      : isMansard
+      ? Math.round(upperFloorArea * 0.70 * 100) / 100
+      : 0;
+
+    const mansardFlats = params.flats.filter((f) => f.flatType === 'mansard');
+    const mansardCount = mansardFlats.length > 0 ? mansardFlats.length : (params.mansardFlatCount || flatsPerFloor);
+    const mansardAreaShare = mansardCount > 0 && roofAtticArea > 0
+      ? parseFloat((roofAtticArea / mansardCount).toFixed(2))
+      : parseFloat(((upperFloorArea * 0.70) / Math.max(1, flatsPerFloor)).toFixed(2));
+
+    const shopAvg = shopCount > 0 ? parseFloat((baseArea / shopCount).toFixed(2)) : 0;
+    const upperFlatAvg = parseFloat((upperFloorArea / flatsPerFloor).toFixed(2));
+    const groundResFlatAvg = parseFloat((baseArea / flatsPerFloor).toFixed(2));
+
+    const updatedFlats = params.flats.map((flat, idx) => {
+      let targetFloor = flat.floorNumber;
+      if (flat.flatType === 'mansard') {
+        targetFloor = floorCount; // Kural: Mansart sadece en üst katta olur
+      } else if (flat.flatType === 'shop') {
+        targetFloor = 0;
+      } else if (targetFloor === undefined) {
+        const resIdx = hasShop ? Math.max(0, idx - shopCount) : idx;
+        targetFloor = 1 + Math.floor(resIdx / flatsPerFloor);
+      }
+
+      let equalArea = upperFlatAvg;
+      if (flat.flatType === 'shop') {
+        equalArea = shopAvg;
+      } else if (flat.flatType === 'mansard') {
+        equalArea = mansardAreaShare;
+      } else if (targetFloor === 1 && !hasShop) {
+        equalArea = groundResFlatAvg;
+      } else {
+        equalArea = upperFlatAvg;
+      }
+
+      return {
+        ...flat,
+        floorNumber: targetFloor,
+        area: equalArea,
+        landShareNumerator: Math.round(equalArea * 10),
+      };
+    });
+
     onChangeParams({
       ...params,
       flats: updatedFlats,
@@ -167,7 +254,13 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         return { ...flat, serefiyeMultiplier: 1.0 };
       }
 
-      const floor = flat.floorNumber !== undefined ? flat.floorNumber : Math.floor(idx / flatsPerFloor);
+      const floor = flat.flatType === 'mansard'
+        ? floorCount
+        : (flat.floorNumber !== undefined
+            ? flat.floorNumber
+            : (params.hasGroundFloorShop
+                ? (idx < (params.shopCount || 1) ? 0 : 1 + Math.floor((idx - (params.shopCount || 1)) / flatsPerFloor))
+                : 1 + Math.floor(idx / flatsPerFloor)));
       let mult = 1.0;
 
       if (preset === 'standard') {
@@ -1463,6 +1556,17 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
               </button>
             </div>
 
+            {/* Kat Alanını Dairelere Eşit Dağıt */}
+            <button
+              type="button"
+              onClick={handleDistributeFloorAreasEqually}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-200 shadow-xs transition-all active:scale-95 cursor-pointer"
+              title="Her katın brüt alanını kattaki daire sayısına (örn. 1 katta 4 daire) göre eşit olarak paylaştırır. Mansartları en üst kata yerleştirir."
+            >
+              <Equal className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Kat Alanını Eşit Paylaştır</span>
+            </button>
+
             {/* Excel / CSV İndir */}
             <button
               type="button"
@@ -1497,6 +1601,27 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
         {isOwnersGridOpen && (
           <div className="p-6 space-y-5">
+            {/* Kat & Mansart & Eşit Alan Kuralı Bilgilendirme Kartı */}
+            <div className="p-3.5 bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-slate-50 border border-blue-200/80 rounded-2xl flex items-start gap-3 text-xs text-blue-950 shadow-2xs">
+              <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-[11px] leading-relaxed space-y-1">
+                <div className="font-bold text-blue-900 flex items-center gap-2">
+                  <span>Mimari & Hukuki Kat Malikleri Kuralları</span>
+                  <span className="text-[10px] bg-blue-100/80 text-blue-800 font-semibold px-2 py-0.5 rounded-full border border-blue-200">
+                    Otomatik Senkronize
+                  </span>
+                </div>
+                <div className="text-blue-800/90">
+                  <strong>• Mansart Kuralı:</strong> Mansart bağımsız bölüm <u>yalnızca en üst katta (çatı katında)</u> yer alır. Mansart seçilen daireler otomatik olarak binanın en üst katına atanır.
+                </div>
+                <div className="text-blue-800/90">
+                  <strong>• Daire Numaralandırma:</strong> Daire numarası en alt katlardan (Daire 1, 2...) başlar ve yukarıya doğru artar.
+                </div>
+                <div className="text-blue-800/90">
+                  <strong>• Eşit Kat Alanı Kuralı:</strong> 1 katta {params.flatsPerFloor || 2} daire olduğunda, aksi belirtilmedikçe o katın brüt alanı kattaki daire sayısına eşit bölünerek bulunur. Daire alanlarını tablodan tek tek özelleştirebilir veya yukarıdaki <em>"Kat Alanını Eşit Paylaştır"</em> butonuyla standart eşit dağılıma döndürebilirsiniz.
+                </div>
+              </div>
+            </div>
             {/* 1. KONTROL & ARAMA & FİLTRELEME ÇUBUĞU */}
             <div className="space-y-3">
               <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
@@ -2104,11 +2229,18 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                 : 'hover:bg-slate-50'
                             }`}
                           >
-                            {/* Daire No & Rol */}
+                            {/* Daire No & Rol & Kat */}
                             <td className="p-2 text-center">
                               <div className="flex flex-col items-center">
                                 <span className="font-bold text-slate-900 font-mono text-xs">
                                   No {flat.id}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                                  {flat.floorNumber === 0
+                                    ? 'Zemin Kat'
+                                    : flat.flatType === 'mansard'
+                                    ? `${flat.floorNumber || params.floorCount}. Kat (Mansart)`
+                                    : `${flat.floorNumber !== undefined ? flat.floorNumber : (params.hasGroundFloorShop ? (originalIndex < (params.shopCount || 1) ? 'Zemin' : `${1 + Math.floor((originalIndex - (params.shopCount || 1)) / (params.flatsPerFloor || 2))}. Kat`) : `${1 + Math.floor(originalIndex / (params.flatsPerFloor || 2))}. Kat`)}`}
                                 </span>
                                 <span
                                   className={`text-[9px] px-1.5 py-0.5 rounded font-bold mt-0.5 ${
@@ -2126,14 +2258,25 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                             <td className="p-2 text-center">
                               <select
                                 value={flat.flatType || 'standard'}
-                                onChange={(e) => handleFlatChange(originalIndex, 'flatType', e.target.value)}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === 'mansard') {
+                                    handleFlatChange(originalIndex, {
+                                      flatType: 'mansard',
+                                      floorNumber: Math.max(1, params.floorCount || 1),
+                                      description: `En Üst Kat (${params.floorCount}. Kat) Mansart`,
+                                    });
+                                  } else {
+                                    handleFlatChange(originalIndex, 'flatType', val);
+                                  }
+                                }}
                                 className={`text-[10px] px-1.5 py-1.5 rounded border font-bold ${
                                   flat.flatType === 'shop' ? 'bg-amber-50 border-amber-300 text-amber-800' : inputBg
-                                } w-24 text-center`}
+                                } w-28 text-center`}
                               >
                                 <option value="standard">🏠 Konut</option>
                                 <option value="shop">🏪 Dükkan</option>
-                                <option value="mansard">🏚️ Mansart</option>
+                                <option value="mansard">🏚️ Mansart (En Üst)</option>
                                 <option value="duplex">🏘️ Dubleks</option>
                               </select>
                             </td>
@@ -2469,6 +2612,13 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           <span className="font-extrabold">
                             {flat.flatType === 'shop' ? `🏪 Dükkan ${flat.id}` : `Daire ${flat.id}`}
                           </span>
+                          <span className="text-[10px] text-slate-600 font-semibold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                            {flat.floorNumber === 0
+                              ? 'Zemin Kat'
+                              : flat.flatType === 'mansard'
+                              ? `${flat.floorNumber || params.floorCount}. Kat (Mansart)`
+                              : `${flat.floorNumber !== undefined ? flat.floorNumber : (params.hasGroundFloorShop ? (originalIndex < (params.shopCount || 1) ? 'Zemin' : `${1 + Math.floor((originalIndex - (params.shopCount || 1)) / (params.flatsPerFloor || 2))}. Kat`) : `${1 + Math.floor(originalIndex / (params.flatsPerFloor || 2))}. Kat`)}`}
+                          </span>
                           <span
                             className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                               isContractor
@@ -2553,14 +2703,27 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         </label>
                         <select
                           value={flat.flatType || 'standard'}
-                          onChange={(e) => handleFlatChange(originalIndex, 'flatType', e.target.value)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'mansard') {
+                              handleFlatChange(originalIndex, {
+                                flatType: 'mansard',
+                                floorNumber: Math.max(1, params.floorCount || 1),
+                                description: `En Üst Kat (${params.floorCount}. Kat) Mansart`,
+                              });
+                            } else {
+                              handleFlatChange(originalIndex, 'flatType', val);
+                            }
+                          }}
                           className={`w-full text-xs px-3 py-1.5 rounded-xl border font-bold ${
                             flat.flatType === 'shop' ? 'bg-amber-50 border-amber-300 text-amber-800' : inputBg
                           }`}
                         >
                           <option value="standard">🏠 Konut (Daire)</option>
                           <option value="shop">🏪 Ticari (Dükkan/Mağaza)</option>
-                          <option value="mansard">🏚️ Mansart Katı</option>
+                          <option value="mansard">
+                            {flat.floorNumber === params.floorCount ? '🏚️ Mansart (En Üst Kat)' : '🏚️ Mansart (En Üst Kata Taşınır)'}
+                          </option>
                           <option value="duplex">🏘️ Çatı Dubleksi</option>
                         </select>
                       </div>
@@ -3044,9 +3207,38 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                            Brüt Alan (m²):
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                              Brüt Alan (m²):
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const flatsPerFloor = Math.max(1, params.flatsPerFloor || 2);
+                                const footprintCalc = calculateFootprint(params.footprintInputMode, params);
+                                const baseArea = footprintCalc.area;
+                                const cantileverInfo = calculateCantileverDetails(params, baseArea, footprintCalc);
+                                const upperFloorArea = cantileverInfo.upperFloorArea;
+                                const roofType = params.roofType || 'gable';
+                                const roofAtticArea = roofType === 'mansard' ? Math.round(upperFloorArea * 0.70 * 100) / 100 : 0;
+                                let equalVal = parseFloat((upperFloorArea / flatsPerFloor).toFixed(2));
+                                if (currentFlat.flatType === 'shop') {
+                                  const shopCount = Math.max(1, params.shopCount || 1);
+                                  equalVal = parseFloat((baseArea / shopCount).toFixed(2));
+                                } else if (currentFlat.flatType === 'mansard') {
+                                  const mansardFlats = params.flats.filter(f => f.flatType === 'mansard');
+                                  const mCount = mansardFlats.length > 0 ? mansardFlats.length : (params.mansardFlatCount || flatsPerFloor);
+                                  equalVal = mCount > 0 && roofAtticArea > 0 ? parseFloat((roofAtticArea / mCount).toFixed(2)) : parseFloat(((upperFloorArea * 0.70) / flatsPerFloor).toFixed(2));
+                                }
+                                handleFlatChange(flatIndex, 'area', equalVal);
+                              }}
+                              className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1 cursor-pointer bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200"
+                              title="Kat alanını kattaki daire sayısına bölerek eşit payı atar"
+                            >
+                              <Equal className="w-2.5 h-2.5" />
+                              <span>Eşit Payı Al</span>
+                            </button>
+                          </div>
                           <input
                             type="number"
                             step="0.5"
@@ -3073,16 +3265,58 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           </label>
                           <select
                             value={currentFlat.flatType || 'standard'}
-                            onChange={(e) => handleFlatChange(flatIndex, 'flatType', e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value as FlatItem['flatType'];
+                              if (val === 'mansard') {
+                                handleFlatChange(flatIndex, {
+                                  flatType: 'mansard',
+                                  floorNumber: Math.max(1, params.floorCount || 1),
+                                  description: `En Üst Kat (${params.floorCount}. Kat) Mansart`,
+                                });
+                              } else {
+                                handleFlatChange(flatIndex, 'flatType', val);
+                              }
+                            }}
                             className={`w-full text-xs px-3 py-2 rounded-xl border font-bold ${
                               isShop ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-800'
                             }`}
                           >
                             <option value="standard">🏠 Konut (Daire)</option>
                             <option value="shop">🏪 Ticari (Dükkan/Mağaza)</option>
-                            <option value="mansard">🏚️ Mansart Katı</option>
+                            <option value="mansard">
+                              {currentFlat.floorNumber === params.floorCount ? '🏚️ Mansart Katı (En Üst Kat)' : '🏚️ Mansart Katı (En Üst Kata Taşınır)'}
+                            </option>
                             <option value="duplex">🏘️ Çatı Dubleksi</option>
                           </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Bulunduğu Kat:
+                          </label>
+                          {currentFlat.flatType === 'mansard' ? (
+                            <div className="w-full text-xs px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-900 font-bold flex items-center justify-between">
+                              <span>{params.floorCount}. Kat (En Üst Kat - Çatı)</span>
+                              <span className="text-[9px] bg-indigo-200/70 text-indigo-800 px-1.5 py-0.5 rounded font-semibold">
+                                Mansart Kuralı
+                              </span>
+                            </div>
+                          ) : (
+                            <select
+                              value={currentFlat.floorNumber !== undefined ? currentFlat.floorNumber : (params.hasGroundFloorShop ? (flatIndex < (params.shopCount || 1) ? 0 : 1 + Math.floor((flatIndex - (params.shopCount || 1)) / (params.flatsPerFloor || 2))) : 1 + Math.floor(flatIndex / (params.flatsPerFloor || 2)))}
+                              onChange={(e) => handleFlatChange(flatIndex, 'floorNumber', parseInt(e.target.value, 10))}
+                              className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-800 font-bold"
+                            >
+                              {params.hasGroundFloorShop && (
+                                <option value={0}>Zemin Kat (Dükkan/Ticari)</option>
+                              )}
+                              {Array.from({ length: params.floorCount }, (_, i) => i + 1).map((f) => (
+                                <option key={f} value={f}>
+                                  {f}. Kat {f === params.floorCount ? '(En Üst Kat)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                       </div>
 

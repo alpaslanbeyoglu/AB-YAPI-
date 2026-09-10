@@ -1133,163 +1133,22 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
               })}
 
               {/* Filled Building Polygon Footprint */}
-              <polygon
-                points={polygonPointsStr}
-                fill="url(#hatch-arch)"
-                stroke="rgba(99, 102, 241, 0.4)"
-                strokeWidth="0.12"
-              />
-
-              {/* 🏛️ REALISTIC STAIRCASE & ELEVATOR CIRCULATION CORE (DRAGGABLE) */}
-              <g
-                transform={`translate(${effectiveCoreCenterX}, ${effectiveCoreCenterY})`}
-                className="cursor-move group"
-                onPointerDown={handleCorePointerDown}
-              >
-                {/* Core Boundary Enclosure Box */}
-                {(() => {
-                  const sW = stairWidth || 2.6;
-                  const sD = stairDepth || 4.8;
-                  const eW = (elevatorWidth || 1.8) * (elevatorCount || 1);
-                  const eD = elevatorDepth || 2.0;
-
-                  const totalCoreW = sW + eW + 0.4;
-                  const totalCoreD = Math.max(sD, eD) + 0.8;
-                  const halfCW = totalCoreW / 2;
-                  const halfCD = totalCoreD / 2;
-
-                  return (
-                    <g>
-                      {/* Drop shadow / glow */}
-                      <rect
-                        x={-halfCW}
-                        y={-halfCD}
-                        width={totalCoreW}
-                        height={totalCoreD}
-                        fill="rgba(15, 23, 42, 0.75)"
-                        stroke="#f59e0b"
-                        strokeWidth="0.12"
-                        rx="0.3"
-                      />
-
-                      {/* Staircase Shaft Volume (Left Half) */}
-                      <g transform={`translate(${-halfCW + 0.2}, ${-halfCD + 0.2})`}>
-                        <rect
-                          x="0"
-                          y="0"
-                          width={sW}
-                          height={sD}
-                          fill="rgba(245, 158, 11, 0.15)"
-                          stroke="#d97706"
-                          strokeWidth="0.08"
-                          rx="0.15"
-                        />
-                        {/* Stair steps lines */}
-                        {Array.from({ length: 8 }).map((_, stepIdx) => (
-                          <line
-                            key={`step-${stepIdx}`}
-                            x1="0.1"
-                            y1={0.3 + stepIdx * (sD - 0.6) / 8}
-                            x2={sW - 0.1}
-                            y2={0.3 + stepIdx * (sD - 0.6) / 8}
-                            stroke="rgba(253, 230, 138, 0.4)"
-                            strokeWidth="0.05"
-                          />
-                        ))}
-                        {/* Stair central eye & UP arrow */}
-                        <line
-                          x1={sW / 2}
-                          y1="0.3"
-                          x2={sW / 2}
-                          y2={sD - 0.3}
-                          stroke="#f59e0b"
-                          strokeWidth="0.07"
-                          strokeDasharray="0.2,0.2"
-                        />
-                        <text
-                          x={sW / 2}
-                          y={sD / 2}
-                          fill="#fef08a"
-                          fontSize="0.4"
-                          fontWeight="bold"
-                          textAnchor="middle"
-                        >
-                          ▲ ÇIKIŞ
-                        </text>
-                        <text
-                          x={sW / 2}
-                          y={0.5}
-                          fill="#fbbf24"
-                          fontSize="0.38"
-                          fontWeight="bold"
-                          textAnchor="middle"
-                        >
-                          MERDİVEN ({sW}m)
-                        </text>
-                      </g>
-
-                      {/* Elevator Shaft Volume (Right Half) */}
-                      <g transform={`translate(${-halfCW + sW + 0.3}, ${-halfCD + 0.2})`}>
-                        {Array.from({ length: elevatorCount || 1 }).map((_, elevIdx) => {
-                          const singleEW = (elevatorWidth || 1.8);
-                          const elevX = elevIdx * (singleEW + 0.1);
-                          return (
-                            <g key={`elev-shaft-${elevIdx}`} transform={`translate(${elevX}, 0)`}>
-                              <rect
-                                x="0"
-                                y="0"
-                                width={singleEW}
-                                height={eD}
-                                fill="rgba(56, 189, 248, 0.15)"
-                                stroke="#38bdf8"
-                                strokeWidth="0.08"
-                                rx="0.15"
-                              />
-                              {/* Architectural Shaft Cross 'X' */}
-                              <line x1="0.1" y1="0.1" x2={singleEW - 0.1} y2={eD - 0.1} stroke="rgba(56, 189, 248, 0.35)" strokeWidth="0.06" />
-                              <line x1={singleEW - 0.1} y1="0.1" x2="0.1" y2={eD - 0.1} stroke="rgba(56, 189, 248, 0.35)" strokeWidth="0.06" />
-                              <text
-                                x={singleEW / 2}
-                                y={eD / 2 + 0.1}
-                                fill="#bae6fd"
-                                fontSize="0.36"
-                                fontWeight="bold"
-                                textAnchor="middle"
-                              >
-                                ASANSÖR {elevatorCount > 1 ? `#${elevIdx + 1}` : ''}
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </g>
-
-                      {/* Circulation Lobby & Drag Handle Header */}
-                      <g transform={`translate(0, ${halfCD - 0.4})`}>
-                        <rect
-                          x={-halfCW + 0.3}
-                          y="-0.3"
-                          width={totalCoreW - 0.6}
-                          height="0.6"
-                          rx="0.15"
-                          fill="#334155"
-                          stroke="#64748b"
-                          strokeWidth="0.06"
-                        />
-                        <text
-                          x="0"
-                          y="0.12"
-                          fill="#f8fafc"
-                          fontSize="0.38"
-                          fontWeight="bold"
-                          textAnchor="middle"
-                        >
-                          ✥ Çekirdek Konumu (Sürükleyin)
-                        </text>
-                      </g>
-                    </g>
-                  );
-                })()}
-              </g>
+              {edges.map((edge, idx) => (
+                <line
+                  key={`edge-${idx}`}
+                  x1={edge.start.x}
+                  y1={edge.start.y}
+                  x2={edge.end.x}
+                  y2={edge.end.y}
+                  stroke={selectedEdgeIndex === idx ? '#f59e0b' : 'rgba(99, 102, 241, 0.4)'}
+                  strokeWidth={selectedEdgeIndex === idx ? '0.4' : '0.12'}
+                  className="cursor-pointer hover:stroke-amber-400"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedEdgeIndex(idx);
+                  }}
+                />
+              ))}
 
               {/* 🚪 MAIN BUILDING ENTRANCE AWNING & ENTRY ARROW */}
               {(() => {
@@ -1659,39 +1518,15 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
     {/* Right Column: Active Controls Panel (ONLY shown when NOT compact) */}
     {!compact && (
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden lg:sticky lg:top-6 lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto">
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-50/80 p-1.5 gap-1.5">
-          <button
-            type="button"
-            onClick={() => setActiveTab('edges')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-              activeTab === 'edges'
-                ? 'bg-white text-indigo-700 shadow-sm border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Ruler className="w-4 h-4 text-indigo-600" />
-            <span>Kenar Boyutu & Geometri</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('core')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-              activeTab === 'core'
-                ? 'bg-white text-amber-700 shadow-sm border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Building2 className="w-4 h-4 text-amber-600" />
-            <span>Merdiven & Çekirdek</span>
-          </button>
+        {/* Panel Header */}
+        <div className="border-b border-slate-200 bg-slate-50/80 p-3 flex items-center gap-2">
+          <Ruler className="w-4 h-4 text-indigo-600" />
+          <span className="text-xs font-bold text-slate-800">Kenar Boyutu & Geometri (Cepheler ve Giriş)</span>
         </div>
 
         {/* TAB 1: KENAR UZUNLUĞU DEĞİŞTİRME, YOL EKLEME & GİRİŞ SEÇME */}
-        {activeTab === 'edges' && (
-          <div className="p-4 space-y-4">
-            {/* Edge Selector Carousel / Pills */}
+        <div className="p-4 space-y-4">
+          {/* Edge Selector Carousel / Pills */}
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-2">
                 Düzenlemek İstediğiniz Cepheyi / Kenarı Seçin:
@@ -1899,201 +1734,9 @@ export const InteractiveFootprintCanvas: React.FC<InteractiveFootprintCanvasProp
               </div>
             )}
           </div>
-        )}
-
-        {/* TAB 2: MERDİVEN & ASANSÖR ÇEKİRDEK YAPISI DÜZENLEYİCİSİ */}
-        {activeTab === 'core' && (
-          <div className="p-4 space-y-4">
-            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-xs text-amber-950">
-              <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <b>Dolaşım & Çekirdek Yapısı Özelleştirme:</b> Merdiven kovası ve asansör şaftının bina içerisindeki konumunu, merdiven genişliğini, asansör sayısını ve kuyu ölçülerini buradan aktif olarak değiştirebilirsiniz. Değişiklikler 2D plan ve 3D modele anında işlenir.
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Core Position Presets */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">
-                    Çekirdek Konumu / Yerleşimi:
-                  </span>
-                  <span className="text-[11px] font-mono text-amber-700 font-bold">
-                    ({effectiveCoreCenterX.toFixed(1)}m, {effectiveCoreCenterY.toFixed(1)}m)
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleApplyCorePreset('center')}
-                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
-                      corePositionPreset === 'center'
-                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    Merkez (Ortalı)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyCorePreset('entrance')}
-                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
-                      corePositionPreset === 'entrance'
-                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    Giriş Yanı
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyCorePreset('rear')}
-                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
-                      corePositionPreset === 'rear'
-                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    Arka Cephe
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyCorePreset('left')}
-                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
-                      corePositionPreset === 'left'
-                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    Sol Kanat
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyCorePreset('right')}
-                    className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
-                      corePositionPreset === 'right'
-                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    Sağ Kanat
-                  </button>
-                  <div className="p-2 rounded-xl text-[10px] font-bold text-center text-slate-500 border border-dashed border-slate-300 flex items-center justify-center">
-                    ✥ Sürükleyerek Taşı
-                  </div>
-                </div>
-
-                {/* Fine Manual Offset Controls */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200 text-xs">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 block mb-1">X Kaçıklığı:</span>
-                    <input
-                      type="range"
-                      min={-bounds.width / 2 + 1}
-                      max={bounds.width / 2 - 1}
-                      step={0.2}
-                      value={coreOffsetX || 0}
-                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ coreOffsetX: parseFloat(e.target.value) || 0, corePositionPreset: 'custom' })}
-                      className="w-full accent-amber-500 cursor-pointer"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 block mb-1">Y Kaçıklığı:</span>
-                    <input
-                      type="range"
-                      min={-bounds.depth / 2 + 1}
-                      max={bounds.depth / 2 - 1}
-                      step={0.2}
-                      value={coreOffsetY || 0}
-                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ coreOffsetY: parseFloat(e.target.value) || 0, corePositionPreset: 'custom' })}
-                      className="w-full accent-amber-500 cursor-pointer"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Stair and Elevator Dimensions */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                <span className="text-xs font-bold text-slate-800 block">
-                  Merdiven & Asansör Boyutları:
-                </span>
-
-                <div className="grid grid-cols-2 gap-2.5 text-xs">
-                  {/* Merdiven Genişliği */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                      Merdiven Genişliği (sW):
-                    </label>
-                    <select
-                      value={stairWidth}
-                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ stairWidth: parseFloat(e.target.value) })}
-                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold"
-                    >
-                      <option value={2.2}>2.20 m (Dar / Kompakt)</option>
-                      <option value={2.4}>2.40 m (Standart)</option>
-                      <option value={2.6}>2.60 m (Geniş Yangın Kaçış)</option>
-                      <option value={2.8}>2.80 m (Lüks Rezidans)</option>
-                      <option value={3.2}>3.20 m (Çift Kollu Galeri)</option>
-                    </select>
-                  </div>
-
-                  {/* Merdiven Derinliği */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                      Merdiven Derinliği (sD):
-                    </label>
-                    <select
-                      value={stairDepth}
-                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ stairDepth: parseFloat(e.target.value) })}
-                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold"
-                    >
-                      <option value={4.2}>4.20 m (Kısa Kollu)</option>
-                      <option value={4.8}>4.80 m (Standart Sahanlıklı)</option>
-                      <option value={5.2}>5.20 m (Geniş Ara Sahanlık)</option>
-                      <option value={5.8}>5.80 m (Sedye Uyumlu)</option>
-                    </select>
-                  </div>
-
-                  {/* Asansör Sayısı */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                      Asansör Sayısı:
-                    </label>
-                    <select
-                      value={elevatorCount}
-                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ elevatorCount: parseInt(e.target.value) })}
-                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold"
-                    >
-                      <option value={1}>1 Adet (Standart 8 Kişilik)</option>
-                      <option value={2}>2 Adet (Sedye + Yolcu)</option>
-                    </select>
-                  </div>
-
-                  {/* Asansör Kuyu Genişliği */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                      Asansör Kuyu Genişliği:
-                    </label>
-                    <select
-                      value={elevatorWidth}
-                      onChange={(e) => onChangeCoreParams && onChangeCoreParams({ elevatorWidth: parseFloat(e.target.value) })}
-                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold"
-                    >
-                      <option value={1.6}>1.60 m (6 Kişilik)</option>
-                      <option value={1.8}>1.80 m (8 Kişilik Standart)</option>
-                      <option value={2.0}>2.00 m (10 Kişilik)</option>
-                      <option value={2.4}>2.40 m (Sedye / Yük Asansörü)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    )}
+        </div>
+      )}
+    </div>
   </div>
-</div>
 );
 };

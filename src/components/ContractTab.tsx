@@ -257,7 +257,7 @@ export const ContractTab: React.FC<ContractTabProps> = ({
           <div>
             <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 2: SÖZLEŞME KONUSU VE GAYRİMENKUL BİLGİLERİ')}</h4>
             <p className="text-slate-700">
-              {highlightText('İşbu sözleşmenin konusu; Tapuda')} <strong className="text-indigo-700">{highlightText(params.projectAddress)}</strong> {highlightText('adresinde kayıtlı bulunan taşınmaz üzerindeki mevcut yapının yıkılması, yerine yürürlükteki imar mevzuatına ve onaylı mimari/statik projesine uygun olarak; taban oturumu')} <strong className="text-slate-900 font-mono">{results.baseArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong>, {highlightText('toplam brüt inşaat alanı')} <strong className="text-slate-900 font-mono">{results.totalArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong> {highlightText('olan ve toplam')} <strong className="text-slate-900 font-mono">{params.hasGroundFloorShop ? `${results.flatCount + (params.shopCount || 1)} Adet (${results.flatCount} Daire, ${params.shopCount || 1} Dükkan)` : `${results.flatCount} Adet (${results.flatCount} Daire)`}</strong> {highlightText('bağımsız bölümden oluşan yeni binanın Yüklenici tarafından anahtar teslim imal edilmesi ve hakediş esaslarının düzenlenmesidir.')}
+              {highlightText('İşbu sözleşmenin konusu; Tapuda')} <strong className="text-indigo-700">{highlightText(params.projectAddress)}</strong> {highlightText('adresinde kayıtlı bulunan taşınmaz üzerindeki mevcut yapının yıkılması, yerine yürürlükteki imar mevzuatına ve onaylı mimari/statik projesine uygun olarak; taban oturumu')} <strong className="text-slate-900 font-mono">{results.baseArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong>, {highlightText('toplam brüt inşaat alanı')} <strong className="text-slate-900 font-mono">{results.totalArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong> {highlightText('olan,')} <strong className="text-slate-900 font-mono">{params.floorCount || 5} katlı</strong> {highlightText(`(${params.hasGroundFloorShop ? `${params.shopCount || 1} adet zemin kat dükkan + ` : ''}${results.flatCount} adet konut olmak üzere toplam ${results.flatCount + (params.hasGroundFloorShop ? (params.shopCount || 1) : 0)} bağımsız bölümden oluşan${params.roofType === 'mansard' ? ', en üst katta mansart çatı bağımsız bölümleri dahil' : ''}; kat alanı kattaki bağımsız bölüm sayısına [katta ${params.flatsPerFloor || 2} daire] eşit bölünerek projelendirilen)`)} {highlightText('yeni binanın Yüklenici tarafından anahtar teslim imal edilmesi ve hakediş esaslarının düzenlenmesidir.')}
             </p>
           </div>
 
@@ -430,11 +430,12 @@ export const ContractTab: React.FC<ContractTabProps> = ({
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-100 text-slate-700">
                   <tr>
-                    <th className="p-2.5 border-b border-slate-200 font-semibold">Daire No</th>
+                    <th className="p-2.5 border-b border-slate-200 font-semibold">Bağımsız Bölüm & Kat</th>
                     <th className="p-2.5 border-b border-slate-200 font-semibold">Hak Sahibi Adı</th>
                     <th className="p-2.5 border-b border-slate-200 font-semibold">T.C. Kimlik No</th>
+                    <th className="p-2.5 border-b border-slate-200 font-semibold">Nitelik</th>
                     <th className="p-2.5 border-b border-slate-200 font-semibold text-center">Arsa Payı</th>
-                    <th className="p-2.5 border-b border-slate-200 font-semibold">Alan</th>
+                    <th className="p-2.5 border-b border-slate-200 font-semibold">Brüt Alan</th>
                     <th className="p-2.5 border-b border-slate-200 font-semibold">Toplam Bedel</th>
                     <th className="p-2.5 border-b border-slate-200 font-semibold">Peşinat</th>
                     <th className="p-2.5 border-b border-slate-200 font-semibold">Kalan Borç</th>
@@ -446,11 +447,38 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                     const landShareStr = f.landShareNumerator && params.totalLandShareDenominator
                       ? `${f.landShareNumerator}/${params.totalLandShareDenominator}`
                       : `1/${results.flatResults.length}`;
+
+                    const floorText = f.floorNumber !== undefined 
+                      ? (f.floorNumber === 0 ? 'Zemin Kat' : `${f.floorNumber}. Kat`)
+                      : (f.flatType === 'shop' ? 'Zemin Kat' : `${Math.ceil(f.id / (params.flatsPerFloor || 2))}. Kat`);
+
+                    const unitTitle = f.flatType === 'shop'
+                      ? `🏪 Dükkan ${f.id}`
+                      : f.flatType === 'mansard'
+                      ? `🏚️ Daire ${f.id} (Mansart)`
+                      : `🏠 Daire ${f.id}`;
+
+                    const unitTypeBadge = f.flatType === 'shop'
+                      ? 'Ticari Dükkan'
+                      : f.flatType === 'mansard'
+                      ? 'Mansart Katı'
+                      : f.flatType === 'duplex'
+                      ? 'Çatı Dubleksi'
+                      : 'Konut';
+
                     return (
                       <tr key={f.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-2.5 font-semibold text-slate-900">Daire {f.id}</td>
+                        <td className="p-2.5 font-semibold text-slate-900">
+                          <div>{unitTitle}</div>
+                          <div className="text-[10px] text-slate-500 font-normal">{floorText}</div>
+                        </td>
                         <td className="p-2.5 text-slate-900">{highlightText(f.name)}</td>
                         <td className="p-2.5 text-slate-500 font-mono">{highlightText(f.tc)}</td>
+                        <td className="p-2.5 text-slate-600 font-medium">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 border border-slate-200">
+                            {unitTypeBadge}
+                          </span>
+                        </td>
                         <td className="p-2.5 text-slate-700 font-mono text-center">{landShareStr}</td>
                         <td className="p-2.5 text-slate-700 font-mono">{f.area} m²</td>
                         <td className="p-2.5 text-slate-900 font-mono">

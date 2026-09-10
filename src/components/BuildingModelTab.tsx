@@ -19,8 +19,6 @@ import {
   ChevronDown,
   ChevronUp,
   Store,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   Trash2,
   Sun,
@@ -32,14 +30,19 @@ import {
   RotateCcw,
   Info,
   Layout,
-  AlertTriangle
+  AlertTriangle,
+  DoorOpen,
+  Paintbrush
 } from 'lucide-react';
-import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig, FacadeStyleType, RoadConfig, RoadType } from '../types';
+import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig, RoadConfig, RoadType } from '../types';
 import {
   DEFAULT_BUILDING_PARAMS,
   calculateBuildingMetrics,
-  FACADE_STYLES,
-  getFacadeStyleConfig,
+  WALL_COLOR_PRESETS,
+  ROOF_COLOR_PRESETS,
+  ACCENT_COLOR_PRESETS,
+  FRAME_COLOR_PRESETS,
+  ColorPreset,
 } from '../utils/buildingModelUtils';
 import {
   calculateFootprint,
@@ -65,6 +68,7 @@ import { FloorPlan2DView } from './FloorPlan2DView';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 import { SolarAnalysisPanel } from './SolarAnalysisPanel';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
+import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel';
 
 interface BuildingModelTabProps {
   params?: BuildingModelParams;
@@ -89,6 +93,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   theme = 'light',
 }) => {
   const isGray = theme === 'gray';
+  const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null);
 
   // Building Model Parameters (local state if not provided from parent)
   const [internalModelParams, setInternalModelParams] = useState<BuildingModelParams>(() => {
@@ -137,20 +142,16 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   const currentSeasonDay = SOLAR_SEASONS.find(s => s.id === solarSeasonId)?.dayOfYear ?? 172;
   const solarPos = calculateSolarPosition(solarLocation.lat, currentSeasonDay, solarTimeHour);
 
-  // User Request: "3d model sayfasındaki ölçü girilen bölümler gizlenebilen yapıda olsun"
-  // 1. Master toggle to collapse/hide the entire measurement panel for immersive 3D view
-  const [showMeasurementPanel, setShowMeasurementPanel] = useState<boolean>(false);
-
-  // 2. Collapsible accordion states for each individual measurement card (defaults to closed / collapsed)
+  // 2. Collapsible accordion states for each individual measurement card
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    viewCut: true,
-    dimensions: true,
-    generalStructure: true,
-    typology: true,
-    roof: true,
-    roads: true,
-    shafts: true,
-    contractorShare: true,
+    viewCut: false,
+    dimensions: false,
+    generalStructure: false,
+    typology: false,
+    roof: false,
+    roads: false,
+    shafts: false,
+    contractorShare: false,
   });
 
   const toggleSection = (sectionKey: string) => {
@@ -228,119 +229,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         </div>
       )}
 
-      {/* Top Header & View Switcher Bento Card */}
-      <div className={`border rounded-3xl p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${cardBg}`}>
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0">
-            <Box className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className={`text-lg font-bold leading-tight ${textTitle}`}>
-                3D Yapı Modeli & Mimari Kat Planı
-              </h2>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-indigo-50 text-indigo-700 border-indigo-200">
-                İç Mekan & Dükkan
-              </span>
-            </div>
-            <p className={`text-xs mt-1 ${textMuted}`}>
-              Bina ölçüleri, iç mekan odaları, zemin dükkan & dubleks çatı simülasyonu
-            </p>
-          </div>
-        </div>
-
-        {/* View Switcher Controls & Measurement Toggle */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end flex-wrap">
-          {/* User Request: "3d model sayfasındaki ölçü girilen bölümler gizlenebilen yapıda olsun" */}
-          <button
-            type="button"
-            onClick={() => setShowMeasurementPanel(!showMeasurementPanel)}
-            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
-              !showMeasurementPanel
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                : isGray
-                ? 'bg-white hover:bg-slate-50 text-slate-800 border-slate-300'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
-            }`}
-            title="Ölçü giriş bölümlerini gizle veya göster"
-          >
-            {showMeasurementPanel ? (
-              <>
-                <PanelLeftClose className="w-4 h-4 text-indigo-600" />
-                <span>Ölçü Panelini Gizle</span>
-              </>
-            ) : (
-              <>
-                <PanelLeftOpen className="w-4 h-4" />
-                <span>Ölçü Panelini Göster</span>
-              </>
-            )}
-          </button>
-
-          {onNavigateToFloorPlan && (
-            <button
-              type="button"
-              onClick={onNavigateToFloorPlan}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                isGray
-                  ? 'bg-white hover:bg-slate-50 text-slate-800 border-slate-300'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-              }`}
-              title="Ayrı 2D Kat Planı sekmesine git"
-            >
-              <Compass className="w-3.5 h-3.5 text-cyan-600" />
-              <span>2D Kat Planı Sekmesi</span>
-              <ArrowRight className="w-3 h-3 text-slate-400" />
-            </button>
-          )}
-
-          <div className={`flex items-center p-1 rounded-2xl border ${subCardBg}`}>
-            <button
-              type="button"
-              onClick={() => setViewMode('3d')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                viewMode === '3d'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <Box className="w-4 h-4" />
-              <span>3D Model</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('solar')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                viewMode === 'solar'
-                  ? 'bg-amber-500 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-              title="Harita konumu ve cephe yönlerine göre güneş alma simülasyonu"
-            >
-              <Sun className="w-4 h-4" />
-              <span>Güneş Analizi</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('2d')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                viewMode === '2d'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <Compass className="w-4 h-4" />
-              <span>2D Çizim</span>
-            </button>
-          </div>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span>Hesap ile Canlı Senkron</span>
-          </div>
-        </div>
-      </div>
-
       {/* Instant Summary Metrics Bento Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Toplam Bağımsız Bölüm Card (Daire + Dükkan) */}
@@ -400,15 +288,63 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         <div className="space-y-4">
           <div className={`border rounded-3xl p-5 ${cardBg}`}>
             <div className="flex items-center justify-between gap-2 flex-wrap mb-4 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <h3 className={`text-sm font-bold ${textTitle}`}>
-                  {viewMode === '3d'
-                    ? '3D İnteraktif Yapı Modeli'
-                    : viewMode === 'solar'
-                    ? 'Güneş Alma & Gölge Analizi Simülasyonu'
-                    : '2D Mimari Kat Planı'}
-                </h3>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <h3 className={`text-sm font-bold ${textTitle}`}>
+                    {viewMode === '3d'
+                      ? '3D İnteraktif Yapı Modeli'
+                      : viewMode === 'solar'
+                      ? 'Güneş Alma & Gölge Analizi Simülasyonu'
+                      : '2D Mimari Kat Planı'}
+                  </h3>
+                </div>
+
+                {/* View Switcher Controls */}
+                <div className={`flex items-center p-0.5 rounded-xl border ${subCardBg}`}>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('3d')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      viewMode === '3d'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                    }`}
+                  >
+                    <Box className="w-3.5 h-3.5" />
+                    <span>3D Model</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('solar')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      viewMode === 'solar'
+                        ? 'bg-amber-500 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                    }`}
+                    title="Harita konumu ve cephe yönlerine göre güneş alma simülasyonu"
+                  >
+                    <Sun className="w-3.5 h-3.5" />
+                    <span>Güneş Analizi</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('2d')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      viewMode === '2d'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                    }`}
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    <span>2D Çizim</span>
+                  </button>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span>Hesap ile Canlı Senkron</span>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -497,67 +433,261 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   buildingRotation={solarBuildingRotation}
                   sunAltitude={solarPos.altitude}
                   sunAzimuth={solarPos.azimuth}
-                  onUpdateFacadeStyle={(style) => updateParams({ facadeStyle: style })}
+                  onUpdateColors={(colors) => updateParams(colors)}
                   onUpdateSunTimeHour={setSolarTimeHour}
                   onUpdateBuildingRotation={setSolarBuildingRotation}
                   isPlayingSun={isPlayingSolar}
                   onToggleSunPlay={() => setIsPlayingSolar(!isPlayingSolar)}
                 />
 
-                {/* Görsel Karakter & Dış Cephe Stili Hızlı Seçim Şeridi (10 Mimari Seçenek) */}
-                <div className={`p-3.5 rounded-2xl border ${subCardBg} space-y-2`}>
-                  <div className="flex items-center justify-between">
+                {/* Bina Dış Görünümü & Çatı Renkleri Özelleştirme Paneli */}
+                <div className={`p-4 rounded-2xl border ${subCardBg} space-y-4 shadow-sm`}>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      <Palette className="w-4 h-4 text-indigo-600" />
-                      <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
-                        Görsel Karakter & Dış Cephe Stili (10 Seçenek):
-                      </span>
+                      <div className="p-1.5 rounded-lg bg-indigo-50 border border-indigo-200">
+                        <Paintbrush className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <div>
+                        <h4 className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
+                          Bina Dış Görünümü ve Çatı Renkleri
+                        </h4>
+                        <p className={`text-[10px] ${textMuted}`}>
+                          Dış cephe duvarları, çatı kaplaması, söve/ahşap detayları ve doğrama renklerini dilediğiniz gibi belirleyin
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-semibold text-indigo-600 font-mono">
-                      Seçili: {getFacadeStyleConfig(modelParams.facadeStyle).title}
-                    </span>
+
+                    {/* Hızlı Renk Paleti Kombinasyonları */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+                      <span className="text-[10px] font-semibold text-slate-500 whitespace-nowrap flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        Hızlı Kombinasyon:
+                      </span>
+                      {[
+                        { label: 'Açık & Kiremit', wall: '#f8fafc', roof: '#b91c1c', accent: '#b5734c', frame: '#18181b' },
+                        { label: 'Antrasit & Çinko', wall: '#22252a', roof: '#1e293b', accent: '#b5734c', frame: '#18181b' },
+                        { label: 'Bej & Kestane', wall: '#f5efe6', roof: '#451a03', accent: '#8c6239', frame: '#334155' },
+                        { label: 'Beyaz & Grafit', wall: '#f8fafc', roof: '#0f172a', accent: '#334155', frame: '#18181b' },
+                        { label: 'Tuğla & Kırmızı', wall: '#9a3412', roof: '#7f1d1d', accent: '#451a03', frame: '#18181b' },
+                      ].map((combo, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => updateParams({
+                            wallColor: combo.wall,
+                            roofColor: combo.roof,
+                            accentColor: combo.accent,
+                            frameColor: combo.frame,
+                          })}
+                          className="px-2 py-1 rounded-lg text-[10px] font-medium bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-slate-700 transition-all flex items-center gap-1.5 shrink-0 shadow-2xs"
+                        >
+                          <span className="flex items-center -space-x-1">
+                            <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ backgroundColor: combo.wall }} />
+                            <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ backgroundColor: combo.roof }} />
+                          </span>
+                          <span>{combo.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Yatay Kaydırılabilir 10 Stil Kartları */}
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                    {FACADE_STYLES.map((st) => {
-                      const isSelected = (modelParams.facadeStyle || 'wood_anthracite') === st.id;
-                      return (
-                        <button
-                          key={st.id}
-                          type="button"
-                          onClick={() => updateParams({ facadeStyle: st.id })}
-                          className={`shrink-0 px-3 py-2 rounded-xl text-left border transition-all flex items-center gap-2.5 ${
-                            isSelected
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-300'
-                              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                          }`}
-                        >
-                          {/* Color dots */}
-                          <div className="flex items-center -space-x-1 shrink-0">
-                            <span
-                              className="w-3.5 h-3.5 rounded-full border border-white shadow-xs"
-                              style={{ backgroundColor: st.wallColorHex }}
-                            />
-                            <span
-                              className="w-3.5 h-3.5 rounded-full border border-white shadow-xs"
-                              style={{ backgroundColor: st.accentColorHex }}
-                            />
-                          </div>
+                  {/* 4 Ana Renk Seçim Izgarası */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* 1. Dış Cephe Duvar Rengi */}
+                    <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-slate-400" />
+                          Dış Cephe Duvarı
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="color"
+                            value={modelParams.wallColor || '#f1f5f9'}
+                            onChange={(e) => updateParams({ wallColor: e.target.value })}
+                            className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                            title="Özel Dış Cephe Rengi Seç"
+                          />
+                          <span className="text-[10px] font-mono text-slate-500 uppercase">
+                            {modelParams.wallColor || '#f1f5f9'}
+                          </span>
+                        </div>
+                      </div>
 
-                          <div className="leading-tight">
-                            <span className="font-bold text-[11px] block whitespace-nowrap">
-                              {st.title}
-                            </span>
-                            <span className={`text-[9px] block whitespace-nowrap ${isSelected ? 'text-indigo-100' : 'text-slate-500'}`}>
-                              {st.subtitle}
-                            </span>
-                          </div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {WALL_COLOR_PRESETS.map((p) => {
+                          const isSelected = (modelParams.wallColor || '#f1f5f9').toLowerCase() === p.hex.toLowerCase();
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => updateParams({ wallColor: p.hex })}
+                              title={p.name}
+                              className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
+                                isSelected
+                                  ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
+                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span
+                                className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
+                                style={{ backgroundColor: p.hex }}
+                              />
+                              <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
+                                {p.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                          {isSelected && <Check className="w-3.5 h-3.5 shrink-0 text-white" />}
-                        </button>
-                      );
-                    })}
+                    {/* 2. Çatı Kaplama Rengi */}
+                    <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                          Çatı Kaplaması
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="color"
+                            value={modelParams.roofColor || '#b91c1c'}
+                            onChange={(e) => updateParams({ roofColor: e.target.value })}
+                            className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                            title="Özel Çatı Rengi Seç"
+                          />
+                          <span className="text-[10px] font-mono text-slate-500 uppercase">
+                            {modelParams.roofColor || '#b91c1c'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {ROOF_COLOR_PRESETS.map((p) => {
+                          const isSelected = (modelParams.roofColor || '#b91c1c').toLowerCase() === p.hex.toLowerCase();
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => updateParams({ roofColor: p.hex })}
+                              title={p.name}
+                              className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
+                                isSelected
+                                  ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
+                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span
+                                className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
+                                style={{ backgroundColor: p.hex }}
+                              />
+                              <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
+                                {p.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 3. Ahşap, Söve & Vurgu Rengi */}
+                    <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-600" />
+                          Ahşap & Söve Detayları
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="color"
+                            value={modelParams.accentColor || '#b5734c'}
+                            onChange={(e) => updateParams({ accentColor: e.target.value })}
+                            className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                            title="Özel Vurgu Rengi Seç"
+                          />
+                          <span className="text-[10px] font-mono text-slate-500 uppercase">
+                            {modelParams.accentColor || '#b5734c'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {ACCENT_COLOR_PRESETS.map((p) => {
+                          const isSelected = (modelParams.accentColor || '#b5734c').toLowerCase() === p.hex.toLowerCase();
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => updateParams({ accentColor: p.hex })}
+                              title={p.name}
+                              className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
+                                isSelected
+                                  ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
+                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span
+                                className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
+                                style={{ backgroundColor: p.hex }}
+                              />
+                              <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
+                                {p.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 4. Doğrama & Korkuluk Rengi */}
+                    <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-slate-900" />
+                          Doğrama & Korkuluklar
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="color"
+                            value={modelParams.frameColor || '#18181b'}
+                            onChange={(e) => updateParams({ frameColor: e.target.value })}
+                            className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                            title="Özel Doğrama Rengi Seç"
+                          />
+                          <span className="text-[10px] font-mono text-slate-500 uppercase">
+                            {modelParams.frameColor || '#18181b'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {FRAME_COLOR_PRESETS.map((p) => {
+                          const isSelected = (modelParams.frameColor || '#18181b').toLowerCase() === p.hex.toLowerCase();
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => updateParams({ frameColor: p.hex })}
+                              title={p.name}
+                              className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
+                                isSelected
+                                  ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
+                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span
+                                className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
+                                style={{ backgroundColor: p.hex }}
+                              />
+                              <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
+                                {p.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -574,7 +704,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   sunTimeHour={solarTimeHour}
                   buildingRotation={solarBuildingRotation}
                   isSolarHeatmap={isSolarHeatmap}
-                  onUpdateFacadeStyle={(style) => updateParams({ facadeStyle: style })}
+                  onUpdateColors={(colors) => updateParams(colors)}
                   onUpdateSunTimeHour={setSolarTimeHour}
                   onUpdateBuildingRotation={setSolarBuildingRotation}
                   isPlayingSun={isPlayingSolar}
@@ -605,8 +735,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         </div>
 
         {/* BOTTOM SECTION: Dimension & Structural Parameter Input Cards */}
-        {showMeasurementPanel && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             {/* Card 1: Facade & Building Dimensions (Expanded Horizontally - Full Width) */}
             <div className={`col-span-full border rounded-3xl overflow-hidden ${cardBg}`}>
               <button
@@ -628,767 +757,871 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 </div>
               </button>
 
-              {!collapsedSections.dimensions && (
-                <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
-                  {/* Footprint Input Mode Switcher */}
-                  <div className="pt-3 space-y-2">
-                    <label className={`block text-[11px] font-bold uppercase tracking-wider ${textTitle}`}>
-                      Taban Oturumu & Cephe Modu:
-                    </label>
-                    <div className="grid grid-cols-2 gap-2 max-w-md">
-                      <button
-                        type="button"
-                        onClick={() => updateParams({ footprintInputMode: 'dimensions' })}
-                        className={`py-2 px-3 text-center rounded-xl text-[11px] font-semibold border transition-all ${
-                          (modelParams.footprintInputMode || 'dimensions') === 'dimensions' || modelParams.footprintInputMode === 'directArea' || modelParams.footprintInputMode === 'customFacades' || modelParams.footprintInputMode === 'lShape'
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        📐 Cephe Ölçüleri (4 Cephe)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateParams({ footprintInputMode: 'polygonDraw' })}
-                        className={`py-2 px-3 text-center rounded-xl text-[11px] font-semibold border transition-all ${
-                          modelParams.footprintInputMode === 'polygonDraw'
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-1 ring-indigo-400'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        ✏️ Çizim Modu (Serbest Poligon)
-                      </button>
-                    </div>
-                  </div>
+              {!collapsedSections.dimensions && (() => {
+                const isPolyDrawMode = modelParams.footprintInputMode === 'polygonDraw' || (modelParams.polygonPoints && modelParams.polygonPoints.length > 4);
+                const polygonEdges = (modelParams.polygonPoints && modelParams.polygonPoints.length >= 3)
+                  ? getPolygonEdges(modelParams.polygonPoints)
+                  : [];
 
-                  {/* Dynamic Facade Measurement & Architectural Details (Supports 4 Sides & N Polygon Edges) */}
-                  {(() => {
-                    const isPolyDrawMode = modelParams.footprintInputMode === 'polygonDraw' || (modelParams.polygonPoints && modelParams.polygonPoints.length > 4);
-                    const polygonEdges = (modelParams.polygonPoints && modelParams.polygonPoints.length >= 3)
-                      ? getPolygonEdges(modelParams.polygonPoints)
-                      : [];
+                const facadeItems = isPolyDrawMode && polygonEdges.length > 0
+                  ? polygonEdges.map((edge, idx) => ({
+                      id: idx + 1,
+                      key: `edge_${idx}`,
+                      label: idx === 0 ? '1. Ön Cephe (Yol/Giriş)'
+                        : idx === 1 ? '2. Sağ Yan Cephe'
+                        : idx === 2 && polygonEdges.length === 4 ? '3. Arka Cephe (Bahçe)'
+                        : idx === 3 && polygonEdges.length === 4 ? '4. Sol Yan Cephe'
+                        : `${idx + 1}. Kırık Cephe`,
+                      value: edge.length,
+                      isMain: idx === (modelParams.mainEntranceFacadeIndex || 0),
+                    }))
+                  : [
+                      { id: 1, key: 'front', label: '1. Ön Cephe (Yol/Giriş)', value: modelParams.facadeWidth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 0 },
+                      { id: 2, key: 'right', label: '2. Sağ Yan Cephe', value: modelParams.facadeDepth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 1 },
+                      { id: 3, key: 'back', label: '3. Arka Cephe (Bahçe)', value: modelParams.backFacadeLength !== undefined ? modelParams.backFacadeLength : modelParams.facadeWidth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 2 },
+                      { id: 4, key: 'left', label: '4. Sol Yan Cephe', value: modelParams.leftFacadeLength !== undefined ? modelParams.leftFacadeLength : modelParams.facadeDepth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 3 },
+                    ];
 
-                    const facadeItems = isPolyDrawMode && polygonEdges.length > 0
-                      ? polygonEdges.map((edge, idx) => ({
-                          id: idx + 1,
-                          key: `edge_${idx}`,
-                          label: idx === 0 ? '1. Ön Cephe (Yol/Giriş)'
-                            : idx === 1 ? '2. Sağ Yan Cephe'
-                            : idx === 2 && polygonEdges.length === 4 ? '3. Arka Cephe (Bahçe)'
-                            : idx === 3 && polygonEdges.length === 4 ? '4. Sol Yan Cephe'
-                            : `${idx + 1}. Kırık Cephe`,
-                          value: edge.length,
-                          isMain: idx === (modelParams.mainEntranceFacadeIndex || 0),
-                        }))
-                      : [
-                          { id: 1, key: 'front', label: '1. Ön Cephe (Yol/Giriş)', value: modelParams.facadeWidth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 0 },
-                          { id: 2, key: 'right', label: '2. Sağ Yan Cephe', value: modelParams.facadeDepth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 1 },
-                          { id: 3, key: 'back', label: '3. Arka Cephe (Bahçe)', value: modelParams.backFacadeLength !== undefined ? modelParams.backFacadeLength : modelParams.facadeWidth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 2 },
-                          { id: 4, key: 'left', label: '4. Sol Yan Cephe', value: modelParams.leftFacadeLength !== undefined ? modelParams.leftFacadeLength : modelParams.facadeDepth, isMain: (modelParams.mainEntranceFacadeIndex || 0) === 3 },
-                        ];
+                const activeCfgs = generateFacadeConfigs(
+                  isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3
+                    ? modelParams.polygonPoints
+                    : (modelParams.customFacades && modelParams.customFacades.length > 4 ? modelParams.customFacades.length : 4),
+                  modelParams.facadeConfigs,
+                  modelParams.mainEntranceFacadeIndex || 0
+                );
 
-                    const activeCfgs = generateFacadeConfigs(
-                      isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3
-                        ? modelParams.polygonPoints
-                        : (modelParams.customFacades && modelParams.customFacades.length > 4 ? modelParams.customFacades.length : 4),
-                      modelParams.facadeConfigs,
-                      modelParams.mainEntranceFacadeIndex || 0
+                const currentDefaultCantilever = modelParams.cantileverDepth || 1.2;
+
+                const updateFacadeDetail = (fIdx: number, updates: Partial<FacadeDetailConfig>) => {
+                  const newCfgs = [...activeCfgs];
+                  const currentCfg: FacadeDetailConfig = newCfgs[fIdx] || {
+                    id: fIdx + 1,
+                    name: facadeItems[fIdx]?.label || `${fIdx + 1}. Cephe`,
+                    length: facadeItems[fIdx]?.value || 10,
+                    windowCountPerFloor: fIdx === 0 ? 3 : 2,
+                    hasBalcony: fIdx === 0,
+                    balconyCountPerFloor: fIdx === 0 ? 1 : 0,
+                    balconyType: 'standard',
+                    isEntrance: fIdx === (modelParams.mainEntranceFacadeIndex || 0),
+                    isAdjacent: false,
+                    isBlankWall: false,
+                    cantileverDepth: currentDefaultCantilever,
+                  };
+                  
+                  const isNowAdjacent = updates.isAdjacent !== undefined ? updates.isAdjacent : (currentCfg.isAdjacent ?? false);
+
+                  newCfgs[fIdx] = {
+                    ...currentCfg,
+                    ...updates,
+                    ...(isNowAdjacent ? {
+                      isAdjacent: true,
+                      isBlankWall: true,
+                      windowCountPerFloor: 0,
+                      hasBalcony: false,
+                      balconyCountPerFloor: 0,
+                      cantileverDepth: 0,
+                    } : {}),
+                  };
+
+                  if (updates.isEntrance) {
+                    newCfgs.forEach((c, i) => {
+                      if (i !== fIdx) c.isEntrance = false;
+                    });
+                  }
+
+                  let customList: CustomFacadeSide[] = [];
+                  if (isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3) {
+                    customList = syncPolygonToCustomFacades(
+                      modelParams.polygonPoints,
+                      modelParams.customFacades,
+                      newCfgs,
+                      updates.isEntrance ? fIdx : (modelParams.mainEntranceFacadeIndex || 0)
                     );
-
-                    const updateFacadeDetail = (fIdx: number, updates: Partial<FacadeDetailConfig>) => {
-                      const newCfgs = [...activeCfgs];
-                      newCfgs[fIdx] = {
-                        ...newCfgs[fIdx],
-                        ...updates,
+                  } else {
+                    customList = [...(modelParams.customFacades || getDefaultCustomFacades(4, modelParams.facadeWidth, modelParams.facadeDepth, modelParams.backFacadeLength, modelParams.leftFacadeLength))];
+                    if (customList[fIdx]) {
+                      customList[fIdx] = {
+                        ...customList[fIdx],
+                        windowCountPerFloor: newCfgs[fIdx].windowCountPerFloor,
+                        hasBalcony: newCfgs[fIdx].hasBalcony,
+                        balconyCountPerFloor: newCfgs[fIdx].balconyCountPerFloor,
+                        balconyType: newCfgs[fIdx].balconyType,
+                        isEntrance: newCfgs[fIdx].isEntrance,
+                        isAdjacent: newCfgs[fIdx].isAdjacent,
+                        isBlankWall: newCfgs[fIdx].isBlankWall,
+                        cantileverDepth: newCfgs[fIdx].cantileverDepth,
                       };
+                    }
+                  }
 
-                      if (updates.windowCountPerFloor === 0) {
-                        newCfgs[fIdx].hasBalcony = false;
-                        newCfgs[fIdx].balconyCountPerFloor = 0;
-                      }
+                  // Synchronize cantilever array
+                  const nextCantilevers = [...(modelParams.facadeCantilevers || Array(newCfgs.length).fill(currentDefaultCantilever))];
+                  while (nextCantilevers.length < newCfgs.length) {
+                    nextCantilevers.push(currentDefaultCantilever);
+                  }
+                  if (updates.cantileverDepth !== undefined) {
+                    nextCantilevers[fIdx] = updates.cantileverDepth;
+                  } else if (isNowAdjacent) {
+                    nextCantilevers[fIdx] = 0;
+                  }
 
-                      if (updates.isEntrance) {
-                        newCfgs.forEach((c, i) => {
-                          if (i !== fIdx) c.isEntrance = false;
-                        });
-                      }
+                  // If facade is made adjacent, remove any road attached to it
+                  let updatedRoads = modelParams.roads;
+                  if (isNowAdjacent && modelParams.roads) {
+                    updatedRoads = modelParams.roads.filter(r => r.facadeIndex !== fIdx);
+                  }
 
-                      let customList: CustomFacadeSide[] = [];
-                      if (isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3) {
-                        customList = syncPolygonToCustomFacades(
-                          modelParams.polygonPoints,
-                          modelParams.customFacades,
-                          newCfgs,
-                          updates.isEntrance ? fIdx : (modelParams.mainEntranceFacadeIndex || 0)
-                        );
-                      } else {
-                        customList = [...(modelParams.customFacades || getDefaultCustomFacades(4, modelParams.facadeWidth, modelParams.facadeDepth, modelParams.backFacadeLength, modelParams.leftFacadeLength))];
-                        if (customList[fIdx]) {
-                          customList[fIdx] = {
-                            ...customList[fIdx],
-                            windowCountPerFloor: newCfgs[fIdx].windowCountPerFloor,
-                            hasBalcony: newCfgs[fIdx].hasBalcony,
-                            balconyCountPerFloor: newCfgs[fIdx].balconyCountPerFloor,
-                            balconyType: newCfgs[fIdx].balconyType,
-                            isEntrance: newCfgs[fIdx].isEntrance,
-                          };
-                        }
-                      }
+                  updateParams({
+                    facadeConfigs: newCfgs,
+                    customFacades: customList,
+                    facadeCantilevers: nextCantilevers,
+                    ...(updatedRoads !== undefined ? { roads: updatedRoads } : {}),
+                    ...(updates.isEntrance ? { mainEntranceFacadeIndex: fIdx } : {}),
+                  });
+                };
 
-                      updateParams({
-                        facadeConfigs: newCfgs,
-                        customFacades: customList,
-                        ...(updates.isEntrance ? { mainEntranceFacadeIndex: fIdx } : {}),
+                const toggleRoadOnFacade = (fIdx: number) => {
+                  const currentRoads = modelParams.roads || [];
+                  const exists = currentRoads.find(r => r.facadeIndex === fIdx);
+                  let nextRoads: RoadConfig[];
+                  if (exists) {
+                    nextRoads = currentRoads.filter(r => r.facadeIndex !== fIdx);
+                    updateParams({ roads: nextRoads });
+                  } else {
+                    const defaultType: RoadType = fIdx === 0 ? 'street' : 'street';
+                    const typeObj = ROAD_TYPES_DATA.find(t => t.id === defaultType);
+                    nextRoads = [
+                      ...currentRoads,
+                      {
+                        id: `road-${Date.now()}-${fIdx}`,
+                        facadeIndex: fIdx,
+                        type: defaultType,
+                        name: fIdx === 0 ? 'Ön İmar Yolu' : `${fIdx + 1}. Cephe Yolu`,
+                        width: typeObj?.width || 7,
+                      },
+                    ];
+                    // If facade was marked adjacent, open it up because it has road frontage
+                    const cfg = activeCfgs[fIdx];
+                    if (cfg && (cfg as any).isAdjacent) {
+                      updateFacadeDetail(fIdx, {
+                        isAdjacent: false,
+                        isBlankWall: false,
+                        windowCountPerFloor: 2,
+                        hasBalcony: true,
+                        balconyCountPerFloor: 1,
+                        cantileverDepth: currentDefaultCantilever,
                       });
-                    };
+                    }
+                    updateParams({ roads: nextRoads });
+                  }
+                };
 
-                    const handleLengthChange = (fIdx: number, val: number) => {
-                      if (isNaN(val) || val < 1.0) return;
-                      const safeVal = Math.round(val * 10) / 10;
-                      if (isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3) {
-                        const newPts = updatePolygonEdgeLength(modelParams.polygonPoints, fIdx, safeVal);
-                        const bounds = getPolygonBounds(newPts);
-                        const syncedConfigs = generateFacadeConfigs(newPts, activeCfgs, modelParams.mainEntranceFacadeIndex || 0);
-                        const syncedCustom = syncPolygonToCustomFacades(newPts, modelParams.customFacades, syncedConfigs, modelParams.mainEntranceFacadeIndex || 0);
-                        updateParams({
-                          polygonPoints: newPts,
-                          facadeWidth: Math.round(bounds.width * 10) / 10,
-                          facadeDepth: Math.round(bounds.depth * 10) / 10,
-                          facadeConfigs: syncedConfigs,
-                          customFacades: syncedCustom,
-                        });
-                      } else {
-                        const sideKey = fIdx === 0 ? 'front' : fIdx === 1 ? 'right' : fIdx === 2 ? 'back' : 'left';
-                        const res = calculateInteractiveQuadrilateral(sideKey, safeVal, {
-                          front: modelParams.facadeWidth,
-                          right: modelParams.facadeDepth,
-                          back: modelParams.backFacadeLength,
-                          left: modelParams.leftFacadeLength,
-                        });
-                        updateParams({
-                          facadeWidth: res.front,
-                          facadeDepth: res.right,
-                          backFacadeLength: res.back,
-                          leftFacadeLength: res.left,
-                          polygonPoints: res.quadrilateral.polygonPoints,
-                          customFacades: res.customFacades,
-                        });
-                      }
-                    };
+                const updateRoadTypeOnFacade = (fIdx: number, typeId: RoadType) => {
+                  const currentRoads = modelParams.roads || [];
+                  const typeObj = ROAD_TYPES_DATA.find(t => t.id === typeId);
+                  const nextRoads = currentRoads.map(r => {
+                    if (r.facadeIndex === fIdx) {
+                      return {
+                        ...r,
+                        type: typeId,
+                        width: typeObj?.width || 7,
+                      };
+                    }
+                    return r;
+                  });
+                  updateParams({ roads: nextRoads });
+                };
 
-                    return (
-                      <div className="space-y-4">
+                const handleLengthChange = (fIdx: number, val: number) => {
+                  if (isNaN(val) || val < 1.0) return;
+                  const safeVal = Math.round(Math.max(1.0, Math.min(80.0, val)) * 10) / 10;
+                  if (isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3) {
+                    const newPts = updatePolygonEdgeLength(modelParams.polygonPoints, fIdx, safeVal);
+                    const bounds = getPolygonBounds(newPts);
+                    const syncedConfigs = generateFacadeConfigs(newPts, activeCfgs, modelParams.mainEntranceFacadeIndex || 0);
+                    const syncedCustom = syncPolygonToCustomFacades(newPts, modelParams.customFacades, syncedConfigs, modelParams.mainEntranceFacadeIndex || 0);
+                    updateParams({
+                      polygonPoints: newPts,
+                      facadeWidth: Math.round(bounds.width * 10) / 10,
+                      facadeDepth: Math.round(bounds.depth * 10) / 10,
+                      facadeConfigs: syncedConfigs,
+                      customFacades: syncedCustom,
+                    });
+                  } else {
+                    const sideKey = fIdx === 0 ? 'front' : fIdx === 1 ? 'right' : fIdx === 2 ? 'back' : 'left';
+                    const res = calculateInteractiveQuadrilateral(sideKey, safeVal, {
+                      front: modelParams.facadeWidth,
+                      right: modelParams.facadeDepth,
+                      back: modelParams.backFacadeLength,
+                      left: modelParams.leftFacadeLength,
+                    });
+                    updateParams({
+                      facadeWidth: res.front,
+                      facadeDepth: res.right,
+                      backFacadeLength: res.back,
+                      leftFacadeLength: res.left,
+                      polygonPoints: res.quadrilateral.polygonPoints,
+                      customFacades: res.customFacades,
+                    });
+                  }
+                };
 
+                const currentArea = modelParams.footprintInputMode === 'polygonDraw' && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3
+                  ? calculatePolygonArea(modelParams.polygonPoints)
+                  : modelParams.facadeWidth * modelParams.facadeDepth;
 
-                        {/* Mode: Freehand Polygon Point Drawing (Eğer Serbest Çizim modundaysa) */}
-                        {modelParams.footprintInputMode === 'polygonDraw' && (
-                          <div className="space-y-3 p-3 bg-slate-50/80 rounded-2xl border border-indigo-200 shadow-sm">
-                            <InteractiveFootprintCanvas
-                              points={modelParams.polygonPoints}
-                              onChangePoints={(newPoints) => {
-                                const bounds = getPolygonBounds(newPoints);
-                                const syncedConfigs = generateFacadeConfigs(newPoints, modelParams.facadeConfigs, modelParams.mainEntranceFacadeIndex || 0);
-                                const syncedCustom = syncPolygonToCustomFacades(newPoints, modelParams.customFacades, syncedConfigs, modelParams.mainEntranceFacadeIndex || 0);
-                                updateParams({
-                                  polygonPoints: newPoints,
-                                  facadeWidth: Math.round(bounds.width * 10) / 10,
-                                  facadeDepth: Math.round(bounds.depth * 10) / 10,
-                                  facadeConfigs: syncedConfigs,
-                                  customFacades: syncedCustom,
-                                });
+                const currentPerimeter = facadeItems.reduce((acc, f) => acc + (f.value || 0), 0);
+
+                return (
+                  <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
+                    {/* Mode Selector & Quick Preset Pills */}
+                    <div className="pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl w-fit">
+                        <button
+                          type="button"
+                          onClick={() => updateParams({ footprintInputMode: 'dimensions' })}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            (modelParams.footprintInputMode || 'dimensions') !== 'polygonDraw'
+                              ? 'bg-white text-indigo-700 shadow-xs ring-1 ring-slate-200'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Ruler className="w-3.5 h-3.5" />
+                          <span>Standart Geometri (4 Cephe)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateParams({ footprintInputMode: 'polygonDraw' })}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            modelParams.footprintInputMode === 'polygonDraw'
+                              ? 'bg-white text-indigo-700 shadow-xs ring-1 ring-slate-200'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Layout className="w-3.5 h-3.5" />
+                          <span>Serbest Çizim (İnteraktif Poligon)</span>
+                        </button>
+                      </div>
+
+                      {/* Quick Standard Presets */}
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                        <span className="text-[11px] font-semibold text-slate-400 shrink-0">Hızlı Boyut:</span>
+                        {[
+                          { w: 12, d: 15, label: '12×15m' },
+                          { w: 14, d: 18, label: '14×18m' },
+                          { w: 15, d: 20, label: '15×20m' },
+                          { w: 16, d: 22, label: '16×22m' },
+                          { w: 15, d: 15, label: '15×15m (Kare)' },
+                        ].map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => {
+                              updateParams({
+                                facadeWidth: preset.w,
+                                facadeDepth: preset.d,
+                                backFacadeLength: preset.w,
+                                leftFacadeLength: preset.d,
+                                footprintInputMode: 'dimensions',
+                              });
+                            }}
+                            className={`px-2 py-1 text-[11px] font-bold rounded-lg border transition-all shrink-0 ${
+                              modelParams.facadeWidth === preset.w && modelParams.facadeDepth === preset.d && modelParams.footprintInputMode !== 'polygonDraw'
+                                ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Primary Global Dimensions & Structure Bar */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200/80">
+                      {/* 1. Ön Cephe Genişliği (X) */}
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                        <div className="flex items-center justify-between text-xs">
+                          <label className={`font-bold ${textTitle}`}>1. Ön Cephe (X):</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="4"
+                              max="60"
+                              value={modelParams.facadeWidth}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val) && val >= 1) handleLengthChange(0, val);
                               }}
-                              facadeConfigs={modelParams.facadeConfigs}
-                              onChangeFacadeConfigs={(newConfigs) => {
-                                updateParams({ facadeConfigs: newConfigs });
-                              }}
-                              mainEntranceIndex={modelParams.mainEntranceFacadeIndex || 0}
-                              onChangeMainEntranceIndex={(idx) => {
-                                updateParams({ mainEntranceFacadeIndex: idx });
-                              }}
-                              flatsPerFloor={modelParams.flatsPerFloor || 2}
-                              theme={theme}
-                              compact
-                              roads={modelParams.roads}
-                              onChangeRoads={(newRoads) => {
-                                updateParams({ roads: newRoads });
-                              }}
-                              stairWidth={modelParams.stairWidth}
-                              stairDepth={modelParams.stairDepth}
-                              elevatorWidth={modelParams.elevatorWidth}
-                              elevatorDepth={modelParams.elevatorDepth}
-                              elevatorCount={modelParams.elevatorCount}
-                              coreOffsetX={modelParams.coreOffsetX}
-                              coreOffsetY={modelParams.coreOffsetY}
-                              corePositionPreset={modelParams.corePositionPreset}
-                              onChangeCoreParams={(coreUpdates) => {
-                                updateParams(coreUpdates);
-                              }}
+                              className={`w-16 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
                             />
+                            <span className="text-xs font-semibold text-slate-400">m</span>
                           </div>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleLengthChange(0, Math.max(4, modelParams.facadeWidth - 0.5))}
+                            className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs flex items-center justify-center shrink-0"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="range"
+                            min="6"
+                            max="40"
+                            step="0.5"
+                            value={modelParams.facadeWidth}
+                            onChange={(e) => handleLengthChange(0, parseFloat(e.target.value))}
+                            className="flex-1 accent-indigo-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleLengthChange(0, Math.min(60, modelParams.facadeWidth + 0.5))}
+                            className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs flex items-center justify-center shrink-0"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
 
-                        {/* Canlı Cephe Mimari Ayrıntıları Kartları (N Cephe İçin Dinamik Genişleyen) */}
-                        <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-3.5">
-                          <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
-                            <div>
-                              <span className={`text-xs font-bold uppercase tracking-wider block ${textTitle}`}>
-                                Cephe Ölçüleri & Mimari Ayrıntılar ({facadeItems.length} Cephe Girişi)
-                              </span>
-                              <span className="text-[11px] text-slate-500">
-                                {isPolyDrawMode ? 'Poligona eklenen her kenar buraya anında yansır; ölçü, giriş ve balkon tiplerini yönetebilirsiniz.' : '4 cephenin ölçüleri, pencereleri, balkon türleri ve bina ana girişi'}
-                              </span>
+                      {/* 2. Sağ Yan Cephe Derinliği (Y) */}
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                        <div className="flex items-center justify-between text-xs">
+                          <label className={`font-bold ${textTitle}`}>2. Yan Cephe (Y):</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="4"
+                              max="60"
+                              value={modelParams.facadeDepth}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val) && val >= 1) handleLengthChange(1, val);
+                              }}
+                              className={`w-16 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                            />
+                            <span className="text-xs font-semibold text-slate-400">m</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleLengthChange(1, Math.max(4, modelParams.facadeDepth - 0.5))}
+                            className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs flex items-center justify-center shrink-0"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="range"
+                            min="6"
+                            max="40"
+                            step="0.5"
+                            value={modelParams.facadeDepth}
+                            onChange={(e) => handleLengthChange(1, parseFloat(e.target.value))}
+                            className="flex-1 accent-indigo-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleLengthChange(1, Math.min(60, modelParams.facadeDepth + 0.5))}
+                            className="w-6 h-6 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs flex items-center justify-center shrink-0"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 3. Kat Yüksekliği (H) */}
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                        <div className="flex items-center justify-between text-xs">
+                          <label className={`font-bold ${textTitle}`}>Kat Yüksekliği (H):</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.05"
+                              min="2.4"
+                              max="4.5"
+                              value={modelParams.floorHeight || 2.9}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val) && val > 0) updateParams({ floorHeight: val });
+                              }}
+                              className={`w-16 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                            />
+                            <span className="text-xs font-semibold text-slate-400">m</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 pt-0.5">
+                          {[2.80, 2.90, 3.00, 3.20].map((hVal) => (
+                            <button
+                              key={hVal}
+                              type="button"
+                              onClick={() => updateParams({ floorHeight: hVal })}
+                              className={`flex-1 py-0.5 text-[10px] font-bold rounded border transition-all ${
+                                (modelParams.floorHeight || 2.9) === hVal
+                                  ? 'bg-indigo-600 text-white border-indigo-600'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {hVal.toFixed(2)}m
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 4. Tabla Konsol Çıkması & Balkon */}
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                        <div className="flex items-center justify-between text-xs">
+                          <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-800">
+                            <input
+                              type="checkbox"
+                              checked={modelParams.hasCantilever || false}
+                              onChange={(e) => updateParams({ hasCantilever: e.target.checked })}
+                              className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                            />
+                            <span>Tabla Çıkması (Konsol)</span>
+                          </label>
+                          {modelParams.hasCantilever && (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0.5"
+                                max="2.5"
+                                value={currentDefaultCantilever}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  if (!isNaN(val) && val >= 0) updateParams({ cantileverDepth: val });
+                                }}
+                                className={`w-14 px-1 py-0.5 text-right font-mono font-bold text-xs rounded border ${inputBg}`}
+                              />
+                              <span className="text-[10px] font-semibold text-slate-400">m</span>
                             </div>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                              3D Modele Reaktif Yansır
-                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] pt-0.5 text-slate-500">
+                          <span>Balkon Çıkması Payı:</span>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="2.5"
+                              value={modelParams.balconyDepth !== undefined ? modelParams.balconyDepth : 1.2}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val) && val >= 0) updateParams({ balconyDepth: val });
+                              }}
+                              className={`w-14 px-1 py-0.5 text-right font-mono font-bold text-[11px] rounded border ${inputBg}`}
+                            />
+                            <span className="text-[10px] text-slate-400">m</span>
                           </div>
+                        </div>
+                      </div>
+                    </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                            {facadeItems.map((facadeItem, fIdx) => {
-                              const cfg = activeCfgs[fIdx] || {
-                                id: fIdx + 1,
-                                name: facadeItem.label,
-                                length: facadeItem.value,
-                                windowCountPerFloor: fIdx === 0 ? 3 : 2,
-                                hasBalcony: fIdx === 0,
-                                balconyCountPerFloor: fIdx === 0 ? 1 : 0,
-                                balconyType: 'standard',
-                                isEntrance: fIdx === (modelParams.mainEntranceFacadeIndex || 0),
+                    {/* Calculated Live Footprint Metrics Banner */}
+                    <div className="p-3 bg-indigo-50/70 border border-indigo-150 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-500 font-medium">Taban Oturumu:</span>
+                          <span className="font-mono font-bold text-indigo-900 bg-white px-2 py-0.5 rounded-lg border border-indigo-100 shadow-2xs">
+                            {currentArea.toFixed(1)} m²
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-500 font-medium">Bina Çevresi:</span>
+                          <span className="font-mono font-bold text-slate-800 bg-white px-2 py-0.5 rounded-lg border border-indigo-100 shadow-2xs">
+                            {currentPerimeter.toFixed(1)} m
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-500 font-medium">Cephe Sayısı:</span>
+                          <span className="font-bold text-slate-700 bg-white px-2 py-0.5 rounded-lg border border-indigo-100 shadow-2xs">
+                            {facadeItems.length} Cephe
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick Presets for Facade Roles */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allOpen = activeCfgs.map(c => ({
+                              ...c,
+                              isAdjacent: false,
+                              isBlankWall: false,
+                              windowCountPerFloor: 2,
+                              hasBalcony: true,
+                              balconyCountPerFloor: 1,
+                              cantileverDepth: currentDefaultCantilever,
+                            }));
+                            updateParams({
+                              facadeConfigs: allOpen,
+                              facadeCantilevers: Array(activeCfgs.length).fill(currentDefaultCantilever),
+                              cantileverDirection: 'open_facades',
+                            });
+                          }}
+                          className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-all shadow-2xs"
+                        >
+                          🏢 Tümünü Açık Yap
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Preset: Back & Left blind (L-Nizam adjacent)
+                            const newCfgs = activeCfgs.map((c, i) => {
+                              const isAdj = i === 2 || i === 3;
+                              return {
+                                ...c,
+                                isAdjacent: isAdj,
+                                isBlankWall: isAdj,
+                                windowCountPerFloor: isAdj ? 0 : 2,
+                                hasBalcony: !isAdj,
+                                balconyCountPerFloor: isAdj ? 0 : 1,
+                                cantileverDepth: isAdj ? 0 : currentDefaultCantilever,
                               };
+                            });
+                            updateParams({
+                              facadeConfigs: newCfgs,
+                              facadeCantilevers: newCfgs.map(c => ((c as any).isAdjacent ? 0 : currentDefaultCantilever)),
+                              cantileverDirection: 'custom',
+                            });
+                          }}
+                          className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs"
+                        >
+                          🏘️ Arka & Sol Bitişik Nizam
+                        </button>
+                      </div>
+                    </div>
 
-                              const isEntrance = fIdx === (modelParams.mainEntranceFacadeIndex || 0) || cfg.isEntrance === true;
-                              const isBlind = (cfg as any).windowCountPerFloor === 0 || (cfg as any).isBlankWall === true;
+                    {/* Mode: Freehand Polygon Canvas (Serbest Çizim Modu) */}
+                    {modelParams.footprintInputMode === 'polygonDraw' && (
+                      <div className="p-3 bg-slate-50/90 rounded-2xl border border-indigo-200 shadow-sm">
+                        <InteractiveFootprintCanvas
+                          points={modelParams.polygonPoints}
+                          selectedEdgeIndex={selectedEdgeIndex}
+                          onSelectEdgeIndex={setSelectedEdgeIndex}
+                          onChangePoints={(newPoints) => {
+                            const bounds = getPolygonBounds(newPoints);
+                            const syncedConfigs = generateFacadeConfigs(newPoints, modelParams.facadeConfigs, modelParams.mainEntranceFacadeIndex || 0);
+                            const syncedCustom = syncPolygonToCustomFacades(newPoints, modelParams.customFacades, syncedConfigs, modelParams.mainEntranceFacadeIndex || 0);
+                            updateParams({
+                              polygonPoints: newPoints,
+                              facadeWidth: Math.round(bounds.width * 10) / 10,
+                              facadeDepth: Math.round(bounds.depth * 10) / 10,
+                              facadeConfigs: syncedConfigs,
+                              customFacades: syncedCustom,
+                            });
+                          }}
+                          facadeConfigs={modelParams.facadeConfigs}
+                          onChangeFacadeConfigs={(newConfigs) => {
+                            updateParams({ facadeConfigs: newConfigs });
+                          }}
+                          mainEntranceIndex={modelParams.mainEntranceFacadeIndex || 0}
+                          onChangeMainEntranceIndex={(idx) => {
+                            updateParams({ mainEntranceFacadeIndex: idx });
+                          }}
+                          flatsPerFloor={modelParams.flatsPerFloor || 2}
+                          theme={theme}
+                          compact
+                          roads={modelParams.roads}
+                          onChangeRoads={(newRoads) => {
+                            updateParams({ roads: newRoads });
+                          }}
+                          stairWidth={modelParams.stairWidth}
+                          stairDepth={modelParams.stairDepth}
+                          elevatorWidth={modelParams.elevatorWidth}
+                          elevatorDepth={modelParams.elevatorDepth}
+                          elevatorCount={modelParams.elevatorCount}
+                          coreOffsetX={modelParams.coreOffsetX}
+                          coreOffsetY={modelParams.coreOffsetY}
+                          corePositionPreset={modelParams.corePositionPreset}
+                          onChangeCoreParams={(coreUpdates) => {
+                            updateParams(coreUpdates);
+                          }}
+                        />
+                      </div>
+                    )}
 
-                              return (
-                                <div
-                                  key={facadeItem.id}
-                                  className={`p-3 bg-white rounded-xl border transition-all space-y-3 shadow-2xs ${
-                                    isEntrance ? 'border-emerald-500 ring-1 ring-emerald-400/40 bg-emerald-50/10' : 'border-slate-200/90'
+                    {/* Unified Facade Management Matrix (Tek ve Birleşik Cephe Tablosu) */}
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
+                            Cephe Mimari Ayrıntıları & Giriş Yönetimi ({facadeItems.length} Cephe)
+                          </span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Anında 3D & 2D Yansır
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 hidden sm:inline">
+                          Her cephenin uzunluk, ana giriş, pencere, balkon ve konsol çıkmasını tek tablodan yönetin
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {facadeItems.map((facadeItem, fIdx) => {
+                          const cfg = activeCfgs[fIdx] || {
+                            id: fIdx + 1,
+                            name: facadeItem.label,
+                            length: facadeItem.value,
+                            windowCountPerFloor: fIdx === 0 ? 3 : 2,
+                            hasBalcony: fIdx === 0,
+                            balconyCountPerFloor: fIdx === 0 ? 1 : 0,
+                            balconyType: 'standard',
+                            isEntrance: fIdx === (modelParams.mainEntranceFacadeIndex || 0),
+                            isAdjacent: false,
+                            isBlankWall: false,
+                          };
+
+                          const isEntrance = fIdx === (modelParams.mainEntranceFacadeIndex || 0) || cfg.isEntrance === true;
+                          const isAdjacent = (cfg as any).isAdjacent === true;
+                          const isBlind = isAdjacent || (cfg as any).isBlankWall === true || cfg.windowCountPerFloor === 0;
+                          const isSelectedInCanvas = selectedEdgeIndex === fIdx;
+                          const currentRoad = (modelParams.roads || []).find((r) => r.facadeIndex === fIdx);
+
+                          // Formulated Balcony Combo Key
+                          let balconyCombo = 'none';
+                          if (!isBlind && cfg.hasBalcony) {
+                            if (cfg.balconyType === 'glass_enclosed') balconyCombo = 'glass_enclosed';
+                            else if (cfg.balconyType === 'recessed') balconyCombo = 'recessed';
+                            else if (cfg.balconyType === 'french') balconyCombo = 'french';
+                            else if (cfg.balconyType === 'corner') balconyCombo = 'corner';
+                            else if (cfg.balconyType === 'cumba') balconyCombo = 'cumba';
+                            else if (cfg.balconyCountPerFloor === 2) balconyCombo = 'standard_2';
+                            else balconyCombo = 'standard_1';
+                          }
+
+                          return (
+                            <div
+                              key={facadeItem.id}
+                              onClick={() => setSelectedEdgeIndex(fIdx)}
+                              className={`p-3.5 bg-white rounded-2xl border transition-all space-y-3 shadow-2xs relative cursor-pointer ${
+                                isSelectedInCanvas
+                                  ? 'ring-2 ring-indigo-500 border-indigo-400 bg-indigo-50/20'
+                                  : isEntrance
+                                  ? 'border-emerald-500 ring-1 ring-emerald-300 bg-emerald-50/10'
+                                  : isAdjacent
+                                  ? 'border-slate-300 bg-slate-50/60'
+                                  : 'border-slate-200 hover:border-slate-300'
+                              }`}
+                            >
+                              {/* Facade Title & Length Header */}
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-100 gap-1.5">
+                                <div className="min-w-0 flex-1">
+                                  <span className={`text-xs font-bold truncate block ${isEntrance ? 'text-emerald-700' : textTitle}`} title={facadeItem.label}>
+                                    {facadeItem.label}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="1"
+                                    max="60"
+                                    value={facadeItem.value}
+                                    onChange={(e) => handleLengthChange(fIdx, parseFloat(e.target.value))}
+                                    className={`w-14 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
+                                  />
+                                  <span className="text-[11px] font-semibold text-slate-400">m</span>
+                                </div>
+                              </div>
+
+                              {/* Bina Girişi & Bitişik Nizam Hızlı Seçim Butonları */}
+                              <div className="grid grid-cols-2 gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() => updateFacadeDetail(fIdx, { isEntrance: true })}
+                                  className={`py-1 px-1.5 text-[10px] font-bold rounded-lg border transition-all flex items-center justify-center gap-1 ${
+                                    isEntrance
+                                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
                                   }`}
                                 >
-                                  {/* Facade Title & Length Input */}
-                                  <div className="space-y-1.5 pb-2 border-b border-slate-100">
-                                    <div className="flex items-center justify-between text-xs">
-                                      <label className={`font-bold truncate max-w-[130px] ${isEntrance ? 'text-emerald-700' : textTitle}`}>
-                                        {facadeItem.label}:
-                                      </label>
-                                      <div className="flex items-center gap-1">
-                                        <input
-                                          type="number"
-                                          step="0.1"
-                                          min="1"
-                                          max="60"
-                                          value={facadeItem.value}
-                                          onChange={(e) => handleLengthChange(fIdx, parseFloat(e.target.value))}
-                                          className={`w-16 px-2 py-1 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
-                                        />
-                                        <span className={`text-xs font-medium ${textMuted}`}>m</span>
-                                      </div>
-                                    </div>
-                                    <input
-                                      type="range"
-                                      min="1"
-                                      max="40"
-                                      step="0.5"
-                                      value={facadeItem.value}
-                                      onChange={(e) => handleLengthChange(fIdx, parseFloat(e.target.value))}
-                                      className="w-full accent-indigo-600 cursor-pointer"
-                                    />
-                                  </div>
+                                  <DoorOpen className="w-3 h-3" />
+                                  <span>{isEntrance ? 'Ana Giriş ✓' : 'Giriş Yap'}</span>
+                                </button>
 
-                                  {/* Bina Ana Girişi Seçimi (Radio Button) */}
-                                  <div className="p-2 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-                                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-800">
-                                      <input
-                                        type="radio"
-                                        name="mainBuildingEntranceRadio"
-                                        checked={isEntrance}
-                                        onChange={() => updateFacadeDetail(fIdx, { isEntrance: true })}
-                                        className="w-3.5 h-3.5 accent-emerald-600 cursor-pointer"
-                                      />
-                                      <span>🚪 Bina Girişi Bu Cephede</span>
-                                    </label>
-                                    {isEntrance && (
-                                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
-                                        Ana Giriş
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {/* Kör Cephe Onay Kutusu */}
-                                  <div className="space-y-2">
-                                    <div className="flex items-center justify-between text-xs">
-                                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          checked={isBlind}
-                                          onChange={(e) => {
-                                            const isChecked = e.target.checked;
-                                            updateFacadeDetail(fIdx, {
-                                              windowCountPerFloor: isChecked ? 0 : 2,
-                                              hasBalcony: !isChecked,
-                                              balconyCountPerFloor: isChecked ? 0 : 1,
-                                            });
-                                          }}
-                                          className="rounded text-indigo-600 focus:ring-indigo-500"
-                                        />
-                                        <span>🧱 Kör Cephe (Penceresiz)</span>
-                                      </label>
-                                      {isBlind && (
-                                        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                                          Dolu Duvar
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {/* Window Count Selection */}
-                                    <div className="space-y-1">
-                                      <div className="flex items-center justify-between text-[11px]">
-                                        <span className="text-slate-600 font-medium">Pencere Sayısı:</span>
-                                        <span className="font-mono font-bold text-indigo-700">{cfg.windowCountPerFloor} Adet</span>
-                                      </div>
-                                      <select
-                                        disabled={isBlind}
-                                        value={cfg.windowCountPerFloor}
-                                        onChange={(e) => {
-                                          const wCount = parseInt(e.target.value, 10);
-                                          updateFacadeDetail(fIdx, { windowCountPerFloor: wCount });
-                                        }}
-                                        className={`w-full px-2 py-1 text-xs rounded-lg border font-semibold ${
-                                          isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : inputBg
-                                        }`}
-                                      >
-                                        <option value={0}>0 (Kör / Penceresiz)</option>
-                                        <option value={1}>1 Pencere</option>
-                                        <option value={2}>2 Pencere</option>
-                                        <option value={3}>3 Pencere</option>
-                                        <option value={4}>4 Pencere</option>
-                                        <option value={5}>5 Pencere</option>
-                                        <option value={6}>6 Pencere</option>
-                                      </select>
-                                    </div>
-
-                                    {/* Balcony Options & Types */}
-                                    <div className="space-y-1.5 pt-1.5 border-t border-slate-100">
-                                      <div className="flex items-center justify-between text-[11px]">
-                                        <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            disabled={isBlind}
-                                            checked={!isBlind && cfg.hasBalcony}
-                                            onChange={(e) => {
-                                              const hasB = e.target.checked;
-                                              updateFacadeDetail(fIdx, {
-                                                hasBalcony: hasB,
-                                                balconyCountPerFloor: hasB ? 1 : 0,
-                                              });
-                                            }}
-                                            className="rounded text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
-                                          />
-                                          <span className="font-semibold">🏞️ Balkon Ekle</span>
-                                        </label>
-                                      </div>
-
-                                      {!isBlind && cfg.hasBalcony && (
-                                        <div className="space-y-2 pt-1">
-                                          <div className="grid grid-cols-2 gap-1.5">
-                                            <div>
-                                              <span className="block text-[10px] text-slate-500 font-semibold mb-0.5">Adet:</span>
-                                              <select
-                                                value={cfg.balconyCountPerFloor || 1}
-                                                onChange={(e) => updateFacadeDetail(fIdx, { balconyCountPerFloor: parseInt(e.target.value, 10) })}
-                                                className={`w-full px-1.5 py-1 text-[11px] font-semibold rounded-md border ${inputBg}`}
-                                              >
-                                                <option value={1}>1 Balkon</option>
-                                                <option value={2}>2 Balkon</option>
-                                                <option value={3}>3 Balkon</option>
-                                              </select>
-                                            </div>
-                                            <div>
-                                              <span className="block text-[10px] text-slate-500 font-semibold mb-0.5">Balkon Türü:</span>
-                                              <select
-                                                value={cfg.balconyType || 'standard'}
-                                                onChange={(e) => updateFacadeDetail(fIdx, { balconyType: e.target.value as any })}
-                                                className={`w-full px-1.5 py-1 text-[11px] font-semibold rounded-md border ${inputBg}`}
-                                              >
-                                                <option value="standard">Açık Konsol (Klasik)</option>
-                                                <option value="glass_enclosed">Katlanır Cam Balkon</option>
-                                                <option value="recessed">Gömme Lojya</option>
-                                                <option value="french">Fransız Balkon</option>
-                                                <option value="corner">Köşe / L-Tipi</option>
-                                                <option value="cumba">Cumba (Kapalı)</option>
-                                              </select>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Calculated Area Live Badge */}
-                  <div className="p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-xl flex items-center justify-between text-xs">
-                    <span className="font-semibold text-indigo-900">Hesaplanan Taban Alanı:</span>
-                    <span className="font-mono font-bold text-indigo-700">
-                      {(modelParams.facadeWidth * modelParams.facadeDepth).toFixed(1)} m²
-                    </span>
-                  </div>
-
-                  {/* Horizontal Sub-Parameters Row: Floor Height, Balcony, Cantilever */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-200/60">
-                    {/* Floor Height */}
-                    <div className="space-y-1.5 p-3 bg-slate-50/60 rounded-2xl border border-slate-100">
-                      <div className="flex items-center justify-between text-xs">
-                        <label className={`font-semibold ${textTitle}`}>Kat Yüksekliği (H):</label>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            step="0.05"
-                            min="2.4"
-                            max="4.5"
-                            value={modelParams.floorHeight}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              if (!isNaN(val) && val > 0) updateParams({ floorHeight: val });
-                            }}
-                            className={`w-16 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
-                          />
-                          <span className={`text-xs font-medium ${textMuted}`}>m</span>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min="2.60"
-                        max="3.60"
-                        step="0.05"
-                        value={modelParams.floorHeight}
-                        onChange={(e) => updateParams({ floorHeight: parseFloat(e.target.value) })}
-                        className="w-full accent-indigo-600 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Balcony Depth */}
-                    <div className="space-y-1.5 p-3 bg-slate-50/60 rounded-2xl border border-slate-100">
-                      <div className="flex items-center justify-between text-xs">
-                        <label className={`font-semibold ${textTitle}`}>Balkon Çıkması Payı:</label>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="3.0"
-                            value={modelParams.balconyDepth}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              if (!isNaN(val) && val >= 0) updateParams({ balconyDepth: val });
-                            }}
-                            className={`w-16 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded-lg border ${inputBg}`}
-                          />
-                          <span className={`text-xs font-medium ${textMuted}`}>m</span>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="2.5"
-                        step="0.1"
-                        value={modelParams.balconyDepth}
-                        onChange={(e) => updateParams({ balconyDepth: parseFloat(e.target.value) })}
-                        className="w-full accent-indigo-600 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Tabla / Konsol Çıkması (Cantilever) */}
-                    <div className="p-3 bg-slate-50/60 rounded-2xl border border-slate-100 space-y-2">
-                      <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={modelParams.hasCantilever || false}
-                          onChange={(e) => updateParams({ hasCantilever: e.target.checked })}
-                          className="rounded-sm text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className={`font-semibold ${textTitle}`}>Tabla Çıkması (Konsol)</span>
-                      </label>
-
-                      {modelParams.hasCantilever && (() => {
-                        const isPoly = modelParams.footprintInputMode === 'polygonDraw' || (modelParams.polygonPoints && modelParams.polygonPoints.length > 4);
-                        const pts = modelParams.polygonPoints && modelParams.polygonPoints.length >= 3 ? modelParams.polygonPoints : null;
-                        const edges = pts ? getPolygonEdges(pts) : [];
-                        const sideCount = edges.length > 0 ? edges.length : (modelParams.customFacades && modelParams.customFacades.length > 4 ? modelParams.customFacades.length : 4);
-
-                        const cfgs = generateFacadeConfigs(
-                          pts || sideCount,
-                          modelParams.facadeConfigs,
-                          modelParams.mainEntranceFacadeIndex || 0
-                        );
-
-                        const defaultDepth = modelParams.cantileverDepth || 1.2;
-
-                        // Check if any blind/adjacent exists
-                        const hasBlindOrAdjacent = cfgs.some(
-                          (c) => c.windowCountPerFloor === 0 || (c as any).isBlankWall === true || (c as any).isAdjacent === true
-                        );
-
-                        return (
-                          <div className="space-y-4 pt-1">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-[11px] font-bold text-slate-700">Genel Çıkma Modu:</span>
-                              <select
-                                value={modelParams.cantileverDirection || 'open_facades'}
-                                onChange={(e) => {
-                                  const newDir = e.target.value as any;
-                                  let newFacades: number[] | undefined = undefined;
-                                  if (newDir === 'custom') {
-                                    newFacades = cfgs.map((c) => {
-                                      const isBlind = c.windowCountPerFloor === 0 || (c as any).isBlankWall || (c as any).isAdjacent;
-                                      return isBlind ? 0 : defaultDepth;
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextAdj = !isAdjacent;
+                                    updateFacadeDetail(fIdx, {
+                                      isAdjacent: nextAdj,
+                                      isBlankWall: nextAdj,
+                                      windowCountPerFloor: nextAdj ? 0 : 2,
+                                      hasBalcony: !nextAdj,
+                                      balconyCountPerFloor: nextAdj ? 0 : 1,
+                                      cantileverDepth: nextAdj ? 0 : currentDefaultCantilever,
                                     });
-                                  }
-                                  updateParams({
-                                    cantileverDirection: newDir,
-                                    facadeCantilevers: newFacades,
-                                  });
-                                }}
-                                className={`w-40 text-[10px] px-2 py-1 rounded-lg border focus:outline-hidden ${inputBg}`}
-                              >
-                                <option value="open_facades">Tüm Açık Cepheler</option>
-                                <option value="front_back">Ön ve Arka Cephe</option>
-                                <option value="front">Yalnız Ön Cephe</option>
-                                <option value="all">Tüm Cepheler</option>
-                                <option value="custom">Özel Cepheler</option>
-                              </select>
-                            </div>
-
-                            {/* Varsayılan Konsol Derinliği */}
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-[11px] font-medium text-slate-600">Varsayılan Çıkma Derinliği:</span>
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  min="0.5"
-                                  max="2.5"
-                                  value={defaultDepth}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    if (!isNaN(val) && val >= 0) {
-                                      updateParams({ cantileverDepth: val });
-                                    }
                                   }}
-                                  className={`w-14 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded border ${inputBg}`}
-                                />
-                                <span className="text-xs text-slate-400">m</span>
-                              </div>
-                            </div>
-
-                            <div className="space-y-2.5 p-3 bg-white/70 rounded-2xl border border-slate-200">
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1.5">
-                                  <Layout className="w-3.5 h-3.5 text-indigo-600" />
-                                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-tight">
-                                    Cephe Bazlı Çıkma & Bitişik Nizam ({cfgs.length} Cephe)
-                                  </span>
-                                </div>
-                                {cfgs.length >= 6 && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                    L-Tipi / Çokgen
-                                  </span>
-                                )}
+                                  className={`py-1 px-1.5 text-[10px] font-bold rounded-lg border transition-all flex items-center justify-center gap-1 ${
+                                    isAdjacent
+                                      ? 'bg-rose-100 text-rose-800 border-rose-300 font-black'
+                                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                                  }`}
+                                  title="Komşu parsele bitişik / yangın duvarı (İmar gereği pencere ve çıkma yapılamaz)"
+                                >
+                                  <span>{isAdjacent ? '🧱 Bitişik Kör' : 'Açık Cephe'}</span>
+                                </button>
                               </div>
 
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {cfgs.map((cfg, fIdx) => {
-                                  const isAdjacent = (cfg as any).isAdjacent === true;
-                                  const isBlank = cfg.windowCountPerFloor === 0 || (cfg as any).isBlankWall === true;
-                                  const isBlind = isAdjacent || isBlank;
-                                  const currentVal = isBlind ? 0 : (
-                                    modelParams.facadeCantilevers?.[fIdx] !== undefined
-                                      ? modelParams.facadeCantilevers[fIdx]
-                                      : (
-                                        (modelParams.cantileverDirection === 'all' || modelParams.cantileverDirection === 'open_facades') ? defaultDepth :
-                                        modelParams.cantileverDirection === 'front_back' && (fIdx === 0 || fIdx === 2) ? defaultDepth :
-                                        modelParams.cantileverDirection === 'front' && fIdx === 0 ? defaultDepth : 0
-                                      )
-                                  );
-
-                                  return (
-                                    <div
-                                      key={fIdx}
-                                      className={`p-2 rounded-xl border transition-all flex items-center justify-between gap-1.5 ${
-                                        isBlind ? 'bg-slate-100/70 border-slate-200' : 'bg-white border-slate-200'
-                                      }`}
+                              {/* İmar Yolu Ekleme / Yönetimi */}
+                              <div className="pt-1 border-t border-slate-100/80" onClick={(e) => e.stopPropagation()}>
+                                {isAdjacent ? (
+                                  <div className="flex items-center justify-between text-[10px] text-slate-400 py-1 px-2 bg-slate-50 border border-slate-200/70 rounded-lg">
+                                    <span className="flex items-center gap-1">
+                                      <Navigation className="w-3 h-3 text-slate-400" />
+                                      <span>Yol Durumu:</span>
+                                    </span>
+                                    <span className="font-semibold text-slate-400 italic">Bitişik Kör</span>
+                                  </div>
+                                ) : currentRoad ? (
+                                  <div className="flex items-center justify-between gap-1 p-1 bg-amber-50/80 border border-amber-300 rounded-lg shadow-2xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleRoadOnFacade(fIdx)}
+                                      className="flex items-center gap-1 text-[10px] font-bold text-amber-950 hover:text-rose-600 transition-colors shrink-0 pl-0.5"
+                                      title="Yolu Kaldır"
                                     >
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-1">
-                                          <span className="text-[11px] font-semibold text-slate-800 truncate" title={cfg.name}>
-                                            {cfg.name}
-                                          </span>
-                                          {cfg.length && (
-                                            <span className="text-[9px] text-slate-400 font-mono">({cfg.length}m)</span>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-1 mt-0.5">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const newCfgs = [...cfgs];
-                                              const willBeAdjacent = !isAdjacent;
-                                              newCfgs[fIdx] = {
-                                                ...newCfgs[fIdx],
-                                                isAdjacent: willBeAdjacent,
-                                                isBlankWall: willBeAdjacent,
-                                                windowCountPerFloor: willBeAdjacent ? 0 : 2,
-                                                hasBalcony: !willBeAdjacent,
-                                                balconyCountPerFloor: willBeAdjacent ? 0 : 1,
-                                                cantileverDepth: willBeAdjacent ? 0 : defaultDepth,
-                                              };
-
-                                              const nextCantilevers = [...(modelParams.facadeCantilevers || Array(cfgs.length).fill(defaultDepth))];
-                                              while (nextCantilevers.length < cfgs.length) {
-                                                nextCantilevers.push(defaultDepth);
-                                              }
-                                              nextCantilevers[fIdx] = willBeAdjacent ? 0 : defaultDepth;
-
-                                              updateParams({
-                                                facadeConfigs: newCfgs,
-                                                facadeCantilevers: nextCantilevers,
-                                                cantileverDirection: 'custom',
-                                              });
-                                            }}
-                                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-all ${
-                                              isAdjacent
-                                                ? 'bg-rose-100 text-rose-700 border border-rose-300'
-                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'
-                                            }`}
-                                            title="Bitişik nizam veya komşu parsel yangın duvarı olarak işaretle"
-                                          >
-                                            {isAdjacent ? 'Bitişik Nizam (Kör)' : 'Açık Cephe'}
-                                          </button>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        <input
-                                          type="number"
-                                          step="0.1"
-                                          min="0"
-                                          max="2.5"
-                                          disabled={isBlind}
-                                          value={currentVal}
-                                          onChange={(e) => {
-                                            if (isBlind) return;
-                                            const val = parseFloat(e.target.value);
-                                            if (!isNaN(val) && val >= 0) {
-                                              const next = [...(modelParams.facadeCantilevers || Array(cfgs.length).fill(defaultDepth))];
-                                              while (next.length < cfgs.length) {
-                                                next.push(defaultDepth);
-                                              }
-                                              next[fIdx] = val;
-                                              updateParams({
-                                                facadeCantilevers: next,
-                                                cantileverDirection: 'custom',
-                                              });
-                                            }
-                                          }}
-                                          className={`w-12 px-1 py-0.5 text-right font-mono font-bold text-[11px] rounded border ${
-                                            isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : inputBg
-                                          }`}
-                                          title={isBlind ? 'Kör veya bitişik cephelerde imar mevzuatı gereği tabla çıkması yapılamaz' : undefined}
-                                        />
-                                        <span className="text-[10px] text-slate-400">m</span>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {/* Blind/Adjacent facade warning alert */}
-                              {hasBlindOrAdjacent && (
-                                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[10px] text-amber-800 flex items-start gap-1.5 leading-tight">
-                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                                  <span>
-                                    <strong>İmar Mevzuatı (Planlı Alanlar Madde 41):</strong> Komşu parsele bitişik (yangın duvarı / kör cephe) yüzeylerde parsel sınırını ihlal edeceğinden tabla konsol çıkması yapılamaz. Çıkma 0m olarak uygulanmaktadır.
-                                  </span>
-                                </div>
-                              )}
-
-                              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5">
-                                {cfgs.length >= 6 && (
+                                      <Navigation className="w-3 h-3 text-amber-600" />
+                                      <span>Yol:</span>
+                                      <Trash2 className="w-2.5 h-2.5 text-slate-400 hover:text-rose-600 ml-0.5" />
+                                    </button>
+                                    <select
+                                      value={currentRoad.type}
+                                      onChange={(e) => updateRoadTypeOnFacade(fIdx, e.target.value as RoadType)}
+                                      className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-white border border-amber-300 text-amber-900 focus:outline-none"
+                                    >
+                                      {ROAD_TYPES_DATA.map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                          {t.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                ) : (
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      // Preset: L-Shape standard: back and left adjacent, others open with defaultDepth
-                                      const newCfgs = cfgs.map((c, i) => {
-                                        const isAdj = i === 3 || i === 4; // usually inner/back corner in L shape
-                                        return {
-                                          ...c,
-                                          isAdjacent: isAdj,
-                                          isBlankWall: isAdj,
-                                          windowCountPerFloor: isAdj ? 0 : 2,
-                                          hasBalcony: !isAdj,
-                                          balconyCountPerFloor: isAdj ? 0 : 1,
-                                          cantileverDepth: isAdj ? 0 : defaultDepth,
-                                        };
-                                      });
-                                      const newCants = newCfgs.map(c => ((c as any).isAdjacent ? 0 : defaultDepth));
-                                      updateParams({
-                                        facadeConfigs: newCfgs,
-                                        facadeCantilevers: newCants,
-                                        cantileverDirection: 'custom',
-                                      });
-                                    }}
-                                    className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                                    onClick={() => toggleRoadOnFacade(fIdx)}
+                                    className="w-full py-1 px-2 text-[10px] font-bold rounded-lg border border-dashed border-amber-300 hover:border-amber-400 bg-amber-50/40 hover:bg-amber-50 text-amber-900 transition-all flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
                                   >
-                                    L-Tipi: Arka & Yan Bitişik Yap
+                                    <Plus className="w-3 h-3 text-amber-600" />
+                                    <span>🛣️ Bu Cepheye Yol Ekle</span>
                                   </button>
                                 )}
-                                <div className="flex items-center gap-2 ml-auto">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const allOpen = cfgs.map(c => ({
-                                        ...c,
-                                        isAdjacent: false,
-                                        isBlankWall: false,
-                                        windowCountPerFloor: 2,
-                                        hasBalcony: true,
-                                        balconyCountPerFloor: 1,
-                                        cantileverDepth: defaultDepth,
-                                      }));
-                                      updateParams({
-                                        facadeConfigs: allOpen,
-                                        facadeCantilevers: Array(cfgs.length).fill(defaultDepth),
-                                        cantileverDirection: 'open_facades',
+                              </div>
+
+                              {/* Pencere & Balkon Seçimi */}
+                              <div className="space-y-2 pt-1 border-t border-slate-100/80" onClick={(e) => e.stopPropagation()}>
+                                {/* Pencereler */}
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-600 font-medium">Pencereler:</span>
+                                  <select
+                                    disabled={isBlind}
+                                    value={isBlind ? 0 : cfg.windowCountPerFloor}
+                                    onChange={(e) => {
+                                      const wCount = parseInt(e.target.value, 10);
+                                      updateFacadeDetail(fIdx, {
+                                        windowCountPerFloor: wCount,
+                                        isBlankWall: wCount === 0,
                                       });
                                     }}
-                                    className="text-[9px] text-slate-600 font-bold hover:underline"
+                                    className={`w-28 px-1.5 py-0.5 text-xs font-semibold rounded-md border ${
+                                      isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : inputBg
+                                    }`}
                                   >
-                                    Tüm Açık
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateParams({ facadeCantilevers: undefined, cantileverDirection: 'open_facades' })}
-                                    className="text-[9px] text-indigo-600 font-bold hover:underline"
-                                  >
-                                    Sıfırla
-                                  </button>
+                                    <option value={0}>0 (Penceresiz)</option>
+                                    <option value={1}>1 Pencere</option>
+                                    <option value={2}>2 Pencere</option>
+                                    <option value={3}>3 Pencere</option>
+                                    <option value={4}>4 Pencere</option>
+                                    <option value={5}>5 Pencere</option>
+                                    <option value={6}>6 Pencere</option>
+                                  </select>
                                 </div>
+
+                                {/* Balkonlar */}
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-600 font-medium">Balkon:</span>
+                                  <select
+                                    disabled={isBlind}
+                                    value={isBlind ? 'none' : balconyCombo}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === 'none') {
+                                        updateFacadeDetail(fIdx, { hasBalcony: false, balconyCountPerFloor: 0 });
+                                      } else if (val === 'standard_1') {
+                                        updateFacadeDetail(fIdx, { hasBalcony: true, balconyCountPerFloor: 1, balconyType: 'standard' });
+                                      } else if (val === 'standard_2') {
+                                        updateFacadeDetail(fIdx, { hasBalcony: true, balconyCountPerFloor: 2, balconyType: 'standard' });
+                                      } else if (val === 'glass_enclosed') {
+                                        updateFacadeDetail(fIdx, { hasBalcony: true, balconyCountPerFloor: 1, balconyType: 'glass_enclosed' });
+                                      } else if (val === 'recessed') {
+                                        updateFacadeDetail(fIdx, { hasBalcony: true, balconyCountPerFloor: 1, balconyType: 'recessed' });
+                                      } else if (val === 'french') {
+                                        updateFacadeDetail(fIdx, { hasBalcony: true, balconyCountPerFloor: 1, balconyType: 'french' });
+                                      } else if (val === 'corner') {
+                                        updateFacadeDetail(fIdx, { hasBalcony: true, balconyCountPerFloor: 1, balconyType: 'corner' });
+                                      } else if (val === 'cumba') {
+                                        updateFacadeDetail(fIdx, { hasBalcony: true, balconyCountPerFloor: 1, balconyType: 'cumba' });
+                                      }
+                                    }}
+                                    className={`w-28 px-1.5 py-0.5 text-xs font-semibold rounded-md border ${
+                                      isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : inputBg
+                                    }`}
+                                  >
+                                    <option value="none">Balkonsuz</option>
+                                    <option value="standard_1">1 Açık Balkon</option>
+                                    <option value="standard_2">2 Açık Balkon</option>
+                                    <option value="glass_enclosed">Katlanır Cam Balkon</option>
+                                    <option value="recessed">Gömme Lojya</option>
+                                    <option value="french">Fransız Balkon</option>
+                                    <option value="corner">Köşe Balkon</option>
+                                    <option value="cumba">Cumba (Kapalı)</option>
+                                  </select>
+                                </div>
+
+                                {/* Konsol Çıkması (Tabla) */}
+                                {modelParams.hasCantilever && (
+                                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
+                                    <span className="text-slate-600 font-medium">Konsol Çıkması:</span>
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        step="0.1"
+                                        min="0"
+                                        max="2.5"
+                                        disabled={isBlind}
+                                        value={isBlind ? 0 : (cfg.cantileverDepth !== undefined ? cfg.cantileverDepth : currentDefaultCantilever)}
+                                        onChange={(e) => {
+                                          if (isBlind) return;
+                                          const val = parseFloat(e.target.value);
+                                          if (!isNaN(val) && val >= 0) {
+                                            updateFacadeDetail(fIdx, { cantileverDepth: val });
+                                          }
+                                        }}
+                                        className={`w-14 px-1 py-0.5 text-right font-mono font-bold text-xs rounded border ${
+                                          isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : inputBg
+                                        }`}
+                                      />
+                                      <span className="text-[10px] text-slate-400">m</span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          </div>
-                        );
-                      })()}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Card 1.5: General Structure & Floor Planning (Collapsible) */}
@@ -1777,128 +2010,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               )}
             </div>
 
-            {/* Card 3: Roads & Environment (Yol & Çevre Bilgileri) */}
-            <div className={`border rounded-3xl overflow-hidden ${cardBg}`}>
-              <button
-                type="button"
-                onClick={() => toggleSection('roads')}
-                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/50 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <Navigation className="w-4 h-4 text-indigo-600" />
-                  <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
-                    3. Yol & Çevre Bilgileri
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  <span>{modelParams.roads?.length || 0} Yol</span>
-                  {collapsedSections.roads ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                </div>
-              </button>
-
-              {!collapsedSections.roads && (
-                <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
-                  <div className="pt-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[11px] font-bold ${textTitle}`}>Mevcut Yollar:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentRoads = modelParams.roads || [];
-                          const newRoad: RoadConfig = {
-                            id: Math.random().toString(36).substr(2, 9),
-                            facadeIndex: 0,
-                            type: 'street',
-                            width: 7
-                          };
-                          updateParams({ roads: [...currentRoads, newRoad] });
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 transition-all shadow-xs"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Yeni Yol Ekle</span>
-                      </button>
-                    </div>
-
-                    {(modelParams.roads || []).length === 0 ? (
-                      <div className="p-4 border border-dashed border-slate-200 rounded-2xl text-center">
-                        <Milestone className="w-6 h-6 text-slate-300 mx-auto mb-2" />
-                        <p className="text-[10px] text-slate-400">Henüz yol tanımlanmadı. Binanın cephelerine yol ekleyerek vaziyet planını netleştirebilirsiniz.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {(modelParams.roads || []).map((road, idx) => (
-                          <div key={road.id} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-2.5">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-slate-100 rounded-lg">
-                                  <Navigation className="w-3.5 h-3.5 text-slate-600" />
-                                </div>
-                                <span className="text-[11px] font-bold text-slate-800">{idx + 1}. Yol Tanımı</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextRoads = (modelParams.roads || []).filter(r => r.id !== road.id);
-                                  updateParams({ roads: nextRoads });
-                                }}
-                                className="p-1 text-slate-300 hover:text-rose-500 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Cephe:</label>
-                                <select
-                                  value={road.facadeIndex}
-                                  onChange={(e) => {
-                                    const nextRoads = (modelParams.roads || []).map(r => 
-                                      r.id === road.id ? { ...r, facadeIndex: parseInt(e.target.value) } : r
-                                    );
-                                    updateParams({ roads: nextRoads });
-                                  }}
-                                  className={`w-full px-2 py-1.5 text-xs rounded-lg border focus:outline-hidden ${inputBg}`}
-                                >
-                                  {(modelParams.facadeConfigs || Array.from({ length: 4 })).map((_, fIdx) => (
-                                    <option key={fIdx} value={fIdx}>
-                                      {fIdx === 0 ? 'Ön Cephe' : fIdx === 1 ? 'Sağ Cephe' : fIdx === 2 ? 'Arka Cephe' : fIdx === 3 ? 'Sol Cephe' : `${fIdx + 1}. Cephe`}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Yol Tipi:</label>
-                                <select
-                                  value={road.type}
-                                  onChange={(e) => {
-                                    const typeId = e.target.value as RoadType;
-                                    const typeData = ROAD_TYPES_DATA.find(t => t.id === typeId);
-                                    const nextRoads = (modelParams.roads || []).map(r => 
-                                      r.id === road.id ? { ...r, type: typeId, width: typeData?.width || 7 } : r
-                                    );
-                                    updateParams({ roads: nextRoads });
-                                  }}
-                                  className={`w-full px-2 py-1.5 text-xs rounded-lg border focus:outline-hidden ${inputBg}`}
-                                >
-                                  {ROAD_TYPES_DATA.map(t => (
-                                    <option key={t.id} value={t.id}>{t.label}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* CARD 4: CONTRACTOR SHARE (MÜTEAHHİT DAİRE PAYLAŞIMI) */}
+            {/* CARD 3: CONTRACTOR SHARE (MÜTEAHHİT DAİRE PAYLAŞIMI) */}
             <div className={`border rounded-3xl overflow-hidden ${cardBg}`}>
               <button
                 type="button"
@@ -1908,7 +2020,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-indigo-600" />
                   <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
-                    4. Daire Dağılımı & Paylaşım
+                    3. Daire Dağılımı & Paylaşım
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
@@ -2037,7 +2149,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               )}
             </div>
           </div>
-        )}
 
         {/* İmar & Yangın Mevzuatı Otomatik Denetim Paneli */}
         <ZoningAuditPanel params={modelParams} theme={theme} />

@@ -29,10 +29,12 @@ import {
   Play,
   Pause,
   MapPin,
+  Globe,
 } from 'lucide-react';
 import { BuildingModelParams, CameraPresetType, FacadeStyleType } from '../types';
+import { GoogleMaps3DView } from './GoogleMaps3DView';
 import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon } from '../utils/footprintUtils';
-import { FACADE_STYLES, getFacadeStyleConfig } from '../utils/buildingModelUtils';
+import { WALL_COLOR_PRESETS, ROOF_COLOR_PRESETS, ACCENT_COLOR_PRESETS, FRAME_COLOR_PRESETS } from '../utils/buildingModelUtils';
 
 // Safe geometry constructors to completely prevent any NaN/null/zero bounding sphere errors in Three.js
 function safeBox(w: number, h: number, d: number, ws: number = 1, hs: number = 1, ds: number = 1): THREE.BoxGeometry {
@@ -94,8 +96,8 @@ function createShapeFromPolygon(pts: Array<{ x: number; y: number }>, centerX: n
   }
 
   // Three.js ExtrudeGeometry expects COUNTER-CLOCKWISE winding for outer path shape.
-  // In 2D plane with Y going UP, signedArea > 0 means CLOCKWISE, so reverse.
-  const pointsToUse = signedArea > 0 ? [...pts].reverse() : pts;
+  // In 2D plane with Y going UP, signedArea > 0 means CCW. If signedArea < 0 (CW), reverse.
+  const pointsToUse = signedArea < 0 ? [...pts].reverse() : pts;
 
   pointsToUse.forEach((p, idx) => {
     const px = p.x - centerX;
@@ -129,7 +131,7 @@ function isPointInsideFootprint(
   isCustomPoly: boolean,
   activePolyPts: any[] | null,
   bounds: any,
-  W: number, D: number, floorCenterZ: number,
+  floorW: number, floorD: number, floorCenterX: number, floorCenterZ: number,
   margin: number = 0.4
 ): boolean {
   if (isCustomPoly && activePolyPts && bounds) {
@@ -151,10 +153,10 @@ function isPointInsideFootprint(
     }
     return true;
   } else {
-    const minX = -W / 2 + margin;
-    const maxX = W / 2 - margin;
-    const minZ = floorCenterZ - D / 2 + margin;
-    const maxZ = floorCenterZ + D / 2 - margin;
+    const minX = floorCenterX - floorW / 2 + margin;
+    const maxX = floorCenterX + floorW / 2 - margin;
+    const minZ = floorCenterZ - floorD / 2 + margin;
+    const maxZ = floorCenterZ + floorD / 2 - margin;
     return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
   }
 }
@@ -165,10 +167,10 @@ function getSafePoint(
   isCustomPoly: boolean, 
   activePolyPts: any[] | null, 
   bounds: any, 
-  W: number, D: number, floorCenterZ: number,
+  floorW: number, floorD: number, floorCenterX: number, floorCenterZ: number,
   margin: number = 0.4
 ): { x: number; z: number } {
-  if (isPointInsideFootprint(tx, tz, isCustomPoly, activePolyPts, bounds, W, D, floorCenterZ, margin)) {
+  if (isPointInsideFootprint(tx, tz, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterX, floorCenterZ, margin)) {
     return { x: tx, z: tz };
   }
   
@@ -181,7 +183,7 @@ function getSafePoint(
     const mid = (low + high) / 2;
     const px = cx + (tx - cx) * mid;
     const pz = cz + (tz - cz) * mid;
-    if (isPointInsideFootprint(px, pz, isCustomPoly, activePolyPts, bounds, W, D, floorCenterZ, margin)) {
+    if (isPointInsideFootprint(px, pz, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterX, floorCenterZ, margin)) {
       bestX = px;
       bestZ = pz;
       low = mid;
@@ -282,7 +284,7 @@ function createOffsetPolygon(
     const j = (i + 1) % n;
     signedArea += (pts[i].x * pts[j].y - pts[j].x * pts[i].y);
   }
-  const isCW = signedArea > 0;
+  const isCCW = signedArea > 0;
 
   interface Line2D {
     px: number;
@@ -302,8 +304,9 @@ function createOffsetPolygon(
     const udx = ex / len;
     const udy = ey / len;
 
-    const nx = isCW ? -udy : udy;
-    const ny = isCW ? udx : -udx;
+    // Outward normal: for CCW polygon, right perpendicular is (udy, -udx); for CW polygon, left perpendicular is (-udy, udx)
+    const nx = isCCW ? udy : -udy;
+    const ny = isCCW ? -udx : udx;
 
     const depth = Math.max(0, getDepthForEdge(i));
     lines.push({
@@ -326,8 +329,8 @@ function createOffsetPolygon(
 
     if (Math.abs(det) < 1e-4) {
       const avgDepth = (L1.depth + L2.depth) / 2;
-      const nx = isCW ? -L2.dy : L2.dy;
-      const ny = isCW ? L2.dx : -L2.dx;
+      const nx = isCCW ? L2.dy : -L2.dy;
+      const ny = isCCW ? -L2.dx : L2.dx;
       newPts.push({
         x: origPt.x + nx * avgDepth,
         y: origPt.y + ny * avgDepth,
@@ -515,6 +518,7 @@ interface ThreeBuildingViewProps {
   isSolarHeatmap?: boolean;
   forcedCameraPreset?: CameraPresetType;
   hideControls?: boolean;
+  onUpdateColors?: (colors: { wallColor?: string; roofColor?: string; accentColor?: string; frameColor?: string; slabColor?: string }) => void;
   onUpdateFacadeStyle?: (style: FacadeStyleType) => void;
   onUpdateSunTimeHour?: (hour: number) => void;
   onUpdateBuildingRotation?: (rotation: number) => void;
@@ -533,6 +537,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   isSolarHeatmap = false,
   forcedCameraPreset,
   hideControls = false,
+  onUpdateColors,
   onUpdateFacadeStyle,
   onUpdateSunTimeHour,
   onUpdateBuildingRotation,
@@ -555,7 +560,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   // View settings
   const [explodeRatio, setExplodeRatio] = useState<number>(0);
   const [isWireframe, setIsWireframe] = useState<boolean>(false);
-  const [showCoreHighlight, setShowCoreHighlight] = useState<boolean>(true);
   const [showDebugOverlay, setShowDebugOverlay] = useState<boolean>(params.showDebugOverlay3D || false);
   const [selectedFloor, setSelectedFloor] = useState<number | 'all' | 'basement'>('all');
   const [cameraPreset, setCameraPreset] = useState<CameraPresetType>(forcedCameraPreset || 'iso');
@@ -564,16 +568,20 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [isExportingUSDZ, setIsExportingUSDZ] = useState<boolean>(false);
   const [isExportingGLTF, setIsExportingGLTF] = useState<boolean>(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
-  const [isFacadePickerOpen, setIsFacadePickerOpen] = useState<boolean>(false);
+  const [isColorQuickPickerOpen, setIsColorQuickPickerOpen] = useState<boolean>(false);
+  const [isAutoRotate, setIsAutoRotate] = useState<boolean>(true); // Cinematic tour mode
+  const [isMaps3DOpen, setIsMaps3DOpen] = useState<boolean>(false);
 
   const isGray = theme === 'gray';
   const isLight = !isGray;
 
-  // Colors & Materials depending on facade style
-  const getStyleColors = useCallback((style: BuildingModelParams['facadeStyle']) => {
-    const config = getFacadeStyleConfig(style);
-    return config.colors;
-  }, []);
+  // Helper to parse hex colors
+  const parseHexColor = (hex?: string, fallback: number = 0xf1f5f9): number => {
+    if (!hex) return fallback;
+    const clean = hex.replace('#', '').trim();
+    const num = parseInt(clean, 16);
+    return isNaN(num) ? fallback : num;
+  };
 
   // Construct 3D Building Geometry with Rooms, Duplex, Mansard & Cut Modes
   const buildScene = useCallback(() => {
@@ -598,10 +606,15 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const buildingGroup = new THREE.Group();
     buildingGroupRef.current = buildingGroup;
 
-    const baseColors = getStyleColors(params.facadeStyle);
     const colors = {
-      ...baseColors,
-      ...(buildingColor ? { wall: parseInt(buildingColor.replace('#', '0x'), 16) } : {})
+      wall: parseHexColor(buildingColor || params.wallColor, 0xf1f5f9),
+      roof: parseHexColor(params.roofColor, 0xb91c1c),
+      woodAccent: parseHexColor(params.accentColor, 0xb5734c),
+      slab: parseHexColor(params.slabColor, 0xcbd5e1),
+      frame: parseHexColor(params.frameColor, 0x18181b),
+      glass: parseHexColor(params.glassColor, 0xbae6fd),
+      column: 0x475569,
+      balcony: parseHexColor(params.accentColor, 0x18181b),
     };
     let W = safeNum(params?.facadeWidth, 14.0, 1.0);
     let D = safeNum(params?.facadeDepth, 18.0, 1.0);
@@ -735,30 +748,35 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     });
 
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-      color: colors.glass,
-      roughness: 0.1,
+      color: 0xbae6fd,
+      roughness: 0.05,
       metalness: 0.1,
-      transmission: 0.85,
-      thickness: 0.4,
+      transmission: 0.95,
+      thickness: 0.5,
       transparent: true,
-      opacity: isXRay ? 0.25 : 0.65,
+      opacity: isXRay ? 0.25 : 0.6,
+      reflectivity: 0.9,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.03,
       wireframe: isWireframe,
     });
 
     const frameMaterial = new THREE.MeshStandardMaterial({
-      color: 0x18181b,
-      roughness: 0.4,
+      color: colors.frame,
+      roughness: 0.2,
+      metalness: 0.8
     });
 
     // Turkish Architectural Balcony Materials
     const glassBalconyMat = new THREE.MeshPhysicalMaterial({
-      color: 0x38bdf8,
-      roughness: 0.15,
+      color: 0x7dd3fc,
+      roughness: 0.08,
       metalness: 0.2,
-      transmission: 0.78,
-      thickness: 0.3,
+      transmission: 0.85,
+      thickness: 0.4,
       transparent: true,
-      opacity: isXRay ? 0.3 : 0.72,
+      opacity: isXRay ? 0.3 : 0.65,
+      clearcoat: 1.0,
       wireframe: isWireframe,
     });
 
@@ -826,23 +844,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       color: 0xffffff,
       roughness: 0.1,
       metalness: 0.1,
-    });
-
-    // Core Highlight Materials
-    const stairCoreMaterial = new THREE.MeshStandardMaterial({
-      color: 0xf59e0b, // Amber
-      roughness: 0.3,
-      transparent: true,
-      opacity: showCoreHighlight ? 0.85 : 0.4,
-      wireframe: isWireframe,
-    });
-
-    const elevatorCoreMaterial = new THREE.MeshStandardMaterial({
-      color: 0x8b5cf6, // Violet
-      roughness: 0.3,
-      transparent: true,
-      opacity: showCoreHighlight ? 0.9 : 0.5,
-      wireframe: isWireframe,
     });
 
     // Commercial Shop Materials
@@ -984,18 +985,18 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         } else {
           const soffitGeo = safeBox(floorW, 0.08, floorD);
           const soffitMesh = new THREE.Mesh(soffitGeo, soffitMaterial);
-          soffitMesh.position.set(0, baseY - 0.04, floorCenterZ);
+          soffitMesh.position.set(floorCenterX, baseY - 0.04, floorCenterZ);
           floorGroup.add(soffitMesh);
 
           // Recessed downlights under cantilever overhang
           const dlCount = Math.max(3, Math.floor(floorW / 2.5));
           for (let d = 0; d < dlCount; d++) {
-            const dlX = -floorW / 2 + (floorW / (dlCount + 1)) * (d + 1);
+            const dlX = floorCenterX - floorW / 2 + (floorW / (dlCount + 1)) * (d + 1);
             const dlMesh = new THREE.Mesh(
               safeCylinder(0.12, 0.12, 0.04, 12),
               downlightMat
             );
-            dlMesh.position.set(dlX, baseY - 0.07, floorD / 2 - 0.4);
+            dlMesh.position.set(dlX, baseY - 0.07, floorCenterZ + floorD / 2 - 0.4);
             floorGroup.add(dlMesh);
           }
         }
@@ -1009,7 +1010,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           topSlab.rotation.x = Math.PI / 2;
           topSlab.position.set(0, baseY + currentFloorH + slabThickness, 0);
         } else {
-          topSlab.position.set(0, baseY + currentFloorH, floorCenterZ);
+          topSlab.position.set(floorCenterX, baseY + currentFloorH, floorCenterZ);
         }
         topSlab.castShadow = true;
         floorGroup.add(topSlab);
@@ -1159,10 +1160,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         const maxZ = safeCoreCenterZ + Math.max(safeSD, safeED) / 2 + safeHallDist;
 
         // Check 4 corners of bounds
-        const c1 = isPointInsideFootprint(minX, minZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterZ, 0.22);
-        const c2 = isPointInsideFootprint(maxX, minZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterZ, 0.22);
-        const c3 = isPointInsideFootprint(minX, maxZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterZ, 0.22);
-        const c4 = isPointInsideFootprint(maxX, maxZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterZ, 0.22);
+        const c1 = isPointInsideFootprint(minX, minZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterX, floorCenterZ, 0.22);
+        const c2 = isPointInsideFootprint(maxX, minZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterX, floorCenterZ, 0.22);
+        const c3 = isPointInsideFootprint(minX, maxZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterX, floorCenterZ, 0.22);
+        const c4 = isPointInsideFootprint(maxX, maxZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterX, floorCenterZ, 0.22);
 
         if (c1 && c2 && c3 && c4) {
           break; // Fitting perfectly!
@@ -1179,50 +1180,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         safeED = Math.max(minED, safeED * 0.9);
         safeHallDist = Math.max(minHall, safeHallDist * 0.9);
       }
-
-      const stairX = safeCoreCenterX - safeSW / 2;
-      const elevatorX = safeCoreCenterX + safeSW / 2 + safeEW / 2;
-      const coreZ = safeCoreCenterZ;
-
-      // Staircase shaft volume
-      const stairGeo = safeBox(safeSW, roomHeight, safeSD);
-      const stairMesh = new THREE.Mesh(stairGeo, stairCoreMaterial);
-      stairMesh.position.set(stairX, midY, coreZ);
-      stairMesh.castShadow = true;
-      floorGroup.add(stairMesh);
-
-      // Add miniature stair steps inside the staircase
-      const stepCount = 8;
-      const stepHeight = roomHeight / stepCount;
-      const stepGeo = safeBox(safeSW * 0.45, stepHeight * 0.85, safeSD * 0.18);
-      for (let s = 0; s < stepCount; s++) {
-        const stepMesh = new THREE.Mesh(stepGeo, slabMaterial);
-        const stepZ = coreZ - safeSD / 3 + (s / stepCount) * (safeSD * 0.7);
-        stepMesh.position.set(
-          s < stepCount / 2 ? stairX - safeSW * 0.22 : stairX + safeSW * 0.22,
-          baseY + slabThickness + (s + 0.5) * stepHeight,
-          stepZ
-        );
-        floorGroup.add(stepMesh);
-      }
-
-      // Elevator shaft volume
-      const elevatorGeo = safeBox(safeEW, roomHeight, safeED);
-      const elevatorMesh = new THREE.Mesh(elevatorGeo, elevatorCoreMaterial);
-      elevatorMesh.position.set(elevatorX, midY, coreZ);
-      elevatorMesh.castShadow = true;
-      floorGroup.add(elevatorMesh);
-
-      // Elevator cabin inside
-      const cabinGeo = safeBox(safeEW * 0.75, roomHeight * 0.7, safeED * 0.75);
-      const cabinMat = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        metalness: 0.8,
-        roughness: 0.2,
-      });
-      const cabinMesh = new THREE.Mesh(cabinGeo, cabinMat);
-      cabinMesh.position.set(elevatorX, midY, coreZ);
-      floorGroup.add(cabinMesh);
 
       // 4. INTERIOR ROOMS & PARTITION WALLS (İç Mekan & Bölmeler)
       if (isShopFloor) {
@@ -1310,13 +1267,19 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           floorGroup.add(obj);
         };
 
-        if (isCustomPoly && activePolyPts) {
-          const bounds = getPolygonBounds(activePolyPts);
-          const shape = createShapeFromPolygon(activePolyPts, bounds.centerX, bounds.centerY);
+        if (isCustomPoly && currentFloorPts) {
+          const bounds = getPolygonBounds(currentFloorPts);
+          const shape = createShapeFromPolygon(currentFloorPts, bounds.centerX, bounds.centerY);
           const finishGeo = new THREE.ExtrudeGeometry(shape, { depth: 0.02, bevelEnabled: false });
           const finishMesh = new THREE.Mesh(finishGeo, salonFloorMat);
           finishMesh.rotation.x = Math.PI / 2;
           finishMesh.position.set(0, floorFinishY + 0.01, 0);
+          finishMesh.receiveShadow = true;
+          floorGroup.add(finishMesh);
+        } else if (!isCustomPoly) {
+          const finishGeo = safeBox(floorW - 0.2, 0.02, floorD - 0.2);
+          const finishMesh = new THREE.Mesh(finishGeo, salonFloorMat);
+          finishMesh.position.set(floorCenterX, floorFinishY + 0.01, floorCenterZ);
           finishMesh.receiveShadow = true;
           floorGroup.add(finishMesh);
         }
@@ -1335,8 +1298,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           let x2 = isAlongX ? (centerX + length / 2) : centerX;
           let z2 = isAlongX ? centerZ : (centerZ + length / 2);
 
-          const p1Safe = getSafePoint(x1, z1, buildingCentroidX, buildingCentroidZ, isCustomPoly, activePolyPts, bounds, W, D, floorCenterZ, 0.22);
-          const p2Safe = getSafePoint(x2, z2, buildingCentroidX, buildingCentroidZ, isCustomPoly, activePolyPts, bounds, W, D, floorCenterZ, 0.22);
+          const p1Safe = getSafePoint(x1, z1, buildingCentroidX, buildingCentroidZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterX, floorCenterZ, 0.22);
+          const p2Safe = getSafePoint(x2, z2, buildingCentroidX, buildingCentroidZ, isCustomPoly, activePolyPts, bounds, floorW, floorD, floorCenterX, floorCenterZ, 0.22);
 
           // Re-calculate actual safe length and center
           const newCenterX = (p1Safe.x + p2Safe.x) / 2;
@@ -1906,10 +1869,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           );
 
           const wallDefs = [
-            { name: 'Ön Cephe', length: floorW, x: 0, z: floorCenterZ + floorD / 2 - backWallThick / 2, rotationY: 0, idx: 0 },
-            { name: 'Sağ Cephe', length: floorD, x: floorW / 2 - backWallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, idx: 1 },
-            { name: 'Arka Cephe', length: floorW, x: 0, z: floorCenterZ - floorD / 2 + backWallThick / 2, rotationY: Math.PI, idx: 2 },
-            { name: 'Sol Cephe', length: floorD, x: -floorW / 2 + backWallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, idx: 3 },
+            { name: 'Ön Cephe', length: floorW, x: floorCenterX, z: floorCenterZ + floorD / 2 - backWallThick / 2, rotationY: 0, idx: 0 },
+            { name: 'Sağ Cephe', length: floorD, x: floorCenterX + floorW / 2 - backWallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, idx: 1 },
+            { name: 'Arka Cephe', length: floorW, x: floorCenterX, z: floorCenterZ - floorD / 2 + backWallThick / 2, rotationY: Math.PI, idx: 2 },
+            { name: 'Sol Cephe', length: floorD, x: floorCenterX - floorW / 2 + backWallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, idx: 3 },
           ];
 
           wallDefs.forEach((wall) => {
@@ -2030,7 +1993,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             const j = (i + 1) % currentFloorWallPts.length;
             signedArea += (currentFloorWallPts[i].x * currentFloorWallPts[j].y - currentFloorWallPts[j].x * currentFloorWallPts[i].y);
           }
-          const isCW = signedArea > 0;
+          const isCCW = signedArea > 0;
 
           wallDefs = edges.map((edge, idx) => {
             const x1 = edge.start.x - bounds.centerX;
@@ -2043,8 +2006,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             const length = Math.sqrt(dx * dx + dz * dz);
 
             // Unit outward normal
-            const normalX = isCW ? dz / length : -dz / length;
-            const normalZ = isCW ? -dx / length : dx / length;
+            const normalX = isCCW ? dz / length : -dz / length;
+            const normalZ = isCCW ? -dx / length : dx / length;
 
             // Midpoint of edge
             const midX = (x1 + x2) / 2;
@@ -2068,10 +2031,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           });
         } else {
           wallDefs = [
-            { name: 'Ön Cephe', length: floorW, x: 0, z: floorCenterZ + floorD / 2 - wallThick / 2, rotationY: 0, isCustom: false },
-            { name: 'Sağ Cephe', length: floorD, x: floorW / 2 - wallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, isCustom: false },
-            { name: 'Arka Cephe', length: floorW, x: 0, z: floorCenterZ - floorD / 2 + wallThick / 2, rotationY: Math.PI, isCustom: false },
-            { name: 'Sol Cephe', length: floorD, x: -floorW / 2 + wallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, isCustom: false },
+            { name: 'Ön Cephe', length: floorW, x: floorCenterX, z: floorCenterZ + floorD / 2 - wallThick / 2, rotationY: 0, isCustom: false },
+            { name: 'Sağ Cephe', length: floorD, x: floorCenterX + floorW / 2 - wallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, isCustom: false },
+            { name: 'Arka Cephe', length: floorW, x: floorCenterX, z: floorCenterZ - floorD / 2 + wallThick / 2, rotationY: Math.PI, isCustom: false },
+            { name: 'Sol Cephe', length: floorD, x: floorCenterX - floorW / 2 + wallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, isCustom: false },
           ];
         }
 
@@ -2625,43 +2588,43 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             // Get dimensions and center offsets for this specific apartment zone
             let zoneW = floorW * 0.95;
             let zoneD = floorD * 0.95;
-            let zoneX = 0;
+            let zoneX = floorCenterX;
             let zoneZ = floorCenterZ;
 
             if (flatsPerFloor === 2) {
               zoneW = floorW * 0.44;
-              zoneX = (flatSeq === 0) ? -floorW / 4 : floorW / 4;
+              zoneX = floorCenterX + ((flatSeq === 0) ? -floorW / 4 : floorW / 4);
             } else if (flatsPerFloor === 3) {
               if (flatSeq === 0) { // Left Front
                 zoneW = floorW * 0.42;
                 zoneD = floorD * 0.44;
-                zoneX = -floorW * 0.24;
+                zoneX = floorCenterX - floorW * 0.24;
                 zoneZ = floorCenterZ + floorD / 4;
               } else if (flatSeq === 1) { // Right Front
                 zoneW = floorW * 0.42;
                 zoneD = floorD * 0.44;
-                zoneX = floorW * 0.24;
+                zoneX = floorCenterX + floorW * 0.24;
                 zoneZ = floorCenterZ + floorD / 4;
               } else { // Rear
                 zoneW = floorW * 0.85;
                 zoneD = floorD * 0.44;
-                zoneX = 0;
+                zoneX = floorCenterX;
                 zoneZ = floorCenterZ - floorD / 4;
               }
             } else if (flatsPerFloor === 4) {
               zoneW = floorW * 0.44;
               zoneD = floorD * 0.44;
               if (flatSeq === 0) { // Front Left
-                zoneX = -floorW / 4;
+                zoneX = floorCenterX - floorW / 4;
                 zoneZ = floorCenterZ + floorD / 4;
               } else if (flatSeq === 1) { // Front Right
-                zoneX = floorW / 4;
+                zoneX = floorCenterX + floorW / 4;
                 zoneZ = floorCenterZ + floorD / 4;
               } else if (flatSeq === 2) { // Rear Left
-                zoneX = -floorW / 4;
+                zoneX = floorCenterX - floorW / 4;
                 zoneZ = floorCenterZ - floorD / 4;
               } else { // Rear Right
-                zoneX = floorW / 4;
+                zoneX = floorCenterX + floorW / 4;
                 zoneZ = floorCenterZ - floorD / 4;
               }
             }
@@ -2767,7 +2730,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         // 2. MANSARD ROOF (Fransız Mansart Çatı - Dik Alt Eğimler + Güvercinlik Pencereleri)
         const mansardLowerH = Math.max(2.0, Math.min(3.5, minSpan * 0.22 + 0.8));
         const mansardMat = new THREE.MeshStandardMaterial({
-          color: 0x1e293b, // Dark zinc charcoal
+          color: colors.roof, // User-selected roof color
           roughness: 0.4,
           metalness: 0.2,
           wireframe: isWireframe,
@@ -2828,7 +2791,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const dormerD = 1.1;
 
           for (let d = 0; d < dormerCount; d++) {
-            const dx = -topFloorW / 2 + (topFloorW / (dormerCount + 1)) * (d + 1);
+            const dx = topFloorCenterX - topFloorW / 2 + (topFloorW / (dormerCount + 1)) * (d + 1);
 
             const dBodyGeo = safeBox(dormerW, dormerH, dormerD);
             const dBody = new THREE.Mesh(dBodyGeo, wallMaterial);
@@ -3035,24 +2998,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           parapetLine.position.set(topFloorCenterX, topFloorY + parapetHeight / 2, topFloorCenterZ);
           roofGroup.add(parapetLine);
         }
-
-        // Elevator Overrun / Asansör Makine Dairesi
-        let overrunCoreCenterX = sW / 2 + eW / 2;
-        let overrunCoreCenterZ = 0;
-        if (isCustomPoly && activePolyPts) {
-          const centroid = getPolygonCentroid(activePolyPts);
-          const bounds = getPolygonBounds(activePolyPts);
-          if (isPointInPolygon(centroid.x, centroid.y, activePolyPts)) {
-            overrunCoreCenterX = centroid.x - bounds.centerX;
-            overrunCoreCenterZ = centroid.y - bounds.centerY;
-          }
-        }
-        const overrunH = 2.2;
-        const overrunGeo = safeBox(eW + 0.8, overrunH, eD + 0.8);
-        const overrunMesh = new THREE.Mesh(overrunGeo, wallMaterial);
-        overrunMesh.position.set(overrunCoreCenterX, topFloorY + overrunH / 2, overrunCoreCenterZ);
-        overrunMesh.castShadow = true;
-        roofGroup.add(overrunMesh);
       }
 
       buildingGroup.add(roofGroup);
@@ -3392,7 +3337,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       controlsRef.current.target.set(0, (N * H) / 2, 0);
       controlsRef.current.update();
     }
-  }, [params, isWireframe, showCoreHighlight, showDebugOverlay, selectedFloor, explodeRatio, isLight, getStyleColors, buildingColor]);
+  }, [params, isWireframe, showDebugOverlay, selectedFloor, explodeRatio, isLight, buildingColor]);
 
   // Initialize Three.js Canvas & Animation Loop
   useEffect(() => {
@@ -3405,30 +3350,40 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Background color based on theme (light or gray, strictly no dark theme)
-    const bgHex = isGray ? 0xe2e8f0 : 0xf8fafc;
+    // Atmospheric Sky Gradient
+    const bgHex = isGray ? 0xd1d5db : 0xf0f9ff;
     scene.background = new THREE.Color(bgHex);
-    // scene.fog = new THREE.FogExp2(bgHex, 0.012);
-    scene.fog = null;
+    
+    // Add a sky dome for a more immersive feel
+    const skyGeo = new THREE.SphereGeometry(450, 32, 32);
+    const skyMat = new THREE.MeshBasicMaterial({
+      color: isLight ? 0xbae6fd : 0x94a3b8,
+      side: THREE.BackSide,
+      fog: false,
+    });
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(sky);
 
     // 2. Camera
-    const camera = new THREE.PerspectiveCamera(42, width / height, 0.5, 1000);
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.5, 1200);
     cameraRef.current = camera;
-    camera.position.set(28, 22, 34);
+    camera.position.set(32, 24, 38);
 
     // 3. Renderer
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
       preserveDrawingBuffer: true,
-      logarithmicDepthBuffer: true
+      logarithmicDepthBuffer: true,
+      powerPreference: 'high-performance'
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = isLight ? 1.05 : 1.25;
+    renderer.toneMappingExposure = isLight ? 1.1 : 1.3;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     rendererRef.current = renderer;
     container.innerHTML = '';
@@ -3439,21 +3394,31 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     controlsRef.current = controls;
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 + 0.05; // Do not go under ground
-    controls.minDistance = 5;
-    controls.maxDistance = 250;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Stay slightly above ground
+    controls.minDistance = 8;
+    controls.maxDistance = 350;
+    controls.autoRotate = isAutoRotate;
+    controls.autoRotateSpeed = 0.65;
 
     // 5. Lighting
+    // Cinematic Hemisphere Light (Sky illumination + Ground bounce)
+    const hemiLight = new THREE.HemisphereLight(
+      isLight ? 0xe0f2fe : 0xd1d5db, // Sky color
+      isLight ? 0x166534 : 0x334155, // Ground/Grass bounce color
+      isLight ? 0.8 : 0.6
+    );
+    scene.add(hemiLight);
+
     const ambientLight = new THREE.AmbientLight(
       isLight ? 0xffffff : 0xd4d4d8,
-      isLight ? 0.5 : 0.4
+      isLight ? 0.35 : 0.25
     );
     ambientLightRef.current = ambientLight;
     scene.add(ambientLight);
 
     const sunLight = new THREE.DirectionalLight(
       isLight ? 0xfffaed : 0xffffff,
-      isLight ? 1.8 : 1.5
+      isLight ? 2.2 : 1.8
     );
     sunLight.position.set(35, 60, 45);
     sunLight.castShadow = true;
@@ -3485,11 +3450,45 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     sunSphereMeshRef.current = sunSphereMesh;
     scene.add(sunSphereMesh);
 
-    // 6. Ground Grid & Shadow Plane
-    const gridColor1 = isLight ? 0x94a3b8 : 0x3f3f46;
-    const gridColor2 = isLight ? 0xe2e8f0 : 0x18181b;
-    const grid = new THREE.GridHelper(90, 60, gridColor1, gridColor2);
-    grid.position.y = -0.05;
+    // 6. Ground & Environment
+    // Create a procedural grass/garden texture for the ground
+    const createGroundTexture = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d')!;
+      // Base green/grey
+      ctx.fillStyle = isLight ? '#14532d' : '#334155';
+      ctx.fillRect(0, 0, 512, 512);
+      // Add organic noise/texture
+      for (let i = 0; i < 8000; i++) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${Math.random() * 0.1})`;
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(12, 12);
+      return tex;
+    };
+
+    const groundGeo = new THREE.CircleGeometry(180, 64);
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: createGroundTexture(),
+      roughness: 0.9,
+      metalness: 0.05,
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.15;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const gridColor1 = isLight ? 0xffffff : 0x94a3b8;
+    const gridColor2 = isLight ? 0x16a34a : 0x475569;
+    const grid = new THREE.GridHelper(100, 50, gridColor1, gridColor2);
+    grid.position.y = -0.12;
+    grid.material.opacity = 0.2;
+    grid.material.transparent = true;
     scene.add(grid);
 
     // 6.1 3D Ground Compass Rose (Kuzey / Güney / Doğu / Batı)
@@ -3589,6 +3588,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   }, [buildScene]);
 
   // Synchronize Solar Light, Sun Sphere & Building Compass Orientation
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.autoRotate = isAutoRotate;
+    }
+  }, [isAutoRotate]);
+
   useEffect(() => {
     // 1. Rotate building group according to compass angle
     if (buildingGroupRef.current) {
@@ -3855,143 +3860,155 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             </div>
           </div>
 
-          {/* Görsel Karakter & Dış Cephe Stili Canlı Seçim Paneli */}
+          {/* Canlı Dış Cephe & Çatı Rengi Canlı Seçim Paneli */}
           <div className="pointer-events-auto relative">
-            {(() => {
-              const activeStyle = getFacadeStyleConfig(params.facadeStyle);
-              return (
-                <div>
-                  {/* Trigger Button */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setIsFacadePickerOpen(!isFacadePickerOpen)}
-                      className={`backdrop-blur-md px-3 py-2 rounded-2xl border shadow-md flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                        isFacadePickerOpen
-                          ? 'bg-indigo-600 text-white border-indigo-500 ring-2 ring-indigo-300'
-                          : isGray
-                          ? 'bg-white/95 text-slate-800 border-slate-300 hover:bg-slate-50'
-                          : 'bg-white/95 text-slate-800 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <Palette className={`w-4 h-4 ${isFacadePickerOpen ? 'text-white' : 'text-indigo-600'}`} />
-                      
-                      {/* Color dots preview */}
-                      <div className="flex items-center -space-x-1 shrink-0">
-                        <span
-                          className="w-3.5 h-3.5 rounded-full border border-white/80 shadow-xs"
-                          style={{ backgroundColor: activeStyle.wallColorHex }}
-                          title="Duvar Kaplaması"
-                        />
-                        <span
-                          className="w-3.5 h-3.5 rounded-full border border-white/80 shadow-xs"
-                          style={{ backgroundColor: activeStyle.accentColorHex }}
-                          title="Ahşap/Vurgu Paneli"
-                        />
-                      </div>
+            <button
+              type="button"
+              onClick={() => setIsColorQuickPickerOpen(!isColorQuickPickerOpen)}
+              className={`backdrop-blur-md px-3 py-2 rounded-2xl border shadow-md flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                isColorQuickPickerOpen
+                  ? 'bg-indigo-600 text-white border-indigo-500 ring-2 ring-indigo-300'
+                  : isGray
+                  ? 'bg-white/95 text-slate-800 border-slate-300 hover:bg-slate-50'
+                  : 'bg-white/95 text-slate-800 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Palette className={`w-4 h-4 ${isColorQuickPickerOpen ? 'text-white' : 'text-indigo-600'}`} />
+              
+              {/* Color dots preview */}
+              <div className="flex items-center -space-x-1 shrink-0">
+                <span
+                  className="w-3.5 h-3.5 rounded-full border border-white/80 shadow-xs"
+                  style={{ backgroundColor: params.wallColor || '#f1f5f9' }}
+                  title="Dış Cephe Duvarı"
+                />
+                <span
+                  className="w-3.5 h-3.5 rounded-full border border-white/80 shadow-xs"
+                  style={{ backgroundColor: params.roofColor || '#b91c1c' }}
+                  title="Çatı Kaplaması"
+                />
+              </div>
 
-                      <div className="text-left leading-tight pr-1">
-                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-75">
-                          Dış Cephe Stili (10)
-                        </div>
-                        <div className="text-xs font-bold truncate max-w-[130px] sm:max-w-[170px]">
-                          {activeStyle.title}
-                        </div>
-                      </div>
-
-                      {isFacadePickerOpen ? (
-                        <ChevronUp className="w-3.5 h-3.5 opacity-70" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-                      )}
-                    </button>
-
-                    {/* Quick switch next button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const currentIdx = FACADE_STYLES.findIndex((s) => s.id === params.facadeStyle);
-                        const nextIdx = (currentIdx + 1) % FACADE_STYLES.length;
-                        onUpdateFacadeStyle?.(FACADE_STYLES[nextIdx].id);
-                      }}
-                      title="Sonraki Cephe Stiline Geç"
-                      className={`backdrop-blur-md px-2 py-2 rounded-2xl border shadow-md text-xs font-bold transition-all hover:bg-slate-100 active:scale-95 ${
-                        isGray ? 'bg-white/95 text-slate-700 border-slate-300' : 'bg-white/95 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      Sonraki ❯
-                    </button>
-                  </div>
-
-                  {/* Dropdown / Modal Grid of 10 Facade Styles */}
-                  {isFacadePickerOpen && (
-                    <div className={`mt-2 p-3 rounded-2xl border shadow-2xl backdrop-blur-xl animate-fade-in w-72 sm:w-88 max-h-[380px] overflow-y-auto ${
-                      isGray ? 'bg-white/98 border-slate-300 text-slate-800' : 'bg-white/98 border-slate-200 text-slate-800'
-                    }`}>
-                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                        <div className="flex items-center gap-1.5">
-                          <Palette className="w-4 h-4 text-indigo-600" />
-                          <span className="text-xs font-bold uppercase tracking-wide text-slate-800">
-                            Mimari Dış Cephe Seçenekleri
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                          10 Seçenek
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {FACADE_STYLES.map((st) => {
-                          const isSelected = (params.facadeStyle || 'wood_anthracite') === st.id;
-                          return (
-                            <button
-                              key={st.id}
-                              type="button"
-                              onClick={() => {
-                                onUpdateFacadeStyle?.(st.id);
-                                setIsFacadePickerOpen(false);
-                              }}
-                              className={`p-2 rounded-xl text-left border transition-all relative flex flex-col justify-between ${
-                                isSelected
-                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-300'
-                                  : 'bg-slate-50 hover:bg-white text-slate-800 border-slate-200/80 hover:border-indigo-200 hover:shadow-xs'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1 mb-1">
-                                {/* Color swatches */}
-                                <div className="flex items-center -space-x-1">
-                                  <span
-                                    className="w-3.5 h-3.5 rounded-full border border-white shadow-xs"
-                                    style={{ backgroundColor: st.wallColorHex }}
-                                  />
-                                  <span
-                                    className="w-3.5 h-3.5 rounded-full border border-white shadow-xs"
-                                    style={{ backgroundColor: st.accentColorHex }}
-                                  />
-                                </div>
-                                {isSelected && (
-                                  <span className="text-[10px] font-bold bg-white/20 text-white px-1.5 py-0.2 rounded-md flex items-center gap-0.5">
-                                    <Check className="w-3 h-3" />
-                                  </span>
-                                )}
-                              </div>
-                              <span className="font-bold text-[11px] leading-snug block">
-                                {st.title}
-                              </span>
-                              <span className={`text-[9px] leading-tight block mt-0.5 ${
-                                isSelected ? 'text-indigo-100' : 'text-slate-500'
-                              }`}>
-                                {st.subtitle}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+              <div className="text-left leading-tight pr-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider opacity-75">
+                  Renk Seçimi
                 </div>
-              );
-            })()}
+                <div className="text-xs font-bold truncate max-w-[130px] sm:max-w-[170px]">
+                  Dış Görünüm & Çatı
+                </div>
+              </div>
+
+              {isColorQuickPickerOpen ? (
+                <ChevronUp className="w-3.5 h-3.5 opacity-70" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+              )}
+            </button>
+
+            {/* Quick Color Picker Popover */}
+            {isColorQuickPickerOpen && (
+              <div className={`mt-2 p-3.5 rounded-2xl border shadow-2xl backdrop-blur-xl animate-fade-in w-72 sm:w-80 space-y-3 ${
+                isGray ? 'bg-white/98 border-slate-300 text-slate-800' : 'bg-white/98 border-slate-200 text-slate-800'
+              }`}>
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
+                    <Palette className="w-4 h-4 text-indigo-600" />
+                    Dış Görünüm & Çatı Renkleri
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsColorQuickPickerOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 text-xs px-1.5 py-0.5 rounded-md hover:bg-slate-100"
+                  >
+                    Kapat
+                  </button>
+                </div>
+
+                {/* Duvar Rengi */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-semibold">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: params.wallColor || '#f1f5f9' }} />
+                      Dış Cephe Duvarı
+                    </span>
+                    <input
+                      type="color"
+                      value={params.wallColor || '#f1f5f9'}
+                      onChange={(e) => onUpdateColors?.({ wallColor: e.target.value })}
+                      className="w-5 h-5 rounded cursor-pointer border-0 p-0"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {WALL_COLOR_PRESETS.slice(0, 6).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => onUpdateColors?.({ wallColor: p.hex })}
+                        title={p.name}
+                        className="w-5 h-5 rounded-full border border-black/20 hover:scale-110 transition-transform shrink-0"
+                        style={{ backgroundColor: p.hex }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Çatı Rengi */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-semibold">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: params.roofColor || '#b91c1c' }} />
+                      Çatı Kaplaması
+                    </span>
+                    <input
+                      type="color"
+                      value={params.roofColor || '#b91c1c'}
+                      onChange={(e) => onUpdateColors?.({ roofColor: e.target.value })}
+                      className="w-5 h-5 rounded cursor-pointer border-0 p-0"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {ROOF_COLOR_PRESETS.slice(0, 6).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => onUpdateColors?.({ roofColor: p.hex })}
+                        title={p.name}
+                        className="w-5 h-5 rounded-full border border-black/20 hover:scale-110 transition-transform shrink-0"
+                        style={{ backgroundColor: p.hex }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Vurgu & Söve Rengi */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-semibold">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: params.accentColor || '#b5734c' }} />
+                      Ahşap & Söve Detayları
+                    </span>
+                    <input
+                      type="color"
+                      value={params.accentColor || '#b5734c'}
+                      onChange={(e) => onUpdateColors?.({ accentColor: e.target.value })}
+                      className="w-5 h-5 rounded cursor-pointer border-0 p-0"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {ACCENT_COLOR_PRESETS.slice(0, 6).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => onUpdateColors?.({ accentColor: p.hex })}
+                        title={p.name}
+                        className="w-5 h-5 rounded-full border border-black/20 hover:scale-110 transition-transform shrink-0"
+                        style={{ backgroundColor: p.hex }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -4024,8 +4041,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           <div className="p-1.5 rounded-2xl border bg-white/95 border-slate-200">
             <input
               type="color"
-              value={buildingColor || getFacadeStyleConfig(params.facadeStyle).wallColorHex}
-              onChange={(e) => setBuildingColor(e.target.value)}
+              value={buildingColor || params.wallColor || '#f1f5f9'}
+              onChange={(e) => {
+                setBuildingColor(e.target.value);
+                onUpdateColors?.({ wallColor: e.target.value });
+              }}
               className="w-8 h-8 rounded cursor-pointer"
               title="Manuel Bina Rengi Seç"
             />
@@ -4034,6 +4054,19 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
           isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
         }`}>
+          <button
+            type="button"
+            onClick={() => setIsAutoRotate(!isAutoRotate)}
+            className={`p-1.5 rounded-xl text-xs flex items-center justify-center transition-all ${
+              isAutoRotate
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title={isAutoRotate ? "Otomatik Sunumu Durdur" : "Otomatik Sunumu Başlat (360°)"}
+          >
+            <RotateCcw className={`w-4 h-4 ${isAutoRotate ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
+          </button>
+          <div className="h-px bg-slate-200/50 my-0.5 mx-1" />
           <button
             type="button"
             onClick={() => applyCameraPreset('iso')}
@@ -4078,18 +4111,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setShowCoreHighlight(!showCoreHighlight)}
-            className={`p-2 rounded-xl text-xs transition-all ${
-              showCoreHighlight
-                ? 'bg-indigo-600 text-white'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Merdiven & Asansör Şaftını Vurgula"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
             onClick={() => setShowDebugOverlay(!showDebugOverlay)}
             className={`p-2 rounded-xl text-xs transition-all ${
               showDebugOverlay
@@ -4114,6 +4135,16 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
           isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
         }`}>
+          <button
+            type="button"
+            onClick={() => setIsMaps3DOpen(true)}
+            className="p-2 rounded-xl transition-all text-xs flex flex-col items-center gap-0.5 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-800 border border-emerald-100"
+            title="Google Photorealistic 3D Tiles (Dünya Koordinatlarında Göster)"
+          >
+            <Globe className="w-4 h-4" />
+            <span className="text-[8px] font-bold">3D MAP</span>
+          </button>
+
           <button
             type="button"
             onClick={handleExportUSDZ}
@@ -4292,6 +4323,15 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             </p>
           </div>
         </div>
+      )}
+
+      {/* Google Maps 3D View Modal */}
+      {isMaps3DOpen && (
+        <GoogleMaps3DView 
+          params={params} 
+          buildingGroup={buildingGroupRef.current} 
+          onClose={() => setIsMaps3DOpen(false)} 
+        />
       )}
     </div>
   );

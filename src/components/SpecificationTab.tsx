@@ -369,6 +369,10 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
       <td>${safeFloorCount} Normal Kat + ${safeBasementCount} Bodrum Kat ${params.hasGroundFloorShop ? `(Zemin Kat Ticari Dükkan + ${Math.max(0, safeFloorCount - 1)} Normal Kat)` : '(Tamamı Konut)'}</td>
     </tr>
     <tr>
+      <th>Kat Dağılımı ve Daire Sayısı</th>
+      <td>Katta ${params.flatsPerFloor || 2} Bağımsız Bölüm (Kat alanı kattaki daire sayısına eşit bölünerek paylaştırılmıştır)${params.roofType === 'mansard' ? ' • En üst katta mansart çatı bağımsız bölümleri' : ''}</td>
+    </tr>
+    <tr>
       <th>Bodrum Kat Durumu</th>
       <td>${basementDesc}</td>
     </tr>
@@ -382,7 +386,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Zemin Kat Dükkan Seçeneği</th>
-      <td>${isShop}</td>
+      <td>${isShop} ${params.hasGroundFloorShop ? `(${params.shopCount || 1} Adet Ticari Dükkan - Zemin kat alanı eşit paylaşımlı)` : ''}</td>
     </tr>
     <tr>
       <th>Tahmini Yapım Süresi</th>
@@ -420,7 +424,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
       <th>Mimari Çatı Konstrüksiyonu</th>
       <td>
         <strong>${roofInfo.title}</strong> (${roofInfo.badge})<br />
-        <span style="font-size:11px; color:#475569; display:block; margin-top:4px;">${roofInfo.technicalSpecification}</span>
+        <span style="font-size:11px; color:#475569; display:block; margin-top:4px;">${roofInfo.technicalSpecification} ${params.roofType === 'mansard' ? 'Mansart bağımsız bölümler imar kuralları uyarınca yalnızca en üst katta teşkil edilir.' : ''}</span>
       </td>
     </tr>
     <tr>
@@ -428,8 +432,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
       <td>${basementDesc}</td>
     </tr>
     <tr>
-      <th>Dış Cephe Yalıtımı (Mantolama)</th>
-      <td>Minimum 5 cm Karbonlu EPS mantolama, dekoratif mineral sıva ve silikon esaslı dış cephe boyası.</td>
+      <th>Dış Cephe Yalıtımı (Mantolama) & Renk</th>
+      <td>Projede seçilen özel renk kombinasyonları (${params.facadeColor || params.wallColor || 'Kullanıcı Tercihi Renk'}), TS 825 standartlarında minimum 5 cm Karbonlu EPS mantolama, dekoratif mineral sıva ve silikon esaslı dış cephe boyası.</td>
     </tr>
   </table>
 
@@ -437,20 +441,29 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   <table class="specs-table" style="font-size:11px;">
     <thead>
       <tr style="background:#f1f5f9;">
-        <th>Daire No</th>
+        <th>Bağımsız Bölüm & Kat</th>
         <th>Hak Sahibi Ad Soyad</th>
         <th>T.C. Kimlik Numarası</th>
+        <th>Nitelik</th>
         <th>Hisse Alanı (m²)</th>
       </tr>
     </thead>
     <tbody>
-      ${results.flatResults.map(f => `
+      ${results.flatResults.map(f => {
+        const floorText = f.floorNumber !== undefined 
+          ? (f.floorNumber === 0 ? 'Zemin Kat' : `${f.floorNumber}. Kat`)
+          : (f.flatType === 'shop' ? 'Zemin Kat' : `${Math.ceil(f.id / (params.flatsPerFloor || 2))}. Kat`);
+        const title = f.flatType === 'shop' ? `🏪 Dükkan ${f.id}` : (f.flatType === 'mansard' ? `🏚️ Daire ${f.id}` : `🏠 Daire ${f.id}`);
+        const typeLabel = f.flatType === 'shop' ? 'Ticari Dükkan' : (f.flatType === 'mansard' ? 'Mansart Katı' : f.flatType === 'duplex' ? 'Çatı Dubleksi' : 'Konut');
+        return `
       <tr>
-        <td>Daire ${f.id}</td>
+        <td><strong>${title}</strong> (${floorText})</td>
         <td>${f.name}</td>
         <td>${f.tc}</td>
+        <td>${typeLabel}</td>
         <td>${f.area} m²</td>
-      </tr>`).join('')}
+      </tr>`;
+      }).join('')}
     </tbody>
   </table>
 
@@ -912,9 +925,12 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   </p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Kat Yapısı</span>
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Kat Yapısı & Dağılımı</span>
                   <p className="text-xs font-semibold text-slate-800">
-                    {safeFloorCount} Normal Kat + {safeBasementCount} Bodrum Kat {params.hasGroundFloorShop ? `(Zemin Kat: ${safeShopCount} Ticari Dükkan)` : "(Tamamı Konut)"}
+                    {safeFloorCount} Normal Kat + {safeBasementCount} Bodrum Kat {params.hasGroundFloorShop ? `(Zemin Kat: ${safeShopCount} Ticari Dükkan - Eşit Paylaşımlı)` : "(Tamamı Konut)"}
+                  </p>
+                  <p className="text-[10px] text-slate-500 font-medium">
+                    Katta {params.flatsPerFloor || 2} Bağımsız Bölüm (Kat alanı eşit paylaşımlı){params.roofType === 'mansard' ? ' • En üst katta mansart çatı bağımsız bölümleri' : ''}
                   </p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
@@ -1020,9 +1036,9 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 </div>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Dış Cephe Isı Yalıtımı & Mantolama</span>
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Dış Cephe Isı Yalıtımı & Renk Paleti</span>
                   <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                    Isı yalıtım yönetmeliği TS 825 standartlarına uygun <span className="font-semibold text-indigo-700">minimum 5 cm kalınlığında Karbonlu EPS mantolama</span>, fileli sıva ve nefes alan silikonlu dış cephe boyası tatbikatı yapılacaktır.
+                    Proje ve kullanıcı onaylı renk kombinasyonları ({params.facadeColor || params.wallColor || 'Kullanıcı Tercihi Renk'}). Isı yalıtım yönetmeliği TS 825 standartlarına uygun <span className="font-semibold text-indigo-700">minimum 5 cm kalınlığında Karbonlu EPS/Taşyünü mantolama</span>, fileli sıva ve nefes alan silikonlu dış cephe boyası tatbikatı yapılacaktır.
                   </p>
                 </div>
 
@@ -1049,28 +1065,49 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-50 text-slate-700">
                     <tr>
-                      <th className="p-3 border-b border-slate-200 font-semibold">Bağımsız Bölüm</th>
+                      <th className="p-3 border-b border-slate-200 font-semibold">Bağımsız Bölüm & Kat</th>
                       <th className="p-3 border-b border-slate-200 font-semibold">Hak Sahibi Adı Soyadı</th>
                       <th className="p-3 border-b border-slate-200 font-semibold">T.C. Kimlik No</th>
+                      <th className="p-3 border-b border-slate-200 font-semibold">Nitelik</th>
                       <th className="p-3 border-b border-slate-200 font-semibold text-right">Bölüm Alanı (m²)</th>
                       <th className="p-3 border-b border-slate-200 font-semibold text-center">Durum</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {results.flatResults.map((flat) => (
-                      <tr key={flat.id} className="hover:bg-slate-50/50">
-                        <td className="p-3 font-semibold text-slate-900">Daire {flat.id}</td>
-                        <td className="p-3 font-medium text-slate-900">{highlightText(flat.name)}</td>
-                        <td className="p-3 font-mono text-slate-500">{highlightText(flat.tc)}</td>
-                        <td className="p-3 text-right font-semibold font-mono">{Math.max(0, flat.area || 0)} m²</td>
-                        <td className="p-3 text-center">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-semibold border border-emerald-200">
-                            <Check className="w-3 h-3" />
-                            Muvafakat Var
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {results.flatResults.map((flat) => {
+                      const floorText = flat.floorNumber !== undefined 
+                        ? (flat.floorNumber === 0 ? 'Zemin Kat' : `${flat.floorNumber}. Kat`)
+                        : (flat.flatType === 'shop' ? 'Zemin Kat' : `${Math.ceil(flat.id / (params.flatsPerFloor || 2))}. Kat`);
+                      const unitTitle = flat.flatType === 'shop' 
+                        ? `🏪 Dükkan ${flat.id}` 
+                        : (flat.flatType === 'mansard' ? `🏚️ Daire ${flat.id}` : `🏠 Daire ${flat.id}`);
+                      const unitTypeBadge = flat.flatType === 'shop' 
+                        ? 'Ticari Dükkan' 
+                        : (flat.flatType === 'mansard' ? 'Mansart Katı' : flat.flatType === 'duplex' ? 'Çatı Dubleksi' : 'Konut');
+
+                      return (
+                        <tr key={flat.id} className="hover:bg-slate-50/50">
+                          <td className="p-3 font-semibold text-slate-900">
+                            <div>{unitTitle}</div>
+                            <div className="text-[10px] text-slate-500 font-normal">{floorText}</div>
+                          </td>
+                          <td className="p-3 font-medium text-slate-900">{highlightText(flat.name)}</td>
+                          <td className="p-3 font-mono text-slate-500">{highlightText(flat.tc)}</td>
+                          <td className="p-3 text-slate-600 font-medium">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 border border-slate-200">
+                              {unitTypeBadge}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-semibold font-mono">{Math.max(0, flat.area || 0)} m²</td>
+                          <td className="p-3 text-center">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-semibold border border-emerald-200">
+                              <Check className="w-3 h-3" />
+                              Muvafakat Var
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

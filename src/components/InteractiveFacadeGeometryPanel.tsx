@@ -294,30 +294,6 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
                   onChange={(e) => handleSideChange('front', parseFloat(e.target.value))}
                   className="w-full accent-indigo-600 cursor-pointer h-1.5"
                 />
-                <div className="flex items-center justify-between pt-1 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentRoads = roads || [];
-                      const exists = currentRoads.find(r => r.facadeIndex === 0);
-                      let newRoads;
-                      if (exists) {
-                        newRoads = currentRoads.filter(r => r.facadeIndex !== 0);
-                      } else {
-                        newRoads = [...currentRoads, { id: `road-${Date.now()}-0`, facadeIndex: 0, name: 'Ön İmar Yolu', type: 'street' as const, width: 7 }];
-                      }
-                      if (onUpdateRoads) onUpdateRoads(newRoads);
-                    }}
-                    className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
-                      frontRoad
-                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {frontRoad ? '🛣️ Yol Var (%7m)' : '+ Yol Ekle'}
-                  </button>
-                  <span className="text-slate-400 font-mono">0. Cephe</span>
-                </div>
               </div>
             );
           })()}
@@ -356,30 +332,6 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
                   onChange={(e) => handleSideChange('right', parseFloat(e.target.value))}
                   className="w-full accent-indigo-600 cursor-pointer h-1.5"
                 />
-                <div className="flex items-center justify-between pt-1 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentRoads = roads || [];
-                      const exists = currentRoads.find(r => r.facadeIndex === 1);
-                      let newRoads;
-                      if (exists) {
-                        newRoads = currentRoads.filter(r => r.facadeIndex !== 1);
-                      } else {
-                        newRoads = [...currentRoads, { id: `road-${Date.now()}-1`, facadeIndex: 1, name: 'Sağ İmar Yolu', type: 'street' as const, width: 7 }];
-                      }
-                      if (onUpdateRoads) onUpdateRoads(newRoads);
-                    }}
-                    className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
-                      rightRoad
-                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {rightRoad ? '🛣️ Yol Var (%7m)' : '+ Yol Ekle'}
-                  </button>
-                  <span className="text-slate-400 font-mono">1. Cephe</span>
-                </div>
               </div>
             );
           })()}
@@ -418,30 +370,6 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
                   onChange={(e) => handleSideChange('back', parseFloat(e.target.value))}
                   className="w-full accent-indigo-600 cursor-pointer h-1.5"
                 />
-                <div className="flex items-center justify-between pt-1 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentRoads = roads || [];
-                      const exists = currentRoads.find(r => r.facadeIndex === 2);
-                      let newRoads;
-                      if (exists) {
-                        newRoads = currentRoads.filter(r => r.facadeIndex !== 2);
-                      } else {
-                        newRoads = [...currentRoads, { id: `road-${Date.now()}-2`, facadeIndex: 2, name: 'Arka İmar Yolu', type: 'street' as const, width: 7 }];
-                      }
-                      if (onUpdateRoads) onUpdateRoads(newRoads);
-                    }}
-                    className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
-                      backRoad
-                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {backRoad ? '🛣️ Yol Var (%7m)' : '+ Yol Ekle'}
-                  </button>
-                  <span className="text-slate-400 font-mono">2. Cephe</span>
-                </div>
               </div>
             );
           })()}
@@ -480,30 +408,6 @@ export const InteractiveFacadeGeometryPanel: React.FC<InteractiveFacadeGeometryP
                   onChange={(e) => handleSideChange('left', parseFloat(e.target.value))}
                   className="w-full accent-indigo-600 cursor-pointer h-1.5"
                 />
-                <div className="flex items-center justify-between pt-1 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentRoads = roads || [];
-                      const exists = currentRoads.find(r => r.facadeIndex === 3);
-                      let newRoads;
-                      if (exists) {
-                        newRoads = currentRoads.filter(r => r.facadeIndex !== 3);
-                      } else {
-                        newRoads = [...currentRoads, { id: `road-${Date.now()}-3`, facadeIndex: 3, name: 'Sol İmar Yolu', type: 'street' as const, width: 7 }];
-                      }
-                      if (onUpdateRoads) onUpdateRoads(newRoads);
-                    }}
-                    className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
-                      leftRoad
-                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {leftRoad ? '🛣️ Yol Var (%7m)' : '+ Yol Ekle'}
-                  </button>
-                  <span className="text-slate-400 font-mono">3. Cephe</span>
-                </div>
               </div>
             );
           })()}

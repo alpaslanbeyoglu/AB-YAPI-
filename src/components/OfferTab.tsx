@@ -162,7 +162,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     }
   }
   const residentialFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : Math.max(1, params.floorCount || 5);
-  const flatsPerFloor = Math.max(1, Math.round((results.flatCount || 10) / residentialFloors));
+  const flatsPerFloor = params.flatsPerFloor || Math.max(1, Math.round((results.flatCount || 10) / residentialFloors));
   const physicalGrossArea = Math.max(20, Math.round((upperFloorArea / flatsPerFloor) * 10) / 10);
   const physicalNetArea = Math.max(15, Math.round((physicalGrossArea * 0.8) * 10) / 10);
   const estimatedLandArea = params.landArea && params.landArea > 0 ? params.landArea : Math.round((params.baseBuildArea || 150) / 0.4);
@@ -535,19 +535,26 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Kat / Blok Düzeni</span>
               <div className="text-sm font-bold text-slate-900">{params.floorCount || 5} Normal Kat</div>
-              <span className="text-[10px] text-slate-400">{params.hasGroundFloorShop ? '+ 1 Zemin Ticari Kat' : 'Tamamı Konut'}</span>
+              <span className="text-[10px] text-slate-400">
+                {params.hasGroundFloorShop ? `+ 1 Zemin Ticari Kat (${params.shopCount || 1} Dükkan)` : 'Tamamı Konut'}
+                {params.roofType === 'mansard' ? ' • En Üst Katta Mansart' : ''}
+              </span>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Bağımsız Bölüm Sayısı</span>
-              <div className="text-sm font-bold text-slate-900 font-mono">{results.flatCount} Konut Dairesi</div>
-              <span className="text-[10px] text-slate-400">{params.hasGroundFloorShop ? `+ ${params.shopCount || 1} Dükkan/Mağaza` : 'Kat Başı ~' + flatsPerFloor + ' Daire'}</span>
+              <div className="text-sm font-bold text-slate-900 font-mono">
+                {results.flatCount} Konut Dairesi {params.hasGroundFloorShop ? `+ ${params.shopCount || 1} Dükkan` : ''}
+              </div>
+              <span className="text-[10px] text-slate-400">
+                Kat Başı {params.flatsPerFloor || flatsPerFloor} Daire (Eşit Dağılım)
+              </span>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Tip Daire Alanları</span>
-              <div className="text-sm font-bold text-slate-900 font-mono">Brüt: {physicalGrossArea} m²</div>
-              <span className="text-[10px] text-slate-500 font-mono">Net: {physicalNetArea} m² (~%80)</span>
+              <div className="text-sm font-bold text-slate-900 font-mono">Ort. Brüt: {physicalGrossArea} m²</div>
+              <span className="text-[10px] text-slate-500 font-mono">Net: {physicalNetArea} m² (~%80) • Eşit Kat Payı</span>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
@@ -644,7 +651,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   <span>Dış Cephe Yalıtımı (Mantolama) & Çatı</span>
                 </div>
                 <p className="text-slate-600 text-[11px]">
-                  Bina dış cephesinde minimum <strong className="text-slate-900">5 cm Karbonlu EPS veya Taşyünü</strong> ısı yalıtım mantolaması, fileli sıva ve Jotun/Filli Boya silikonlu dış cephe boyası. Çatıda su ve ısı yalıtımlı {getRoofTypeShortTitle(params.roofType)} sistem imalatı.
+                  Bina dış cephesinde proje ve kullanıcı onaylı renk kombinasyonuna uygun, minimum <strong className="text-slate-900">5 cm Karbonlu EPS veya Taşyünü</strong> ısı yalıtım mantolaması, fileli sıva ve silikonlu dış cephe boyası. Çatıda seçilen çatı rengi ile su ve ısı yalıtımlı <strong className="text-slate-900">{getRoofTypeShortTitle(params.roofType)}</strong> sistem imalatı.{params.roofType === 'mansard' ? ' Mansart bağımsız bölümler imar mevzuatı gereği yalnızca en üst katta teşkil edilir.' : ''}
                 </p>
               </div>
             </div>
@@ -715,14 +722,19 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 {results.flatResults.map((flat) => {
                   const totalFlats = results.flatCount || 10;
                   const totalFloors = params.floorCount || 5;
-                  const flatsPerFloor = Math.max(1, Math.ceil(totalFlats / totalFloors));
-                  const floorNo = flat.floorNumber !== undefined ? flat.floorNumber : Math.min(totalFloors, Math.ceil(flat.id / flatsPerFloor));
+                  const flatsPerFloor = params.flatsPerFloor || Math.max(1, Math.ceil(totalFlats / totalFloors));
+                  const floorNo = flat.floorNumber !== undefined 
+                    ? flat.floorNumber 
+                    : (params.hasGroundFloorShop ? (flat.id <= (params.shopCount || 1) ? 0 : 1 + Math.floor((flat.id - 1 - (params.shopCount || 1)) / flatsPerFloor)) : 1 + Math.floor((flat.id - 1) / flatsPerFloor));
                   const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
                   const facadeText = flat.facade ? (flat.facade.charAt(0).toUpperCase() + flat.facade.slice(1)) : 'Güney';
                   const roomCountText = flat.flatType === 'shop' 
                     ? 'Ticari / Dükkan' 
                     : params.roomType ? `${params.roomType} Oda` : (flat.area < 65 ? '1+1' : flat.area < 95 ? '2+1' : flat.area < 135 ? '3+1' : '4+1');
                   
+                  const flatGross = flat.area || physicalGrossArea;
+                  const flatNet = flat.netArea || Math.round(flatGross * 0.8 * 10) / 10;
+
                   const serefiyeVal = flat.serefiyeMultiplier || 1.0;
                   const serefiyeDiff = Math.round((serefiyeVal - 1) * 100);
                   const landShareDiff = flat.landShareDifference || 0;
@@ -731,10 +743,12 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-3 font-semibold text-slate-900">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-indigo-900">Daire {flat.id}</span>
+                          <span className="font-bold text-indigo-900">
+                            {flat.flatType === 'shop' ? `🏪 Dükkan ${flat.id}` : `🏠 Daire ${flat.id}`}
+                          </span>
                           {flat.flatType === 'mansard' && (
                             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                              Mansart Çatı
+                              Mansart Çatı (En Üst Kat)
                             </span>
                           )}
                           {flat.flatType === 'duplex' && (
@@ -756,9 +770,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       <td className="p-3">
                         <div className="font-semibold text-slate-800">{roomCountText}</div>
                         <div className="text-[10px] text-slate-500 font-mono">
-                          Brüt: {physicalGrossArea} m² <span className="text-[9px] text-slate-400">(Pay: {flat.area} m²)</span>
+                          Brüt: {flatGross} m²
                         </div>
-                        <div className="text-[10px] text-emerald-700 font-mono font-medium">Net: {physicalNetArea} m²</div>
+                        <div className="text-[10px] text-emerald-700 font-mono font-medium">Net: {flatNet} m²</div>
                       </td>
 
                       <td className="p-3 text-center font-mono">

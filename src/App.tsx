@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import { APIProvider } from '@vis.gl/react-google-maps';
+import { isValidGoogleMapsApiKey } from './utils/mapsValidation';
 import {
   CheckCircle2,
   AlertCircle,
@@ -34,7 +36,6 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
 }
 
 const BuildingModelTab = lazyWithRetry(() => import('./components/BuildingModelTab').then(m => ({ default: m.BuildingModelTab })));
-const FloorPlanTab = lazyWithRetry(() => import('./components/FloorPlanTab').then(m => ({ default: m.FloorPlanTab })));
 const CostDetailsTab = lazyWithRetry(() => import('./components/CostDetailsTab').then(m => ({ default: m.CostDetailsTab })));
 const OwnersTab = lazyWithRetry(() => import('./components/OwnersTab').then(m => ({ default: m.OwnersTab })));
 const OfferTab = lazyWithRetry(() => import('./components/OfferTab').then(m => ({ default: m.OfferTab })));
@@ -50,7 +51,7 @@ const MenuSettingsModal = lazyWithRetry(() => import('./components/MenuSettingsM
 import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
 
 
-import { DEFAULT_PARAMS, calculateProject, synchronizeFlats, calculateFlatCount } from './utils/calculatorEngine';
+import { DEFAULT_PARAMS, calculateProject, synchronizeFlats, calculateFlatCount, calculateCantileverDetails } from './utils/calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS } from './utils/buildingModelUtils';
 import { calculateFootprint } from './utils/footprintUtils';
 import {
@@ -62,6 +63,25 @@ import {
 } from './types';
 
 export default function App() {
+  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  const isMapsKeyValid = isValidGoogleMapsApiKey(googleMapsApiKey);
+  const [mapsAuthError, setMapsAuthError] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Intercept Google Maps auth failures (e.g. InvalidKeyMapError) gracefully
+    const prevAuthFailure = (window as any).gm_authFailure;
+    (window as any).gm_authFailure = () => {
+      console.warn('[Google Maps] gm_authFailure caught: Provided Maps API key is invalid or unauthorized.');
+      setMapsAuthError(true);
+      if (typeof prevAuthFailure === 'function') {
+        try { prevAuthFailure(); } catch {}
+      }
+    };
+    return () => {
+      (window as any).gm_authFailure = prevAuthFailure;
+    };
+  }, []);
+
   const [theme, setTheme] = useState<AppTheme>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_theme');
@@ -122,7 +142,7 @@ export default function App() {
       case 'taban-alani':
         targetTab = 'kurulum';
         setupStep = 2;
-        targetId = 'unified-facade-manager';
+        targetId = 'minimalBaseAreaInput';
         break;
       case 'cikmali-taban':
         targetTab = 'kurulum';
@@ -237,6 +257,11 @@ export default function App() {
           flatsPerFloor: params.flatsPerFloor || 2,
           roomType: params.roomType || '3+1',
           roofType: params.roofType || 'gable',
+          wallColor: parsed.wallColor || params.wallColor || DEFAULT_BUILDING_PARAMS.wallColor,
+          roofColor: parsed.roofColor || params.roofColor || DEFAULT_BUILDING_PARAMS.roofColor,
+          accentColor: parsed.accentColor || params.accentColor || DEFAULT_BUILDING_PARAMS.accentColor,
+          frameColor: parsed.frameColor || params.frameColor || DEFAULT_BUILDING_PARAMS.frameColor,
+          slabColor: parsed.slabColor || params.slabColor || DEFAULT_BUILDING_PARAMS.slabColor,
           facadeStyle: params.facadeStyle || 'wood_anthracite',
           facadeWidth: params.facadeWidth || 14.0,
           facadeDepth: params.facadeDepth || 18.0,
@@ -277,6 +302,11 @@ export default function App() {
       flatsPerFloor: params.flatsPerFloor || 2,
       roomType: params.roomType || '3+1',
       roofType: params.roofType || 'gable',
+      wallColor: params.wallColor || DEFAULT_BUILDING_PARAMS.wallColor,
+      roofColor: params.roofColor || DEFAULT_BUILDING_PARAMS.roofColor,
+      accentColor: params.accentColor || DEFAULT_BUILDING_PARAMS.accentColor,
+      frameColor: params.frameColor || DEFAULT_BUILDING_PARAMS.frameColor,
+      slabColor: params.slabColor || DEFAULT_BUILDING_PARAMS.slabColor,
       facadeStyle: params.facadeStyle || 'wood_anthracite',
       facadeWidth: params.facadeWidth || 14.0,
       facadeDepth: params.facadeDepth || 18.0,
@@ -317,11 +347,14 @@ export default function App() {
       ...newParamsOrUpdates,
     };
     // 1. Determine activeBaseArea: Keep user's explicit manual entry if provided (> 0)
+    const footprintResult = calculateFootprint(newParams.footprintInputMode, newParams);
     let activeBaseArea = newParams.baseBuildArea;
     if (!activeBaseArea || activeBaseArea <= 0) {
-      const footprintResult = calculateFootprint(newParams.footprintInputMode, newParams);
       activeBaseArea = footprintResult.area;
     }
+
+    const cantileverInfo = calculateCantileverDetails(newParams, activeBaseArea, footprintResult);
+    const upperFloorArea = cantileverInfo.upperFloorArea;
 
     const resFloors = newParams.hasGroundFloorShop
       ? Math.max(1, newParams.floorCount - 1)
@@ -339,9 +372,9 @@ export default function App() {
     const totalFlats = calculateFlatCount(newParams);
 
     const roofAtticArea = isDuplex
-      ? Math.round(activeBaseArea * 0.65 * 100) / 100
+      ? Math.round(upperFloorArea * 0.65 * 100) / 100
       : isMansard
-      ? Math.round(activeBaseArea * 0.70 * 100) / 100
+      ? Math.round(upperFloorArea * 0.70 * 100) / 100
       : 0;
 
     const synchronizedFlats = synchronizeFlats(
@@ -355,7 +388,8 @@ export default function App() {
       newParams.mansardFlatCount,
       roofAtticArea,
       newParams.hasGroundFloorShop,
-      newParams.shopCount || 1
+      newParams.shopCount || 1,
+      upperFloorArea
     );
 
     const sanitizedContractorIds = (newParams.contractorFlatIds || []).filter(
@@ -410,6 +444,11 @@ export default function App() {
         cantileverDepth: sanitizedParams.cantileverDepth,
         cantileverDirection: sanitizedParams.cantileverDirection,
         roofType: sanitizedParams.roofType || prevModel.roofType,
+        wallColor: sanitizedParams.wallColor || prevModel.wallColor,
+        roofColor: sanitizedParams.roofColor || prevModel.roofColor,
+        accentColor: sanitizedParams.accentColor || prevModel.accentColor,
+        frameColor: sanitizedParams.frameColor || prevModel.frameColor,
+        slabColor: sanitizedParams.slabColor || prevModel.slabColor,
         basementCount: sanitizedParams.basementCount !== undefined ? sanitizedParams.basementCount : prevModel.basementCount,
         facadeStyle: sanitizedParams.facadeStyle || prevModel.facadeStyle,
         balconyDepth: sanitizedParams.balconyDepth !== undefined ? sanitizedParams.balconyDepth : prevModel.balconyDepth,
@@ -510,7 +549,9 @@ export default function App() {
         roofType,
         nextFlatsPerFloor,
         updates.mansardFlatCount || prev.mansardFlatCount,
-        roofAtticArea
+        roofAtticArea,
+        nextHasShop,
+        updates.shopCount || prev.shopCount || 1
       );
 
       const sanitizedContractorIds = (updates.contractorFlatIds ?? prev.contractorFlatIds ?? []).filter(
@@ -540,12 +581,32 @@ export default function App() {
       const nextCount = next.flatCount;
       
       if (nextCount !== prevCount || next.baseBuildArea !== prev.baseBuildArea || next.floorCount !== prev.floorCount) {
+        const footprintResult = calculateFootprint(next.footprintInputMode, next);
+        const baseArea = next.baseBuildArea || footprintResult.area;
+        const cantileverInfo = calculateCantileverDetails(next, baseArea, footprintResult);
+        const upperFloorArea = cantileverInfo.upperFloorArea;
+        const roofType = next.roofType || 'gable';
+        const isMansard = roofType === 'mansard';
+        const isDuplex = roofType === 'duplex';
+        const roofAtticArea = isDuplex
+          ? Math.round(upperFloorArea * 0.65 * 100) / 100
+          : isMansard
+          ? Math.round(upperFloorArea * 0.70 * 100) / 100
+          : 0;
+
         next.flats = synchronizeFlats(
           next.flats || prev.flats,
           nextCount,
-          next.baseBuildArea,
+          baseArea,
           next.floorCount,
-          next.transformationStatus
+          next.transformationStatus,
+          roofType,
+          next.flatsPerFloor || 2,
+          next.mansardFlatCount,
+          roofAtticArea,
+          next.hasGroundFloorShop,
+          next.shopCount || 1,
+          upperFloorArea
         );
         // Keep contractor IDs valid
         next.contractorFlatIds = (next.contractorFlatIds || prev.contractorFlatIds || []).filter(
@@ -760,7 +821,7 @@ export default function App() {
     );
   }
 
-  return (
+  const appContent = (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 w-full max-w-full overflow-x-hidden ${
         isGray ? 'bg-slate-200/80 text-slate-900' : 'bg-slate-50 text-slate-900'
@@ -922,17 +983,6 @@ export default function App() {
               params={buildingModelParams}
               onUpdateParams={updateBuildingModelParams}
               onSyncWithCalculator={handleSyncModelToCalculator}
-              onNavigateToFloorPlan={() => setActiveTab('katplani')}
-              theme={theme}
-            />
-          )}
-
-          {activeTab === 'katplani' && (
-            <FloorPlanTab
-              params={buildingModelParams}
-              onUpdateParams={updateBuildingModelParams}
-              onSyncWithCalculator={handleSyncModelToCalculator}
-              onNavigateToModel={() => setActiveTab('model')}
               theme={theme}
             />
           )}
@@ -1061,4 +1111,18 @@ export default function App() {
 
     </div>
   );
+
+  if (isMapsKeyValid && !mapsAuthError) {
+    return (
+      <APIProvider 
+        apiKey={googleMapsApiKey} 
+        libraries={['places', 'maps3d']}
+        onError={() => setMapsAuthError(true)}
+      >
+        {appContent}
+      </APIProvider>
+    );
+  }
+
+  return appContent;
 }

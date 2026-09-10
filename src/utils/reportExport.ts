@@ -96,11 +96,13 @@ export function generateOfferHtml(
 
   const totalFlats = res.flatCount || 10;
   const totalFloors = params.floorCount || 5;
-  const flatsPerFloor = Math.max(1, Math.ceil(totalFlats / totalFloors));
+  const flatsPerFloor = params.flatsPerFloor || Math.max(1, Math.ceil(totalFlats / totalFloors));
 
   const flatRows = res.flatResults
     .map((f) => {
-      const floorNo = f.floorNumber !== undefined ? f.floorNumber : Math.min(totalFloors, Math.ceil(f.id / flatsPerFloor));
+      const floorNo = f.floorNumber !== undefined 
+        ? f.floorNumber 
+        : (params.hasGroundFloorShop ? (f.id <= (params.shopCount || 1) ? 0 : 1 + Math.floor((f.id - 1 - (params.shopCount || 1)) / flatsPerFloor)) : 1 + Math.floor((f.id - 1) / flatsPerFloor));
       const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
       const facadeText = f.facade ? (f.facade.charAt(0).toUpperCase() + f.facade.slice(1)) : 'Güney';
       const floorFacadeHtml = showFloorFacade ? `<div style="color:#4f46e5;font-weight:normal;font-size:9.5px;margin-top:1px;">${floorText} • ${facadeText}</div>` : '';
@@ -109,10 +111,16 @@ export function generateOfferHtml(
         : params.roomType ? `${params.roomType} Oda` : (f.area < 65 ? '1+1' : f.area < 95 ? '2+1' : f.area < 135 ? '3+1' : '4+1');
       
       const flatBadge = f.flatType === 'mansard'
-        ? `<span style="background:#e0e7ff;color:#3730a3;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Mansart Çatı</span>`
+        ? `<span style="background:#e0e7ff;color:#3730a3;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Mansart Çatı (En Üst Kat)</span>`
         : f.flatType === 'duplex'
         ? `<span style="background:#d1fae5;color:#065f46;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Çatı Dubleksi</span>`
+        : f.flatType === 'shop'
+        ? `<span style="background:#fef3c7;color:#92400e;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Zemin Dükkan</span>`
         : '';
+
+      const unitTitle = f.flatType === 'shop' ? `🏪 Dükkan ${f.id}` : `🏠 Daire ${f.id}`;
+      const fGross = f.area || physicalGrossArea_rep;
+      const fNet = f.netArea || Math.round(fGross * 0.8 * 10) / 10;
 
       const serefiyeText = f.serefiyeMultiplier && f.serefiyeMultiplier !== 1.0
         ? `<span style="color:#b45309;font-weight:bold;font-size:10.5px;">x${f.serefiyeMultiplier.toFixed(2)} (${Math.round((f.serefiyeMultiplier - 1) * 100) > 0 ? '+' : ''}${Math.round((f.serefiyeMultiplier - 1) * 100)}%)</span>`
@@ -131,7 +139,7 @@ export function generateOfferHtml(
         return `
         <tr>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#0f172a;">
-            Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}
+            ${unitTitle} ${flatBadge ? `<br>${flatBadge}` : ''}
             ${floorFacadeHtml}
           </td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;">
@@ -140,7 +148,7 @@ export function generateOfferHtml(
           </td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;">
             <strong>${roomCountText}</strong>
-            <div style="color:#475569;font-size:9.5px;">Brüt: ${physicalGrossArea_rep} m² | <span style="color:#047857;font-weight:bold;">Net: ${physicalNetArea_rep} m²</span></div>
+            <div style="color:#475569;font-size:9.5px;">Brüt: ${fGross} m² | <span style="color:#047857;font-weight:bold;">Net: ${fNet} m²</span></div>
           </td>
           ${serefiyeCell}
           ${landShareCell}
@@ -155,7 +163,7 @@ export function generateOfferHtml(
         return `
         <tr>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;color:#0f172a;">
-            Daire ${f.id} ${flatBadge ? `<br>${flatBadge}` : ''}
+            ${unitTitle} ${flatBadge ? `<br>${flatBadge}` : ''}
             ${floorFacadeHtml}
           </td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;">
@@ -164,7 +172,7 @@ export function generateOfferHtml(
           </td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;">
             <strong>${roomCountText}</strong>
-            <div style="color:#475569;font-size:9.5px;">Brüt: ${physicalGrossArea_rep} m² | <span style="color:#047857;font-weight:bold;">Net: ${physicalNetArea_rep} m²</span></div>
+            <div style="color:#475569;font-size:9.5px;">Brüt: ${fGross} m² | <span style="color:#047857;font-weight:bold;">Net: ${fNet} m²</span></div>
           </td>
           ${serefiyeCell}
           ${landShareCell}
@@ -431,8 +439,9 @@ export function generateOfferHtml(
         <div style="font-size:12px;font-weight:bold;color:#1e3a8a;font-family:monospace;">${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
       </div>
       <div class="meta-card">
-        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Kat ve Daire Sayısı</div>
-        <div style="font-size:12px;font-weight:bold;color:#0f172a;">${params.floorCount || 5} Kat / ${res.flatCount} Daire</div>
+        <div style="color:#64748b;font-size:9.5px;font-weight:600;">Kat ve Bağımsız Bölüm</div>
+        <div style="font-size:12px;font-weight:bold;color:#0f172a;">${params.floorCount || 5} Kat / ${params.hasGroundFloorShop ? `${res.flatCount} Daire + ${params.shopCount || 1} Dükkan` : `${res.flatCount} Daire`}</div>
+        <div style="font-size:9px;color:#64748b;">(Katta ${flatsPerFloor} Bölüm - Eşit Dağılım)</div>
       </div>
       <div class="meta-card">
         <div style="color:#64748b;font-size:9.5px;font-weight:600;">Tipik Daire Alanı</div>
@@ -476,7 +485,7 @@ export function generateOfferHtml(
         <strong>🏗️ Taşıyıcı Karkas & Temel:</strong> TBDY-2018 standartlarında C30/35 & C35/40 Hazır Beton, B420C Nervürlü Çelik Donatı, Radye Temel ve Çift Kat Membranlı Su Yalıtımı.
       </div>
       <div class="spec-card">
-        <strong>🌡️ Dış Cephe & Yalıtım:</strong> Minimum 5 cm Karbonlu EPS Mantolama, Dekoratif Sıva, Nefes Alan Silikon Esaslı Boya ve Çatı Su/Isı Yalıtımı.
+        <strong>🌡️ Dış Cephe & Yalıtım:</strong> Minimum 5 cm Karbonlu EPS Mantolama, Proje Onaylı Cephe Rengi (${params.facadeColor || params.wallColor || 'Kullanıcı Tercihi'}), Dekoratif Sıva, Nefes Alan Silikon Esaslı Boya ve Çatı Su/Isı Yalıtımı ${params.roofType === 'mansard' ? '(En üst katta mansart çatı bağımsız bölümleri)' : ''}.
       </div>
       <div class="spec-card">
         <strong>🪟 Doğrama & Cam:</strong> 70-76 mm Seri PVC Doğramalar, Argon Gazlı Isıcam Konfor Sinerji Çift Cam ve Monoblok Kilitli 1. Sınıf Çelik Daire Kapısı.
@@ -642,11 +651,29 @@ export function generateContractHtml(
         const landShareStr = f.landShareNumerator && params.totalLandShareDenominator
           ? `${f.landShareNumerator}/${params.totalLandShareDenominator}`
           : `1/${res.flatResults.length}`;
+
+        const floorNo = f.floorNumber !== undefined 
+          ? f.floorNumber 
+          : (params.hasGroundFloorShop ? (f.id <= (params.shopCount || 1) ? 0 : 1 + Math.floor((f.id - 1 - (params.shopCount || 1)) / (params.flatsPerFloor || 2))) : 1 + Math.floor((f.id - 1) / (params.flatsPerFloor || 2)));
+        const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
+
+        const unitTitle = f.flatType === 'shop' 
+          ? `🏪 Dükkan ${f.id}` 
+          : (f.flatType === 'mansard' ? `🏚️ Daire ${f.id} (Mansart)` : `🏠 Daire ${f.id}`);
+
+        const unitTypeBadge = f.flatType === 'shop' 
+          ? 'Ticari Dükkan' 
+          : (f.flatType === 'mansard' ? 'Mansart Katı' : f.flatType === 'duplex' ? 'Çatı Dubleksi' : 'Konut');
+
         return `
     <tr>
-      <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:bold;">Daire ${f.id}</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:bold;">
+        ${unitTitle}
+        <div style="font-size:9px;color:#64748b;font-weight:normal;">${floorText}</div>
+      </td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;">${f.name}</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;">${f.tc}</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:9.5px;color:#475569;">${unitTypeBadge}</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;text-align:center;">${landShareStr}</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;">${f.area} m²</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
@@ -722,7 +749,7 @@ export function generateContractHtml(
     <strong>2. İŞ SAHİBİ / KAT MALİKLERİ:</strong> Ek-1 Hak Sahipleri Listesinde isim, TC kimlik ve arsa payı bilgileri bulunan taşınmaz malikleri.</p>
     
     <h4>MADDE 2: SÖZLEŞME KONUSU VE GAYRİMENKUL</h4>
-    <p>Tapuda <strong>${params.projectAddress || 'Belirtilen Adres'}</strong> adresinde kayıtlı taşınmazın yıkılarak yerine taban oturumu <strong>${res.baseArea} m²</strong>, toplam brüt inşaat alanı <strong>${res.totalArea} m²</strong> olan ve toplam <strong>${res.flatCount} adet bağımsız bölümden</strong> oluşan yeni binanın yapılmasıdır.</p>
+    <p>Tapuda <strong>${params.projectAddress || 'Belirtilen Adres'}</strong> adresinde kayıtlı taşınmazın yıkılarak yerine taban oturumu <strong>${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</strong>, toplam brüt inşaat alanı <strong>${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</strong> olan, <strong>${params.floorCount || 5} katlı</strong> (${params.hasGroundFloorShop ? `${params.shopCount || 1} adet zemin kat dükkan + ` : ''}${res.flatCount} adet konut olmak üzere toplam ${res.flatCount + (params.hasGroundFloorShop ? (params.shopCount || 1) : 0)} bağımsız bölümden oluşan${params.roofType === 'mansard' ? ', en üst katta mansart çatı bağımsız bölümleri dahil' : ''}; kat alanı kattaki bağımsız bölüm sayısına [katta ${params.flatsPerFloor || 2} daire] eşit bölünerek projelendirilen) yeni binanın anahtar teslim yapılmasıdır.</p>
   </div>
 
   <div class="avoid-break">
@@ -781,11 +808,12 @@ export function generateContractHtml(
     <table>
       <thead>
         <tr>
-          <th>Daire No</th>
+          <th>Bağımsız Bölüm & Kat</th>
           <th>Hak Sahibi</th>
           <th>T.C. No</th>
+          <th>Nitelik</th>
           <th>Arsa Payı</th>
-          <th>Alan</th>
+          <th>Brüt Alan</th>
           <th>Toplam Bedel</th>
           <th>Peşinat</th>
           <th>Kalan Borç</th>

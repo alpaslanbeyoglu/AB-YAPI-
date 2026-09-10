@@ -241,6 +241,12 @@ export interface ProjectParams {
   facadeConfigs?: FacadeDetailConfig[]; // Her cephe için pencere, balkon ve giriş konfigürasyonları
   mainEntranceFacadeIndex?: number; // Ana bina giriş kapısının bulunduğu cephe indeksi (0, 1, 2, ... N)
   roads?: RoadConfig[]; // Parsel çevresindeki yollar
+  realWorldLocation?: {
+    lat: number;
+    lng: number;
+    altitude?: number;
+    address?: string;
+  };
 
   // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
   hasGroundFloorShop?: boolean;
@@ -267,6 +273,12 @@ export interface ProjectParams {
   flatsPerFloor?: number;
   balconyDepth?: number;
   facadeStyle?: FacadeStyleType;
+  wallColor?: string; // Dış cephe ana duvar rengi (#hex)
+  facadeColor?: string; // Dış cephe renk tercihi (alias)
+  roofColor?: string; // Çatı rengi (#hex)
+  accentColor?: string; // Söve / Ahşap / Vurgu rengi (#hex)
+  frameColor?: string; // Pencere, kapı ve korkuluk doğrama rengi (#hex)
+  slabColor?: string; // Kat silmesi ve taban döşeme rengi (#hex)
   elevatorCount?: number;
   showDebugOverlay3D?: boolean; // Geometrik sınır kutusu ve kesişim noktaları hata ayıklama katmanı
 
@@ -487,7 +499,13 @@ export interface BuildingModelParams {
   balconyDepth: number;      // Balkon / çıkma payı (m)
   roofType: RoofType;        // Çatı tipi: Kırma, Teras, Mansart, Çatı Dubleksi
   mansardFlatCount?: number; // Mansart çatı tek seçildiğinde ortaya çıkan bağımsız bölüm sayısı
-  facadeStyle: FacadeStyleType;
+  facadeStyle?: FacadeStyleType;
+  wallColor?: string;        // Dış cephe ana duvar rengi (#hex)
+  roofColor?: string;        // Çatı kaplama rengi (#hex)
+  accentColor?: string;      // Söve / Ahşap / Vurgu panelleri rengi (#hex)
+  frameColor?: string;       // Pencere, kapı ve korkuluk doğrama rengi (#hex)
+  slabColor?: string;        // Kat silmesi ve döşeme rengi (#hex)
+  glassColor?: string;       // Cam rengi / tonu (#hex)
   wallThickness: number;     // Dış duvar kalınlığı (m)
   showFurniture: boolean;    // Mobilya katmanı
   showDimensions: boolean;   // Ölçülendirme çizgileri
@@ -527,6 +545,12 @@ export interface BuildingModelParams {
   contractorShareRate?: number;
   flatCount?: number;
   roads?: RoadConfig[];
+  realWorldLocation?: {
+    lat: number;
+    lng: number;
+    altitude?: number;
+    address?: string;
+  };
 }
 
 // -------------------------------------------------------------
