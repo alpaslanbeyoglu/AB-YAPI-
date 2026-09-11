@@ -793,25 +793,31 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={`block text-xs ${labelColor} mb-1.5`}>Daire Birim m² Maliyeti (TL):</label>
+                <label className={`block text-xs ${labelColor} mb-1.5`}>Daire Birim m² Maliyeti / Teklifi (TL):</label>
                 <input
                   type="number"
                   value={params.manualFlatUnitPrice || ''}
                   onChange={(e) => updateParam('manualFlatUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="Otomatik (Boş Bırakılabilir)"
+                  placeholder={`Otomatik (${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : '42000'} TL/m²)`}
                   className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold text-indigo-700 dark:text-indigo-400 ${inputBg}`}
                 />
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Örn: Standart 42.000 TL veya müteahhit daire payından dolayı indirimli 32.000 TL
+                </span>
               </div>
               <div>
-                <label className={`block text-xs ${labelColor} mb-1.5`}>Dükkan Birim m² Maliyeti (TL):</label>
+                <label className={`block text-xs ${labelColor} mb-1.5`}>Dükkan Birim m² Maliyeti / Teklifi (TL):</label>
                 <input
                   type="number"
                   value={params.manualShopUnitPrice || ''}
                   onChange={(e) => updateParam('manualShopUnitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="Otomatik (Boş Bırakılabilir)"
+                  placeholder={`Otomatik (${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : '42000'} TL/m²)`}
                   className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold text-amber-700 dark:text-amber-400 ${inputBg}`}
                   disabled={!params.hasGroundFloorShop}
                 />
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Örn: Ticari/dükkan için özel teklif fiyatı (Örn: 30.000 TL)
+                </span>
               </div>
             </div>
 
@@ -2185,7 +2191,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                       {params.projectModel === 'contractorShare' && (
                         <th className="p-3 w-20 text-center">Müteahhit</th>
                       )}
-                      <th className="p-3 w-28 text-right text-slate-800">Katkı Payı</th>
+                      <th className="p-3 w-28 text-right text-slate-800">İmalat Bedeli</th>
                       {params.enableLandShareBalancing && (
                         <th className="p-3 w-28 text-right text-emerald-800">Arsa Mahsubu</th>
                       )}
@@ -2508,11 +2514,18 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                               </td>
                             )}
 
-                            {/* Toplam Katkı Payı */}
+                            {/* İmalat Bedeli */}
                             <td className="p-2 text-right font-mono text-slate-800 font-semibold">
-                              {calc
-                                ? `${calc.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL`
-                                : '-'}
+                              {calc ? (
+                                <div>
+                                  <div className="text-slate-900 font-bold">
+                                    {calc.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                                  </div>
+                                  <div className="text-[9px] text-slate-400 font-normal">
+                                    {(calc.unitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²
+                                  </div>
+                                </div>
+                              ) : '-'}
                             </td>
 
                             {/* Arsa Payı Mahsuplaşma Dengesi (+ / - TL) */}
@@ -2980,7 +2993,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                 <th className="p-3">Tip</th>
                 <th className="p-3">Hak Sahibi / Durum</th>
                 <th className="p-3 text-right">Brüt Alan</th>
-                <th className="p-3 text-right">Toplam Katkı</th>
+                <th className="p-3 text-right">İmalat Bedeli</th>
                 <th className="p-3 text-right text-indigo-700">1. Peşinat</th>
                 <th className="p-3 text-right text-emerald-700">2. Hibe</th>
                 <th className="p-3 text-right text-sky-700">3. Kredi</th>
@@ -3059,13 +3072,17 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     <td className="p-3 text-right font-mono font-bold">
                       <span
                         className={`px-2 py-1 rounded-lg ${
-                          flat.netRemainingDebt <= 0
+                          flat.isContractorShare
+                            ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                            : flat.netRemainingDebt <= 0
                             ? 'bg-emerald-100 text-emerald-900'
                             : 'bg-slate-100 text-slate-900'
                         }`}
                       >
-                        {flat.netRemainingDebt <= 0
-                          ? 'Ödendi'
+                        {flat.isContractorShare
+                          ? 'Müteahhit Uhdesi'
+                          : flat.netRemainingDebt <= 0
+                          ? '0 TL (Borçsuz)'
                           : `${flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL`}
                       </span>
                     </td>

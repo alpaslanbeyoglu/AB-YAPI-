@@ -359,7 +359,10 @@ export interface FlatCalcResult {
   name: string;
   tc: string;
   area: number;
-  grossPay: number;
+  unitPrice?: number; // Müteahhit m² birim teklif fiyatı (TL/m²)
+  effectiveUnitPrice?: number; // Şerefiye vb. ile düzeltilmiş birim fiyat (TL/m²)
+  grossPay: number; // İmalat Bedeli (Brüt Alan * Birim Fiyat) (TL)
+  contractorShareDeduction?: number; // Müteahhit / Kat Karşılığı Mahsubu (TL)
   downPayment: number;
   usedCredit: number;
   useGrant?: boolean;

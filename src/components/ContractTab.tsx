@@ -257,93 +257,141 @@ export const ContractTab: React.FC<ContractTabProps> = ({
           <div>
             <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 2: SÖZLEŞME KONUSU VE GAYRİMENKUL BİLGİLERİ')}</h4>
             <p className="text-slate-700">
-              {highlightText('İşbu sözleşmenin konusu; Tapuda')} <strong className="text-indigo-700">{highlightText(params.projectAddress)}</strong> {highlightText('adresinde kayıtlı bulunan taşınmaz üzerindeki mevcut yapının yıkılması, yerine yürürlükteki imar mevzuatına ve onaylı mimari/statik projesine uygun olarak; taban oturumu')} <strong className="text-slate-900 font-mono">{results.baseArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong>, {highlightText('toplam brüt inşaat alanı')} <strong className="text-slate-900 font-mono">{results.totalArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong> {highlightText('olan,')} <strong className="text-slate-900 font-mono">{params.floorCount || 5} katlı</strong> {highlightText(`(${params.hasGroundFloorShop ? `${params.shopCount || 1} adet zemin kat dükkan + ` : ''}${results.flatCount} adet konut olmak üzere toplam ${results.flatCount + (params.hasGroundFloorShop ? (params.shopCount || 1) : 0)} bağımsız bölümden oluşan${params.roofType === 'mansard' ? ', en üst katta mansart çatı bağımsız bölümleri dahil' : ''}; kat alanı kattaki bağımsız bölüm sayısına [katta ${params.flatsPerFloor || 2} daire] eşit bölünerek projelendirilen)`)} {highlightText('yeni binanın Yüklenici tarafından anahtar teslim imal edilmesi ve hakediş esaslarının düzenlenmesidir.')}
+              {(() => {
+                const sCount = results.flatResults.filter(f => f.flatType === 'shop').length;
+                const rCount = results.flatResults.filter(f => f.flatType !== 'shop').length;
+                const tCount = results.flatResults.length;
+                return (
+                  <>
+                    {highlightText('İşbu sözleşmenin konusu; Tapuda')} <strong className="text-indigo-700">{highlightText(params.projectAddress)}</strong> {highlightText('adresinde kayıtlı bulunan taşınmaz üzerindeki mevcut yapının yıkılması, yerine yürürlükteki imar mevzuatına ve onaylı mimari/statik projesine uygun olarak; taban oturumu')} <strong className="text-slate-900 font-mono">{results.baseArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong>, {highlightText('toplam brüt inşaat alanı')} <strong className="text-slate-900 font-mono">{results.totalArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong> {highlightText('olan,')} <strong className="text-slate-900 font-mono">{params.floorCount || 5} katlı</strong> {highlightText(`(${sCount > 0 ? `${sCount} adet zemin kat ticari dükkan + ` : ''}${rCount} adet konut olmak üzere toplam ${tCount} bağımsız bölümden oluşan${params.roofType === 'mansard' ? ', en üst katta mansart çatı bağımsız bölümleri dahil' : ''}${params.roofType === 'duplex' ? ', çatı dubleksleri dahil' : ''}; kat alanı kattaki bağımsız bölüm sayısına [katta ${params.flatsPerFloor || 2} daire] eşit bölünerek projelendirilen)`)} {highlightText('yeni binanın Yüklenici tarafından anahtar teslim imal edilmesi ve taahhüt esaslarının düzenlenmesidir.')}
+                  </>
+                );
+              })()}
             </p>
           </div>
 
           {/* SECTION II */}
           <h3 className="font-semibold text-indigo-700 border-b border-slate-200 pb-2 text-xs uppercase pt-2">
-            {highlightText('BÖLÜM II: MALİ HÜKÜMLER VE HAKEDİŞ ESASLARI')}
+            {highlightText(params.projectModel === 'contractorShare' ? 'BÖLÜM II: KAT KARŞILIĞI MALİ HÜKÜMLER VE TAPU DEVRİ ESASLARI' : 'BÖLÜM II: MALİ HÜKÜMLER VE HAKEDİŞ ESASLARI')}
           </h3>
 
-          <div>
-            <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 3: PROJE İMALAT BEDELİ VE ENFLASYON UYARLAMASI')}</h4>
-            <p className="text-slate-700">
-              {highlightText('Projede yer alan bağımsız bölümlerin birim imalat fiyatı')} <strong className="text-slate-900 font-mono">{results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong> {highlightText('olarak tespit edilmiştir. Toplam proje yapım bedeli')} <strong className="text-emerald-700 font-mono">{results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong>{highlightText("'dir. Maliklerin daire başı yapacağı ödemeler inşaatın fiziki ilerleme seviyesine (hakedişe) göre tahsil edilir. Vadesinde ödenmeyen tutarlara TÜİK Yİ-ÜFE oranında fark yansıtılır.")}
-            </p>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 4: KENTSEL DÖNÜŞÜM DESTEK MODELİ VE HARÇ MUAFİYETLERİ')}</h4>
-            <p className="text-slate-700">
-              {highlightText("İşbu proje 6306 sayılı Afet Riski Altındaki Alanların Dönüştürülmesi Hakkında Kanun kapsamında yürütülmektedir. Projede kamu hibe ve kredi desteği mekanizmaları uygulanacaktır. İlgili kamu hibeleri ve banka kredileri topluca müteahhide ödenmeyip, Çevre ve Şehircilik Bakanlığı ile banka ekspertiz yetkililerinin şantiyede onayladığı fiziki tamamlanma oranlarına göre Yüklenici hesabına aktarılır. 6306 sayılı Kanun'un sağladığı Tapu Harcı, Damga Vergisi, Noter Harçları ve Belediye Ruhsat Harç muafiyetleri aynen uygulanır.")}
-            </p>
-          </div>
-
-          <div>
-            {params.paymentPlanType === 'installments' ? (
-              <>
-                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 5: AYLIK EŞİT TAKSİTLİ ÖDEME PLANI VE VADE ESASLARI')}</h4>
+          {params.projectModel === 'contractorShare' ? (
+            <>
+              <div>
+                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 3: KAT KARŞILIĞI İMALAT MODELİ VE FİNANSMAN ESASLARI')}</h4>
                 <p className="text-slate-700">
-                  {highlightText('Müteahhite yapılacak ödemeler, kat maliklerinin peşinat ve kentsel dönüşüm destekleri mahsup edildikten sonra kalan net borç tutarları üzerinden toplam')} <strong className="text-indigo-700 font-mono">{params.installmentCount || 12} eşit aylık taksite</strong> {highlightText('bölünerek tahsil edilecektir:')}
+                  {highlightText('İşbu yapım Arsa Payı Karşılığı İnşaat Modeli ile gerçekleştirilmekte olup, birim imalat fiyatı')} <strong className="text-slate-900 font-mono">{results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>, {highlightText('toplam anahtar teslim yapım bedeli (KDV ve harçlar dahil)')} <strong className="text-emerald-700 font-mono">{results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong>{highlightText("'dir. Yüklenici, yapının projelendirilmesi, şantiye organizasyonu, yıkım, zemin iyileştirme, kaba ve ince imalat ile iskân alımına kadar olan tüm yapım giderlerini üstlenmiştir. Arsa Malikleri, bu yapım karşılığında Ek-1'de belirlenen")} <strong className="text-indigo-700 font-mono">{results.flatResults.filter(f => f.isContractorShare).length} adet</strong> {highlightText("bağımsız bölümün mülkiyetini Yüklenici'ye devretmeyi taahhüt eder. Maliklerin standart proje için nakit borçlanması veya ek yapım bedeli ödeme yükümlülüğü bulunmamaktadır.")}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 4: KADEMELİ TAPU DEVRİ VE TEMİNAT TAKVİMİ')}</h4>
+                <p className="text-slate-700">
+                  {highlightText("Yüklenici'ye isabet eden bağımsız bölümlerin arsa payı tapu devirleri, inşaatın fiziki gerçekleşme oranlarına paralel olarak aşağıdaki aşamalarla gerçekleştirilecektir:")}
                 </p>
                 <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
                   <li>
-                    <strong className="text-slate-900">Peşinat ve Başlangıç:</strong> {highlightText('Sözleşme imza ve ruhsat aşamasında kararlaştırılan peşinat tutarları peşinen tahsil edilir.')}
+                    <strong className="text-slate-900">1. Aşama (%20):</strong> {highlightText('Radye temel ve subasman seviyesi betonarme vizesi tamamlandığında.')}
                   </li>
                   <li>
-                    <strong className="text-slate-900">Aylık Vade Günü:</strong> {highlightText("Taksitler her takvim ayının ilk 5 (beş) iş günü içerisinde Yüklenici'nin bildireceği resmi banka hesabına yatırılacaktır.")}
+                    <strong className="text-slate-900">2. Aşama (%30):</strong> {highlightText('Betonarme karkas ve tuğla duvarların (kaba inşaat) tamamlanmasında.')}
                   </li>
                   <li>
-                    <strong className="text-slate-900">Gecikme Hali:</strong> {highlightText('Mücbir sebep olmaksızın vadesinde ödenmeyen taksitlere yasal temerrüt faizi ve Yİ-ÜFE farkı yansıtılır.')}
+                    <strong className="text-slate-900">3. Aşama (%25):</strong> {highlightText('Çatı örtüsü, doğramalar, tesisatlar ve ince sıvaların tamamlanmasında.')}
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">4. Aşama (%15):</strong> {highlightText('Bağımsız bölümlerin anahtar teslim hale getirilmesinde.')}
+                  </li>
+                  <li>
+                    <strong className="text-slate-900">5. Aşama (%10 - Teminat):</strong> {highlightText("Belediyeden Yapı Kullanım İzin Belgesi'nin (İskân) alınıp bağımsız bölümlerin fiilen eksiksiz tesliminde nihai teminat tapuları devredilir.")}
                   </li>
                 </ul>
-              </>
-            ) : params.paymentPlanType === 'hybrid' ? (
-              <>
-                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 5: KARMA (HİBRİT) ÖDEME PLANI VE HAKEDİŞ ESASLARI')}</h4>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 3: PROJE İMALAT BEDELİ VE ENFLASYON UYARLAMASI')}</h4>
                 <p className="text-slate-700">
-                  {highlightText('Müteahhite yapılacak ödemeler peşinat, inşaat ilerleme ara ödemeleri ve aylık taksitlerin kombinasyonu ile gerçekleştirilir:')}
+                  {highlightText('Projede yer alan bağımsız bölümlerin birim imalat fiyatı')} <strong className="text-slate-900 font-mono">{results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong> {highlightText('olarak tespit edilmiştir. Toplam proje yapım bedeli')} <strong className="text-emerald-700 font-mono">{results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</strong>{highlightText("'dir. Maliklerin daire başı yapacağı ödemeler inşaatın fiziki ilerleme seviyesine (hakedişe) göre tahsil edilir. Vadesinde ödenmeyen tutarlara TÜİK Yİ-ÜFE oranında fark yansıtılır.")}
                 </p>
-                <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
-                  <li>
-                    <strong className="text-slate-900">1. Peşinat:</strong> {highlightText('Sözleşme imzasında belirlenen tutar.')}
-                  </li>
-                  <li>
-                    <strong className="text-slate-900">2. Kaba İnşaat Ara Ödemesi (%25):</strong> {highlightText('Taşıyıcı betonarme sistem ve duvarların tamamlanmasında.')}
-                  </li>
-                  <li>
-                    <strong className="text-slate-900">3. İskân Ara Ödemesi (%15):</strong> {highlightText('İskân ruhsatının alınması ve teslim aşamasında.')}
-                  </li>
-                  <li>
-                    <strong className="text-slate-900">4. Aylık Taksitler (%60):</strong> {highlightText('Kalan bakiye toplam')} <strong className="text-indigo-700 font-mono">{params.installmentCount || 12} eşit aylık taksite</strong> {highlightText('bölünerek tahsil edilir.')}
-                  </li>
-                </ul>
-              </>
-            ) : (
-              <>
-                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 5: DİNAMİK FİZİKİ İLERLEME HAKEDİŞ ORANLARI')}</h4>
-                <p className="text-slate-700">{highlightText('Müteahhite yapılacak hakediş ödemeleri aşağıdaki 5 fiziki aşama takvimine göre gerçekleştirilir:')}</p>
-                <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
-                  <li>
-                    <strong className="text-slate-900">1. Hakediş (%{params.stage1Pay}):</strong> {highlightText('Sözleşmenin imzalanması ve ruhsat/mimari projelerin hazırlanması.')}
-                  </li>
-                  <li>
-                    <strong className="text-slate-900">2. Hakediş (%{params.stage2Pay}):</strong> {highlightText('Hafriyatın tamamlanıp radye temel ve subasman seviyesi betonarme vizesinin alınması.')}
-                  </li>
-                  <li>
-                    <strong className="text-slate-900">3. Hakediş (%{params.stage3Pay}):</strong> {highlightText('Betonarme karkas ve tuğla duvar örümünün (Kaba İnşaat) tamamlanması.')}
-                  </li>
-                  <li>
-                    <strong className="text-slate-900">4. Hakediş (%{params.stage4Pay}):</strong> {highlightText('İnce inşaat, Tesisatlar, cephe mantolama ve doğramalar.')}
-                  </li>
-                  <li>
-                    <strong className="text-slate-900">5. Hakediş (%{params.stage5Pay}):</strong> {highlightText("Yapı Kullanım İzin Belgesi'nin (İskân) belediyeden alınıp bağımsız bölümlerin anahtar teslim kabulünde.")}
-                  </li>
-                </ul>
-              </>
-            )}
-          </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 4: KENTSEL DÖNÜŞÜM DESTEK MODELİ VE HARÇ MUAFİYETLERİ')}</h4>
+                <p className="text-slate-700">
+                  {highlightText(params.transformationStatus !== 'none'
+                    ? "İşbu proje 6306 sayılı Afet Riski Altındaki Alanların Dönüştürülmesi Hakkında Kanun kapsamında yürütülmektedir. Projede kamu hibe ve kredi desteği mekanizmaları uygulanacaktır. İlgili kamu hibeleri ve banka kredileri topluca müteahhide ödenmeyip, Çevre ve Şehircilik Bakanlığı ile banka ekspertiz yetkililerinin şantiyede onayladığı fiziki tamamlanma oranlarına göre Yüklenici hesabına aktarılır. 6306 sayılı Kanun'un sağladığı Tapu Harcı, Damga Vergisi, Noter Harçları ve Belediye Ruhsat Harç muafiyetleri aynen uygulanır."
+                    : "İşbu proje öz kaynaklı yapım modeliyle yürütülmektedir. İnşaat imalat bedelleri kat malikleri tarafından karşılanacak olup, ilgili belediye ve resmî kurum harçları yasal mevzuat hükümlerine göre tahakkuk ettirilir.")}
+                </p>
+              </div>
+
+              <div>
+                {params.paymentPlanType === 'installments' ? (
+                  <>
+                    <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 5: AYLIK EŞİT TAKSİTLİ ÖDEME PLANI VE VADE ESASLARI')}</h4>
+                    <p className="text-slate-700">
+                      {highlightText('Müteahhite yapılacak ödemeler, kat maliklerinin peşinat ve kentsel dönüşüm destekleri mahsup edildikten sonra kalan net borç tutarları üzerinden toplam')} <strong className="text-indigo-700 font-mono">{params.installmentCount || 12} eşit aylık taksite</strong> {highlightText('bölünerek tahsil edilecektir:')}
+                    </p>
+                    <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
+                      <li>
+                        <strong className="text-slate-900">Peşinat ve Başlangıç:</strong> {highlightText('Sözleşme imza ve ruhsat aşamasında kararlaştırılan peşinat tutarları peşinen tahsil edilir.')}
+                      </li>
+                      <li>
+                        <strong className="text-slate-900">Aylık Vade Günü:</strong> {highlightText("Taksitler her takvim ayının ilk 5 (beş) iş günü içerisinde Yüklenici'nin bildireceği resmi banka hesabına yatırılacaktır.")}
+                      </li>
+                      <li>
+                        <strong className="text-slate-900">Gecikme Hali:</strong> {highlightText('Mücbir sebep olmaksızın vadesinde ödenmeyen taksitlere yasal temerrüt faizi ve Yİ-ÜFE farkı yansıtılır.')}
+                      </li>
+                    </ul>
+                  </>
+                ) : params.paymentPlanType === 'hybrid' ? (
+                  <>
+                    <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 5: KARMA (HİBRİT) ÖDEME PLANI VE HAKEDİŞ ESASLARI')}</h4>
+                    <p className="text-slate-700">
+                      {highlightText('Müteahhite yapılacak ödemeler peşinat, inşaat ilerleme ara ödemeleri ve aylık taksitlerin kombinasyonu ile gerçekleştirilir:')}
+                    </p>
+                    <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
+                      <li>
+                        <strong className="text-slate-900">1. Peşinat:</strong> {highlightText('Sözleşme imzasında belirlenen tutar.')}
+                      </li>
+                      <li>
+                        <strong className="text-slate-900">2. Kaba İnşaat Ara Ödemesi (%25):</strong> {highlightText('Taşıyıcı betonarme sistem ve duvarların tamamlanmasında.')}
+                      </li>
+                      <li>
+                        <strong className="text-slate-900">3. İskân Ara Ödemesi (%15):</strong> {highlightText('İskân ruhsatının alınması ve teslim aşamasında.')}
+                      </li>
+                      <li>
+                        <strong className="text-slate-900">4. Aylık Taksitler (%60):</strong> {highlightText('Kalan bakiye toplam')} <strong className="text-indigo-700 font-mono">{params.installmentCount || 12} eşit aylık taksite</strong> {highlightText('bölünerek tahsil edilir.')}
+                      </li>
+                    </ul>
+                  </>
+                ) : (
+                  <>
+                    <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 5: DİNAMİK FİZİKİ İLERLEME HAKEDİŞ ORANLARI')}</h4>
+                    <p className="text-slate-700">{highlightText('Müteahhite yapılacak hakediş ödemeleri aşağıdaki 5 fiziki aşama takvimine göre gerçekleştirilir:')}</p>
+                    <ul className="list-disc pl-5 mt-2 space-y-1.5 text-slate-700">
+                      <li>
+                        <strong className="text-slate-900">1. Hakediş (%{params.stage1Pay !== undefined ? params.stage1Pay : 20}):</strong> {highlightText('Sözleşmenin imzalanması ve ruhsat/mimari projelerin hazırlanması.')}
+                      </li>
+                      <li>
+                        <strong className="text-slate-900">2. Hakediş (%{params.stage2Pay !== undefined ? params.stage2Pay : 20}):</strong> {highlightText('Hafriyatın tamamlanıp radye temel ve subasman seviyesi betonarme vizesinin alınması.')}
+                      </li>
+                      <li>
+                        <strong className="text-slate-900">3. Hakediş (%{params.stage3Pay !== undefined ? params.stage3Pay : 30}):</strong> {highlightText('Betonarme karkas ve tuğla duvar örümünün (Kaba İnşaat) tamamlanması.')}
+                      </li>
+                      <li>
+                        <strong className="text-slate-900">4. Hakediş (%{params.stage4Pay !== undefined ? params.stage4Pay : 20}):</strong> {highlightText('İnce inşaat, Tesisatlar, cephe mantolama ve doğramalar.')}
+                      </li>
+                      <li>
+                        <strong className="text-slate-900">5. Hakediş (%{params.stage5Pay !== undefined ? params.stage5Pay : 10}):</strong> {highlightText("Yapı Kullanım İzin Belgesi'nin (İskân) belediyeden alınıp bağımsız bölümlerin anahtar teslim kabulünde.")}
+                      </li>
+                    </ul>
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
           <div>
             <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 6: YAPI DENETİM ONAYI VE İMALAT VİZELERİ')}</h4>
@@ -435,10 +483,11 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                     <th className="p-2.5 border-b border-slate-200 font-semibold">T.C. Kimlik No</th>
                     <th className="p-2.5 border-b border-slate-200 font-semibold">Nitelik</th>
                     <th className="p-2.5 border-b border-slate-200 font-semibold text-center">Arsa Payı</th>
-                    <th className="p-2.5 border-b border-slate-200 font-semibold">Brüt Alan</th>
-                    <th className="p-2.5 border-b border-slate-200 font-semibold">Toplam Bedel</th>
-                    <th className="p-2.5 border-b border-slate-200 font-semibold">Peşinat</th>
-                    <th className="p-2.5 border-b border-slate-200 font-semibold">Kalan Borç</th>
+                    <th className="p-2.5 border-b border-slate-200 font-semibold text-right">Brüt Alan</th>
+                    <th className="p-2.5 border-b border-slate-200 font-semibold text-right">Birim Fiyat</th>
+                    <th className="p-2.5 border-b border-slate-200 font-semibold text-right">İmalat Bedeli</th>
+                    <th className="p-2.5 border-b border-slate-200 font-semibold text-right">Peşinat / Mahsup</th>
+                    <th className="p-2.5 border-b border-slate-200 font-semibold text-right">Net Kalan Borç</th>
                     <th className="p-2.5 border-b border-slate-200 font-semibold text-center">İmza</th>
                   </tr>
                 </thead>
@@ -466,6 +515,9 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                       ? 'Çatı Dubleksi'
                       : 'Konut';
 
+                    const unitCost = f.unitPrice || results.grossCostPerSqM;
+                    const totalDeductions = (f.downPayment || 0) + (f.usedGrant || 0) + (f.usedCredit || 0) + (f.contractorShareDeduction || 0);
+
                     return (
                       <tr key={f.id} className="hover:bg-slate-50 transition-colors">
                         <td className="p-2.5 font-semibold text-slate-900">
@@ -480,13 +532,31 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                           </span>
                         </td>
                         <td className="p-2.5 text-slate-700 font-mono text-center">{landShareStr}</td>
-                        <td className="p-2.5 text-slate-700 font-mono">{f.area} m²</td>
-                        <td className="p-2.5 text-slate-900 font-mono">
+                        <td className="p-2.5 text-slate-700 font-mono text-right">{f.area} m²</td>
+                        <td className="p-2.5 text-slate-700 font-mono text-right text-[11px]">
+                          {unitCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-2.5 text-slate-900 font-mono font-semibold text-right">
                           {f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                         </td>
-                        <td className="p-2.5 text-slate-600 font-mono">{f.downPayment.toLocaleString('tr-TR')} TL</td>
-                        <td className="p-2.5 font-bold text-slate-900 font-mono">
-                          {f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        <td className="p-2.5 text-emerald-700 font-mono text-right">
+                          {totalDeductions > 0 ? `-${totalDeductions.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '0 TL'}
+                        </td>
+                        <td className="p-2.5 font-bold font-mono text-right">
+                          {f.isContractorShare ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              Müteahhit Uhdesinde
+                            </span>
+                          ) : params.projectModel === 'contractorShare' && f.netRemainingDebt === 0 ? (
+                            <div className="text-emerald-700">
+                              0 TL
+                              <span className="text-[9px] text-emerald-600 block font-normal">(Bedelsiz Teslim)</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-900">
+                              {f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </span>
+                          )}
                         </td>
                         <td className="p-2.5 text-center text-slate-300 font-mono text-[10px]">
                           ........................

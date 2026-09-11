@@ -1,4 +1,5 @@
 import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem } from '../types';
+import { calculateNetDebt } from './debtUtils';
 import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint, FootprintCalculationResult } from './footprintUtils';
 
 export interface FacadeCantileverDetail {
@@ -780,81 +781,73 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   synchronizedFlats.forEach((flat, idx) => {
     // Determine whether this flat is designated for the contractor
     let isContractor = false;
-    if (projectModel === 'contractorShare') {
-      if (flat.isContractorShare !== undefined) {
-        isContractor = flat.isContractorShare;
-      } else if (params.contractorFlatIds && params.contractorFlatIds.length > 0) {
-        isContractor = params.contractorFlatIds.includes(flat.id);
-      } else {
-        isContractor = idx + 1 > ownerFlatsCount;
-      }
+    if (flat.isContractorShare !== undefined) {
+      isContractor = flat.isContractorShare;
+    } else if (params.contractorFlatIds && params.contractorFlatIds.length > 0) {
+      isContractor = params.contractorFlatIds.includes(flat.id);
+    } else if (projectModel === 'contractorShare') {
+      isContractor = idx + 1 > ownerFlatsCount;
     }
 
     const isOwner = !isContractor;
 
-    // Şerefiye ile düzeltilmiş birim maliyet & brüt maliyet
-    const mult = flat.serefiyeMultiplier !== undefined ? flat.serefiyeMultiplier : 1.0;
-    
-    // Bağımsız bölüm tipine göre birim maliyet seçimi (Eğer manuel fiyat girilmişse)
+    // Bağımsız bölüm tipine göre m² birim maliyet seçimi
+    // Senaryo 1 & 2: Kullanıcı müteahhit teklif birim fiyatını genel olarak (örn: 42.000 TL) 
+    // veya müteahhite kalan daireler/özelleştirme nedeniyle (örn: daireler için 32.000 TL, dükkanlar için 30.000 TL) belirleyebilir
     let unitBaseCost = baseCostPerSqM;
     if (hasManualPrice) {
       unitBaseCost = flat.flatType === 'shop' ? finalShopPrice : finalFlatPrice;
+    } else if (params.manualFlatUnitPrice && params.manualFlatUnitPrice > 0 && flat.flatType !== 'shop') {
+      unitBaseCost = params.manualFlatUnitPrice;
+    } else if (params.manualShopUnitPrice && params.manualShopUnitPrice > 0 && flat.flatType === 'shop') {
+      unitBaseCost = params.manualShopUnitPrice;
     }
 
+    // Şerefiye ile düzeltilmiş birim maliyet & brüt maliyet
+    const mult = flat.serefiyeMultiplier !== undefined ? flat.serefiyeMultiplier : 1.0;
     const effectiveUnitPrice = enableSerefiye
-      ? unitBaseCost * mult * serefiyeNormFactor
+      ? Math.round(unitBaseCost * mult * serefiyeNormFactor * 100) / 100
       : unitBaseCost;
-    const baseGrossPay = flat.area * effectiveUnitPrice;
-    const grossPay = baseGrossPay + (isOwner ? equalShareCost : 0);
+
+    // Merkezi Borç Hesaplama Fonksiyonu Kullanımı
+    const isShop = flat.flatType === 'shop';
+    const defaultGrant = isShop ? 350000 : (transformationStatus === 'futureSupport2027' ? 1000000 : 700000);
+    const grantLimit = isShop
+      ? (params.shopGrantAmountPerFlat !== undefined ? params.shopGrantAmountPerFlat : 350000)
+      : (params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : defaultGrant);
+
+    const defaultCredit = isShop ? 350000 : (transformationStatus === 'futureSupport2027' ? 1500000 : 700000);
+    const creditLimit = isShop
+      ? (params.shopCreditAmountPerFlat !== undefined ? params.shopCreditAmountPerFlat : 350000)
+      : (params.creditAmountPerFlat !== undefined ? params.creditAmountPerFlat : defaultCredit);
+
+    const isGrantActive = !isContractor && (flat.useGrant !== undefined ? flat.useGrant : (flat.useTransformationCredit ?? false));
+    const isCreditActive = !isContractor && !!flat.useCredit;
+
+    const debtCalc = calculateNetDebt({
+      area: flat.area,
+      unitPrice: effectiveUnitPrice,
+      downPayment: flat.downPayment || 0,
+      grant: isGrantActive ? grantLimit : 0,
+      credit: isCreditActive ? creditLimit : 0,
+      isContractorShare: isContractor,
+      extraCosts: isOwner ? equalShareCost : 0
+    });
+
+    const { grossPay, netRemainingDebt, usedGrant, usedCredit, usedDownPayment } = debtCalc;
+    const paid = usedDownPayment; // debtCalc içinde hesaplanan kullanılan peşinat
+    const contractorShareDeduction = isContractor ? grossPay : 0;
     const serefiyeAdjustedCost = grossPay;
 
     // Arsa Payı Oranı ve Mahsuplaşma Farkı Hesabı
     const num = flat.landShareNumerator !== undefined ? flat.landShareNumerator : Math.round(flat.area * 10);
     const den = flat.landShareDenominator !== undefined ? flat.landShareDenominator : (params.totalLandShareDenominator || 1000);
     const landShareRatio = den > 0 ? (num / den) * 100 : 0;
-    const ownerLandValueEntitlement = (num / (den || 1)) * totalProjectValue;
-    const landShareDifference = enableLandShare ? baseGrossPay - ownerLandValueEntitlement : 0;
-
-    const paid = flat.downPayment || 0;
-    
-    // In contractorShare model, owners don't pay base grossPay, they only pay the equalShareCost
-    const baseDebtToPay = (projectModel === 'contractorShare' && isOwner)
-      ? equalShareCost
-      : isContractor
-      ? 0
-      : grossPay;
-
-    // 1. ÖNCELİKLİ ÖDEME: PEŞİNAT
-    const remainingAfterDown = Math.max(0, baseDebtToPay - paid);
-
-    // 2. ÖNCELİKLİ ÖDEME: HİBE
-    // Konut ve Dükkan/İşyeri hibe limitleri mevzuat ve parametrelere göre ayrıştırılır
-    const isShop = flat.flatType === 'shop';
-    const defaultGrant = isShop ? 350000 : (transformationStatus === 'futureSupport2027' ? 1000000 : 700000);
-    const applicableGrantLimit = isShop
-      ? (params.shopGrantAmountPerFlat !== undefined ? params.shopGrantAmountPerFlat : 350000)
-      : (params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : defaultGrant);
-
-    const isGrantActive = !isContractor && (projectModel !== 'contractorShare' || isOwner) &&
-      (flat.useGrant !== undefined ? flat.useGrant : (flat.useTransformationCredit ?? false));
-    const usedGrant = isGrantActive ? Math.min(remainingAfterDown, applicableGrantLimit) : 0;
-    const remainingAfterGrant = Math.max(0, remainingAfterDown - usedGrant);
-
-    // 3. ÖNCELİKLİ ÖDEME: KREDİ
-    // Konut ve Dükkan/İşyeri faiz destekli dönüşüm kredi limitleri ayrıştırılır
-    const defaultCredit = isShop ? 350000 : (transformationStatus === 'futureSupport2027' ? 1500000 : 700000);
-    const applicableCreditLimit = isShop
-      ? (params.shopCreditAmountPerFlat !== undefined ? params.shopCreditAmountPerFlat : 350000)
-      : (params.creditAmountPerFlat !== undefined ? params.creditAmountPerFlat : defaultCredit);
-
-    const isCreditActive = !isContractor && (projectModel !== 'contractorShare' || isOwner) && !!flat.useCredit;
-    const usedCredit = isCreditActive ? Math.min(remainingAfterGrant, applicableCreditLimit) : 0;
-    const remainingAfterCredit = Math.max(0, remainingAfterGrant - usedCredit);
-
-    // 4. NET KALAN BORÇ
-    const netRemainingDebt = isContractor
-      ? 0
-      : remainingAfterCredit;
+    const baseGrossPay = Math.round(flat.area * effectiveUnitPrice);
+    const totalLandShareNumerators = synchronizedFlats.reduce((sum, f) => sum + (f.landShareNumerator !== undefined ? f.landShareNumerator : Math.round(f.area * 10)), 0) || (den || 1);
+    const ownerNormalizedRatio = totalLandShareNumerators > 0 ? (num / totalLandShareNumerators) : 0;
+    const ownerLandValueEntitlement = ownerNormalizedRatio * totalProjectValue;
+    const landShareDifference = enableLandShare ? Math.round(baseGrossPay - ownerLandValueEntitlement) : 0;
 
     const totalSupport = usedGrant + usedCredit;
 
@@ -952,12 +945,15 @@ export function calculateProject(params: ProjectParams): CalculationResult {
         : flat.name,
       tc: isContractor ? '-' : flat.tc,
       area: flat.area,
+      unitPrice: Math.round(unitBaseCost * 100) / 100,
+      effectiveUnitPrice: Math.round(effectiveUnitPrice * 100) / 100,
       grossPay: Math.round(grossPay * 100) / 100,
+      contractorShareDeduction: Math.round(contractorShareDeduction * 100) / 100,
       downPayment: paid,
       usedCredit,
       usedGrant,
-      grantLimit: applicableGrantLimit,
-      creditLimit: applicableCreditLimit,
+      grantLimit: grantLimit,
+      creditLimit: creditLimit,
       totalSupport,
       netRemainingDebt: Math.round(netRemainingDebt * 100) / 100,
       isContractorShare: isContractor,

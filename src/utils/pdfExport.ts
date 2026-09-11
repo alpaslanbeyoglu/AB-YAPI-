@@ -154,12 +154,33 @@ export async function exportElementToPdf(
     backgroundColor: '#ffffff',
     windowWidth: element.scrollWidth || 1200,
     onclone: (clonedDoc, clonedElement) => {
-      // Ensure element in clone is visible with clean white background for print
+      // 1. Ensure element in clone is visible with clean white background for print
       clonedElement.style.overflow = 'visible';
       clonedElement.style.maxHeight = 'none';
       clonedElement.style.height = 'auto';
       clonedElement.style.backgroundColor = '#ffffff';
       clonedElement.style.color = '#000000';
+
+      // 2. Fix for html2canvas oklch crash (Tailwind v4 uses oklch by default)
+      // This is a critical fix for PDF exports failing in modern browsers
+      const styles = clonedDoc.querySelectorAll('style');
+      styles.forEach(styleTag => {
+        if (styleTag.textContent?.includes('oklch')) {
+          // Replace oklch(...) with a standard color if parsing fails
+          // For now, let's replace oklch(...) with its fallback if provided or a safe gray
+          // html2canvas fails specifically on the function call
+          styleTag.textContent = styleTag.textContent.replace(/oklch\([^)]+\)/g, '#475569'); 
+        }
+      });
+
+      // Also handle inline styles if any
+      const oklchElements = clonedElement.querySelectorAll('*');
+      oklchElements.forEach(el => {
+        const htmlEl = el as HTMLElement;
+        if (htmlEl.style.color?.includes('oklch')) htmlEl.style.color = '#000000';
+        if (htmlEl.style.backgroundColor?.includes('oklch')) htmlEl.style.backgroundColor = '#ffffff';
+        if (htmlEl.style.borderColor?.includes('oklch')) htmlEl.style.borderColor = '#cbd5e1';
+      });
     },
   });
 

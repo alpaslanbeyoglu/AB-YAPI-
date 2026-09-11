@@ -148,26 +148,34 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const compAuthTitle = profile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
 
   // Math safety & dimension boundaries
-  const upperFloorsCount = Math.max(0, (params.floorCount || 5) - 1);
-  let upperFloorArea = Math.max(10, params.baseBuildArea || 120);
-  if (params.hasCantilever && params.cantileverDepth && params.cantileverDepth > 0) {
-    const estW = Math.max(5, Math.sqrt(upperFloorArea / 1.2));
-    const estD = estW * 1.2;
-    if (params.cantileverDirection === 'all') {
-      upperFloorArea = (estW + 2 * params.cantileverDepth) * (estD + 2 * params.cantileverDepth);
-    } else if (params.cantileverDirection === 'front') {
-      upperFloorArea = estW * (estD + params.cantileverDepth);
-    } else {
-      upperFloorArea = estW * (estD + 2 * params.cantileverDepth);
-    }
-  }
   const residentialFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : Math.max(1, params.floorCount || 5);
   const flatsPerFloor = params.flatsPerFloor || Math.max(1, Math.round((results.flatCount || 10) / residentialFloors));
-  const physicalGrossArea = Math.max(20, Math.round((upperFloorArea / flatsPerFloor) * 10) / 10);
-  const physicalNetArea = Math.max(15, Math.round((physicalGrossArea * 0.8) * 10) / 10);
+  
+  const upperFloorArea = results.upperFloorArea || params.baseBuildArea || 120;
+  const residentialFlats = results.flatResults.filter(f => f.flatType !== 'shop');
+  const shopCount = results.flatResults.filter(f => f.flatType === 'shop').length;
+  const residentialCount = residentialFlats.length;
+  const totalUnits = results.flatResults.length;
+  const contractorCount = results.flatResults.filter(f => f.isContractorShare).length;
+  const ownerCount = totalUnits - contractorCount;
+
+  const physicalGrossArea = residentialFlats.length > 0
+    ? Math.round((residentialFlats.reduce((s, f) => s + f.area, 0) / residentialFlats.length) * 10) / 10
+    : Math.max(20, Math.round((upperFloorArea / flatsPerFloor) * 10) / 10);
+  const physicalNetArea = residentialFlats.length > 0
+    ? Math.round((residentialFlats.reduce((s, f) => s + (f.netArea || f.area * 0.8), 0) / residentialFlats.length) * 10) / 10
+    : Math.max(15, Math.round((physicalGrossArea * 0.8) * 10) / 10);
   const estimatedLandArea = params.landArea && params.landArea > 0 ? params.landArea : Math.round((params.baseBuildArea || 150) / 0.4);
 
   const isContractorShareModel = params.projectModel === 'contractorShare';
+
+  const shopUnits = results.flatResults.filter(f => f.flatType === 'shop');
+  const normalUnits = results.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'mansard' && f.flatType !== 'duplex');
+  const mansardUnits = results.flatResults.filter(f => f.flatType === 'mansard' || f.flatType === 'duplex');
+
+  const avgShopArea = shopUnits.length > 0 ? Math.round(shopUnits.reduce((s, f) => s + f.area, 0) / shopUnits.length) : 0;
+  const avgNormalArea = normalUnits.length > 0 ? Math.round(normalUnits.reduce((s, f) => s + f.area, 0) / normalUnits.length) : 0;
+  const avgMansardArea = mansardUnits.length > 0 ? Math.round(mansardUnits.reduce((s, f) => s + f.area, 0) / mansardUnits.length) : 0;
 
   const clauses = params.additionalOfferClauses || [];
 
@@ -515,12 +523,6 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Arsa Alanı</span>
-              <div className="text-sm font-bold text-slate-900 font-mono">{estimatedLandArea.toLocaleString('tr-TR')} m²</div>
-              <span className="text-[10px] text-slate-400">Tahmini Parsel Yüzölçümü</span>
-            </div>
-
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Taban Oturumu (TAKS)</span>
               <div className="text-sm font-bold text-slate-900 font-mono">{results.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
               <span className="text-[10px] text-slate-400">Zemin Taban İmarı</span>
@@ -534,9 +536,14 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Kat / Blok Düzeni</span>
-              <div className="text-sm font-bold text-slate-900">{params.floorCount || 5} Normal Kat</div>
+              <div className="text-sm font-bold text-slate-900">
+                {params.hasGroundFloorShop 
+                  ? `${Math.max(1, (params.floorCount || 5) - 1)} Normal Kat + 1 Zemin Kat` 
+                  : `${params.floorCount || 5} Kat (Tamamı Konut)`}
+              </div>
               <span className="text-[10px] text-slate-400">
-                {params.hasGroundFloorShop ? `+ 1 Zemin Ticari Kat (${params.shopCount || 1} Dükkan)` : 'Tamamı Konut'}
+                Toplam {params.floorCount || 5} Kat
+                {params.hasGroundFloorShop ? ` • 1 Zemin Ticari Kat (${shopCount} Dükkan)` : ''}
                 {params.roofType === 'mansard' ? ' • En Üst Katta Mansart' : ''}
               </span>
             </div>
@@ -544,30 +551,54 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Bağımsız Bölüm Sayısı</span>
               <div className="text-sm font-bold text-slate-900 font-mono">
-                {results.flatCount} Konut Dairesi {params.hasGroundFloorShop ? `+ ${params.shopCount || 1} Dükkan` : ''}
+                {residentialCount} Konut {shopCount > 0 ? `+ ${shopCount} Dükkan` : ''} (Toplam {totalUnits})
               </div>
               <span className="text-[10px] text-slate-400">
-                Kat Başı {params.flatsPerFloor || flatsPerFloor} Daire (Eşit Dağılım)
+                Kat Başı {params.flatsPerFloor || flatsPerFloor} Daire • {isContractorShareModel ? `${contractorCount} Müteahhit / ${ownerCount} Malik` : 'Malik Dağılımı'}
               </span>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Tip Daire Alanları</span>
-              <div className="text-sm font-bold text-slate-900 font-mono">Ort. Brüt: {physicalGrossArea} m²</div>
-              <span className="text-[10px] text-slate-500 font-mono">Net: {physicalNetArea} m² (~%80) • Eşit Kat Payı</span>
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Tip Alan Dağılımı</span>
+              <div className="text-[11px] font-bold text-slate-800 space-y-1.5">
+                {shopUnits.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-indigo-600">🏪</span>
+                    <span>Zemin: {shopUnits.length} Dükkan (~{avgShopArea} m²)</span>
+                  </div>
+                )}
+                {normalUnits.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-indigo-600">🏠</span>
+                    <span>Normal Kat: {params.flatsPerFloor || flatsPerFloor} Daire (~{avgNormalArea} m²)</span>
+                  </div>
+                )}
+                {mansardUnits.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-indigo-600">📐</span>
+                    <span>Mansart/Dubleks: {mansardUnits.length} Ünite (~{avgMansardArea} m²)</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Birim İmalat Maliyeti</span>
-              <div className="text-sm font-bold text-emerald-700 font-mono flex items-center gap-1.5">
-                <span>{results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</span>
-                {!!((params.manualFlatUnitPrice && params.manualFlatUnitPrice > 0) || (params.manualShopUnitPrice && params.manualShopUnitPrice > 0)) && (
-                  <span className="text-[9px] font-sans font-medium px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    Özel Fiyat
-                  </span>
+              <div className="text-sm font-bold text-emerald-700 font-mono space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-slate-400 font-sans font-normal">Konut:</span>
+                  <span>{(params.manualFlatUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</span>
+                </div>
+                {params.hasGroundFloorShop && (
+                  <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-sans font-normal">Dükkan:</span>
+                    <span>{(params.manualShopUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</span>
+                  </div>
                 )}
               </div>
-              <span className="text-[10px] text-slate-400 font-mono">~{results.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²</span>
+              <div className="text-[9px] text-slate-400 font-mono pt-1">
+                ~{results.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²
+              </div>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
@@ -694,6 +725,26 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             </span>
           </div>
 
+          {/* Şeffaf Malik Hesaplama Bilgi Kutusu */}
+          <div className="mb-3 p-3 bg-indigo-50/80 border border-indigo-200/80 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs text-indigo-950">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                <strong>Şeffaf Hesap Modeli:</strong> İmalat Bedeli = <code>Brüt m² × Birim Fiyat</code>. Varsa Kat Karşılığı Mahsubu, Peşinat, Kentsel Dönüşüm Hibesi ve Kredisi düşülerek satır sonunda <strong>Net Malik Borcu</strong> hesaplanır.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 text-[11px] font-mono">
+              <span className="bg-white px-2 py-0.5 rounded border border-indigo-200 text-indigo-900">
+                Daire: <strong>{(params.manualFlatUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>
+              </span>
+              {params.hasGroundFloorShop && (
+                <span className="bg-white px-2 py-0.5 rounded border border-amber-200 text-amber-900">
+                  Dükkan: <strong>{(params.manualShopUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>
+                </span>
+              )}
+            </div>
+          </div>
+
           <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-100 text-slate-700 font-semibold">
@@ -701,21 +752,12 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   <th className="p-3 border-b border-slate-200">No & Kat / Cephe</th>
                   <th className="p-3 border-b border-slate-200">Hak Sahibi / T.C.</th>
                   <th className="p-3 border-b border-slate-200">Oda & Alan</th>
-                  <th className="p-3 border-b border-slate-200 text-center">Şerefiye</th>
-                  <th className="p-3 border-b border-slate-200 text-right">Arsa Mahsubu</th>
+                  <th className="p-3 border-b border-slate-200 text-right">Birim Fiyat</th>
                   <th className="p-3 border-b border-slate-200 text-right">İmalat Bedeli</th>
-                  {isContractorShareModel ? (
-                    <>
-                      <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Kat Karşılığı Mahsubu</th>
-                      <th className="p-3 border-b border-slate-200 text-right text-indigo-900 bg-indigo-50/60">Net Malik Borcu</th>
-                    </>
-                  ) : (
-                    <>
-                      <th className="p-3 border-b border-slate-200 text-right text-indigo-700">Ödenen Peşinat</th>
-                      <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Dönüşüm Desteği</th>
-                      <th className="p-3 border-b border-slate-200 text-right text-indigo-900 bg-indigo-50/60">Kalan Net Borç</th>
-                    </>
-                  )}
+                  <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Kat Karşılığı Mahsubu</th>
+                  <th className="p-3 border-b border-slate-200 text-right text-indigo-700">Ödenen Peşinat</th>
+                  <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Dönüşüm Desteği</th>
+                  <th className="p-3 border-b border-slate-200 text-right text-indigo-950 bg-indigo-50/70">Net Malik Borcu</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
@@ -737,7 +779,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
                   const serefiyeVal = flat.serefiyeMultiplier || 1.0;
                   const serefiyeDiff = Math.round((serefiyeVal - 1) * 100);
-                  const landShareDiff = flat.landShareDifference || 0;
+
+                  const unitCost = flat.unitPrice || results.grossCostPerSqM;
+                  const effectiveUnitCost = flat.effectiveUnitPrice || unitCost;
+                  const totalSupport = (flat.usedGrant || 0) + (flat.usedCredit || 0);
 
                   return (
                     <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
@@ -746,9 +791,14 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                           <span className="font-bold text-indigo-900">
                             {flat.flatType === 'shop' ? `🏪 Dükkan ${flat.id}` : `🏠 Daire ${flat.id}`}
                           </span>
+                          {flat.isContractorShare && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                              Müteahhit Payı
+                            </span>
+                          )}
                           {flat.flatType === 'mansard' && (
                             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                              Mansart Çatı (En Üst Kat)
+                              Mansart Çatı
                             </span>
                           )}
                           {flat.flatType === 'duplex' && (
@@ -769,95 +819,132 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
                       <td className="p-3">
                         <div className="font-semibold text-slate-800">{roomCountText}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">
+                        <div className="text-[10px] text-slate-600 font-mono font-bold">
                           Brüt: {flatGross} m²
                         </div>
                         <div className="text-[10px] text-emerald-700 font-mono font-medium">Net: {flatNet} m²</div>
                       </td>
 
-                      <td className="p-3 text-center font-mono">
-                        {serefiyeDiff !== 0 ? (
-                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${serefiyeDiff > 0 ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
-                            x{serefiyeVal.toFixed(2)} ({serefiyeDiff > 0 ? '+' : ''}{serefiyeDiff}%)
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-400">1.00 (Standart)</span>
+                      <td className="p-3 text-right font-mono">
+                        <div className="font-bold text-slate-900">
+                          {unitCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²
+                        </div>
+                        {serefiyeDiff !== 0 && (
+                          <div className="text-[9px] text-amber-700">
+                            Şerefiye: x{serefiyeVal.toFixed(2)} ({serefiyeDiff > 0 ? '+' : ''}{serefiyeDiff}%)
+                          </div>
                         )}
                       </td>
 
-                      <td className="p-3 text-right font-mono text-[11px]">
-                        {landShareDiff !== 0 ? (
-                          <span className={`font-semibold ${landShareDiff > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-                            {landShareDiff > 0 ? '+' : ''}{landShareDiff.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      <td className="p-3 text-right font-mono text-indigo-950 font-bold">
+                        <div>{flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</div>
+                        <div className="text-[9px] text-slate-400 font-normal">
+                          {flatGross} m² × {effectiveUnitCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
+                        </div>
+                      </td>
+
+                      <td className="p-3 text-right font-mono">
+                        {flat.isContractorShare ? (
+                          <div>
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                              Müteahhit Uhdesi
+                            </span>
+                            <span className="block text-[9px] text-amber-700">Satış Payı</span>
+                          </div>
+                        ) : (flat.contractorShareDeduction && flat.contractorShareDeduction > 0) ? (
+                          <div>
+                            <span className="font-semibold text-emerald-700">
+                              -{flat.contractorShareDeduction.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </span>
+                            <span className="block text-[9px] text-emerald-600">Arsa Payı Mahsubu</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">0 TL</span>
+                        )}
+                      </td>
+
+                      <td className="p-3 text-right font-mono">
+                        {flat.downPayment > 0 ? (
+                          <span className="font-semibold text-indigo-700">
+                            -{flat.downPayment.toLocaleString('tr-TR')} TL
                           </span>
                         ) : (
                           <span className="text-slate-400">0 TL</span>
                         )}
                       </td>
 
-                      <td className="p-3 text-right font-mono text-slate-900 font-semibold">
-                        {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      <td className="p-3 text-right font-mono">
+                        {totalSupport > 0 ? (
+                          <div>
+                            <span className="font-semibold text-emerald-700">
+                              -{totalSupport.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                            </span>
+                            <div className="text-[9px] space-y-0.5 text-slate-500">
+                              {!!flat.usedGrant && flat.usedGrant > 0 && (
+                                <span className="block text-emerald-600">Hibe: {flat.usedGrant.toLocaleString('tr-TR')} TL</span>
+                              )}
+                              {!!flat.usedCredit && flat.usedCredit > 0 && (
+                                <span className="block text-blue-600">Kredi: {flat.usedCredit.toLocaleString('tr-TR')} TL</span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">0 TL</span>
+                        )}
                       </td>
 
-                      {isContractorShareModel ? (
-                        <>
-                          <td className="p-3 text-right text-emerald-700 font-semibold font-mono">
-                            -{flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                            <span className="block text-[9px] text-slate-400">
-                              {flat.isContractorShare ? 'Müteahhit Payı Satış' : 'Arsa Payı Mahsubu'}
+                      <td className="p-3 text-right font-mono bg-indigo-50/40">
+                        {flat.isContractorShare ? (
+                          <div>
+                            <span className="font-bold text-slate-500">0 TL</span>
+                            <span className="block text-[9px] font-sans font-medium text-amber-700">Yüklenici Uhdesi</span>
+                          </div>
+                        ) : flat.netRemainingDebt === 0 ? (
+                          <div>
+                            <span className="font-black text-emerald-700 text-sm">0 TL</span>
+                            <span className="block text-[9px] font-sans font-medium text-emerald-600">Borçsuz / Bedelsiz</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="font-black text-slate-950 text-sm">
+                              {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                             </span>
-                          </td>
-                          <td className="p-3 text-right font-black text-emerald-800 font-mono bg-emerald-50/50">
-                            0 TL
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="p-3 text-right text-indigo-700 font-mono">
-                            -{flat.downPayment.toLocaleString('tr-TR')} TL
-                          </td>
-                          <td className="p-3 text-right text-emerald-700 font-mono font-semibold">
-                            {flat.usedCredit > 0 ? `-${flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '0 TL'}
-                          </td>
-                          <td className="p-3 text-right font-bold text-slate-950 font-mono bg-indigo-50/40">
-                            {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                          </td>
-                        </>
-                      )}
+                            {params.paymentPlanType === 'installments' && flat.monthlyInstallment > 0 && (
+                              <span className="text-[9px] font-mono text-indigo-700 block">
+                                {flat.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / ay
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold text-xs text-slate-900">
                 <tr>
-                  <td colSpan={3} className="p-3">GENEL PROJE TOPLAMI:</td>
-                  <td className="p-3 text-center font-mono">-</td>
-                  <td className="p-3 text-right font-mono">0 TL</td>
-                  <td className="p-3 text-right font-mono text-indigo-900">
-                    {results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                  <td colSpan={2} className="p-3">GENEL PROJE TOPLAMI:</td>
+                  <td className="p-3 text-slate-700 font-mono">
+                    {results.flatResults.reduce((s, f) => s + f.area, 0).toFixed(1)} m²
                   </td>
-                  {isContractorShareModel ? (
-                    <>
-                      <td className="p-3 text-right font-mono text-emerald-700">
-                        -{results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                      <td className="p-3 text-right font-mono text-emerald-800 bg-emerald-100/50">
-                        0 TL
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="p-3 text-right font-mono text-indigo-700">
-                        -{results.flatResults.reduce((s, f) => s + f.downPayment, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                      <td className="p-3 text-right font-mono text-emerald-700">
-                        -{results.flatResults.reduce((s, f) => s + f.usedCredit, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                      <td className="p-3 text-right font-mono text-indigo-950 bg-indigo-100/60 font-black">
-                        {results.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                    </>
-                  )}
+                  <td className="p-3 text-right font-mono text-slate-600 text-[11px]">
+                    Ort. {results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²
+                  </td>
+                  <td className="p-3 text-right font-mono text-indigo-950 font-black">
+                    {results.flatResults.reduce((s, f) => s + f.grossPay, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                  </td>
+                  <td className="p-3 text-right font-mono text-emerald-700">
+                    -{results.flatResults.reduce((s, f) => s + (f.contractorShareDeduction || 0), 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                  </td>
+                  <td className="p-3 text-right font-mono text-indigo-700">
+                    -{results.flatResults.reduce((s, f) => s + f.downPayment, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                  </td>
+                  <td className="p-3 text-right font-mono text-emerald-700">
+                    -{results.flatResults.reduce((s, f) => s + (f.usedGrant || 0) + (f.usedCredit || 0), 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                  </td>
+                  <td className="p-3 text-right font-mono text-slate-950 bg-indigo-100/70 font-black text-sm">
+                    {results.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                  </td>
                 </tr>
               </tfoot>
             </table>
@@ -1029,40 +1116,48 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 <thead className="bg-slate-100 text-slate-700 font-semibold">
                   <tr>
                     <th className="p-3 border-b border-slate-200">Daire / Malik</th>
-                    <th className="p-3 border-b border-slate-200">1. Ruhsat (%{params.stage1Pay || 20})</th>
-                    <th className="p-3 border-b border-slate-200">2. Temel (%{params.stage2Pay || 20})</th>
-                    <th className="p-3 border-b border-slate-200">3. Kaba (%{params.stage3Pay || 30})</th>
-                    <th className="p-3 border-b border-slate-200">4. İnce (%{params.stage4Pay || 20})</th>
-                    <th className="p-3 border-b border-slate-200">5. İskân (%{params.stage5Pay || 10})</th>
+                    <th className="p-3 border-b border-slate-200">1. Ruhsat (%{params.stage1Pay !== undefined ? params.stage1Pay : 20})</th>
+                    <th className="p-3 border-b border-slate-200">2. Temel (%{params.stage2Pay !== undefined ? params.stage2Pay : 20})</th>
+                    <th className="p-3 border-b border-slate-200">3. Kaba (%{params.stage3Pay !== undefined ? params.stage3Pay : 30})</th>
+                    <th className="p-3 border-b border-slate-200">4. İnce (%{params.stage4Pay !== undefined ? params.stage4Pay : 20})</th>
+                    <th className="p-3 border-b border-slate-200">5. İskân (%{params.stage5Pay !== undefined ? params.stage5Pay : 10})</th>
                     <th className="p-3 border-b border-slate-200 font-bold text-right">Toplam Net Borç</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {results.flatResults.map((flat) => (
-                    <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-semibold text-slate-900">
-                        Daire {flat.id} ({flat.name})
-                      </td>
-                      <td className="p-3 text-slate-700 font-mono">
-                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[0].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
-                      </td>
-                      <td className="p-3 text-slate-700 font-mono">
-                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[1].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
-                      </td>
-                      <td className="p-3 text-slate-700 font-mono">
-                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[2].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
-                      </td>
-                      <td className="p-3 font-semibold text-indigo-700 font-mono">
-                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[3].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
-                      </td>
-                      <td className="p-3 text-slate-700 font-mono">
-                        {flat.flatType === 'shop' ? '-' : flat.stagePayments[4].toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
-                      </td>
-                      <td className="p-3 font-bold text-slate-950 font-mono text-right">
-                        {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                    </tr>
-                  ))}
+                  {results.flatResults.map((flat) => {
+                    const unitName = flat.flatType === 'shop' 
+                      ? `🏪 Dükkan ${flat.id}` 
+                      : flat.flatType === 'mansard'
+                      ? `🏚️ Daire ${flat.id} (Mansart)`
+                      : `Daire ${flat.id}`;
+                    const stages = flat.stagePayments || [0, 0, 0, 0, 0];
+                    return (
+                      <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-semibold text-slate-900">
+                          {unitName} ({flat.name})
+                        </td>
+                        <td className="p-3 text-slate-700 font-mono">
+                          {(stages[0] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-3 text-slate-700 font-mono">
+                          {(stages[1] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-3 text-slate-700 font-mono">
+                          {(stages[2] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-3 font-semibold text-indigo-700 font-mono">
+                          {(stages[3] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-3 text-slate-700 font-mono">
+                          {(stages[4] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                        <td className="p-3 font-bold text-slate-950 font-mono text-right">
+                          {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
