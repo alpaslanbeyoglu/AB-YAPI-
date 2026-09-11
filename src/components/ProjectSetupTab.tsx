@@ -1,11 +1,4 @@
-declare const google: any;
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import {
-  Map,
-  AdvancedMarker,
-  useMap,
-  useApiIsLoaded,
-} from '@vis.gl/react-google-maps';
 import {
   ProjectParams,
   ExistingBuilding,
@@ -122,8 +115,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const [wizardMode, setWizardMode] = useState<boolean>(true);
   const [activeStepState, setActiveStepState] = useState<number>(requestedStep || 2);
   const activeStep = requestedStep !== undefined ? requestedStep : activeStepState;
-
-  const apiIsLoaded = useApiIsLoaded();
 
   // Calculate live project results for metrics and feasibility analysis
   const results = useMemo(() => calculateProject(params), [params]);
@@ -646,14 +637,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 <span>İçe / Dışa Aktar</span>
               </button>
             )}
-            <button
-              type="button"
-              onClick={onNext}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-            >
-              <span>Proje Künyesi & Maliyete Geç</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
@@ -760,7 +743,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   />
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">
-                  Google Maps Autocomplete ile hızlıca adres seçebilirsiniz.
+                  İl, ilçe, mahalle ve ada/parsel bilgisini yazabilirsiniz.
                 </span>
               </div>
 
@@ -858,73 +841,26 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
             ) : null}
 
-            {/* Google Map Preview */}
+            {/* Location Summary Card */}
             <div className="pt-4 border-t border-slate-100">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold text-slate-700 flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-red-500" />
-                  Konum Önizleme (Harita)
+                  Proje Adresi & Konum Bilgisi
                 </h3>
-                {params.realWorldLocation && (
-                  <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                    {params.realWorldLocation.lat.toFixed(6)}, {params.realWorldLocation.lng.toFixed(6)}
-                  </span>
-                )}
               </div>
-              <div className="h-[250px] w-full rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative group">
-                {apiIsLoaded ? (
-                  <Map
-                    defaultCenter={params.realWorldLocation || { lat: 41.0082, lng: 28.9784 }}
-                    defaultZoom={15}
-                    mapId="DEMO_MAP_ID"
-                    gestureHandling={'greedy'}
-                    disableDefaultUI={false}
-                    internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
-                    onClick={(e: any) => {
-                      if (e.detail?.latLng) {
-                        onChangeParams({
-                          ...params,
-                          realWorldLocation: {
-                            lat: e.detail.latLng.lat,
-                            lng: e.detail.latLng.lng,
-                            address: params.projectAddress || 'Seçilen Harita Konumu'
-                          }
-                        });
-                      }
-                    }}
-                  >
-                    {params.realWorldLocation && (
-                      <AdvancedMarker 
-                        position={{ lat: params.realWorldLocation.lat, lng: params.realWorldLocation.lng }}
-                        title="Proje Konumu"
-                      />
-                    )}
-                  </Map>
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-slate-50 to-indigo-50/40 flex flex-col items-center justify-center p-6 text-center">
-                    <div className="w-11 h-11 rounded-2xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-600 mb-2.5 shadow-sm">
-                      <MapPin className="w-5 h-5 text-indigo-500" />
-                    </div>
-                    <div className="text-xs font-bold text-slate-800 mb-1">
-                      {params.projectAddress || 'Proje Konum & Arsa Analizi'}
-                    </div>
-                    <p className="text-[11px] text-slate-500 max-w-sm leading-relaxed">
-                      Google Maps API anahtarı girildiğinde interaktif uydu haritası, ada/parsel işaretleme ve fotogerçekçi 3D çevre simülasyonu aktifleşir.
-                    </p>
-                    {params.realWorldLocation && (
-                      <div className="mt-2 text-[10px] font-mono text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200/60 shadow-xs">
-                        📍 Koordinat: {params.realWorldLocation.lat.toFixed(5)}, {params.realWorldLocation.lng.toFixed(5)}
-                      </div>
-                    )}
+              <div className="w-full rounded-2xl bg-gradient-to-br from-slate-50 to-indigo-50/30 p-4 border border-slate-200/80 flex flex-col sm:flex-row items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+                  <MapPin className="w-5 h-5 text-indigo-500" />
+                </div>
+                <div className="flex-1 text-center sm:text-left min-w-0">
+                  <div className="text-xs font-extrabold text-slate-800 truncate">
+                    {params.projectAddress || 'Proje Adresi Tanımlanmadı'}
                   </div>
-                )}
-                {apiIsLoaded && !params.realWorldLocation && (
-                  <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
-                    <div className="bg-white/90 px-4 py-2 rounded-xl shadow-lg border border-white text-[11px] font-bold text-slate-600">
-                      Haritaya tıklayarak arsa konumunu işaretleyebilirsiniz
-                    </div>
-                  </div>
-                )}
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Arsa Alanı: <span className="font-semibold text-slate-700">{params.landArea} m²</span> | Taban Alanı: <span className="font-semibold text-slate-700">{results.baseArea.toFixed(1)} m²</span>
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -2138,24 +2074,24 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             {activeStep > 1 && (
               <button
                 type="button"
-                onClick={() => setActiveStep(activeStep - 1)}
-                className="flex-1 sm:flex-none px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-all border border-indigo-400"
+                onClick={() => setActiveStep(1)}
+                className="flex-1 sm:flex-none px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-all border border-indigo-400 cursor-pointer"
               >
-                ⬅️ Geri Dön
+                ⬅️ 1. Adıma Dön
               </button>
             )}
             <button
               type="button"
               onClick={() => {
                 if (activeStep < 2) {
-                  setActiveStep(activeStep + 1);
+                  setActiveStep(2);
                 } else {
                   onNext();
                 }
               }}
-              className="flex-1 sm:flex-none px-5 py-2 bg-white hover:bg-slate-50 text-indigo-900 rounded-xl text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5"
+              className="flex-1 sm:flex-none px-5 py-2 bg-white hover:bg-slate-50 text-indigo-900 rounded-xl text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <span>{activeStep === 2 ? '3D Canlı Modele Geç 🚀' : 'İleri Adım ➡️'}</span>
+              <span>{activeStep === 1 ? '2. Adım: Ölçüler & 2D Çizim ➡️' : '1. 3D Yapı Modeline Geç 🚀'}</span>
             </button>
           </div>
         </div>

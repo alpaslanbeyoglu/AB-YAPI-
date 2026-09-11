@@ -16,10 +16,13 @@ app.get("/api/health", (req, res) => {
 
 // Vite & Static file handling
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  const isCjsBundle = typeof __filename !== "undefined" && __filename.endsWith(".cjs");
+  const isProd = process.env.NODE_ENV === "production" || isCjsBundle;
+
+  if (!isProd) {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: "spa",
     });
     app.use(vite.middlewares);

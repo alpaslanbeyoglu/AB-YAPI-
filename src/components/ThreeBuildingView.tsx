@@ -32,7 +32,6 @@ import {
   Globe,
 } from 'lucide-react';
 import { BuildingModelParams, CameraPresetType, FacadeStyleType } from '../types';
-import { GoogleMaps3DView } from './GoogleMaps3DView';
 import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon } from '../utils/footprintUtils';
 import { WALL_COLOR_PRESETS, ROOF_COLOR_PRESETS, ACCENT_COLOR_PRESETS, FRAME_COLOR_PRESETS } from '../utils/buildingModelUtils';
 
@@ -570,7 +569,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
   const [isColorQuickPickerOpen, setIsColorQuickPickerOpen] = useState<boolean>(false);
   const [isAutoRotate, setIsAutoRotate] = useState<boolean>(true); // Cinematic tour mode
-  const [isMaps3DOpen, setIsMaps3DOpen] = useState<boolean>(false);
 
   const isGray = theme === 'gray';
   const isLight = !isGray;
@@ -4137,16 +4135,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         }`}>
           <button
             type="button"
-            onClick={() => setIsMaps3DOpen(true)}
-            className="p-2 rounded-xl transition-all text-xs flex flex-col items-center gap-0.5 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-800 border border-emerald-100"
-            title="Google Photorealistic 3D Tiles (Dünya Koordinatlarında Göster)"
-          >
-            <Globe className="w-4 h-4" />
-            <span className="text-[8px] font-bold">3D MAP</span>
-          </button>
-
-          <button
-            type="button"
             onClick={handleExportUSDZ}
             disabled={isExportingUSDZ}
             className={`p-2 rounded-xl transition-all text-xs flex flex-col items-center gap-0.5 ${
@@ -4323,15 +4311,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             </p>
           </div>
         </div>
-      )}
-
-      {/* Google Maps 3D View Modal */}
-      {isMaps3DOpen && (
-        <GoogleMaps3DView 
-          params={params} 
-          buildingGroup={buildingGroupRef.current} 
-          onClose={() => setIsMaps3DOpen(false)} 
-        />
       )}
     </div>
   );

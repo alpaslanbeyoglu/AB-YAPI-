@@ -32,8 +32,9 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
       <div className="shrink min-w-0">
         {prevTab && (
           <button
+            type="button"
             onClick={() => onNavigate(prevTab.id)}
-            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-2.5 rounded-2xl border transition-all hover:-translate-x-1 group max-w-[150px] sm:max-w-none ${
+            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-2.5 rounded-2xl border transition-all hover:-translate-x-1 group max-w-[160px] sm:max-w-xs cursor-pointer active:scale-95 ${
               isGray
                 ? 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-sm'
@@ -61,8 +62,9 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
       <div className="shrink min-w-0">
         {nextTab && (
           <button
+            type="button"
             onClick={() => onNavigate(nextTab.id)}
-            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-2.5 rounded-2xl border transition-all hover:translate-x-1 group max-w-[150px] sm:max-w-none ${
+            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-2.5 rounded-2xl border transition-all hover:translate-x-1 group max-w-[160px] sm:max-w-xs cursor-pointer active:scale-95 ${
               isGray
                 ? 'bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-700'
                 : 'bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-700 shadow-md shadow-indigo-600/20'

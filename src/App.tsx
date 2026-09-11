@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
-import { APIProvider } from '@vis.gl/react-google-maps';
-import { isValidGoogleMapsApiKey } from './utils/mapsValidation';
 import {
   CheckCircle2,
   AlertCircle,
@@ -63,25 +61,6 @@ import {
 } from './types';
 
 export default function App() {
-  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-  const isMapsKeyValid = isValidGoogleMapsApiKey(googleMapsApiKey);
-  const [mapsAuthError, setMapsAuthError] = useState<boolean>(false);
-
-  useEffect(() => {
-    // Intercept Google Maps auth failures (e.g. InvalidKeyMapError) gracefully
-    const prevAuthFailure = (window as any).gm_authFailure;
-    (window as any).gm_authFailure = () => {
-      console.warn('[Google Maps] gm_authFailure caught: Provided Maps API key is invalid or unauthorized.');
-      setMapsAuthError(true);
-      if (typeof prevAuthFailure === 'function') {
-        try { prevAuthFailure(); } catch {}
-      }
-    };
-    return () => {
-      (window as any).gm_authFailure = prevAuthFailure;
-    };
-  }, []);
-
   const [theme, setTheme] = useState<AppTheme>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_theme');
@@ -821,7 +800,7 @@ export default function App() {
     );
   }
 
-  const appContent = (
+  return (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 w-full max-w-full overflow-x-hidden ${
         isGray ? 'bg-slate-200/80 text-slate-900' : 'bg-slate-50 text-slate-900'
@@ -1111,18 +1090,4 @@ export default function App() {
 
     </div>
   );
-
-  if (isMapsKeyValid && !mapsAuthError) {
-    return (
-      <APIProvider 
-        apiKey={googleMapsApiKey} 
-        libraries={['places', 'maps3d']}
-        onError={() => setMapsAuthError(true)}
-      >
-        {appContent}
-      </APIProvider>
-    );
-  }
-
-  return appContent;
 }
