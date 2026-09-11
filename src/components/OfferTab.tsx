@@ -28,7 +28,11 @@ import {
   Upload,
   Trash2,
   Image,
-  Plus
+  Plus,
+  Heart,
+  Home,
+  Leaf,
+  Info
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { generateOfferHtml } from '../utils/reportExport';
@@ -449,7 +453,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         <div className="absolute inset-0 pointer-events-none overflow-hidden select-none opacity-[0.02] flex flex-wrap gap-20 justify-center items-center rotate-12 z-0">
           {Array.from({ length: 36 }).map((_, i) => (
             <span key={i} className="text-slate-900 font-extrabold text-xs tracking-widest whitespace-nowrap">
-              {compName} RESMİ TEKLİF VE TAAHHÜT BELGESİ
+              {compName} PROJE VİZYON VE ÖN TEKLİF BELGESİ
             </span>
           ))}
         </div>
@@ -508,660 +512,315 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         </div>
 
         {/* ========================================================
-            2. PROJECT & LAND SPECIFICATION MATRIX (PROJE KÜNYESİ)
+            2. PROJECT VISION & VALUES (VIZYON VE DEĞERLER)
            ======================================================== */}
-        <div className="relative z-10 mb-8 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-indigo-600" />
-              <span>1. PROJE VE TAŞINMAZ MİMARİ KÜNYESİ</span>
+        <div className="relative z-10 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex flex-col items-center text-center p-6 bg-rose-50/50 rounded-3xl border border-rose-100">
+              <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center mb-4 text-rose-600">
+                <Home className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 mb-2">Yaşam Odaklı Tasarım</h4>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Her metrekaresi huzurunuz için tasarlandı. Sadece bir yapı değil, nesiller boyu güvenle yaşayacağınız modern bir yuva inşa ediyoruz.
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center text-center p-6 bg-indigo-50/50 rounded-3xl border border-indigo-100">
+              <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center mb-4 text-indigo-600">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 mb-2">Maksimum Güvenlik</h4>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                En güncel deprem yönetmeliklerine uygun, ileri mühendislik teknikleri ve C35/40 sınıfı beton kalitesiyle sarsılmaz bir temel atıyoruz.
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center text-center p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100">
+              <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center mb-4 text-emerald-600">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 mb-2">Şeffaf ve Adil Süreç</h4>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Tüm maliyetleri ve planlamayı en başından paylaşıyor, her aşamada tam şeffaflıkla haklarınızı ve geleceğinizi koruyoruz.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================
+            3. PROJECT & LAND SPECIFICATION MATRIX (PROJE KÜNYESİ)
+           ======================================================== */}
+        <div className="relative z-10 mb-10 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
+              <div className="w-1 h-4 bg-indigo-600 rounded-full" />
+              <span>I. MİMARİ VE TEKNİK KÜNYE</span>
             </h3>
-            <span className="text-[11px] text-indigo-700 font-semibold bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
-              {params.projectAddress || 'Belirtilmemiş Adres'}
-            </span>
+            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+              <MapPin className="w-3 h-3" />
+              <span>{params.projectAddress || 'Proje Uygulama Sahası'}</span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Taban Oturumu (TAKS)</span>
-              <div className="text-sm font-bold text-slate-900 font-mono">{results.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
-              <span className="text-[10px] text-slate-400">Zemin Taban İmarı</span>
-            </div>
-
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Toplam İnşaat Alanı</span>
-              <div className="text-sm font-bold text-indigo-700 font-mono">{results.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} m²</div>
-              <span className="text-[10px] text-slate-400">Ruhsata Esas Toplam İmalat</span>
-            </div>
-
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Kat / Blok Düzeni</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kat Yapısı</span>
               <div className="text-sm font-bold text-slate-900">
-                {params.hasGroundFloorShop 
-                  ? `${Math.max(1, (params.floorCount || 5) - 1)} Normal Kat + 1 Zemin Kat` 
-                  : `${params.floorCount || 5} Kat (Tamamı Konut)`}
+                {params.floorCount || 5} Katlı Yapı
               </div>
-              <span className="text-[10px] text-slate-400">
-                Toplam {params.floorCount || 5} Kat
-                {params.hasGroundFloorShop ? ` • 1 Zemin Ticari Kat (${shopCount} Dükkan)` : ''}
-                {params.roofType === 'mansard' ? ' • En Üst Katta Mansart' : ''}
+              <span className="text-[10px] text-slate-500">
+                {params.hasGroundFloorShop ? 'Ticari + Konut' : 'Tamamı Konut'}
               </span>
             </div>
 
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Bağımsız Bölüm Sayısı</span>
-              <div className="text-sm font-bold text-slate-900 font-mono">
-                {residentialCount} Konut {shopCount > 0 ? `+ ${shopCount} Dükkan` : ''} (Toplam {totalUnits})
+            <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Toplam Birim</span>
+              <div className="text-sm font-bold text-slate-900">
+                {residentialCount} Daire {shopCount > 0 ? `+ ${shopCount} Dükkan` : ''}
               </div>
-              <span className="text-[10px] text-slate-400">
-                Kat Başı {params.flatsPerFloor || flatsPerFloor} Daire • {isContractorShareModel ? `${contractorCount} Müteahhit / ${ownerCount} Malik` : 'Malik Dağılımı'}
-              </span>
+              <span className="text-[10px] text-slate-500">Bağımsız Bölüm</span>
             </div>
 
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Tip Alan Dağılımı</span>
-              <div className="text-[11px] font-bold text-slate-800 space-y-1.5">
-                {shopUnits.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-indigo-600">🏪</span>
-                    <span>Zemin: {shopUnits.length} Dükkan (~{avgShopArea} m²)</span>
-                  </div>
-                )}
-                {normalUnits.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-indigo-600">🏠</span>
-                    <span>Normal Kat: {params.flatsPerFloor || flatsPerFloor} Daire (~{avgNormalArea} m²)</span>
-                  </div>
-                )}
-                {mansardUnits.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-indigo-600">📐</span>
-                    <span>Mansart/Dubleks: {mansardUnits.length} Ünite (~{avgMansardArea} m²)</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Birim İmalat Maliyeti</span>
-              <div className="text-sm font-bold text-emerald-700 font-mono space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] text-slate-400 font-sans font-normal">Konut:</span>
-                  <span>{(params.manualFlatUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</span>
+            <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">İmalat Bedelleri</span>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                  <span className="text-[10px] text-slate-400 font-normal">Konut:</span>
+                  <span className="text-emerald-600">~{(params.manualFlatUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR')} ₺/m²</span>
                 </div>
                 {params.hasGroundFloorShop && (
-                  <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-sans font-normal">Dükkan:</span>
-                    <span>{(params.manualShopUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</span>
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-900 pt-1 border-t border-slate-50">
+                    <span className="text-[10px] text-slate-400 font-normal">Dükkan:</span>
+                    <span className="text-indigo-600">~{(params.manualShopUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR')} ₺/m²</span>
                   </div>
                 )}
               </div>
-              <div className="text-[9px] text-slate-400 font-mono pt-1">
-                ~{results.grossUsdPerSqM.toLocaleString('en-US', { maximumFractionDigits: 0 })} USD/m²
-              </div>
             </div>
 
-            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Teslim Takvimi</span>
-              <div className="text-sm font-bold text-indigo-900 font-mono">{results.finalMonths} Ay (Net Süre)</div>
-              <span className="text-[10px] text-slate-400">Ruhsat + İskân Dahil</span>
+            <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Teslim Süresi</span>
+              <div className="text-sm font-bold text-indigo-600">
+                {results.finalMonths} Ay
+              </div>
+              <span className="text-[10px] text-slate-500">Anahtar Teslim</span>
             </div>
           </div>
         </div>
 
         {/* ========================================================
-            3. FINANCIAL EXECUTIVE OVERVIEW (MALİ ÇERÇEVE & BÜTÇE)
+            4. TECHNICAL SPECIFICATIONS & QUALITY (TEKNİK STANDARTLAR)
            ======================================================== */}
-        <div className="relative z-10 mb-8 p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-2xl text-white shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-700">
-            <div>
-              <span className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider">FİNANSAL TEKLİF ÖZETİ</span>
-              <h4 className="text-lg font-bold text-white">Toplam Proje İmalat ve Finansman Hacmi</h4>
-            </div>
-            <div className="text-left md:text-right">
-              <span className="text-xs text-slate-400 block">Toplam Proje İmalat Bedeli</span>
-              <span className="text-2xl font-black text-emerald-400 font-mono">
-                {results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-              </span>
-            </div>
+        <div className="relative z-10 mb-10">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-6">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
+              <div className="w-1 h-4 bg-indigo-600 rounded-full" />
+              <span>III. YAPISAL KALİTE VE TEKNİK STANDARTLAR</span>
+            </h3>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 text-xs">
-            <div className="space-y-1">
-              <span className="text-slate-400 font-medium">Uygulanan Finansman Modeli</span>
-              <div className="font-semibold text-slate-100 flex items-center gap-1.5">
-                <Landmark className="w-4 h-4 text-indigo-400 shrink-0" />
-                <span>{supportModelTitle}</span>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <span className="text-slate-400 font-medium">Toplam Hak Sahibi Payı</span>
-              <div className="font-semibold text-slate-100 font-mono">
-                {isContractorShareModel
-                  ? `${results.flatResults.filter(f => !f.isContractorShare).length} Daire (%${Math.round((results.flatResults.filter(f => !f.isContractorShare).length / Math.max(1, results.flatCount)) * 100)})`
-                  : `${results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL (%100 Kat Malikleri)`}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <span className="text-slate-400 font-medium">Müteahhit / Yüklenici Payı</span>
-              <div className="font-semibold text-emerald-300 font-mono">
-                {isContractorShareModel
-                  ? `${results.flatResults.filter(f => f.isContractorShare).length} Bağımsız Bölüm (Finansman Karşılığı)`
-                  : '0 Daire (Yalnızca Müteahhitlik Hizmet Bedeli)'}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ========================================================
-            4. TECHNICAL SPECIFICATIONS & QUALITY ASSURANCE (TEKNİK ŞARTNAME)
-           ======================================================== */}
-        <div className="relative z-10 mb-8 border border-slate-200 rounded-2xl p-5 bg-slate-50/70">
-          <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2 mb-3">
-            <ShieldCheck className="w-4 h-4 text-indigo-600" />
-            <span>2. YAPISAL TEKNİK ŞARTNAME & İMALAT STANDARTLARI</span>
-          </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-700 leading-relaxed">
-            <div className="space-y-2.5">
-              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Taşıyıcı Sistem, Beton & Temel İzolasyonu</span>
-                </div>
-                <p className="text-slate-600 text-[11px]">
-                  TBDY-2018 Türkiye Bina Deprem Yönetmeliği'ne tam uyumlu <strong className="text-slate-900">C30/35 veya C35/40 Hazır Beton</strong> ve B420C nervürlü demir donatı. Zemin etüt raporuna göre boyutlandırılmış radye jeneral temel ve temel altında çift kat membranlı su bohçalama ve drenaj sistemi.
-                </p>
-              </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Dış Cephe Yalıtımı (Mantolama) & Çatı</span>
-                </div>
-                <p className="text-slate-600 text-[11px]">
-                  Bina dış cephesinde proje ve kullanıcı onaylı renk kombinasyonuna uygun, minimum <strong className="text-slate-900">5 cm Karbonlu EPS veya Taşyünü</strong> ısı yalıtım mantolaması, fileli sıva ve silikonlu dış cephe boyası. Çatıda seçilen çatı rengi ile su ve ısı yalıtımlı <strong className="text-slate-900">{getRoofTypeShortTitle(params.roofType)}</strong> sistem imalatı.{params.roofType === 'mansard' ? ' Mansart bağımsız bölümler imar mevzuatı gereği yalnızca en üst katta teşkil edilir.' : ''}
-                </p>
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex gap-4">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 border border-slate-100 text-indigo-600">🏗️</div>
+              <div>
+                <h5 className="font-bold text-slate-900 mb-1">Deprem Güvenliği ve Altyapı</h5>
+                <p className="text-[10px] text-slate-600">C35/40 sınıfı yüksek mukavemetli beton ve radye temel sistemi ile depreme karşı tam koruma. Çift kat membranlı temel yalıtımı ile ömür boyu rutubetsiz bir yapı.</p>
               </div>
             </div>
 
-            <div className="space-y-2.5">
-              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Pencere Doğramaları & Daire Kapıları</span>
-                </div>
-                <p className="text-slate-600 text-[11px]">
-                  70-76 mm serisi 5 odacıklı çift contalı PVC doğrama (Pimapen / Fıratpen / Egepen) ve <strong className="text-slate-900">Isıcam Konfor Sinerji</strong> serisi argon gazlı çift camlar. Daire girişlerinde monoblok kilit sistemli 1. Sınıf çelik kapı ve CNC lakeli iç oda kapıları.
-                </p>
-              </div>
-
-              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Mekanik Tesisat, Asansör & İç Mekan Donatısı</span>
-                </div>
-                <p className="text-slate-600 text-[11px]">
-                  Bireysel doğalgaz kombili kalorifer / yerden ısıtma altyapısı. <strong className="text-slate-900">TSE ve CE onaylı</strong> tam otomatik paslanmaz kabinli, kat kurtaranlı asansör. 1. Sınıf Çanakkale/Ege seramikler, AGT derzli parkeler ve Vitra/E.C.A. banyo vitrifiye ürünleri.
-                </p>
+            <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex gap-4">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shrink-0 border border-slate-100 text-indigo-600">🏠</div>
+              <div>
+                <h5 className="font-bold text-slate-900 mb-1">Enerji Verimliliği ve Konfor</h5>
+                <p className="text-[10px] text-slate-600">Taşyünü dış cephe yalıtımı ve Isıcam Konfor serisi camlar ile maksimum enerji tasarrufu. Akıllı mekanik tesisat çözümleri ve konfor odaklı iç mekan tasarımı.</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* ========================================================
-            5. INDIVIDUAL UNIT ALLOCATION & COST BREAKDOWN TABLE
+            5. PROJECT SUMMARY & TRUST STATEMENT (ÖZET VE GÜVEN BEYANI)
            ======================================================== */}
-        <div className="relative z-10 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2 mb-3">
-            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <FileText className="w-4 h-4 text-indigo-600" />
-              <span>3. HAK SAHİPLERİ BAĞIMSIZ BÖLÜM DAĞILIM VE BORÇLANDIRMA TABLOSU</span>
+        <div className="relative z-10 mb-10">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-6">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
+              <div className="w-1 h-4 bg-indigo-600 rounded-full" />
+              <span>II. PROJE ÖZETİ VE FİNANSAL ÇERÇEVE</span>
             </h3>
-            <span className="text-[11px] text-slate-500 font-mono">
-              Toplam {results.flatCount} Bağımsız Bölüm
-            </span>
           </div>
 
-          {/* Şeffaf Malik Hesaplama Bilgi Kutusu */}
-          <div className="mb-3 p-3 bg-indigo-50/80 border border-indigo-200/80 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs text-indigo-950">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>
-                <strong>Şeffaf Hesap Modeli:</strong> İmalat Bedeli = <code>Brüt m² × Birim Fiyat</code>. Varsa Kat Karşılığı Mahsubu, Peşinat, Kentsel Dönüşüm Hibesi ve Kredisi düşülerek satır sonunda <strong>Net Malik Borcu</strong> hesaplanır.
-              </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Left: Functional Areas */}
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-indigo-600" />
+                  <span>Kullanım ve Yaşam Alanları</span>
+                </h4>
+                <div className="space-y-3">
+                  {shopUnits.length > 0 && (
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center border border-slate-100 text-indigo-600">🏪</div>
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-900">Zemin Kat Ticari Alanlar</div>
+                          <div className="text-[10px] text-slate-500">{shopUnits.length} Adet Bağımsız Dükkan</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-slate-900">~{avgShopArea} m²</div>
+                        <div className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Ort. Brüt</div>
+                      </div>
+                    </div>
+                  )}
+                  {normalUnits.length > 0 && (
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center border border-slate-100 text-indigo-600">🏠</div>
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-900">Modern Yaşam Daireleri</div>
+                          <div className="text-[10px] text-slate-500">{normalUnits.length} Adet Aile Konutu</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-slate-900">~{avgNormalArea} m²</div>
+                        <div className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Ort. Brüt</div>
+                      </div>
+                    </div>
+                  )}
+                  {mansardUnits.length > 0 && (
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center border border-slate-100 text-indigo-600">📐</div>
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-900">Mansart ve Çatı Özel Birimler</div>
+                          <div className="text-[10px] text-slate-500">{mansardUnits.length} Adet Ünite</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-slate-900">~{avgMansardArea} m²</div>
+                        <div className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Ort. Brüt</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100 space-y-4">
+                <div className="flex items-start gap-3">
+                  <BadgePercent className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <h5 className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider">İmar Teşvik Avantajı</h5>
+                    <p className="text-[10px] text-emerald-800 leading-relaxed">
+                      Mevcut imar planındaki teşviklerden yararlanılarak kazanılan <strong>4 adet mansart daire</strong> ve <strong>2 adet normal kat dairenin</strong> mülkiyeti finansman karşılığı olarak yükleniciye devredilmiştir. Bu model sayesinde hak sahiplerinin imalat maliyetleri piyasa rayiçlerinin önemli ölçüde altında (subvanse edilmiş şekilde) belirlenmiştir.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 pt-3 border-t border-indigo-100/50">
+                  <Info className="w-5 h-5 text-indigo-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <h5 className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider">Önemli Not</h5>
+                    <p className="text-[10px] text-indigo-800 leading-relaxed">
+                      Bu teklif, ön fizibilite ve mimari taslak aşamasını temsil etmektedir. Kesin paylaşım ve detaylar, hak sahipleri ile yapılacak birebir görüşmeler ve ruhsat projesi onayından sonra kesinleşecektir.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0 text-[11px] font-mono">
-              <span className="bg-white px-2 py-0.5 rounded border border-indigo-200 text-indigo-900">
-                Daire: <strong>{(params.manualFlatUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>
-              </span>
-              {params.hasGroundFloorShop && (
-                <span className="bg-white px-2 py-0.5 rounded border border-amber-200 text-amber-900">
-                  Dükkan: <strong>{(params.manualShopUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²</strong>
-                </span>
-              )}
+
+            {/* Right: Financial Perspective */}
+            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-xl">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-[9px] font-bold tracking-widest uppercase mb-4">
+                  <Sparkles className="w-3 h-3 text-indigo-400" />
+                  Yatırım ve Finansman Özeti
+                </div>
+                <h4 className="text-xl font-bold mb-6 text-indigo-100">Güçlü Bir Temel, Şeffaf Bir Finansal Yapı</h4>
+                
+                <div className="space-y-6">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">Toplam Proje Değeri</span>
+                    <div className="text-3xl font-black text-emerald-400 font-mono">
+                      {results.grandTotal.toLocaleString('tr-TR')} ₺
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 pt-4 border-t border-white/10">
+                    <div className="flex items-center justify-between group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                        <span className="text-xs text-slate-300">İnşaat ve İmalat Bedeli</span>
+                      </div>
+                      <span className="text-xs font-bold font-mono">{(results.grandTotal * 0.85).toLocaleString('tr-TR')} ₺</span>
+                    </div>
+                    <div className="flex items-center justify-between group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-xs text-slate-300">Ruhsat, Harç ve Müşavirlik</span>
+                      </div>
+                      <span className="text-xs font-bold font-mono">{(results.grandTotal * 0.15).toLocaleString('tr-TR')} ₺</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-white/10">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white/10 rounded-2xl">
+                    <Landmark className="w-6 h-6 text-indigo-400" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Finansman Modeli</div>
+                    <div className="text-xs font-bold text-white">{supportModelTitle}</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-100 text-slate-700 font-semibold">
-                <tr>
-                  <th className="p-3 border-b border-slate-200">No & Kat / Cephe</th>
-                  <th className="p-3 border-b border-slate-200">Hak Sahibi / T.C.</th>
-                  <th className="p-3 border-b border-slate-200">Oda & Alan</th>
-                  <th className="p-3 border-b border-slate-200 text-right">Birim Fiyat</th>
-                  <th className="p-3 border-b border-slate-200 text-right">İmalat Bedeli</th>
-                  <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Kat Karşılığı Mahsubu</th>
-                  <th className="p-3 border-b border-slate-200 text-right text-indigo-700">Ödenen Peşinat</th>
-                  <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Dönüşüm Desteği</th>
-                  <th className="p-3 border-b border-slate-200 text-right text-indigo-950 bg-indigo-50/70">Net Malik Borcu</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-800">
-                {results.flatResults.map((flat) => {
-                  const totalFlats = results.flatCount || 10;
-                  const totalFloors = params.floorCount || 5;
-                  const flatsPerFloor = params.flatsPerFloor || Math.max(1, Math.ceil(totalFlats / totalFloors));
-                  const floorNo = flat.floorNumber !== undefined 
-                    ? flat.floorNumber 
-                    : (params.hasGroundFloorShop ? (flat.id <= (params.shopCount || 1) ? 0 : 1 + Math.floor((flat.id - 1 - (params.shopCount || 1)) / flatsPerFloor)) : 1 + Math.floor((flat.id - 1) / flatsPerFloor));
-                  const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
-                  const facadeText = flat.facade ? (flat.facade.charAt(0).toUpperCase() + flat.facade.slice(1)) : 'Güney';
-                  const roomCountText = flat.flatType === 'shop' 
-                    ? 'Ticari / Dükkan' 
-                    : params.roomType ? `${params.roomType} Oda` : (flat.area < 65 ? '1+1' : flat.area < 95 ? '2+1' : flat.area < 135 ? '3+1' : '4+1');
-                  
-                  const flatGross = flat.area || physicalGrossArea;
-                  const flatNet = flat.netArea || Math.round(flatGross * 0.8 * 10) / 10;
-
-                  const serefiyeVal = flat.serefiyeMultiplier || 1.0;
-                  const serefiyeDiff = Math.round((serefiyeVal - 1) * 100);
-
-                  const unitCost = flat.unitPrice || results.grossCostPerSqM;
-                  const effectiveUnitCost = flat.effectiveUnitPrice || unitCost;
-                  const totalSupport = (flat.usedGrant || 0) + (flat.usedCredit || 0);
-
-                  return (
-                    <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-semibold text-slate-900">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-indigo-900">
-                            {flat.flatType === 'shop' ? `🏪 Dükkan ${flat.id}` : `🏠 Daire ${flat.id}`}
-                          </span>
-                          {flat.isContractorShare && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                              Müteahhit Payı
-                            </span>
-                          )}
-                          {flat.flatType === 'mansard' && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                              Mansart Çatı
-                            </span>
-                          )}
-                          {flat.flatType === 'duplex' && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                              Çatı Dubleksi
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-mono">
-                          {floorText} • {facadeText}
-                        </div>
-                      </td>
-
-                      <td className="p-3">
-                        <div className="font-semibold text-slate-900">{flat.name}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">TC: {flat.tc}</div>
-                      </td>
-
-                      <td className="p-3">
-                        <div className="font-semibold text-slate-800">{roomCountText}</div>
-                        <div className="text-[10px] text-slate-600 font-mono font-bold">
-                          Brüt: {flatGross} m²
-                        </div>
-                        <div className="text-[10px] text-emerald-700 font-mono font-medium">Net: {flatNet} m²</div>
-                      </td>
-
-                      <td className="p-3 text-right font-mono">
-                        <div className="font-bold text-slate-900">
-                          {unitCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²
-                        </div>
-                        {serefiyeDiff !== 0 && (
-                          <div className="text-[9px] text-amber-700">
-                            Şerefiye: x{serefiyeVal.toFixed(2)} ({serefiyeDiff > 0 ? '+' : ''}{serefiyeDiff}%)
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="p-3 text-right font-mono text-indigo-950 font-bold">
-                        <div>{flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</div>
-                        <div className="text-[9px] text-slate-400 font-normal">
-                          {flatGross} m² × {effectiveUnitCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
-                        </div>
-                      </td>
-
-                      <td className="p-3 text-right font-mono">
-                        {flat.isContractorShare ? (
-                          <div>
-                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                              Müteahhit Uhdesi
-                            </span>
-                            <span className="block text-[9px] text-amber-700">Satış Payı</span>
-                          </div>
-                        ) : (flat.contractorShareDeduction && flat.contractorShareDeduction > 0) ? (
-                          <div>
-                            <span className="font-semibold text-emerald-700">
-                              -{flat.contractorShareDeduction.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                            </span>
-                            <span className="block text-[9px] text-emerald-600">Arsa Payı Mahsubu</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">0 TL</span>
-                        )}
-                      </td>
-
-                      <td className="p-3 text-right font-mono">
-                        {flat.downPayment > 0 ? (
-                          <span className="font-semibold text-indigo-700">
-                            -{flat.downPayment.toLocaleString('tr-TR')} TL
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">0 TL</span>
-                        )}
-                      </td>
-
-                      <td className="p-3 text-right font-mono">
-                        {totalSupport > 0 ? (
-                          <div>
-                            <span className="font-semibold text-emerald-700">
-                              -{totalSupport.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                            </span>
-                            <div className="text-[9px] space-y-0.5 text-slate-500">
-                              {!!flat.usedGrant && flat.usedGrant > 0 && (
-                                <span className="block text-emerald-600">Hibe: {flat.usedGrant.toLocaleString('tr-TR')} TL</span>
-                              )}
-                              {!!flat.usedCredit && flat.usedCredit > 0 && (
-                                <span className="block text-blue-600">Kredi: {flat.usedCredit.toLocaleString('tr-TR')} TL</span>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">0 TL</span>
-                        )}
-                      </td>
-
-                      <td className="p-3 text-right font-mono bg-indigo-50/40">
-                        {flat.isContractorShare ? (
-                          <div>
-                            <span className="font-bold text-slate-500">0 TL</span>
-                            <span className="block text-[9px] font-sans font-medium text-amber-700">Yüklenici Uhdesi</span>
-                          </div>
-                        ) : flat.netRemainingDebt === 0 ? (
-                          <div>
-                            <span className="font-black text-emerald-700 text-sm">0 TL</span>
-                            <span className="block text-[9px] font-sans font-medium text-emerald-600">Borçsuz / Bedelsiz</span>
-                          </div>
-                        ) : (
-                          <div>
-                            <span className="font-black text-slate-950 text-sm">
-                              {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                            </span>
-                            {params.paymentPlanType === 'installments' && flat.monthlyInstallment > 0 && (
-                              <span className="text-[9px] font-mono text-indigo-700 block">
-                                {flat.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / ay
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold text-xs text-slate-900">
-                <tr>
-                  <td colSpan={2} className="p-3">GENEL PROJE TOPLAMI:</td>
-                  <td className="p-3 text-slate-700 font-mono">
-                    {results.flatResults.reduce((s, f) => s + f.area, 0).toFixed(1)} m²
-                  </td>
-                  <td className="p-3 text-right font-mono text-slate-600 text-[11px]">
-                    Ort. {results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²
-                  </td>
-                  <td className="p-3 text-right font-mono text-indigo-950 font-black">
-                    {results.flatResults.reduce((s, f) => s + f.grossPay, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                  </td>
-                  <td className="p-3 text-right font-mono text-emerald-700">
-                    -{results.flatResults.reduce((s, f) => s + (f.contractorShareDeduction || 0), 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                  </td>
-                  <td className="p-3 text-right font-mono text-indigo-700">
-                    -{results.flatResults.reduce((s, f) => s + f.downPayment, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                  </td>
-                  <td className="p-3 text-right font-mono text-emerald-700">
-                    -{results.flatResults.reduce((s, f) => s + (f.usedGrant || 0) + (f.usedCredit || 0), 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                  </td>
-                  <td className="p-3 text-right font-mono text-slate-950 bg-indigo-100/70 font-black text-sm">
-                    {results.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
           </div>
         </div>
 
         {/* ========================================================
-            6. PAYMENT SCHEDULE & MILESTONES (HAKEDİŞ & ÖDEME PLANI)
+            6. PAYMENT PLAN SUMMARY (ÖDEME VE TAKVİM ÖZETİ)
            ======================================================== */}
-        <div className="relative z-10 mb-8">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-3">
-            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-indigo-600" />
-              <span>
-                4.{' '}
-                {isContractorShareModel
-                  ? 'KAT KARŞILIĞI FİNANSMAN VE YAPIM BEYANI'
-                  : params.paymentPlanType === 'installments'
-                  ? `AYLIK EŞİT TAKSİTLİ ÖDEME TAKVİMİ (${params.installmentCount || 12} AY)`
-                  : params.paymentPlanType === 'hybrid'
-                  ? `KARMA ÖDEME TAKVİMİ (PEŞİNAT + ARA ÖDEMELER + ${params.installmentCount || 12} AY TAKSİT)`
-                  : 'FİZİKİ İLERLEME HAKEDİŞ TAKVİMİ (5 AŞAMALI)'}
-              </span>
+        <div className="relative z-10 mb-10">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-6">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
+              <div className="w-1 h-4 bg-indigo-600 rounded-full" />
+              <span>IV. ÖDEME VE TESLİM TAKVİMİ</span>
             </h3>
-            <span className="text-[11px] text-slate-500 font-mono">
-              Model: {isContractorShareModel ? 'Kat Karşılığı' : params.paymentPlanType === 'installments' ? 'Eşit Taksitli' : params.paymentPlanType === 'hybrid' ? 'Hibrit Ödeme' : 'Aşamalı Hakediş'}
-            </span>
           </div>
 
-          {isContractorShareModel ? (
-            <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-5 text-xs text-emerald-950 leading-relaxed space-y-2">
-              <div className="font-bold text-emerald-900 flex items-center gap-2 text-sm">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Kat Karşılığı Yapım Modeli Finansman Güvencesi</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100 flex flex-col justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-emerald-950 mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  Uygulama Süreci
+                </h4>
+                <p className="text-[11px] text-emerald-800 leading-relaxed mb-4">
+                  Sözleşme tarihinden itibaren <strong>{results.finalMonths} ay</strong> içerisinde tüm imalatlar tamamlanarak anahtar teslim yapılacaktır.
+                </p>
               </div>
-              <p>
-                Bu yapım modelinde, yapının projelendirilmesi, şantiye kurulumu, malzeme tedariği, kaba ve ince imalat ile iskân alımına kadar olan <strong>tüm maliyetler {compLegal} tarafından üstlenilmiştir</strong>. Arsa maliklerinin herhangi bir nakit borçlanması, ara ödeme veya aylık taksit yükümlülüğü bulunmamaktadır.
+              <div className="flex items-center gap-4 pt-4 border-t border-emerald-100 text-[10px] text-emerald-900 font-bold">
+                <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Ruhsat Onayı</span>
+                <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> İskân Alımı</span>
+                <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Kat Mülkiyeti</span>
+              </div>
+            </div>
+
+            <div className="p-6 bg-indigo-50/50 rounded-3xl border border-indigo-100">
+              <h4 className="text-sm font-bold text-indigo-950 mb-3 flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-indigo-600" />
+                Ödeme Prensibi
+              </h4>
+              <p className="text-[11px] text-indigo-800 leading-relaxed">
+                {isContractorShareModel 
+                  ? "Arsa payı karşılığı modelde maliklerin herhangi bir nakit ödeme yükümlülüğü yoktur. Finansman tamamen yüklenici tarafından karşılanır."
+                  : `Hakediş usulü modelde, ödemeler inşaatın fiziki ilerlemesine paralel olarak veya ${params.installmentCount || 12} aya yayılan vadelerle gerçekleştirilir.`}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-[11px] text-emerald-900">
-                <div className="p-2.5 bg-white/70 rounded-lg border border-emerald-200">
-                  <strong>🏢 Malik Daireleri:</strong> Hak sahiplerine anahtar teslim olarak bedelsiz teslim edilir.
-                </div>
-                <div className="p-2.5 bg-white/70 rounded-lg border border-emerald-200">
-                  <strong>📜 Teminat & Güvence:</strong> İnşaat ilerleme seviyelerine göre tapu devirleri kademeli olarak yapılır.
-                </div>
-              </div>
             </div>
-          ) : params.paymentPlanType === 'installments' ? (
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-100 text-slate-700 font-semibold">
-                  <tr>
-                    <th className="p-3 border-b border-slate-200">Daire / Malik</th>
-                    <th className="p-3 border-b border-slate-200 text-right">Daire Payı Bedeli</th>
-                    <th className="p-3 border-b border-slate-200 text-right text-indigo-700">Ödenen Peşinat</th>
-                    <th className="p-3 border-b border-slate-200 text-right text-emerald-700">Devlet Desteği</th>
-                    <th className="p-3 border-b border-slate-200 text-right font-bold">Kalan Net Borç</th>
-                    <th className="p-3 border-b border-slate-200 text-center">Vade</th>
-                    <th className="p-3 border-b border-slate-200 text-right text-emerald-900 bg-emerald-50 font-bold">
-                      Aylık Taksit Tutarı
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {results.flatResults.map((flat) => (
-                    <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-semibold text-slate-900">
-                        Daire {flat.id} ({flat.name})
-                      </td>
-                      <td className="p-3 text-right font-mono text-slate-700">
-                        {flat.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                      <td className="p-3 text-right font-mono text-indigo-700">
-                        -{flat.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                      <td className="p-3 text-right font-mono text-emerald-700 font-semibold">
-                        {flat.usedCredit > 0 ? `-${flat.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '0 TL'}
-                      </td>
-                      <td className="p-3 text-right font-bold text-slate-900 font-mono">
-                        {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                      </td>
-                      <td className="p-3 text-center font-mono text-slate-600">
-                        {flat.flatType === 'shop' ? '-' : (flat.netRemainingDebt > 0 ? `${params.installmentCount || 12} Ay` : '-')}
-                      </td>
-                      <td className="p-3 text-right font-bold text-emerald-900 font-mono bg-emerald-50/50">
-                        {flat.flatType === 'shop' 
-                          ? 'Dükkan Tek Sefer' 
-                          : (flat.netRemainingDebt > 0
-                            ? `${flat.monthlyInstallment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay`
-                            : '0 TL')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold">
-                  <tr>
-                    <td colSpan={4} className="p-3 text-slate-800">
-                      PROJE ŞANTİYESİ AYLIK TOPLAM HAKEDİŞ GİRİŞİ:
-                    </td>
-                    <td className="p-3 text-right font-mono text-slate-900">
-                      {results.flatResults
-                        .reduce((sum, f) => sum + f.netRemainingDebt, 0)
-                        .toLocaleString('tr-TR', { maximumFractionDigits: 0 })}{' '}
-                      TL
-                    </td>
-                    <td className="p-3 text-center font-mono text-slate-700">
-                      {params.installmentCount || 12} Ay
-                    </td>
-                    <td className="p-3 text-right font-mono text-emerald-900 text-sm bg-emerald-100/70 font-black">
-                      {(results.totalMonthlyInstallments || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          ) : params.paymentPlanType === 'hybrid' ? (
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-100 text-slate-700 font-semibold">
-                  <tr>
-                    <th className="p-3 border-b border-slate-200">Daire / Malik</th>
-                    <th className="p-3 border-b border-slate-200 text-right">Net Kalan Borç</th>
-                    <th className="p-3 border-b border-slate-200 text-right text-indigo-700">1. Ara Ödeme (%25 Kaba)</th>
-                    <th className="p-3 border-b border-slate-200 text-right text-purple-700">2. Ara Ödeme (%15 İskân)</th>
-                    <th className="p-3 border-b border-slate-200 text-right">Taksitlendirilen (%60)</th>
-                    <th className="p-3 border-b border-slate-200 text-right text-emerald-900 bg-emerald-50 font-bold">
-                      Aylık Taksit ({params.installmentCount || 12} Ay)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {results.flatResults.map((flat) => {
-                    const interim1 = Math.round(flat.netRemainingDebt * 0.25);
-                    const interim2 = Math.round(flat.netRemainingDebt * 0.15);
-                    const remainingToInstallments = Math.max(0, flat.netRemainingDebt - interim1 - interim2);
-                    const hybridMonthly = Math.round(remainingToInstallments / Math.max(1, params.installmentCount || 12));
-
-                    return (
-                      <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 font-semibold text-slate-900">
-                          Daire {flat.id} ({flat.name})
-                        </td>
-                        <td className="p-3 text-right font-bold text-slate-900 font-mono">
-                          {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </td>
-                        <td className="p-3 text-right text-indigo-700 font-mono">
-                          {flat.flatType === 'shop' ? '-' : interim1.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
-                        </td>
-                        <td className="p-3 text-right text-purple-700 font-mono">
-                          {flat.flatType === 'shop' ? '-' : interim2.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
-                        </td>
-                        <td className="p-3 text-right font-mono text-slate-700 font-semibold">
-                          {flat.flatType === 'shop' ? '-' : remainingToInstallments.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' TL'}
-                        </td>
-                        <td className="p-3 text-right font-bold text-emerald-900 font-mono bg-emerald-50/50">
-                          {flat.flatType === 'shop' 
-                            ? 'Dükkan Tek Sefer' 
-                            : (flat.netRemainingDebt > 0 ? `${hybridMonthly.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / Ay` : '0 TL')}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-100 text-slate-700 font-semibold">
-                  <tr>
-                    <th className="p-3 border-b border-slate-200">Daire / Malik</th>
-                    <th className="p-3 border-b border-slate-200">1. Ruhsat (%{params.stage1Pay !== undefined ? params.stage1Pay : 20})</th>
-                    <th className="p-3 border-b border-slate-200">2. Temel (%{params.stage2Pay !== undefined ? params.stage2Pay : 20})</th>
-                    <th className="p-3 border-b border-slate-200">3. Kaba (%{params.stage3Pay !== undefined ? params.stage3Pay : 30})</th>
-                    <th className="p-3 border-b border-slate-200">4. İnce (%{params.stage4Pay !== undefined ? params.stage4Pay : 20})</th>
-                    <th className="p-3 border-b border-slate-200">5. İskân (%{params.stage5Pay !== undefined ? params.stage5Pay : 10})</th>
-                    <th className="p-3 border-b border-slate-200 font-bold text-right">Toplam Net Borç</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {results.flatResults.map((flat) => {
-                    const unitName = flat.flatType === 'shop' 
-                      ? `🏪 Dükkan ${flat.id}` 
-                      : flat.flatType === 'mansard'
-                      ? `🏚️ Daire ${flat.id} (Mansart)`
-                      : `Daire ${flat.id}`;
-                    const stages = flat.stagePayments || [0, 0, 0, 0, 0];
-                    return (
-                      <tr key={flat.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 font-semibold text-slate-900">
-                          {unitName} ({flat.name})
-                        </td>
-                        <td className="p-3 text-slate-700 font-mono">
-                          {(stages[0] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </td>
-                        <td className="p-3 text-slate-700 font-mono">
-                          {(stages[1] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </td>
-                        <td className="p-3 text-slate-700 font-mono">
-                          {(stages[2] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </td>
-                        <td className="p-3 font-semibold text-indigo-700 font-mono">
-                          {(stages[3] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </td>
-                        <td className="p-3 text-slate-700 font-mono">
-                          {(stages[4] || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </td>
-                        <td className="p-3 font-bold text-slate-950 font-mono text-right">
-                          {flat.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* ========================================================

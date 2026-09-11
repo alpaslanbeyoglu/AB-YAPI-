@@ -161,15 +161,16 @@ export async function exportElementToPdf(
       clonedElement.style.backgroundColor = '#ffffff';
       clonedElement.style.color = '#000000';
 
-      // 2. Fix for html2canvas oklch crash (Tailwind v4 uses oklch by default)
+      // 2. Fix for html2canvas oklch/oklab crash (Tailwind v4 uses these by default)
       // This is a critical fix for PDF exports failing in modern browsers
       const styles = clonedDoc.querySelectorAll('style');
       styles.forEach(styleTag => {
-        if (styleTag.textContent?.includes('oklch')) {
-          // Replace oklch(...) with a standard color if parsing fails
-          // For now, let's replace oklch(...) with its fallback if provided or a safe gray
-          // html2canvas fails specifically on the function call
-          styleTag.textContent = styleTag.textContent.replace(/oklch\([^)]+\)/g, '#475569'); 
+        if (styleTag.textContent?.includes('oklch') || styleTag.textContent?.includes('oklab')) {
+          // Replace oklch(...) and oklab(...) with a standard color if parsing fails
+          // html2canvas fails specifically on these function calls
+          styleTag.textContent = styleTag.textContent
+            .replace(/oklch\([^)]+\)/g, '#475569')
+            .replace(/oklab\([^)]+\)/g, '#475569');
         }
       });
 
@@ -177,9 +178,15 @@ export async function exportElementToPdf(
       const oklchElements = clonedElement.querySelectorAll('*');
       oklchElements.forEach(el => {
         const htmlEl = el as HTMLElement;
-        if (htmlEl.style.color?.includes('oklch')) htmlEl.style.color = '#000000';
-        if (htmlEl.style.backgroundColor?.includes('oklch')) htmlEl.style.backgroundColor = '#ffffff';
-        if (htmlEl.style.borderColor?.includes('oklch')) htmlEl.style.borderColor = '#cbd5e1';
+        const colorStyles = ['color', 'backgroundColor', 'borderColor'];
+        colorStyles.forEach(prop => {
+          const val = (htmlEl.style as any)[prop];
+          if (val && (val.includes('oklch') || val.includes('oklab'))) {
+            if (prop === 'color') htmlEl.style.color = '#000000';
+            else if (prop === 'backgroundColor') htmlEl.style.backgroundColor = '#ffffff';
+            else if (prop === 'borderColor') htmlEl.style.borderColor = '#cbd5e1';
+          }
+        });
       });
     },
   });
