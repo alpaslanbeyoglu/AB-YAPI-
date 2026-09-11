@@ -35,7 +35,7 @@ import {
   Info
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
-import { generateOfferHtml } from '../utils/reportExport';
+import { generateOfferHtml } from '../utils/offerReportExport';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
