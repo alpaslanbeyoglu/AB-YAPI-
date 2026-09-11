@@ -1610,15 +1610,34 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       )}
                     </div>
                     {(params.basementCount !== undefined ? params.basementCount > 0 : true) ? (
-                      <select
-                        value={params.basementPurpose || 'shelter_depot'}
-                        onChange={(e) => onChangeParams({ ...params, basementPurpose: e.target.value })}
-                        className="w-full text-[11px] font-semibold px-2 py-1 rounded border bg-white border-slate-200"
-                      >
-                        <option value="shelter_depot">🛡️ Sığınak & Depo</option>
-                        <option value="parking">🚗 Kapalı Otopark</option>
-                        <option value="shop">🛍️ Dükkan Deposu</option>
-                      </select>
+                      <div className="space-y-2">
+                        <select
+                          value={params.basementPurpose || 'shelter_depot'}
+                          onChange={(e) => onChangeParams({ ...params, basementPurpose: e.target.value })}
+                          className="w-full text-[11px] font-semibold px-2 py-1 rounded border bg-white border-slate-200"
+                        >
+                          <option value="shelter_depot">🛡️ Sığınak & Depo</option>
+                          <option value="parking">🚗 Kapalı Otopark</option>
+                          <option value="shop">🛍️ Dükkan Deposu</option>
+                          <option value="commercial_shop">🏪 Bodrum Kat İşyeri / Ticari Dükkan</option>
+                        </select>
+                        {params.basementPurpose === 'commercial_shop' && (
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+                            <span className="text-[10px] font-bold text-slate-700">İşyeri Adedi:</span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={1}
+                                max={12}
+                                value={params.basementShopCount || 1}
+                                onChange={(e) => onChangeParams({ ...params, basementShopCount: parseInt(e.target.value) || 1 })}
+                                className="w-12 text-[11px] font-bold font-mono px-1.5 py-0.5 rounded border border-indigo-300 bg-white"
+                              />
+                              <span className="text-[10px] text-indigo-700 font-bold">Adet</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div className="text-[10px] text-slate-400">Bodrum kat planlanmadı</div>
                     )}

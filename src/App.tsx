@@ -991,6 +991,7 @@ export default function App() {
               params={params}
               results={results}
               onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
+              onUpdateAllParams={updateCalculatorParams}
               onNavigateToSurec={() => setActiveTab('surec')}
               theme={theme}
             />

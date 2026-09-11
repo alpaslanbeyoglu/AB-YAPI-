@@ -46,6 +46,7 @@ interface OfferTabProps {
   params: ProjectParams;
   results: CalculationResult;
   onUpdateParam?: (key: keyof ProjectParams, val: any) => void;
+  onUpdateAllParams?: (newParams: Partial<ProjectParams>) => void;
   onNavigateToSurec?: () => void;
   theme?: AppTheme;
 }
@@ -54,11 +55,67 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   params,
   results,
   onUpdateParam,
+  onUpdateAllParams,
   onNavigateToSurec,
   theme = 'light',
 }) => {
   const { profile } = useCompanyProfile();
   const offerDocRef = useRef<HTMLDivElement>(null);
+
+  // AI Proposal Generator State
+  const [aiPromptText, setAiPromptText] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleAiGenerate = async () => {
+    if (!aiPromptText.trim()) {
+      setAiError('Lütfen proje detaylarını içeren bir metin giriniz.');
+      return;
+    }
+    setIsAiLoading(true);
+    setAiError(null);
+
+    try {
+      const res = await fetch('/api/ai-generate-offer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: aiPromptText }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Yapay zeka teklif oluşturma başarısız oldu.');
+      }
+
+      const p = data.data;
+      if (onUpdateAllParams) {
+        onUpdateAllParams({
+          ...(p.projectName ? { projectName: p.projectName } : {}),
+          ...(p.projectAddress ? { projectAddress: p.projectAddress } : {}),
+          ...(p.landArea ? { landArea: Number(p.landArea) } : {}),
+          ...(p.baseBuildArea ? { baseBuildArea: Number(p.baseBuildArea) } : {}),
+          ...(p.floorCount ? { floorCount: Number(p.floorCount) } : {}),
+          ...(p.flatsPerFloor ? { flatsPerFloor: Number(p.flatsPerFloor) } : {}),
+          ...(p.hasGroundFloorShop !== undefined ? { hasGroundFloorShop: !!p.hasGroundFloorShop } : {}),
+          ...(p.shopCount !== undefined ? { shopCount: Number(p.shopCount) } : {}),
+          ...(p.basementCount !== undefined ? { basementCount: Number(p.basementCount) } : {}),
+          ...(p.basementPurpose ? { basementPurpose: p.basementPurpose } : {}),
+          ...(p.basementShopCount !== undefined ? { basementShopCount: Number(p.basementShopCount) } : {}),
+          ...(p.buildingType ? { buildingType: p.buildingType } : {}),
+          ...(p.quality ? { quality: p.quality } : {}),
+          ...(p.projectModel ? { projectModel: p.projectModel } : {}),
+          ...(p.contractorShareRate ? { contractorShareRate: Number(p.contractorShareRate) } : {}),
+          ...(p.transformationStatus ? { transformationStatus: p.transformationStatus } : {}),
+          ...(p.additionalOfferClauses && Array.isArray(p.additionalOfferClauses) ? { additionalOfferClauses: p.additionalOfferClauses } : {}),
+        });
+      }
+      setAiPromptText('');
+      alert('✨ Yapay zeka metni başarıyla analiz ederek teklif parametrelerini güncelledi. Mevcut resmi teklif şablonu yeni verilere göre yenilendi!');
+    } catch (err: any) {
+      setAiError(err.message || 'Bir hata oluştu.');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
 
   // Image & Document Upload State and Handlers
   const [uploadedImages, setUploadedImages] = useState<Array<{ id: string; url: string; name: string; caption: string }>>([]);
@@ -281,6 +338,84 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             documentTitle={`${compName} - Resmî Teklifname`}
             theme={theme}
           />
+        </div>
+      </div>
+
+      {/* ========================================================
+          AI PROPOSAL GENERATOR FROM TEXT INPUT (YAPAY ZEKA İLE TEKLİF OLUŞTURUCU)
+         ======================================================== */}
+      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 shadow-xl space-y-4 print:hidden border border-indigo-500/30">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-700/50">
+          <div>
+            <h3 className="text-sm font-black text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+              <span>Yapay Zeka ile Doğal Dilden Teklif Oluşturucu</span>
+            </h3>
+            <p className="text-xs text-indigo-200 mt-1">
+              Proje detaylarını, kat sayısını, daire/dükkan bilgilerini ve özel istekleri serbest metin olarak yazın; yapay zeka resmi teklif parametrelerini anında oluştursun.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-800/80 text-amber-300 rounded-full text-[10px] font-bold border border-indigo-600">
+              ⚡ Gemini 3.8 Flash
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <textarea
+            rows={3}
+            value={aiPromptText}
+            onChange={(e) => setAiPromptText(e.target.value)}
+            placeholder="Örn: Kadıköy Bağdat Caddesi üzerinde 550 m2 arsa üzerine zemin üstü 6 katlı, taban alanı 180 m2 olan kentsel dönüşüm projesi. Her katta 2 daire ve zemin katta 2 adet dükkan olsun. %50 kat karşılığı oranı ve bodrum katta sığınak planlansın."
+            className="w-full text-xs font-medium p-3 rounded-2xl bg-indigo-950/80 text-white placeholder-indigo-300/60 border border-indigo-700/60 focus:outline-none focus:border-amber-400 transition-all resize-y"
+          />
+
+          {aiError && (
+            <div className="p-2.5 bg-red-950/80 border border-red-500/50 rounded-xl text-xs text-red-200 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{aiError}</span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-indigo-300 font-bold">Hızlı Örnekler:</span>
+              <button
+                type="button"
+                onClick={() => setAiPromptText("Kadıköy'de 500 m2 arsa üzerine taban oturumu 150 m2, zemin üstü 5 katlı, her katta 2 daire ve zemin katta 1 dükkan bulunan kentsel dönüşüm projesi. %50 kat karşılığı, sığınaklı bodrum kat.")}
+                className="px-2 py-1 bg-indigo-800/60 hover:bg-indigo-700 text-indigo-100 rounded-lg text-[10px] font-medium transition-all border border-indigo-600/40 cursor-pointer"
+              >
+                1. Kadıköy Dükkanlı Proje
+              </button>
+              <button
+                type="button"
+                onClick={() => setAiPromptText("Fatih'te 400 m2 arsa üzerinde 120 m2 taban, 4 katlı, her katta 3 daire, tamamen konut, Yarısı Bizden kentsel dönüşüm destekli proje.")}
+                className="px-2 py-1 bg-indigo-800/60 hover:bg-indigo-700 text-indigo-100 rounded-lg text-[10px] font-medium transition-all border border-indigo-600/40 cursor-pointer"
+              >
+                2. Fatih Destekli Proje
+              </button>
+            </div>
+
+            <button
+              type="button"
+              disabled={isAiLoading}
+              onClick={handleAiGenerate}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl text-xs shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer ml-auto"
+            >
+              {isAiLoading ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  <span>Yapay Zeka Analiz Ediyor...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-slate-950" />
+                  <span>Yapay Zeka ile Teklif ve Parametreleri Üret</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 

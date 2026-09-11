@@ -292,7 +292,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
         ? `Var (Konsol Çıkma: ${Math.max(0, params.cantileverDepth || 1.2)}m, Yön: ${params.cantileverDirection === 'front_back' ? 'Ön-Arka Cepheler' : params.cantileverDirection === 'front' ? 'Yalnızca Ön Cephe' : 'Ayrık / Tüm Cepheler'})` 
         : 'Yok (Düz Prizmatik Kütle)';
       const basementDesc = safeBasementCount > 0 
-        ? `${safeBasementCount} Kat Bodrum (Sığınak, Su Deposu, Ortak Alan & Kapalı Otopark)` 
+        ? `${safeBasementCount} Kat Bodrum (${params.basementPurpose === 'commercial_shop' ? `${params.basementShopCount || 1} Adet Ticari İşyeri / Dükkan, Sığınak & Ortak Alanlar` : params.basementPurpose === 'parking' ? 'Kapalı Otopark & Teknik Alanlar' : params.basementPurpose === 'shop' ? 'Dükkan Deposu & Ortak Alanlar' : 'Sığınak, Su Deposu, Ortak Alan & Kapalı Otopark'})` 
         : 'Bodrum Kat Yok';
       const totalUnits = params.hasGroundFloorShop 
         ? `${safeFlatCount} Adet Konut + ${safeShopCount} Adet Ticari Dükkan (Toplam ${safeFlatCount + safeShopCount} Bağımsız Bölüm)` 
@@ -937,7 +937,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Bodrum Kat & Altyapı</span>
                   <p className="text-xs font-semibold text-slate-800">
                     {safeBasementCount > 0 
-                      ? `${safeBasementCount} Kat Bodrum (Sığınak, Su Deposu, Otopark)` 
+                      ? `${safeBasementCount} Kat Bodrum (${params.basementPurpose === 'commercial_shop' ? `${params.basementShopCount || 1} Adet Ticari İşyeri / Dükkan, Sığınak & Ortak Alan` : 'Sığınak, Su Deposu, Otopark'})` 
                       : 'Bodrum Kat Planlanmamıştır'}
                   </p>
                 </div>
@@ -1046,7 +1046,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Bodrum Kat & Sığınak / Otopark Altyapısı</span>
                   <p className="text-xs font-semibold text-slate-800 mt-0.5">
                     {safeBasementCount > 0
-                      ? `${safeBasementCount} Kat Bodrum İmalatı: Deprem ve sığınak yönetmeliğine tam uyumlu sığınak, su deposu (hidroforlu), yangın tesisatı ve kapalı otopark alanları.`
+                      ? `${safeBasementCount} Kat Bodrum İmalatı: ${params.basementPurpose === 'commercial_shop' ? `${params.basementShopCount || 1} Adet Bodrum kat ticari işyeri/dükkan alanı, deprem ve sığınak yönetmeliğine tam uyumlu sığınak, su deposu (hidroforlu), yangın tesisatı ve ortak hacimler.` : 'Deprem ve sığınak yönetmeliğine tam uyumlu sığınak, su deposu (hidroforlu), yangın tesisatı ve kapalı otopark alanları.'}`
                       : 'Bodrum kat planlanmamış olup sığınak ve teknik hacimler zemin katta yönetmelik şartlarına göre ayrılacaktır.'}
                   </p>
                 </div>

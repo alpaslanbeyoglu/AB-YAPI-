@@ -175,7 +175,7 @@ export const ZoningAuditPanel: React.FC<ZoningAuditPanelProps> = ({
       summary: `Bodrum: ${params.basementCount} Kat | Sığınak: ${shelterStatus}`,
       content: [
         { label: 'Bodrum İskan Durumu', val: 'Tamamen gömülü bodrumlarda konut yapılamaz. Doğrudan ışık ve havalandırma alan bodrumlar iskan alabilir.' },
-        { label: 'Gömülü Bodrum Kullanımı', val: 'Otopark, sığınak, su deposu, trafo, tesisat odaları ve ortak depolama alanları.' },
+        { label: 'Gömülü Bodrum Kullanımı', val: (params as any).basementPurpose === 'commercial_shop' ? 'Ticari İşyeri / Dükkan, otopark, sığınak, su deposu, tesisat odaları ve ortak alanlar.' : 'Otopark, sığınak, su deposu, trafo, tesisat odaları ve ortak depolama alanları.' },
         { label: 'Sığınak Yönetmeliği', val: isShelterMandatory ? 'ZORUNLU: Radyasyon/basınca dayanıklı betonarme duvar, havacı/filtrasyon sistemi, acil çıkış bacası ve WC/lavabo.' : 'İsteğe Bağlı / Metrekare Sınırı Altında.' },
         { label: 'Su ve Isı Yalıtımı', val: 'Perde beton üzerine membran su yalıtımı ve koruyucu drenaj levhası uygulaması şarttır.' },
       ],

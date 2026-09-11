@@ -199,7 +199,8 @@ export type CantileverDirection = 'open_facades' | 'front_back' | 'front' | 'all
 export interface ProjectParams {
   projectName?: string;        // Müşteri / Proje Adı
   projectType?: string;        // Proje Türü: 'kentsel' | 'kat_karsiligi' | 'muteahhitlik' vb.
-  basementPurpose?: string;    // Bodrum kullanım amacı: 'shelter_depot' | 'parking' | 'shop'
+  basementPurpose?: string;    // Bodrum kullanım amacı: 'shelter_depot' | 'parking' | 'shop' | 'commercial_shop'
+  basementShopCount?: number;  // Bodrum kat işyeri/dükkan adedi
   roofAtticType?: 'independent' | 'duplex_unified'; // Çatı arası bağımsız mı yoksa dubleks mi
   projectAddress: string;
   landArea?: number;           // Arsa Alanı (m²)
