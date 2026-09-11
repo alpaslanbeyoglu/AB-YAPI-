@@ -6,7 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   return {
-    base: '/',
+    base: './',
     server: {
       host: '0.0.0.0',
       port: 3000,
@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-          navigateFallback: 'index.html',
+          navigateFallback: undefined,
           navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
             {
@@ -53,7 +53,7 @@ export default defineConfig(({ mode }) => {
           ],
         },
         manifest: {
-          id: '/',
+          id: './',
           name: 'AB Yapı İnşaat & Mimari Hesaplayıcı',
           short_name: 'AB Yapı',
           description: 'AB Yapı kentsel dönüşüm, inşaat maliyeti, 3D bina modeli ve 2D mimari kat planı uygulaması',
@@ -61,11 +61,11 @@ export default defineConfig(({ mode }) => {
           background_color: '#09090b',
           display: 'standalone',
           orientation: 'any',
-          start_url: '/',
-          scope: '/',
+          start_url: './',
+          scope: './',
           icons: [
             {
-              src: '/pwa-192x192.png',
+              src: 'pwa-192x192.png',
               sizes: '192x192',
               type: 'image/png'
             }
