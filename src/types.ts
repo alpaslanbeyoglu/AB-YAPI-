@@ -162,6 +162,8 @@ export type FacadeStyleType =
   | 'mediterranean_white'
   | 'cappadocia_tuff';
 
+export type LightingPresetType = 'sunset' | 'midday' | 'sunrise' | 'blue_hour' | 'custom';
+
 export type ShopLocation = 'ground' | 'basement' | 'both';
 
 export type MunicipalIncentiveDistrict = 'none' | 'gungoren' | 'kadikoy' | 'esenler' | 'zeytinburnu' | 'custom';
@@ -272,6 +274,7 @@ export interface ProjectParams {
   basementCount?: number;
   floorHeight?: number;
   flatsPerFloor?: number;
+  flatDistributionMode?: FlatDistributionMode;
   balconyDepth?: number;
   facadeStyle?: FacadeStyleType;
   wallColor?: string; // Dış cephe ana duvar rengi (#hex)
@@ -341,6 +344,17 @@ export interface ProjectParams {
 
   // Özel Sözleşme Notları & İlave Maddeler
   customContractNotes?: string;
+
+  // Otopark Harcı Hesaplama Parametreleri
+  parkingFeeMode?: 'included' | 'excluded' | 'none'; // Otopark harcı teklife dahil, hariç veya hesaplanmasın
+  parkingLandTaxValue?: number;     // Emlak Vergisi Arsa m² Değeri (A bileşeni için)
+  parkingBuildingCostValue?: number; // Yapı Yaklaşık Birim Maliyeti (B bileşeni için, TL/m²)
+  parkingRegionalRatio?: number;     // Belediye bölgesel grup katsayısı (%)
+  providedParkingSpaces?: number;    // Yapılan / sağlanan otopark sayısı
+
+  // İnovatif Seçenekler (Yerden Isıtma ve Su Arıtma)
+  hasUnderfloorHeating?: boolean;
+  hasWaterFiltration?: boolean;
 
   // Flats
   flats: FlatItem[];
@@ -455,6 +469,19 @@ export interface CalculationResult {
   cashFlowRows: CashFlowRow[];
   flatResults: FlatCalcResult[];
   calculatedAt: string;
+
+  // Otopark Harcı Hesaplama Çıktıları
+  parkingRequiredSpaces?: number;      // Mevzuata göre zorunlu otopark adedi
+  parkingDeficientSpaces?: number;     // Eksik otopark adedi
+  parkingBirimBedeli?: number;         // 1 araçlık otopark bedeli
+  parkingFeeMin?: number;              // Yaklaşık alt sınır bedeli
+  parkingFeeMax?: number;              // Yaklaşık üst sınır bedeli
+  parkingFeeActual?: number;           // Teklife yansıyan veya hesaplanan yasal bedel
+  parkingFeeIsKentselDiscount?: boolean; // Kentsel dönüşüm %75 indirim uygulandı mı?
+
+  // İnovatif Seçenekler Maliyet Çıktıları
+  underfloorHeatingCost?: number;
+  waterFiltrationCost?: number;
 }
 
 export interface SavedProjectData {
@@ -482,6 +509,12 @@ export interface RoadConfig {
 export type PredefinedViewDirection = 'front' | 'rear' | 'right' | 'left' | 'top' | 'iso';
 export type CameraPresetType = PredefinedViewDirection | 'side';
 
+export type FlatDistributionMode =
+  | 'equal'             // Kat Alanı Eşit Dağılım (Standart - Örn: 4 dairede %25 / %25 / %25 / %25)
+  | 'front_large'       // Ön Cephe Daireleri Büyük / Arka Daireler Kompakt (Örn: Ön 2 daire %30'ar 3+1, Arka 2 daire %20'şer)
+  | 'asymmetric_master' // 1 Adet Geniş Master Daire (%40) + Kalan Daireler Eşit (%20'şer)
+  | 'custom_proportions'; // Özel / Tablodan Yönetilen Dağılım
+
 export interface BuildingModelParams {
   facadeWidth: number;       // Ön cephe genişliği (m)
   facadeDepth: number;       // Sağ yan cephe derinlik (m)
@@ -491,15 +524,28 @@ export interface BuildingModelParams {
   floorCount: number;        // Normal kat sayısı
   basementCount: number;     // Bodrum kat sayısı
   flatsPerFloor: number;     // Katta daire sayısı (1, 2, 3, 4)
+  flatDistributionMode?: FlatDistributionMode; // Kattaki dairelerin alan ve oda dağılım stratejisi
   roomType: RoomType;        // Daire oda tipi
   stairWidth: number;        // Merdiven kovası genişliği (m)
   stairDepth: number;        // Merdiven kovası derinliği (m)
+  staircaseLandingWidth?: number; // Merdiven sahanlığı genişliği (m)
+  staircaseLandingDepth?: number; // Merdiven sahanlığı derinliği (m)
   elevatorWidth: number;     // Asansör kuyu genişliği (m)
   elevatorDepth: number;     // Asansör kuyu derinliği (m)
   elevatorCount: number;     // Asansör sayısı (1, 2)
   corePositionPreset?: 'center' | 'entrance' | 'rear' | 'left' | 'right' | 'custom'; // Çekirdek yerleşim şablonu
   coreOffsetX?: number;      // Çekirdek merkezinden X kaçıklığı (m)
   coreOffsetY?: number;      // Çekirdek merkezinden Y kaçıklığı (m)
+  // Bina Girişi & Giriş Holü Parametreleri
+  entranceOffset?: number;       // Girişin cephedeki yatay konumu (m, negatif = sol, pozitif = sağ)
+  entranceDoorWidth?: number;   // Giriş kapısı genişliği (m, varsayılan 2.20m)
+  entranceDoorHeight?: number;  // Giriş kapısı yüksekliği (m, varsayılan 2.40m)
+  entranceLobbyWidth?: number;  // Giriş holü / rüzgarlık genişliği (m, varsayılan 3.20m)
+  entranceLobbyDepth?: number;  // Giriş holü derinliği (m, varsayılan 4.00m)
+  entranceCanopyDepth?: number; // Giriş markiz / saçak derinliği (m, varsayılan 1.20m)
+  entranceStepsCount?: number;  // Giriş basamak sayısı (varsayılan 3)
+  surfaceRotation?: number;     // Yüzey / Parsel Rotasyonu (° açı, 0-360)
+  buildingRotation?: number;    // (Geriye dönük uyumluluk alias)
   balconyDepth: number;      // Balkon / çıkma payı (m)
   roofType: RoofType;        // Çatı tipi: Kırma, Teras, Mansart, Çatı Dubleksi
   mansardFlatCount?: number; // Mansart çatı tek seçildiğinde ortaya çıkan bağımsız bölüm sayısı
@@ -548,6 +594,7 @@ export interface BuildingModelParams {
   projectModel?: 'cash' | 'contractorShare';
   contractorShareRate?: number;
   flatCount?: number;
+  flats?: FlatItem[];
   roads?: RoadConfig[];
   realWorldLocation?: {
     lat: number;

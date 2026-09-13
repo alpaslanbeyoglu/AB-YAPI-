@@ -22,6 +22,23 @@ export interface FacadeStyleOption {
 
 export const FACADE_STYLES: FacadeStyleOption[] = [
   {
+    id: 'concrete_brutalist',
+    title: 'Modern Beton Cephe',
+    subtitle: 'Mimari Brüt Panel Beton & Antrasit',
+    category: 'Karakterli & Endüstriyel',
+    wallColorHex: '#94a3b8',
+    accentColorHex: '#27272a',
+    colors: {
+      wall: 0x94a3b8,
+      woodAccent: 0x27272a,
+      slab: 0xd1d5db,
+      glass: 0x38bdf8,
+      column: 0x4b5563,
+      balcony: 0x1f2937,
+      roof: 0x1e293b,
+    },
+  },
+  {
     id: 'modern',
     title: 'Modern Açık Gri',
     subtitle: 'Doğal Ahşap & Dengeli Sıva',
@@ -120,6 +137,7 @@ export interface ColorPreset {
 }
 
 export const WALL_COLOR_PRESETS: ColorPreset[] = [
+  { id: 'concrete_modern', name: 'Brüt Beton Gri', hex: '#94a3b8' },
   { id: 'white', name: 'Kar Beyaz', hex: '#f8fafc' },
   { id: 'warm_beige', name: 'Bej Traverten', hex: '#f5efe6' },
   { id: 'light_gray', name: 'Açık Gri', hex: '#e2e8f0' },
@@ -178,9 +196,19 @@ export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   roomType: '3+1',         // 3 Oda 1 Salon
   stairWidth: 2.60,        // Merdiven kovası genişliği (m)
   stairDepth: 4.80,        // Merdiven kovası derinliği (m)
+  staircaseLandingWidth: 2.60, // Merdiven sahanlığı genişliği (m)
+  staircaseLandingDepth: 1.40, // Merdiven sahanlığı derinliği (m)
   elevatorWidth: 1.80,     // Asansör kuyu genişliği (m)
   elevatorDepth: 2.00,     // Asansör kuyu derinliği (m)
   elevatorCount: 1,        // 1 adet asansör
+  entranceOffset: 0,       // Cephe ortası (0m)
+  entranceDoorWidth: 2.20, // 2.20 m
+  entranceDoorHeight: 2.40,// 2.40 m
+  entranceLobbyWidth: 3.20,// 3.20 m
+  entranceLobbyDepth: 4.00,// 4.00 m
+  entranceCanopyDepth: 1.20,// 1.20 m
+  entranceStepsCount: 3,   // 3 basamak
+  surfaceRotation: 0,      // 0° Yüzey / Parsel rotasyonu
   balconyDepth: 1.40,      // Balkon çıkması 1.40 metre
   roofType: 'gable',       // Kırma çatı
   wallColor: '#f1f5f9',    // Dış cephe açık gri / doğal beyaz

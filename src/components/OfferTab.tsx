@@ -32,7 +32,10 @@ import {
   Heart,
   Home,
   Leaf,
-  Info
+  Info,
+  Car,
+  Flame,
+  Droplets,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { generateOfferHtml } from '../utils/offerReportExport';
@@ -771,6 +774,84 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               </div>
             </div>
           </div>
+
+          {/* İNOVATİF SEÇENEKLER VE KONFOR DONANIMLARI */}
+          <div className="mt-6 p-5 bg-gradient-to-r from-purple-50/50 to-indigo-50/50 rounded-2xl border border-purple-100/70 space-y-4">
+            <h4 className="text-xs font-black text-purple-950 flex items-center gap-2 uppercase tracking-wider">
+              <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
+              İnovatif Teknoloji ve Konfor Donanımları
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Card 1: Yerden Isıtma */}
+              <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Flame className="w-3.5 h-3.5 text-purple-500" />
+                      Yerden Isıtma Sistemi (Sulu)
+                    </span>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasUnderfloorHeating ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                      {params.hasUnderfloorHeating ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    </span>
+                  </div>
+                  
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
+                    <strong>Alternatifi (Petek/Radyatör) ile Karşılaştırmalı Avantajları:</strong>
+                  </p>
+                  <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
+                    <li><strong>Maksimum Isı Konforu:</strong> Isı zeminden homojen yükselir; ayakları sıcak, başı serin tutan ideal fizyolojik ısı dağılımı sağlar.</li>
+                    <li><strong>%15-20 Yakıt Tasarrufu:</strong> 35-40°C su sıcaklığı ile çalıştığı için kombi/ısı pompası tüketimini ve faturaları azaltır.</li>
+                    <li><strong>Estetik ve Alan Kazancı:</strong> Odalardaki çirkin ve yer kaplayan radyatör peteklerini tamamen elemine ederek mobilya yerleşim özgürlüğü sağlar.</li>
+                    <li><strong>Hipoalerjenik & Sağlıklı:</strong> Toz sirkülasyonu yapmaz, ev tozu akarı (mite) oluşumunu ve rutubeti engeller.</li>
+                  </ul>
+                </div>
+                
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-slate-400">Yatırım Değeri:</span>
+                  <span className="font-black text-purple-700 font-mono">
+                    {params.hasUnderfloorHeating 
+                      ? `${results.underfloorHeatingCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                      : `+${results.underfloorHeatingCost?.toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 2: Su Arıtma */}
+              <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Droplets className="w-3.5 h-3.5 text-blue-500" />
+                      Bina Girişi Merkezi Su Arıtma
+                    </span>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasWaterFiltration ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                      {params.hasWaterFiltration ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    </span>
+                  </div>
+                  
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
+                    <strong>Alternatifi (Bireysel Arıtıcı & Damacana) ile Karşılaştırmalı Avantajları:</strong>
+                  </p>
+                  <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
+                    <li><strong>Bütünsel Koruma:</strong> Sadece mutfak suyunu değil, tüm dairelerin şebeke girişinden itibaren tortu, klor, kireç ve ağır metallerden arındırılmış su almasını sağlar.</li>
+                    <li><strong>Cihaz ve Tesisat Ömrü:</strong> Kireç oluşumunu önleyerek kombi, çamaşır, bulaşık makineleri ve boruların ömrünü 2 kat uzatır.</li>
+                    <li><strong>Cilt ve Saç Sağlığı:</strong> Duşta klorsuz ve yumuşak su kullanımı ile cilt kuruluğunu, egzamayı ve saç dökülmesini azaltır.</li>
+                    <li><strong>Ekonomik Bağımsızlık:</strong> Damacana taşıma derdine ve bireysel mutfak filtre değişim masraflarına ömür boyu son verir.</li>
+                  </ul>
+                </div>
+                
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-slate-400">Yatırım Değeri:</span>
+                  <span className="font-black text-purple-700 font-mono">
+                    {params.hasWaterFiltration 
+                      ? `${results.waterFiltrationCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                      : `+${results.waterFiltrationCost?.toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* ========================================================
@@ -896,6 +977,25 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       </div>
                       <span className="text-xs font-bold font-mono">{(results.grandTotal * 0.15).toLocaleString('tr-TR')} ₺</span>
                     </div>
+
+                    {params.parkingFeeMode && params.parkingFeeMode !== 'none' && (
+                      <div className="flex flex-col gap-1.5 pt-3 mt-1 border-t border-white/5 animate-fade-in">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Car className="w-3.5 h-3.5 text-blue-400" />
+                            <span className="text-xs text-slate-300">Hesaplanan Otopark Harcı</span>
+                          </div>
+                          <span className="text-xs font-bold font-mono text-blue-400">
+                            {results.parkingFeeActual?.toLocaleString('tr-TR')} ₺
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 leading-normal pl-6">
+                          {params.parkingFeeMode === 'included' 
+                            ? '✅ Müteahhit Teklifine Dahil Edilmiştir (Ruhsat aşamasında müteahhit öder)' 
+                            : '⚠️ Teklif Genel Toplamına Hariçtir (Ruhsat aşamasında malikler/işveren öder)'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

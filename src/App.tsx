@@ -271,6 +271,7 @@ export default function App() {
           contractorFlatIds: params.contractorFlatIds,
           showContractorShare3D: params.showContractorShare3D,
           projectModel: params.projectModel,
+          flats: params.flats,
         };
       }
     } catch (e) {}
@@ -299,6 +300,7 @@ export default function App() {
       shopCount: params.shopCount || 1,
       shopHeight: params.shopHeight || 3.8,
       flatCount: params.flatCount,
+      flats: params.flats,
       hasCantilever: params.hasCantilever,
       cantileverDepth: params.cantileverDepth,
       cantileverDirection: params.cantileverDirection,
@@ -434,6 +436,7 @@ export default function App() {
         polygonPoints: sanitizedParams.polygonPoints || prevModel.polygonPoints,
         facadeConfigs: sanitizedParams.facadeConfigs || prevModel.facadeConfigs,
         mainEntranceFacadeIndex: sanitizedParams.mainEntranceFacadeIndex !== undefined ? sanitizedParams.mainEntranceFacadeIndex : prevModel.mainEntranceFacadeIndex,
+        flats: sanitizedParams.flats || prevModel.flats,
       };
 
       return nextModel;

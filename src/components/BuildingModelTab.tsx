@@ -30,6 +30,7 @@ import {
   RotateCcw,
   Info,
   Layout,
+  LayoutGrid,
   AlertTriangle,
   DoorOpen,
   Paintbrush
@@ -42,6 +43,7 @@ import {
   ROOF_COLOR_PRESETS,
   ACCENT_COLOR_PRESETS,
   FRAME_COLOR_PRESETS,
+  FACADE_STYLES,
   ColorPreset,
 } from '../utils/buildingModelUtils';
 import {
@@ -64,7 +66,7 @@ import {
   calculateSolarPosition,
 } from '../utils/solarCalculations';
 import { ThreeBuildingView } from './ThreeBuildingView';
-import { FloorPlan2DView } from './FloorPlan2DView';
+import { NanoBananaDrawingGenerator } from './NanoBananaDrawingGenerator';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 import { SolarAnalysisPanel } from './SolarAnalysisPanel';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
@@ -151,6 +153,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
     roof: false,
     roads: false,
     shafts: false,
+    entranceCore: false,
     contractorShare: false,
   });
 
@@ -296,7 +299,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       ? '3D İnteraktif Yapı Modeli'
                       : viewMode === 'solar'
                       ? 'Güneş Alma & Gölge Analizi Simülasyonu'
-                      : '2D Mimari Kat Planı'}
+                      : 'Nano Banana Mimari Çizim & Kat Planı'}
                   </h3>
                 </div>
 
@@ -332,12 +335,12 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                     onClick={() => setViewMode('2d')}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
                       viewMode === '2d'
-                        ? 'bg-indigo-600 text-white shadow-xs'
+                        ? 'bg-gradient-to-r from-amber-500 to-indigo-600 text-white shadow-xs font-bold'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                     }`}
                   >
-                    <Compass className="w-3.5 h-3.5" />
-                    <span>2D Çizim</span>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Nano Banana Çizim</span>
                   </button>
                 </div>
 
@@ -387,39 +390,29 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   </div>
                 )}
 
-                {/* Quick Solar & Rotation Controls (Moved inside 3D View for User Access) */}
-                <div className="flex items-center gap-2 p-1 rounded-xl border bg-amber-50/50 border-amber-200">
-                  <div className="flex items-center gap-1.5 px-2 py-1">
-                    <Sun className="w-3.5 h-3.5 text-amber-600" />
-                    <input
-                      type="range"
-                      min="6"
-                      max="20"
-                      step="0.5"
-                      value={solarTimeHour}
-                      onChange={(e) => setSolarTimeHour(parseFloat(e.target.value))}
-                      className="w-16 h-1 bg-amber-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
-                      title="Güneş Saati"
-                    />
-                  </div>
-                  <div className="w-px h-4 bg-amber-200" />
-                  <div className="flex items-center gap-1.5 px-2 py-1">
-                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                {/* Yüzey / Parsel Rotasyonu Kontrolü */}
+                <div className="flex items-center gap-2 p-1 px-2.5 rounded-xl border bg-slate-50 border-slate-200">
+                  <div className="flex items-center gap-1.5 py-0.5">
+                    <Compass className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">Yüzey Açısı:</span>
                     <input
                       type="range"
                       min="0"
-                      max="360"
+                      max="359"
                       step="1"
-                      value={solarBuildingRotation}
-                      onChange={(e) => setSolarBuildingRotation(parseInt(e.target.value))}
-                      className="w-16 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                      title="Yapı Rotasyonu"
+                      value={modelParams.surfaceRotation || 0}
+                      onChange={(e) => updateParams({ surfaceRotation: parseInt(e.target.value) || 0, buildingRotation: parseInt(e.target.value) || 0 })}
+                      className="w-20 sm:w-28 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                      title="Yüzey / Parsel Rotasyonu"
                     />
+                    <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md min-w-[36px] text-center">
+                      {modelParams.surfaceRotation || 0}°
+                    </span>
                   </div>
                 </div>
 
                 <span className={`text-[11px] font-mono font-semibold px-2.5 py-1 rounded-xl border ${subCardBg} ${textMuted}`}>
-                  Güneş Yönü & 360° Döndürme Aktif
+                  Yol İsimleri & Yüzey Rotasyonu Aktif
                 </span>
               </div>
             </div>
@@ -429,15 +422,10 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 <ThreeBuildingView
                   params={modelParams}
                   theme={theme}
-                  sunTimeHour={solarTimeHour}
-                  buildingRotation={solarBuildingRotation}
-                  sunAltitude={solarPos.altitude}
-                  sunAzimuth={solarPos.azimuth}
+                  surfaceRotation={modelParams.surfaceRotation || 0}
+                  buildingRotation={modelParams.surfaceRotation || 0}
                   onUpdateColors={(colors) => updateParams(colors)}
-                  onUpdateSunTimeHour={setSolarTimeHour}
-                  onUpdateBuildingRotation={setSolarBuildingRotation}
-                  isPlayingSun={isPlayingSolar}
-                  onToggleSunPlay={() => setIsPlayingSolar(!isPlayingSolar)}
+                  onUpdateBuildingRotation={(rot) => updateParams({ surfaceRotation: rot, buildingRotation: rot })}
                 />
 
                 {/* Bina Dış Görünümü & Çatı Renkleri Özelleştirme Paneli */}
@@ -488,6 +476,55 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                           <span>{combo.label}</span>
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Mimari Cephe Tasarım & Kaplama Tarzı Seçici */}
+                  <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                        <Building className="w-3.5 h-3.5 text-indigo-600" />
+                        Mimari Cephe Tasarım Tarzı (Dış Kaplama & Dokular)
+                      </span>
+                      <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                        {FACADE_STYLES.find(s => s.id === (modelParams.facadeStyle || 'modern'))?.title || 'Modern Açık Gri'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                      {FACADE_STYLES.map((style) => {
+                        const isSelected = (modelParams.facadeStyle || 'modern') === style.id;
+                        return (
+                          <button
+                            key={style.id}
+                            type="button"
+                            onClick={() => {
+                              updateParams({
+                                facadeStyle: style.id,
+                                wallColor: style.wallColorHex,
+                                accentColor: style.accentColorHex,
+                              });
+                            }}
+                            className={`p-2 rounded-xl text-left border transition-all flex flex-col justify-between gap-1 text-xs relative ${
+                              isSelected
+                                ? 'bg-gradient-to-br from-indigo-50 to-amber-50/40 border-indigo-600 ring-2 ring-indigo-500/30 shadow-xs'
+                                : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-[11px] text-slate-900 truncate">{style.title}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                            </div>
+                            <span className="text-[9px] text-slate-500 line-clamp-2 leading-tight">
+                              {style.subtitle}
+                            </span>
+                            <div className="flex items-center gap-1 mt-1 pt-1 border-t border-slate-200/60">
+                              <span className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: style.wallColorHex }} title="Duvar Rengi" />
+                              <span className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: style.accentColorHex }} title="Vurgu Rengi" />
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -729,7 +766,11 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
             )}
 
             {viewMode === '2d' && (
-              <FloorPlan2DView params={modelParams} theme={theme} />
+              <NanoBananaDrawingGenerator
+                params={modelParams}
+                theme={theme}
+                onUpdateParams={updateParams}
+              />
             )}
           </div>
         </div>
@@ -1764,6 +1805,35 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       </div>
                     </div>
 
+                    {/* Kattaki Daire Dağılım Stratejisi (Kat Alanı Bölüşümü) */}
+                    <div className="space-y-1.5 p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-indigo-950 uppercase">
+                          Kat Alanı & Daire Dağılımı:
+                        </label>
+                        <span className="text-[10px] font-semibold text-indigo-600 bg-white px-1.5 py-0.5 rounded border border-indigo-200">
+                          {modelParams.flatsPerFloor === 4 ? 'Katta 4 Daire' : `${modelParams.flatsPerFloor || 2} Daire/Kat`}
+                        </span>
+                      </div>
+                      <select
+                        value={modelParams.flatDistributionMode || 'equal'}
+                        onChange={(e) => updateParams({ flatDistributionMode: e.target.value as any })}
+                        className={`w-full text-xs font-bold px-2.5 py-2 rounded-lg border border-indigo-200 focus:outline-hidden bg-white text-slate-800 shadow-2xs`}
+                      >
+                        <option value="equal">Eşit Dağılım (%25 x 4 Daire - Eşit Kat Alanı)</option>
+                        <option value="front_large">Ön Cephe Daireleri Daha Büyük (%30 Ön 3+1 / %20 Arka 2+1)</option>
+                        <option value="asymmetric_master">1 Master Köşe Daire (%40) + 3 Daire (%20'şer)</option>
+                        <option value="custom_proportions">Özel Metrekare Dağılımı (Mülkiyet Tablosu)</option>
+                      </select>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        {modelParams.flatDistributionMode === 'front_large'
+                          ? 'Caddeye / ön cepheye bakan daireler geniş 3+1 (ayrı mutfak, ebeveyn banyolu), arka daireler kompakt 2+1 planlanır.'
+                          : modelParams.flatDistributionMode === 'asymmetric_master'
+                          ? '1 adet geniş manzaralı köşe daire (%40 alan), diğer daireler standart (%20) pay alır.'
+                          : 'Kat alanı tüm dairelere eşit pay edilir. Her bağımsız bölüm eşit m² ve simetrik oda planına sahip olur.'}
+                      </p>
+                    </div>
+
                     {/* Bodrum Kat Sayısı */}
                     <div className="space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 uppercase">Bodrum Kat Sayısı:</label>
@@ -2005,6 +2075,345 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* CARD 2.8: ENTRANCE, LOBBY & STAIRCASE LANDING (BİNA GİRİŞİ, GİRİŞ HOLÜ & SAHANLIKLAR) */}
+            <div className={`border rounded-3xl overflow-hidden ${cardBg}`}>
+              <button
+                type="button"
+                onClick={() => toggleSection('entranceCore')}
+                className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <DoorOpen className="w-4 h-4 text-emerald-600" />
+                  <span className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
+                    2.8 Bina Girişi, Hol & Sahanlık
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <span>Giriş & Çekirdek Ölçüleri</span>
+                  {collapsedSections.entranceCore ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </div>
+              </button>
+
+              {!collapsedSections.entranceCore && (
+                <div className="p-5 pt-0 space-y-5 border-t border-slate-100">
+                  {/* Subsection 1: Bina Giriş Kapısı ve Konumu */}
+                  <div className="space-y-3 pt-3">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                      <DoorOpen className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Bina Ana Girişi & Cephe Konumu</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Giriş Cephesi Seçimi */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-slate-600">Giriş Cephesi</label>
+                        <select
+                          value={modelParams.mainEntranceFacadeIndex ?? 0}
+                          onChange={(e) => updateParams({ mainEntranceFacadeIndex: parseInt(e.target.value) })}
+                          className={`w-full p-2.5 rounded-xl border text-xs ${inputBg}`}
+                        >
+                          <option value={0}>Ön Cephe (Güney / Cadde Girişi)</option>
+                          <option value={1}>Sağ Cephe (Doğu)</option>
+                          <option value={2}>Arka Cephe (Kuzey / Bahçe Girişi)</option>
+                          <option value={3}>Sol Cephe (Batı)</option>
+                        </select>
+                      </div>
+
+                      {/* Girişin Cephedeki Konumu / Kaydırma */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Cephedeki Konumu (Ofset)</span>
+                          <span className="font-mono text-emerald-700 font-bold">
+                            {(modelParams.entranceOffset ?? 0) === 0 ? 'Merkez (0.0 m)' : `${(modelParams.entranceOffset ?? 0) > 0 ? '+' : ''}${(modelParams.entranceOffset ?? 0).toFixed(2)} m`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min="-5"
+                            max="5"
+                            step="0.2"
+                            value={modelParams.entranceOffset ?? 0}
+                            onChange={(e) => updateParams({ entranceOffset: parseFloat(e.target.value) })}
+                            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                          />
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={modelParams.entranceOffset ?? 0}
+                            onChange={(e) => updateParams({ entranceOffset: parseFloat(e.target.value) || 0 })}
+                            className={`w-16 p-1.5 rounded-lg border text-xs text-center font-mono ${inputBg}`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Giriş Kapı Genişliği */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Kapı Genişliği</span>
+                          <span className="font-mono text-emerald-700 font-bold">
+                            {(modelParams.entranceDoorWidth ?? 2.2).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="1.2"
+                          max="4.5"
+                          step="0.1"
+                          value={modelParams.entranceDoorWidth ?? 2.2}
+                          onChange={(e) => updateParams({ entranceDoorWidth: parseFloat(e.target.value) || 2.2 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+
+                      {/* Giriş Kapı Yüksekliği */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Kapı Yüksekliği</span>
+                          <span className="font-mono text-emerald-700 font-bold">
+                            {(modelParams.entranceDoorHeight ?? 2.4).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="2.1"
+                          max="3.5"
+                          step="0.05"
+                          value={modelParams.entranceDoorHeight ?? 2.4}
+                          onChange={(e) => updateParams({ entranceDoorHeight: parseFloat(e.target.value) || 2.4 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+
+                      {/* Giriş Saçağı / Markiz Derinliği */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Giriş Saçağı / Markiz</span>
+                          <span className="font-mono text-emerald-700 font-bold">
+                            {(modelParams.entranceCanopyDepth ?? 1.2).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="0.5"
+                          max="3.0"
+                          step="0.1"
+                          value={modelParams.entranceCanopyDepth ?? 1.2}
+                          onChange={(e) => updateParams({ entranceCanopyDepth: parseFloat(e.target.value) || 1.2 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+
+                      {/* Giriş Basamak Sayısı */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Giriş Basamak Sayısı</span>
+                          <span className="font-mono text-emerald-700 font-bold">
+                            {modelParams.entranceStepsCount ?? 3} Adet
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          max="8"
+                          step="1"
+                          value={modelParams.entranceStepsCount ?? 3}
+                          onChange={(e) => updateParams({ entranceStepsCount: parseInt(e.target.value) || 0 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subsection 2: Giriş Holü & Rüzgarlık (Lobi) */}
+                  <div className="space-y-3 pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                      <LayoutGrid className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Giriş Holü & Rüzgarlık (Lobi Boyutları)</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Giriş Holü Genişliği</span>
+                          <span className="font-mono text-indigo-700 font-bold">
+                            {(modelParams.entranceLobbyWidth ?? 3.2).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="1.8"
+                          max="8.0"
+                          step="0.2"
+                          value={modelParams.entranceLobbyWidth ?? 3.2}
+                          onChange={(e) => updateParams({ entranceLobbyWidth: parseFloat(e.target.value) || 3.2 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Giriş Holü Derinliği</span>
+                          <span className="font-mono text-indigo-700 font-bold">
+                            {(modelParams.entranceLobbyDepth ?? 4.0).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="2.0"
+                          max="10.0"
+                          step="0.2"
+                          value={modelParams.entranceLobbyDepth ?? 4.0}
+                          onChange={(e) => updateParams({ entranceLobbyDepth: parseFloat(e.target.value) || 4.0 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subsection 3: Merdiven Sahanlığı & Çekirdek */}
+                  <div className="space-y-3 pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                      <Layers className="w-3.5 h-3.5 text-sky-600" />
+                      <span>Merdiven Kovası & Kat Sahanlığı</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Sahanlık Genişliği</span>
+                          <span className="font-mono text-sky-700 font-bold">
+                            {(modelParams.staircaseLandingWidth ?? 2.6).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="1.5"
+                          max="5.0"
+                          step="0.1"
+                          value={modelParams.staircaseLandingWidth ?? 2.6}
+                          onChange={(e) => updateParams({ staircaseLandingWidth: parseFloat(e.target.value) || 2.6 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Sahanlık Derinliği</span>
+                          <span className="font-mono text-sky-700 font-bold">
+                            {(modelParams.staircaseLandingDepth ?? 1.4).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="1.0"
+                          max="3.0"
+                          step="0.1"
+                          value={modelParams.staircaseLandingDepth ?? 1.4}
+                          onChange={(e) => updateParams({ staircaseLandingDepth: parseFloat(e.target.value) || 1.4 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Merdiven Kovası Genişliği</span>
+                          <span className="font-mono text-sky-700 font-bold">
+                            {(modelParams.stairWidth ?? 2.6).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="1.8"
+                          max="5.0"
+                          step="0.1"
+                          value={modelParams.stairWidth ?? 2.6}
+                          onChange={(e) => updateParams({ stairWidth: parseFloat(e.target.value) || 2.6 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Merdiven Kovası Derinliği</span>
+                          <span className="font-mono text-sky-700 font-bold">
+                            {(modelParams.stairDepth ?? 4.8).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="3.0"
+                          max="8.0"
+                          step="0.1"
+                          value={modelParams.stairDepth ?? 4.8}
+                          onChange={(e) => updateParams({ stairDepth: parseFloat(e.target.value) || 4.8 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subsection 4: Asansör Kuyusu & Sayısı */}
+                  <div className="space-y-3 pt-3 border-t border-slate-100">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Asansör Kuyusu Boyutları & Sayısı</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-slate-600">Asansör Adedi</label>
+                        <select
+                          value={modelParams.elevatorCount ?? 1}
+                          onChange={(e) => updateParams({ elevatorCount: parseInt(e.target.value) || 1 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs ${inputBg}`}
+                        >
+                          <option value={1}>1 Asansör</option>
+                          <option value={2}>2 Asansör (Çiftli Grup)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Asansör Genişliği</span>
+                          <span className="font-mono text-purple-700 font-bold">
+                            {(modelParams.elevatorWidth ?? 1.8).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="1.2"
+                          max="3.0"
+                          step="0.1"
+                          value={modelParams.elevatorWidth ?? 1.8}
+                          onChange={(e) => updateParams({ elevatorWidth: parseFloat(e.target.value) || 1.8 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-semibold text-slate-600">Asansör Derinliği</span>
+                          <span className="font-mono text-purple-700 font-bold">
+                            {(modelParams.elevatorDepth ?? 2.0).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="1.2"
+                          max="3.0"
+                          step="0.1"
+                          value={modelParams.elevatorDepth ?? 2.0}
+                          onChange={(e) => updateParams({ elevatorDepth: parseFloat(e.target.value) || 2.0 })}
+                          className={`w-full p-2.5 rounded-xl border text-xs font-mono ${inputBg}`}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

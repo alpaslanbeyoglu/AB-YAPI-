@@ -30,10 +30,14 @@ import {
   Pause,
   MapPin,
   Globe,
+  Sunset,
+  Sunrise,
+  Moon,
 } from 'lucide-react';
-import { BuildingModelParams, CameraPresetType, FacadeStyleType } from '../types';
+import { BuildingModelParams, CameraPresetType, FacadeStyleType, LightingPresetType } from '../types';
 import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon } from '../utils/footprintUtils';
 import { WALL_COLOR_PRESETS, ROOF_COLOR_PRESETS, ACCENT_COLOR_PRESETS, FRAME_COLOR_PRESETS } from '../utils/buildingModelUtils';
+import { PhotorealisticRenderModal } from './PhotorealisticRenderModal';
 
 // Safe geometry constructors to completely prevent any NaN/null/zero bounding sphere errors in Three.js
 function safeBox(w: number, h: number, d: number, ws: number = 1, hs: number = 1, ds: number = 1): THREE.BoxGeometry {
@@ -514,6 +518,7 @@ interface ThreeBuildingViewProps {
   sunAzimuth?: number;
   sunTimeHour?: number;
   buildingRotation?: number;
+  surfaceRotation?: number;
   isSolarHeatmap?: boolean;
   forcedCameraPreset?: CameraPresetType;
   hideControls?: boolean;
@@ -533,6 +538,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   sunAzimuth = 180,
   sunTimeHour = 12.0,
   buildingRotation = 0,
+  surfaceRotation,
   isSolarHeatmap = false,
   forcedCameraPreset,
   hideControls = false,
@@ -555,6 +561,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const sunSphereMeshRef = useRef<THREE.Mesh | null>(null);
   const compassGroupRef = useRef<THREE.Group | null>(null);
   const roadsGroupRef = useRef<THREE.Group | null>(null);
+  const skyMatRef = useRef<THREE.MeshBasicMaterial | null>(null);
 
   // View settings
   const [explodeRatio, setExplodeRatio] = useState<number>(0);
@@ -562,16 +569,41 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [showDebugOverlay, setShowDebugOverlay] = useState<boolean>(params.showDebugOverlay3D || false);
   const [selectedFloor, setSelectedFloor] = useState<number | 'all' | 'basement'>('all');
   const [cameraPreset, setCameraPreset] = useState<CameraPresetType>(forcedCameraPreset || 'iso');
-  const [showStreetNames, setShowStreetNames] = useState<boolean>(false);
+  const [showStreetNames, setShowStreetNames] = useState<boolean>(true); // Show road names by default in 3D
   const [buildingColor, setBuildingColor] = useState<string>('');
   const [isExportingUSDZ, setIsExportingUSDZ] = useState<boolean>(false);
   const [isExportingGLTF, setIsExportingGLTF] = useState<boolean>(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
   const [isColorQuickPickerOpen, setIsColorQuickPickerOpen] = useState<boolean>(false);
-  const [isAutoRotate, setIsAutoRotate] = useState<boolean>(true); // Cinematic tour mode
+  const [isAutoRotate, setIsAutoRotate] = useState<boolean>(false); // Auto-rotation OFF by default
+  const [isPhotorealisticModalOpen, setIsPhotorealisticModalOpen] = useState<boolean>(false);
+  const [activeLightingPreset, setActiveLightingPreset] = useState<LightingPresetType>('sunset');
+
+  const effectiveSurfaceRotation = surfaceRotation !== undefined ? surfaceRotation : (params.surfaceRotation !== undefined ? params.surfaceRotation : (buildingRotation || params.buildingRotation || 0));
 
   const isGray = theme === 'gray';
   const isLight = !isGray;
+
+  // Helper to grab live high-res canvas image for renders
+  const getCanvasDataUrl = useCallback((): string | null => {
+    if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return null;
+    rendererRef.current.render(sceneRef.current, cameraRef.current);
+    return rendererRef.current.domElement.toDataURL('image/png');
+  }, []);
+
+  // Lighting preset switcher
+  const handleApplyLightingPreset = useCallback((preset: LightingPresetType) => {
+    setActiveLightingPreset(preset);
+    if (preset === 'sunset') {
+      onUpdateSunTimeHour?.(19.2);
+    } else if (preset === 'midday') {
+      onUpdateSunTimeHour?.(12.5);
+    } else if (preset === 'sunrise') {
+      onUpdateSunTimeHour?.(7.2);
+    } else if (preset === 'blue_hour') {
+      onUpdateSunTimeHour?.(20.8);
+    }
+  }, [onUpdateSunTimeHour]);
 
   // Helper to parse hex colors
   const parseHexColor = (hex?: string, fallback: number = 0xf1f5f9): number => {
@@ -706,6 +738,70 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const isXRay = interiorCutMode === 'xray';
     const isCutaway = interiorCutMode === 'cutaway';
 
+    const isConcreteFacade =
+      params?.facadeStyle === 'concrete_brutalist' ||
+      (params?.wallColor && ['#94a3b8', '#8b9bb4', '#64748b', '#cbd5e1'].includes(params.wallColor.toLowerCase()));
+
+    // Procedural tactile exposed concrete texture (Brüt Beton & Derz Çizgileri)
+    const createConcreteTexture = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Base cement grey tint
+      const baseHex = params.wallColor || '#94a3b8';
+      ctx.fillStyle = baseHex;
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Fine aggregate cement noise speckles
+      for (let i = 0; i < 15000; i++) {
+        const isDark = Math.random() > 0.45;
+        const alpha = Math.random() * 0.08 + 0.02;
+        ctx.fillStyle = isDark ? `rgba(15, 23, 42, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, Math.random() * 2 + 1, Math.random() * 2 + 1);
+      }
+
+      // Architectural panel grooves (derz çizgileri)
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.28)';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(3, 3, 506, 506);
+      ctx.beginPath();
+      ctx.moveTo(256, 0);
+      ctx.lineTo(256, 512);
+      ctx.moveTo(0, 256);
+      ctx.lineTo(512, 256);
+      ctx.stroke();
+
+      // Tie-rod circular formwork holes (kalıp delikleri / brüt beton detayları)
+      const tiePoints = [
+        [35, 35], [221, 35], [291, 35], [477, 35],
+        [35, 221], [221, 221], [291, 221], [477, 221],
+        [35, 291], [221, 291], [291, 291], [477, 291],
+        [35, 477], [221, 477], [291, 477], [477, 477],
+      ];
+      tiePoints.forEach(([tx, ty]) => {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+        ctx.beginPath();
+        ctx.arc(tx, ty, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.beginPath();
+        ctx.arc(tx, ty, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.arc(tx - 1, ty - 1, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(1.5, 1.5);
+      return tex;
+    };
+
     // Materials
     const slabMaterial = new THREE.MeshStandardMaterial({
       color: colors.slab,
@@ -715,11 +811,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       side: THREE.DoubleSide,
     });
 
+    const concreteTex = isConcreteFacade && !isXRay ? createConcreteTexture() : null;
+
     // Exterior Wall Material (Transparent in X-Ray mode so rooms are visible!)
     const wallMaterial = new THREE.MeshStandardMaterial({
       color: isXRay ? (isLight ? 0x94a3b8 : 0x38bdf8) : colors.wall,
-      roughness: 0.6,
-      metalness: 0.1,
+      roughness: isConcreteFacade ? 0.75 : 0.6,
+      metalness: isConcreteFacade ? 0.05 : 0.1,
+      map: concreteTex,
       wireframe: isWireframe,
       transparent: isXRay,
       opacity: isXRay ? 0.18 : 1.0,
@@ -1384,20 +1483,21 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const mainEntranceIdx = params.mainEntranceFacadeIndex || 0;
           
           const lobbyFloorMat = new THREE.MeshStandardMaterial({
-            color: 0xf1f5f9,
+            color: 0xf8fafc,
             roughness: 0.1,
-            metalness: 0.1,
+            metalness: 0.15,
           });
 
-          // Width of the lobby path
-          const lobbyW = 3.0;
+          // Width & depth of entrance lobby / vestibule from user params
+          const lobbyW = Math.max(1.8, Math.min(W * 0.7, params.entranceLobbyWidth || 3.2));
+          const lobbyDepthReq = Math.max(2.0, Math.min(D * 0.7, params.entranceLobbyDepth || 4.0));
 
           if (mainEntranceIdx === 0) {
-            // FRONT FACADE ENTRANCE
+            // FRONT FACADE ENTRANCE (+Z)
             const pathStartZ = safeCoreCenterZ + safeSD / 2;
             const pathEndZ = floorCenterZ + D / 2;
-            const pathLength = Math.max(1.0, pathEndZ - pathStartZ);
-            const pathCenterZ = pathStartZ + pathLength / 2;
+            const pathLength = Math.max(lobbyDepthReq, pathEndZ - pathStartZ);
+            const pathCenterZ = (pathStartZ + pathEndZ) / 2;
 
             if (!isCustomPoly) {
               const lobbyFloor = new THREE.Mesh(safeBox(lobbyW, 0.02, pathLength), lobbyFloorMat);
@@ -1408,6 +1508,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
             createWallWithDoor(pathLength, false, safeCoreCenterX - lobbyW / 2, pathCenterZ, true, 0);
             createWallWithDoor(pathLength, false, safeCoreCenterX + lobbyW / 2, pathCenterZ, true, 0);
+
+            // Windbreak / Vestibule glass partition with double swinging door
+            const windbreakMesh = new THREE.Mesh(safeBox(lobbyW, roomHeight * 0.9, 0.08), glassMaterial);
+            windbreakMesh.position.set(safeCoreCenterX, midY, pathCenterZ + pathLength * 0.25);
+            floorGroup.add(windbreakMesh);
 
             // Add mailboxes (posta kutuları)
             const mbGeo = safeBox(0.2, 1.2, 1.8);
@@ -1416,11 +1521,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             floorGroup.add(mbMesh);
 
           } else if (mainEntranceIdx === 2) {
-            // BACK FACADE ENTRANCE
+            // BACK FACADE ENTRANCE (-Z)
             const pathStartZ = floorCenterZ - D / 2;
             const pathEndZ = safeCoreCenterZ - safeSD / 2;
-            const pathLength = Math.max(1.0, pathEndZ - pathStartZ);
-            const pathCenterZ = pathStartZ + pathLength / 2;
+            const pathLength = Math.max(lobbyDepthReq, pathEndZ - pathStartZ);
+            const pathCenterZ = (pathStartZ + pathEndZ) / 2;
 
             if (!isCustomPoly) {
               const lobbyFloor = new THREE.Mesh(safeBox(lobbyW, 0.02, pathLength), lobbyFloorMat);
@@ -1432,6 +1537,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             createWallWithDoor(pathLength, false, safeCoreCenterX - lobbyW / 2, pathCenterZ, true, 0);
             createWallWithDoor(pathLength, false, safeCoreCenterX + lobbyW / 2, pathCenterZ, true, 0);
 
+            // Windbreak glass partition
+            const windbreakMesh = new THREE.Mesh(safeBox(lobbyW, roomHeight * 0.9, 0.08), glassMaterial);
+            windbreakMesh.position.set(safeCoreCenterX, midY, pathCenterZ - pathLength * 0.25);
+            floorGroup.add(windbreakMesh);
+
             // Add mailboxes
             const mbGeo = safeBox(0.2, 1.2, 1.8);
             const mbMesh = new THREE.Mesh(mbGeo, woodFurnitureMat);
@@ -1439,11 +1549,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             floorGroup.add(mbMesh);
 
           } else if (mainEntranceIdx === 1) {
-            // RIGHT FACADE ENTRANCE
+            // RIGHT FACADE ENTRANCE (+X)
             const pathStartX = safeCoreCenterX + safeSW / 2 + safeEW;
             const pathEndX = W / 2;
-            const pathLength = Math.max(1.0, pathEndX - pathStartX);
-            const pathCenterX = pathStartX + pathLength / 2;
+            const pathLength = Math.max(lobbyDepthReq, pathEndX - pathStartX);
+            const pathCenterX = (pathStartX + pathEndX) / 2;
 
             if (!isCustomPoly) {
               const lobbyFloor = new THREE.Mesh(safeBox(pathLength, 0.02, lobbyW), lobbyFloorMat);
@@ -1456,11 +1566,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             createWallWithDoor(pathLength, true, pathCenterX, safeCoreCenterZ + lobbyW / 2, true, 0);
 
           } else if (mainEntranceIdx === 3) {
-            // LEFT FACADE ENTRANCE
+            // LEFT FACADE ENTRANCE (-X)
             const pathStartX = -W / 2;
             const pathEndX = safeCoreCenterX - safeSW / 2;
-            const pathLength = Math.max(1.0, pathEndX - pathStartX);
-            const pathCenterX = pathStartX + pathLength / 2;
+            const pathLength = Math.max(lobbyDepthReq, pathEndX - pathStartX);
+            const pathCenterX = (pathStartX + pathEndX) / 2;
 
             if (!isCustomPoly) {
               const lobbyFloor = new THREE.Mesh(safeBox(pathLength, 0.02, lobbyW), lobbyFloorMat);
@@ -1741,6 +1851,108 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             floorGroup.add(dStepMesh);
           }
         }
+
+        // ================= 5. CENTRAL BUILDING CORE (ÇEKİRDEK: MERDİVEN KOVASI, SAHANLIKLAR & ASANSÖR) =================
+        const coreGroup = new THREE.Group();
+        coreGroup.position.set(safeCoreCenterX, 0, safeCoreCenterZ);
+
+        // Core Materials
+        const stairConcreteMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6, metalness: 0.1 });
+        const landingMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.2 });
+        const coreShearWallMat = new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.9 });
+        const elevatorDoorMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.85, roughness: 0.2 });
+        const handrailMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.1 });
+
+        const coreStairW = Math.max(1.8, Math.min(4.5, params.stairWidth || 2.6));
+        const coreStairD = Math.max(3.2, Math.min(7.0, params.stairDepth || 4.8));
+        const landingW = Math.max(1.5, Math.min(coreStairW, params.staircaseLandingWidth || 2.6));
+        const landingD = Math.max(1.0, Math.min(2.5, params.staircaseLandingDepth || 1.4));
+
+        const flightWidth = (landingW - 0.2) / 2;
+        const flightSteps = 8;
+        const halfHeight = roomHeight / 2;
+        const stepRise = halfHeight / flightSteps;
+        const flightRun = Math.max(1.2, coreStairD - landingD * 2);
+        const stepTread = flightRun / flightSteps;
+
+        // --- Intermediate Landing (Ara Sahanlık) ---
+        const intermediateLandingY = baseY + slabThickness + halfHeight;
+        const midLandingMesh = new THREE.Mesh(safeBox(landingW, 0.15, landingD), landingMat);
+        midLandingMesh.position.set(0, intermediateLandingY - 0.075, -coreStairD / 2 + landingD / 2);
+        midLandingMesh.castShadow = true;
+        midLandingMesh.receiveShadow = true;
+        coreGroup.add(midLandingMesh);
+
+        // --- Floor Landing (Kat Sahanlığı / Hol Çıkışı) ---
+        const floorLandingMesh = new THREE.Mesh(safeBox(landingW, 0.15, landingD), landingMat);
+        floorLandingMesh.position.set(0, baseY + slabThickness + 0.075, coreStairD / 2 - landingD / 2);
+        floorLandingMesh.castShadow = true;
+        floorLandingMesh.receiveShadow = true;
+        coreGroup.add(floorLandingMesh);
+
+        // --- Flight 1: Ascending steps (Gidiş Kolu) ---
+        for (let s = 0; s < flightSteps; s++) {
+          const stepMesh = new THREE.Mesh(safeBox(flightWidth, stepRise * 0.95, stepTread), stairConcreteMat);
+          stepMesh.position.set(
+            -landingW / 2 + flightWidth / 2,
+            baseY + slabThickness + (s + 0.5) * stepRise,
+            coreStairD / 2 - landingD - (s + 0.5) * stepTread
+          );
+          stepMesh.castShadow = true;
+          stepMesh.receiveShadow = true;
+          coreGroup.add(stepMesh);
+        }
+
+        // --- Flight 2: Returning steps to next floor (Dönüş Kolu) ---
+        for (let s = 0; s < flightSteps; s++) {
+          const stepMesh = new THREE.Mesh(safeBox(flightWidth, stepRise * 0.95, stepTread), stairConcreteMat);
+          stepMesh.position.set(
+            landingW / 2 - flightWidth / 2,
+            intermediateLandingY + (s + 0.5) * stepRise,
+            -coreStairD / 2 + landingD + (s + 0.5) * stepTread
+          );
+          stepMesh.castShadow = true;
+          stepMesh.receiveShadow = true;
+          coreGroup.add(stepMesh);
+        }
+
+        // --- Stair Handrails / Railings (Merdiven ve Sahanlık Korkulukları) ---
+        const railingGeo = safeBox(0.04, 0.9, coreStairD);
+        const railingMesh = new THREE.Mesh(railingGeo, handrailMat);
+        railingMesh.position.set(0, baseY + slabThickness + roomHeight * 0.5, 0);
+        coreGroup.add(railingMesh);
+
+        // --- Elevator Shaft & Doors (Asansör Boşluğu ve Otomatik Kat Kapısı) ---
+        const elevW = Math.max(1.2, Math.min(3.0, params.elevatorWidth || 1.8));
+        const elevD = Math.max(1.2, Math.min(3.0, params.elevatorDepth || 2.0));
+        const elevCount = Math.max(1, Math.min(2, params.elevatorCount || 1));
+
+        for (let e = 0; e < elevCount; e++) {
+          const eOffset = elevCount === 1 ? 0 : (e === 0 ? -elevW * 0.6 : elevW * 0.6);
+          const elevPosX = safeSW / 2 + elevW / 2 + 0.3 + eOffset;
+          const elevPosZ = 0;
+
+          // Elevator Shaft Enclosure (Asansör Kuyusu Perdesi)
+          const shaftWall = new THREE.Mesh(safeBox(elevW + 0.2, roomHeight, elevD + 0.2), coreShearWallMat);
+          shaftWall.position.set(elevPosX, midY, elevPosZ);
+          shaftWall.castShadow = true;
+          coreGroup.add(shaftWall);
+
+          // Telescopic Stainless Steel Sliding Door (Teleskopik Paslanmaz Kat Kapısı)
+          const doorMesh = new THREE.Mesh(safeBox(elevW * 0.7, 2.1, 0.08), elevatorDoorMat);
+          doorMesh.position.set(elevPosX, baseY + slabThickness + 1.05, elevPosZ + elevD / 2 + 0.06);
+          coreGroup.add(doorMesh);
+
+          // Digital Call Button & Indicator (Kat Göstergesi)
+          const indicatorMesh = new THREE.Mesh(
+            safeBox(0.2, 0.35, 0.04),
+            new THREE.MeshBasicMaterial({ color: 0x0284c7 })
+          );
+          indicatorMesh.position.set(elevPosX + elevW * 0.45, baseY + slabThickness + 1.3, elevPosZ + elevD / 2 + 0.08);
+          coreGroup.add(indicatorMesh);
+        }
+
+        floorGroup.add(coreGroup);
       }
 
       // 6. EXTERIOR FAÇADE WALLS & WINDOWS
@@ -2060,43 +2272,100 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const localW = wDef.length;
           
           if (isGroundFloor && isEntranceFacade) {
-            const doorW = 2.4;
-            const doorH = Math.min(2.4, roomHeight - 0.2);
-            const sidePiersW = (localW - doorW) / 2;
+            const doorW = Math.max(1.2, Math.min(localW - 0.6, params.entranceDoorWidth || 2.2));
+            const doorH = Math.min(params.entranceDoorHeight || 2.4, roomHeight - 0.2);
+            const userOffset = params.entranceOffset || 0;
+            const maxOffset = Math.max(0, (localW - doorW - 0.6) / 2);
+            const doorOffsetX = Math.max(-maxOffset, Math.min(maxOffset, userOffset));
 
-            for (const sign of [-1, 1]) {
-              const pMesh = new THREE.Mesh(safeBox(sidePiersW, roomHeight, wallThick), currentMat);
-              pMesh.position.set(sign * (doorW / 2 + sidePiersW / 2), midY, 0);
-              pMesh.castShadow = !isXRay; pMesh.receiveShadow = true;
-              wallGroup.add(pMesh);
-            }
+            const leftPierW = Math.max(0.2, (localW / 2 + doorOffsetX - doorW / 2));
+            const rightPierW = Math.max(0.2, (localW / 2 - doorOffsetX - doorW / 2));
+
+            // Left pier
+            const leftPier = new THREE.Mesh(safeBox(leftPierW, roomHeight, wallThick), currentMat);
+            leftPier.position.set(-localW / 2 + leftPierW / 2, midY, 0);
+            leftPier.castShadow = !isXRay; leftPier.receiveShadow = true;
+            wallGroup.add(leftPier);
+
+            // Right pier
+            const rightPier = new THREE.Mesh(safeBox(rightPierW, roomHeight, wallThick), currentMat);
+            rightPier.position.set(localW / 2 - rightPierW / 2, midY, 0);
+            rightPier.castShadow = !isXRay; rightPier.receiveShadow = true;
+            wallGroup.add(rightPier);
             
+            // Lintel above entrance
             const lintelH = roomHeight - doorH;
-            if (lintelH > 0.1) {
+            if (lintelH > 0.05) {
               const lintelMesh = new THREE.Mesh(safeBox(doorW, lintelH, wallThick), wallMaterial);
-              lintelMesh.position.set(0, baseY + slabThickness + doorH + lintelH / 2, 0);
+              lintelMesh.position.set(doorOffsetX, baseY + slabThickness + doorH + lintelH / 2, 0);
               wallGroup.add(lintelMesh);
             }
 
-            // Recess the door and framing slightly inwards so it connects inwardly with the wall (içten birleşik)
             const recessZ = -wallThick / 4; 
 
+            // Double Leaf Aluminum / Steel Entrance Door Frame
             const doorFrameMesh = new THREE.Mesh(safeBox(doorW, doorH, 0.12), frameMaterial);
-            doorFrameMesh.position.set(0, baseY + slabThickness + doorH / 2, recessZ);
+            doorFrameMesh.position.set(doorOffsetX, baseY + slabThickness + doorH / 2, recessZ);
             wallGroup.add(doorFrameMesh);
 
+            // Entrance Door Safety Glass
             const doorGlass = new THREE.Mesh(safeBox(doorW - 0.2, doorH - 0.2, 0.06), glassMaterial);
             doorGlass.position.copy(doorFrameMesh.position);
             wallGroup.add(doorGlass);
 
-            // Keep the canopy and signage inside/flush with the wall opening face, preventing any outer protrusion
-            const canopyMesh = new THREE.Mesh(safeBox(doorW, 0.05, 0.1), frameMaterial); // slightly deeper but recessed!
-            canopyMesh.position.set(0, baseY + slabThickness + doorH + 0.025, -wallThick / 2 + 0.05);
+            // Vertical Center Mullion for Double Leaf Entrance Door
+            const centerMullion = new THREE.Mesh(safeBox(0.06, doorH - 0.1, 0.1), frameMaterial);
+            centerMullion.position.copy(doorFrameMesh.position);
+            wallGroup.add(centerMullion);
+
+            // Stainless Steel Door Pull Handles (Krom Giriş Kapısı Kolları)
+            const handleMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.1 });
+            for (const hSign of [-0.08, 0.08]) {
+              const handleMesh = new THREE.Mesh(safeCylinder(0.02, 0.02, 0.85, 8), handleMat);
+              handleMesh.position.set(doorOffsetX + hSign, baseY + slabThickness + 1.1, recessZ + 0.08);
+              wallGroup.add(handleMesh);
+            }
+
+            // Modern Entrance Canopy / Marquee (Giriş Saçağı / Markiz)
+            const canopyDepth = Math.max(0.6, Math.min(2.5, params.entranceCanopyDepth || 1.2));
+            const canopyW = doorW + 0.6;
+            const canopyMesh = new THREE.Mesh(safeBox(canopyW, 0.08, canopyDepth), frameMaterial);
+            canopyMesh.position.set(doorOffsetX, baseY + slabThickness + doorH + 0.06, canopyDepth / 2);
             canopyMesh.castShadow = true;
             wallGroup.add(canopyMesh);
 
-            const signMesh = new THREE.Mesh(safeBox(doorW * 0.8, 0.3, 0.02), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-            signMesh.position.set(0, baseY + slabThickness + doorH + 0.35, -wallThick / 2 + 0.01);
+            // Canopy Underside LED Spotlight Strip
+            const ledStrip = new THREE.Mesh(
+              safeBox(canopyW * 0.8, 0.02, 0.1),
+              new THREE.MeshBasicMaterial({ color: 0xffedd5 })
+            );
+            ledStrip.position.set(doorOffsetX, baseY + slabThickness + doorH + 0.015, canopyDepth * 0.6);
+            wallGroup.add(ledStrip);
+
+            // Entrance Steps / Landing (Giriş Basamakları & Sahanlığı)
+            const stepsCount = Math.max(0, Math.min(8, params.entranceStepsCount || 3));
+            if (stepsCount > 0) {
+              const stepH = 0.16;
+              const stepTreadD = 0.32;
+              const stepMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7, metalness: 0.1 });
+              
+              for (let s = 0; s < stepsCount; s++) {
+                const curStepW = doorW + 0.5 + (stepsCount - s) * 0.15;
+                const curStepD = (stepsCount - s) * stepTreadD;
+                const stepMesh = new THREE.Mesh(safeBox(curStepW, stepH, curStepD), stepMat);
+                stepMesh.position.set(
+                  doorOffsetX,
+                  baseY + slabThickness - (s + 0.5) * stepH,
+                  curStepD / 2
+                );
+                stepMesh.receiveShadow = true;
+                wallGroup.add(stepMesh);
+              }
+            }
+
+            // Illuminated Building Name & Address Plate (Işıklı Bina Giriş Tabelası)
+            const signMesh = new THREE.Mesh(safeBox(doorW * 0.85, 0.35, 0.04), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            signMesh.position.set(doorOffsetX, baseY + slabThickness + doorH + 0.38, 0.02);
             wallGroup.add(signMesh);
           } else if (winCount === 0) {
             const solidWall = new THREE.Mesh(safeBox(localW, roomHeight, wallThick), currentMat);
@@ -3311,6 +3580,82 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           s2.rotation.z = rotY;
           s2.position.set(posX - nx_sw * s1Offset, 0.12, posZ - nz_sw * s1Offset);
           roadsGroup.add(s2);
+
+          // 3D Road Name Badge / Billboard in 3D View
+          const roadTypeLabel = road.type === 'highway' ? 'Bulvar / Anayol' : road.type === 'avenue' ? 'Cadde' : road.type === 'road' ? 'İmar Yolu' : 'Sokak';
+          const roadDisplayName = road.name || `${road.facadeIndex + 1}. Cephe ${roadTypeLabel}`;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = 512;
+          canvas.height = 160;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            if ((ctx as any).roundRect) (ctx as any).roundRect(8, 8, 496, 144, 24);
+            else ctx.rect(8, 8, 496, 144);
+            ctx.fill();
+
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#f59e0b';
+            ctx.stroke();
+
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`🛣️ ${roadTypeLabel.toUpperCase()}`, 256, 42);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 32px sans-serif';
+            ctx.fillText(roadDisplayName, 256, 88);
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 22px monospace';
+            ctx.fillText(`GENİŞLİK: ${roadWidth.toFixed(1)}m`, 256, 128);
+
+            const roadTex = new THREE.CanvasTexture(canvas);
+            roadTex.needsUpdate = true;
+
+            // Flat on road asphalt
+            const labelMesh = new THREE.Mesh(
+              new THREE.PlaneGeometry(8, 2.5),
+              new THREE.MeshBasicMaterial({ map: roadTex, transparent: true, opacity: 0.95, side: THREE.DoubleSide })
+            );
+            labelMesh.rotation.x = -Math.PI / 2;
+            labelMesh.rotation.z = rotY;
+            labelMesh.position.set(posX, 0.08, posZ);
+            roadsGroup.add(labelMesh);
+
+            // Upright 3D Signpost Billboard on sidewalk
+            const signGroup = new THREE.Group();
+            signGroup.position.set(posX - nx_sw * (roadWidth / 2 + 1.2), 0, posZ - nz_sw * (roadWidth / 2 + 1.2));
+
+            const poleMesh = new THREE.Mesh(
+              safeCylinder(0.06, 0.06, 2.8, 8),
+              new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.2 })
+            );
+            poleMesh.position.y = 1.4;
+            signGroup.add(poleMesh);
+
+            const boardMesh = new THREE.Mesh(
+              safeBox(3.6, 1.2, 0.08),
+              new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.2, roughness: 0.5 })
+            );
+            boardMesh.position.y = 2.4;
+            boardMesh.rotation.y = rotY;
+            signGroup.add(boardMesh);
+
+            const boardFaceMesh = new THREE.Mesh(
+              new THREE.PlaneGeometry(3.5, 1.1),
+              new THREE.MeshBasicMaterial({ map: roadTex, transparent: true })
+            );
+            boardFaceMesh.position.set(0, 2.4, 0.045);
+            boardFaceMesh.rotation.y = rotY;
+            signGroup.add(boardFaceMesh);
+
+            roadsGroup.add(signGroup);
+          }
         });
       }
     }
@@ -3359,6 +3704,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       side: THREE.BackSide,
       fog: false,
     });
+    skyMatRef.current = skyMat;
     const sky = new THREE.Mesh(skyGeo, skyMat);
     scene.add(sky);
 
@@ -3593,89 +3939,87 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   }, [isAutoRotate]);
 
   useEffect(() => {
-    // 1. Rotate building group according to compass angle
+    // 1. Rotate building group and roads according to surface / parcel rotation
     if (buildingGroupRef.current) {
-      buildingGroupRef.current.rotation.y = (buildingRotation * Math.PI) / 180;
+      buildingGroupRef.current.rotation.y = (effectiveSurfaceRotation * Math.PI) / 180;
     }
     if (roadsGroupRef.current) {
-      roadsGroupRef.current.rotation.y = (buildingRotation * Math.PI) / 180;
+      roadsGroupRef.current.rotation.y = (effectiveSurfaceRotation * Math.PI) / 180;
     }
 
-    // 2. Adjust Sun Position and Lighting when in solarMode or with custom angles
-    if (solarMode && sunAltitude !== undefined && sunAzimuth !== undefined) {
-      const R = 85;
-      const altRad = (sunAltitude * Math.PI) / 180;
-      const azRad = (sunAzimuth * Math.PI) / 180;
+    // 2. Adjust Sun Position and Lighting
+    const effectiveSunAltitude = sunAltitude !== undefined ? sunAltitude : 45;
+    const effectiveSunAzimuth = sunAzimuth !== undefined ? sunAzimuth : 180;
 
-      // Azimuth: 0 = North (+Z offset in scene or -Z), 90 = East (+X), 180 = South (-Z or +Z), 270 = West (-X)
-      // In Three.js: -Z is North, +Z is South, +X is East, -X is West
-      const y = Math.max(1.5, R * Math.sin(altRad));
-      const rGround = R * Math.cos(altRad);
-      const x = rGround * Math.sin(azRad);
-      const z = -rGround * Math.cos(azRad); // -cos(azimuth) maps 0 (North) to -Z, 180 (South) to +Z
+    const R = 85;
+    const altRad = (effectiveSunAltitude * Math.PI) / 180;
+    const azRad = (effectiveSunAzimuth * Math.PI) / 180;
 
-      if (sunLightRef.current) {
-        sunLightRef.current.position.set(x, y, z);
-        
-        if (sunAltitude > 0) {
-          const intensity = Math.max(0.35, Math.sin(altRad) * 1.5);
-          sunLightRef.current.intensity = intensity;
-          
-          if (sunAltitude < 12) {
-            // Golden Dawn / Dusk orange
-            sunLightRef.current.color.setHex(0xff7b25);
-          } else if (sunAltitude < 30) {
-            // Warm morning / late afternoon light
-            sunLightRef.current.color.setHex(0xffdf99);
-          } else {
-            // Crisp midday sunlight
-            sunLightRef.current.color.setHex(0xfffaed);
-          }
+    const y = Math.max(1.5, R * Math.sin(altRad));
+    const rGround = R * Math.cos(altRad);
+    const x = rGround * Math.sin(azRad);
+    const z = -rGround * Math.cos(azRad);
+
+    if (sunLightRef.current) {
+      sunLightRef.current.position.set(x, y, z);
+      
+      if (effectiveSunAltitude > 0) {
+        if (effectiveSunAltitude < 15) {
+          // Golden Sunset warm illumination
+          sunLightRef.current.intensity = Math.max(1.8, Math.sin(altRad) * 3.6);
+          sunLightRef.current.color.setHex(0xff7b25);
+        } else if (effectiveSunAltitude < 32) {
+          // Warm morning / late afternoon light
+          sunLightRef.current.intensity = Math.max(1.3, Math.sin(altRad) * 2.2);
+          sunLightRef.current.color.setHex(0xffdf99);
         } else {
-          // Night / twilight
-          sunLightRef.current.intensity = 0.08;
-          sunLightRef.current.color.setHex(0x38bdf8);
+          // Crisp midday sunlight
+          sunLightRef.current.intensity = isLight ? 1.8 : 1.5;
+          sunLightRef.current.color.setHex(0xfffaed);
         }
+      } else {
+        // Night / twilight blue hour
+        sunLightRef.current.intensity = 0.2;
+        sunLightRef.current.color.setHex(0x38bdf8);
       }
+    }
 
-      if (sunSphereMeshRef.current) {
-        sunSphereMeshRef.current.visible = sunAltitude > -2;
-        sunSphereMeshRef.current.position.set(x, y, z);
-        const mat = sunSphereMeshRef.current.material as THREE.MeshBasicMaterial;
-        if (mat) {
-          mat.color.setHex(sunAltitude < 15 ? 0xff5500 : 0xffdd55);
-        }
+    if (sunSphereMeshRef.current) {
+      sunSphereMeshRef.current.visible = effectiveSunAltitude > -2;
+      sunSphereMeshRef.current.position.set(x, y, z);
+      const mat = sunSphereMeshRef.current.material as THREE.MeshBasicMaterial;
+      if (mat) {
+        mat.color.setHex(effectiveSunAltitude < 15 ? 0xff5500 : 0xffdd55);
       }
+    }
 
-      if (ambientLightRef.current) {
-        if (sunAltitude > 15) {
-          ambientLightRef.current.intensity = isLight ? 0.5 : 0.4;
-          ambientLightRef.current.color.setHex(isLight ? 0xffffff : 0xd4d4d8);
-        } else if (sunAltitude > 0) {
-          ambientLightRef.current.intensity = isLight ? 0.35 : 0.3;
-          ambientLightRef.current.color.setHex(0xffeedd);
-        } else {
-          ambientLightRef.current.intensity = 0.15;
-          ambientLightRef.current.color.setHex(0x64748b);
-        }
-      }
-    } else {
-      // Default non-solar lighting
-      if (ambientLightRef.current) {
-        ambientLightRef.current.intensity = isLight ? 0.5 : 0.4;
+    if (ambientLightRef.current) {
+      if (effectiveSunAltitude < 15 && effectiveSunAltitude > 0) {
+        ambientLightRef.current.intensity = 0.48;
+        ambientLightRef.current.color.setHex(0xffeedd); // Warm sunset ambient bounce
+      } else if (effectiveSunAltitude <= 0) {
+        ambientLightRef.current.intensity = 0.2;
+        ambientLightRef.current.color.setHex(0x334155);
+      } else {
+        ambientLightRef.current.intensity = isLight ? 0.55 : 0.4;
         ambientLightRef.current.color.setHex(isLight ? 0xffffff : 0xd4d4d8);
       }
-      if (sunLightRef.current) {
-        sunLightRef.current.position.set(35, 60, 45);
-        sunLightRef.current.intensity = isLight ? 1.8 : 1.5;
-        sunLightRef.current.color.setHex(isLight ? 0xfffaed : 0xffffff);
-      }
-      if (sunSphereMeshRef.current) {
-        sunSphereMeshRef.current.position.set(35, 60, 45);
-        sunSphereMeshRef.current.visible = true;
+    }
+
+    // Dynamic sky and background for sunset & day moods
+    if (skyMatRef.current && sceneRef.current) {
+      if (effectiveSunAltitude < 16 && effectiveSunAltitude > 0) {
+        skyMatRef.current.color.setHex(0xf97316); // Golden sunset horizon dome
+        sceneRef.current.background = new THREE.Color(0x312e81); // Sunset indigo twilight
+      } else if (effectiveSunAltitude <= 0) {
+        skyMatRef.current.color.setHex(0x0f172a);
+        sceneRef.current.background = new THREE.Color(0x030712);
+      } else {
+        skyMatRef.current.color.setHex(isLight ? 0xbae6fd : 0x94a3b8);
+        sceneRef.current.background = new THREE.Color(isGray ? 0xd1d5db : 0xf0f9ff);
       }
     }
-  }, [solarMode, sunAltitude, sunAzimuth, buildingRotation, isLight]);
+  }, [solarMode, sunAltitude, sunAzimuth, effectiveSurfaceRotation, isLight, isGray]);
 
   // Camera presets
   const applyCameraPreset = useCallback((preset: CameraPresetType) => {
@@ -4091,6 +4435,19 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           </button>
         </div>
 
+        {/* 📸 Fotogerçekçi 4K Stüdyo & ArchViz Render */}
+        <div className="flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-lg bg-gradient-to-b from-amber-500/10 to-indigo-500/10 border-amber-500/40">
+          <button
+            type="button"
+            onClick={() => setIsPhotorealisticModalOpen(true)}
+            className="p-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white shadow-md shadow-amber-500/25 transition-all flex flex-col items-center gap-0.5 hover:scale-105 active:scale-95"
+            title="Fotogerçekçi 3D Stüdyo & AI ArchViz Render Al (4K & Gün Batımı)"
+          >
+            <Camera className="w-4 h-4" />
+            <span className="text-[8px] font-black uppercase tracking-wider">RENDER</span>
+          </button>
+        </div>
+
         {/* Visibility tools */}
         <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
           isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
@@ -4194,50 +4551,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             </span>
           </div>
 
-          {/* Sun Hour Slider (Overlay) */}
-          {onUpdateSunTimeHour && (
-            <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ring-1 ring-amber-200/50 ${
-              isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
-            }`}>
-              <span className="text-[11px] font-bold flex items-center gap-1.5 text-slate-700">
-                <Sun className="w-4 h-4 text-amber-500 animate-pulse" />
-                <span className="uppercase tracking-tight">Güneş Saati:</span>
-              </span>
-              
-              <button
-                type="button"
-                onClick={onToggleSunPlay}
-                className={`p-1.5 rounded-lg transition-all shadow-sm active:scale-95 ${
-                  isPlayingSun ? 'bg-amber-500 text-white shadow-amber-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {isPlayingSun ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
-              </button>
-
-              <input
-                type="range"
-                min="5.5"
-                max="20.5"
-                step="0.1"
-                value={sunTimeHour}
-                onChange={(e) => onUpdateSunTimeHour(parseFloat(e.target.value))}
-                className="w-24 sm:w-40 accent-amber-500 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
-              />
-              <span className="font-mono text-xs text-amber-600 font-black bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100">
-                {Math.floor(sunTimeHour).toString().padStart(2, '0')}:
-                {Math.round((sunTimeHour % 1) * 60).toString().padStart(2, '0')}
-              </span>
-            </div>
-          )}
-
-          {/* Building Rotation Slider (Overlay) */}
+          {/* Surface / Parcel Rotation Slider (Overlay) */}
           {onUpdateBuildingRotation && (
             <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ring-1 ring-indigo-200/50 ${
               isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
             }`}>
               <span className="text-[11px] font-bold flex items-center gap-1.5 text-slate-700">
-                <RotateCcw className="w-4 h-4 text-indigo-600" />
-                <span className="uppercase tracking-tight">Yapı Rotasyonu:</span>
+                <Compass className="w-4 h-4 text-indigo-600" />
+                <span className="uppercase tracking-tight">Yüzey Rotasyonu:</span>
               </span>
               
               <input
@@ -4245,12 +4566,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                 min="0"
                 max="359"
                 step="1"
-                value={buildingRotation}
+                value={effectiveSurfaceRotation}
                 onChange={(e) => onUpdateBuildingRotation(parseInt(e.target.value))}
                 className="w-24 sm:w-40 accent-indigo-600 cursor-pointer h-1.5 bg-slate-100 rounded-lg appearance-none"
               />
               <span className="font-mono text-xs text-indigo-700 font-black bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
-                {buildingRotation}°
+                {effectiveSurfaceRotation}°
               </span>
             </div>
           )}
@@ -4312,6 +4633,22 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* 📸 Fotogerçekçi 4K Stüdyo & AI ArchViz Render Modal */}
+      <PhotorealisticRenderModal
+        isOpen={isPhotorealisticModalOpen}
+        onClose={() => setIsPhotorealisticModalOpen(false)}
+        params={params}
+        getCanvasDataUrl={getCanvasDataUrl}
+        onApplyFacadeStyle={(style) => {
+          onUpdateFacadeStyle?.(style);
+        }}
+        onApplyLightingPreset={(preset) => {
+          handleApplyLightingPreset(preset);
+        }}
+        currentLightingPreset={activeLightingPreset}
+        currentSunTimeHour={sunTimeHour}
+      />
     </div>
   );
 };

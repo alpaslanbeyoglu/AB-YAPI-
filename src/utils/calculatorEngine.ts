@@ -179,6 +179,17 @@ export const DEFAULT_PARAMS: ProjectParams = {
   balconyDepth: 1.40,
   elevatorCount: 1,
 
+  // Otopark Harcı Hesaplama Parametreleri
+  parkingFeeMode: 'excluded',
+  parkingLandTaxValue: 12000,
+  parkingBuildingCostValue: 9000,
+  parkingRegionalRatio: 80,
+  providedParkingSpaces: 0,
+
+  // İnovatif Seçenekler Varsayılan Değerleri
+  hasUnderfloorHeating: false,
+  hasWaterFiltration: false,
+
   // Cost items
   costNotaryContract: 40000,
   costCompany: 50000,
@@ -526,6 +537,87 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     : 0;
   const effectiveFlatCount = calculateFlatCount(params);
 
+  // Synchronize flats early to perform parking and other architectural calculations on them
+  const synchronizedFlats = synchronizeFlats(
+    flats,
+    effectiveFlatCount,
+    activeBaseArea,
+    floorCount,
+    transformationStatus,
+    roofType,
+    flatsPerFloor,
+    params.mansardFlatCount,
+    roofAtticArea,
+    params.hasGroundFloorShop,
+    params.shopCount || 1,
+    upperFloorArea,
+    params.basementPurpose,
+    params.basementShopCount || 1,
+    basementFloorsCount
+  );
+
+  // --- OTOPARK HARCI HESAPLAMA MODÜLÜ (Otopark Yönetmeliği 2021 ve Güncel Mevzuat) ---
+  const parkingFeeMode = params.parkingFeeMode || 'excluded';
+  const parkingLandTaxValue = params.parkingLandTaxValue !== undefined ? params.parkingLandTaxValue : 12000;
+  const parkingBuildingCostValue = params.parkingBuildingCostValue !== undefined ? params.parkingBuildingCostValue : 9000;
+  const parkingRegionalRatio = params.parkingRegionalRatio !== undefined ? params.parkingRegionalRatio : 80;
+  const providedParkingSpaces = params.providedParkingSpaces !== undefined ? params.providedParkingSpaces : 0;
+
+  // Zorunlu Otopark Sayısı Hesabı (Her bağımsız bölümün m² alanına ve dükkanlara göre)
+  let parkingRequiredSpaces = 0;
+  synchronizedFlats.forEach((flat) => {
+    const area = flat.area || 100;
+    if (flat.flatType === 'shop') {
+      // Ticari dükkanlar için: 1 araçlık otopark bedeli / 40 m²
+      parkingRequiredSpaces += area / 40;
+    } else {
+      // Konutlar için kademeli zorunluluk (Resmi Gazete 24 Mart 2021)
+      if (area < 80) {
+        parkingRequiredSpaces += 1 / 3;
+      } else if (area >= 80 && area < 120) {
+        parkingRequiredSpaces += 1 / 2;
+      } else if (area >= 120 && area < 180) {
+        parkingRequiredSpaces += 1.0;
+      } else {
+        parkingRequiredSpaces += 2.0;
+      }
+    }
+  });
+  parkingRequiredSpaces = Math.round(parkingRequiredSpaces * 100) / 100;
+
+  // Eksik otopark adedi
+  const parkingDeficientSpaces = Math.max(0, Math.round((parkingRequiredSpaces - providedParkingSpaces) * 100) / 100);
+
+  // Birim otopark bedeli formülü: (A + B) * 20 * Y
+  // A = (Arsa Alanı * Emlak Vergisi Değeri) / Toplam İnşaat Alanı
+  const landAreaVal = params.landArea || 350;
+  const A_val = totalArea > 0 ? (landAreaVal * parkingLandTaxValue) / totalArea : 0;
+  const B_val = parkingBuildingCostValue;
+  const Y_val = parkingRegionalRatio / 100;
+
+  const parkingBirimBedeli = Math.round((A_val + B_val) * 20 * Y_val * 100) / 100;
+
+  // Kentsel dönüşüm (6306 sayılı kanun) kapsamında otopark bedeline %75 yasal indirim uygulanır (Sadece %25 ödenir)
+  const parkingFeeIsKentselDiscount = params.projectType === 'kentsel' || transformationStatus !== 'none';
+  const totalFeeRaw = parkingBirimBedeli * parkingDeficientSpaces;
+  
+  const parkingFeeActual = parkingFeeIsKentselDiscount 
+    ? Math.round((totalFeeRaw * 0.25) * 100) / 100 
+    : Math.round(totalFeeRaw * 100) / 100;
+
+  // Yaklaşık Alt ve Üst Sınır Hesaplaması (Belediye grup farklılıkları ve takdir marjlarına göre)
+  // Alt Sınır: Y = 0.60, Land Value A = A * 0.8
+  const birimMin = (A_val * 0.8 + B_val) * 20 * 0.60;
+  const parkingFeeMin = parkingFeeIsKentselDiscount
+    ? Math.round((birimMin * parkingDeficientSpaces * 0.25) * 100) / 100
+    : Math.round((birimMin * parkingDeficientSpaces) * 100) / 100;
+
+  // Üst Sınır: Y = 1.00, Land Value A = A * 1.2
+  const birimMax = (A_val * 1.2 + B_val) * 20 * 1.00;
+  const parkingFeeMax = parkingFeeIsKentselDiscount
+    ? Math.round((birimMax * parkingDeficientSpaces * 0.25) * 100) / 100
+    : Math.round((birimMax * parkingDeficientSpaces) * 100) / 100;
+
   let kabaDaysPerFloor = 22;
   let inceDaysPerFloor = 28;
   let kabaTypeMult = 1.0;
@@ -567,8 +659,12 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const safeInsurance = Math.max(0, params.costInsurance ?? 35000);
   const safeSalesMarketing = Math.max(0, params.costSalesMarketing ?? 30000);
 
-  const officialCost =
+  const officialCostNormal =
     (safeNotary + safeCompany + totalArea * safeProjectPermit) * costMultiplier;
+
+  const officialCost = parkingFeeMode === 'included'
+    ? Math.round((officialCostNormal + parkingFeeActual) * 100) / 100
+    : officialCostNormal;
 
   const sgkSalesCost =
     (totalArea * safeSgk + safeInsurance + effectiveFlatCount * safeSalesMarketing) * costMultiplier;
@@ -620,13 +716,35 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const costIntercomTotal = safeCostIntercom;
   const costGasTotal = effectiveFlatCount * safePriceGas;
 
+  // İnovatif Seçenekler Canlı Güncel Maliyetleri (2026)
+  // Yerden Isıtma: Konut alanlarında uygulanır, m² başına ~750 TL piyasa maliyeti
+  const localHasBasementCommercial = params.basementPurpose === 'commercial_shop' && basementFloorsCount > 0;
+  const localActiveBasementShopCount = localHasBasementCommercial ? Math.max(1, params.basementShopCount || 1) : 0;
+  const localBasementShopTotalArea = localActiveBasementShopCount > 0 ? activeBaseArea : 0;
+  const localGroundShopTotalArea = params.hasGroundFloorShop ? activeBaseArea : 0;
+  const localShopArea = localGroundShopTotalArea + localBasementShopTotalArea;
+  const localFlatArea = Math.max(0, totalArea - localShopArea);
+
+  const underfloorHeatingCost = params.hasUnderfloorHeating ? Math.round(localFlatArea * 750) : 0;
+
+  // Bina Tipi Merkezi Su Arıtma: Bina girişi merkezi sistem (tortu, klor, kireç filtreli) ~150.000 TL taban + daire başı ~5.000 TL
+  const waterFiltrationCost = params.hasWaterFiltration ? Math.round(150000 + effectiveFlatCount * 5000) : 0;
+
   const systemsRawTotal = costElevatorTotal + costSmartHomeTotal + costIntercomTotal + costGasTotal;
-  const systemsCost = Math.round(systemsRawTotal * costMultiplier * 100) / 100;
-  const systemsLaborCost = Math.round(
+  const systemsCostNormal = Math.round(systemsRawTotal * costMultiplier * 100) / 100;
+  const systemsCost = Math.round((systemsCostNormal + underfloorHeatingCost + waterFiltrationCost) * 100) / 100;
+
+  const systemsLaborCostNormal = Math.round(
     (costElevatorTotal * 0.20 + costSmartHomeTotal * 0.15 + costIntercomTotal * 0.20 + costGasTotal * 0.30) *
       costMultiplier *
       100
   ) / 100;
+
+  // Yerden ısıtmada işçilik payı %30, su arıtmada %10 işçilik
+  const underfloorLabor = Math.round(underfloorHeatingCost * 0.30);
+  const waterLabor = Math.round(waterFiltrationCost * 0.10);
+  const systemsLaborCost = Math.round((systemsLaborCostNormal + underfloorLabor + waterLabor) * 100) / 100;
+
   const systemsMaterialCost = Math.round((systemsCost - systemsLaborCost) * 100) / 100;
 
   // Compute blind vs open facade ratio for PVC and paint/plaster takeoff adjustments
@@ -740,24 +858,6 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const contractorFlatsCount =
     projectModel === 'contractorShare' ? effectiveFlatCount * (contractorShareRate / 100) : 0;
   const ownerFlatsCount = effectiveFlatCount - contractorFlatsCount;
-
-  const synchronizedFlats = synchronizeFlats(
-    flats,
-    effectiveFlatCount,
-    activeBaseArea,
-    floorCount,
-    transformationStatus,
-    roofType,
-    flatsPerFloor,
-    params.mansardFlatCount,
-    roofAtticArea,
-    params.hasGroundFloorShop,
-    params.shopCount || 1,
-    upperFloorArea,
-    params.basementPurpose,
-    params.basementShopCount || 1,
-    basementFloorsCount
-  );
 
   // Şerefiye (Kat/Konum/Yön Çarpanı) Normalizasyon Hesabı:
   const enableSerefiye = params.enableSerefiye || false;
@@ -1082,5 +1182,18 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     cashFlowRows,
     flatResults,
     calculatedAt: new Date().toLocaleDateString('tr-TR'),
+
+    // Otopark Harcı Hesaplama Çıktıları
+    parkingRequiredSpaces,
+    parkingDeficientSpaces,
+    parkingBirimBedeli,
+    parkingFeeMin,
+    parkingFeeMax,
+    parkingFeeActual,
+    parkingFeeIsKentselDiscount,
+
+    // İnovatif Seçenekler Maliyet Çıktıları
+    underfloorHeatingCost,
+    waterFiltrationCost,
   };
 }

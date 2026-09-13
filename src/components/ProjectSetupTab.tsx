@@ -44,6 +44,10 @@ import {
   ShieldAlert,
   BarChart3,
   Palette,
+  Car,
+  ShieldCheck,
+  Flame,
+  Droplets,
 } from 'lucide-react';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
 import { calculateCantileverDetails, calculateFlatCount, calculateProject } from '../utils/calculatorEngine';
@@ -642,11 +646,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
         {/* Interactive Mode & Step Selector */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mt-6 pt-5 border-t border-slate-100">
-          <div className="flex-1 max-w-xl mx-auto md:mx-0">
+          <div className="flex-1 max-w-2xl mx-auto md:mx-0">
             <div className="flex items-center justify-between gap-1">
               {[
                 { step: 1, label: 'Müşteri, Proje & Tür', icon: Home },
                 { step: 2, label: 'Ölçüler, 2D Çizim & Cepheler', icon: Ruler },
+                { step: 3, label: 'Harç, Özet & Seçenekler', icon: Sparkles },
               ].map((s) => {
                 const Icon = s.icon;
                 const isActive = activeStep === s.step;
@@ -675,7 +680,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         {isCompleted ? <Check className="w-3.5 h-3.5" /> : s.step}
                       </div>
                       <div className={`h-1 flex-1 rounded-full ${
-                        s.step === 2 ? 'invisible' : isCompleted ? 'bg-indigo-600' : 'bg-slate-200'
+                        s.step === 3 ? 'invisible' : isCompleted ? 'bg-indigo-600' : 'bg-slate-200'
                       }`} />
                     </div>
                     <span className={`text-[10px] font-bold tracking-tight text-center ${
@@ -2064,6 +2069,296 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             </div>
           </div>
 
+          {/* OTOPARK HARCI HESAPLAMA VE MEVZUAT TARAMA MODÜLÜ */}
+          <div className="pt-4 border-t border-slate-100 space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md">
+                  <Car className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-blue-950 flex items-center gap-2">
+                    Otopark Harcı Hesaplama Modülü
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                      Otopark Yönetmeliği (2021)
+                    </span>
+                  </h3>
+                  <p className="text-xs text-blue-800 leading-relaxed">
+                    Arsa payı, yapı yaklaşık maliyeti, bölgesel katsayı ve kentsel dönüşüm %75 yasal indirimiyle mevzuata uygun harç analizi yapın.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-blue-900 whitespace-nowrap">Harcın Teklife Etkisi:</span>
+                <select
+                  value={params.parkingFeeMode || 'excluded'}
+                  onChange={(e) => onChangeParams({ ...params, parkingFeeMode: e.target.value as any })}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-300 bg-white text-blue-950 outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="none">Hesaplamayı Kapat</option>
+                  <option value="excluded">Teklife Hariç (İşveren Öder - Bilgi Amaçlı Hesapla)</option>
+                  <option value="included">Teklife Dahil Et (Müteahhit Öder)</option>
+                </select>
+              </div>
+            </div>
+
+            {params.parkingFeeMode !== 'none' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 p-4 rounded-xl border border-slate-200 bg-slate-50/50 animate-fade-in">
+                {/* Sol Taraf: Parametre Girdileri */}
+                <div className="lg:col-span-6 space-y-4">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Harcı Etkileyen Mevzuat Parametreleri</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-600 block">Yapılan Otopark Sayısı (Adet)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={params.providedParkingSpaces !== undefined ? params.providedParkingSpaces : 0}
+                        onChange={(e) => onChangeParams({ ...params, providedParkingSpaces: Math.max(0, parseInt(e.target.value) || 0) })}
+                        placeholder="Yapılan otopark sayısı"
+                        className="w-full text-xs font-bold font-mono px-3 py-1.5 rounded-lg border border-slate-200 bg-white"
+                      />
+                      <span className="text-[10px] text-slate-500 block leading-tight">Parselde yapılan otopark adedi zorunlu miktarı düşürür.</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-600 block">Emlak Vergisi Arsa m² Değeri (A)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          value={params.parkingLandTaxValue !== undefined ? params.parkingLandTaxValue : 12000}
+                          onChange={(e) => onChangeParams({ ...params, parkingLandTaxValue: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          placeholder="Emlak vergisi değeri"
+                          className="w-full text-xs font-bold font-mono pl-3 pr-8 py-1.5 rounded-lg border border-slate-200 bg-white"
+                        />
+                        <span className="absolute right-3 top-1.5 text-[10px] font-bold text-slate-400">TL</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 block leading-tight">Belediye Emlak Vergisi arsa rayiç m² bedelidir.</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-600 block">Yapı Yaklaşık Birim Maliyeti (B)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          value={params.parkingBuildingCostValue !== undefined ? params.parkingBuildingCostValue : 9000}
+                          onChange={(e) => onChangeParams({ ...params, parkingBuildingCostValue: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          placeholder="Maliye birim değeri"
+                          className="w-full text-xs font-bold font-mono pl-3 pr-8 py-1.5 rounded-lg border border-slate-200 bg-white"
+                        />
+                        <span className="absolute right-3 top-1.5 text-[10px] font-bold text-slate-400">TL</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 block leading-tight">Bakanlık tebliğindeki otopark birim yapı bedelidir.</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-600 block">Belediye Bölge Katsayısı (Y)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="60"
+                          max="100"
+                          step="5"
+                          value={params.parkingRegionalRatio !== undefined ? params.parkingRegionalRatio : 80}
+                          onChange={(e) => onChangeParams({ ...params, parkingRegionalRatio: parseInt(e.target.value) })}
+                          className="flex-1 accent-indigo-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                        />
+                        <span className="text-xs font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-md min-w-[48px] text-center font-mono">% {params.parkingRegionalRatio !== undefined ? params.parkingRegionalRatio : 80}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 block leading-tight">Belediye meclis kararı bölgesel katsayısıdır (%60 - %100).</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sağ Taraf: Canlı Hesaplama Sonuçları ve Mevzuat Analiz Özet Ekranı */}
+                <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-4 space-y-4 flex flex-col justify-between shadow-xs">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                      <span>Mevzuat Özet & Harç Sonucu</span>
+                      {results.parkingFeeIsKentselDiscount && (
+                        <span className="text-[9px] font-black text-emerald-800 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" />
+                          %75 Yasal İndirim Aktif
+                        </span>
+                      )}
+                    </h4>
+
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 space-y-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Yasal Otopark Zorunluluğu</span>
+                        <div className="text-xs font-black text-slate-800 font-mono">
+                          {results.parkingRequiredSpaces?.toLocaleString('tr-TR')} Araç
+                        </div>
+                        <span className="text-[8px] text-slate-500 block leading-none">M2 alanlarına göre hesaplanan</span>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 space-y-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Ödeme Yapılacak Eksik Otopark</span>
+                        <div className="text-xs font-black text-slate-800 font-mono">
+                          {results.parkingDeficientSpaces?.toLocaleString('tr-TR')} Araç
+                        </div>
+                        <span className="text-[8px] text-slate-500 block leading-none">Mevcut otopark harici eksik</span>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 space-y-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">1 Araçlık Birim Harç Bedeli</span>
+                        <div className="text-xs font-black text-slate-800 font-mono">
+                          {results.parkingBirimBedeli?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </div>
+                        <span className="text-[8px] text-slate-500 block leading-none">(A + B) x 20 x {params.parkingRegionalRatio || 80}%</span>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 space-y-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Tahmini Bedel Sınırları</span>
+                        <div className="text-[10px] font-black text-slate-700 font-mono whitespace-nowrap">
+                          {results.parkingFeeMin?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} - {results.parkingFeeMax?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </div>
+                        <span className="text-[8px] text-slate-500 block leading-none">Min (%60) & Max (%100) katsayılı</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase block leading-none mb-1">Hesaplanan Otopark Harcı</span>
+                      <div className="text-xl font-black text-slate-900 font-mono">
+                        {results.parkingFeeActual?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      </div>
+                    </div>
+                    <div>
+                      {params.parkingFeeMode === 'included' ? (
+                        <div className="text-center">
+                          <span className="inline-block text-[10px] font-black text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-lg shadow-2xs">
+                            🟢 TEKLİFE DAHİL EDİLDİ
+                          </span>
+                          <span className="block text-[9px] text-slate-500 mt-1">Müteahhit maliyetine eklendi.</span>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <span className="inline-block text-[10px] font-black text-amber-800 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-lg shadow-2xs">
+                            🟡 TEKLİF HARİCİ - İŞVEREN ÖDER
+                          </span>
+                          <span className="block text-[9px] text-slate-500 mt-1">İşveren doğrudan belediyeye öder.</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* İNOVATİF VE KONFORLU SEÇENEKLER MODÜLÜ */}
+          <div className="pt-4 border-t border-slate-100 space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold shadow-md">
+                  <Sparkles className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-purple-950 flex items-center gap-2">
+                    Teklife İnovatif ve Konfor Seçenekleri Ekle
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+                      Canlı 2026 Maliyetleri
+                    </span>
+                  </h3>
+                  <p className="text-xs text-purple-800 leading-relaxed">
+                    Sözleşmeye değer katan, satış kabiliyetini ve konforu artıran inovatif seçenekleri seçerek doğrudan müteahhit maliyet bütçesine dahil edin.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Option 1: Yerden Isıtma */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasUnderfloorHeating ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasUnderfloorHeating ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Flame className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-800">Yerden Isıtma Sistemi (Sulu)</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasUnderfloorHeating}
+                        onChange={(e) => onChangeParams({ ...params, hasUnderfloorHeating: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                  
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Petekli (radyatörlü) ısıtma yerine homojen ısı dağılımı ve <strong>%15-20 yakıt tasarrufu</strong> sağlayan, odalarda duvar payı kazandıran lüks sulu yerden ısıtma sistemidir. Toz kalkmasını önlediği için alerji dostudur.
+                  </p>
+                  
+                  <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                    <span className="font-bold text-slate-700 block">Mevzuat & Canlı Piyasa Bilgisi:</span>
+                    <ul className="list-disc pl-3.5 space-y-0.5">
+                      <li>Metrekare başına malzeme ve işçilik dahil güncel maliyet: <strong>750 TL/m²</strong>.</li>
+                      <li>Hesaplanan konut alanı: <strong>{Math.max(0, results.totalArea - (params.hasGroundFloorShop ? activeBaseArea : 0)).toLocaleString('tr-TR')} m²</strong>.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Ekstra İmalat Bedeli</span>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasUnderfloorHeating ? `${results.underfloorHeatingCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 2: Bina Tipi Su Arıtma */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasWaterFiltration ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasWaterFiltration ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Droplets className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-800">Bina Girişi Merkezi Su Arıtma</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasWaterFiltration}
+                        onChange={(e) => onChangeParams({ ...params, hasWaterFiltration: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                  
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Dairelere giren tüm suyu şebeke girişinde tortu, klor, kireç ve ağır metallerden arındıran endüstriyel çok kademeli merkezi filtrasyon sistemidir. Beyaz eşyaların ömrünü uzatır ve her musluktan içilebilir/temiz su akıtır.
+                  </p>
+                  
+                  <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                    <span className="font-bold text-slate-700 block">Mevzuat & Canlı Piyasa Bilgisi:</span>
+                    <ul className="list-disc pl-3.5 space-y-0.5">
+                      <li>Merkezi aktif karbon / sediment filtrasyon sistemi: <strong>150.000 TL taban</strong> + daire başı <strong>5.000 TL</strong> kartuşlama.</li>
+                      <li>Bireysel arıtıcı ve damacana bağımlılığını tamamen ortadan kaldırır.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Ekstra İmalat Bedeli</span>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasWaterFiltration ? `${results.waterFiltrationCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* MEVZUAT VE İMAR DENETİMİ PANELİ */}
           <div className="pt-4 border-t border-slate-100">
             <ZoningAuditPanel params={params} theme={theme} />
@@ -2082,10 +2377,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               <h4 className="text-sm font-bold">
                 {activeStep === 1 && '💡 1. Adım İpucu: Müşteri, Proje ve Dönüşüm Türünü Belirleyin'}
                 {activeStep === 2 && '💡 2. Adım İpucu: Proje Ölçülerini, Cepheleri & 2D Çizimi Yapın'}
+                {activeStep === 3 && '💡 3. Adım İpucu: Harçlar, Mevzuat & İnovatif Konfor Seçeneklerini İnceleyin'}
               </h4>
               <p className="text-xs text-indigo-100 leading-relaxed max-w-3xl">
                 {activeStep === 1 && 'Projenizin ismini, adresini, hedeflenen taban oturum alanını m² cinsinden ve kentsel dönüşüm / kat karşılığı gibi sözleşme modelinizi bu adımda tanımlayabilirsiniz.'}
                 {activeStep === 2 && 'Cephe Yönetim Merkezi ve 2D Canlı Çizim Tuvali üzerinde bina tabanınızı, cephe ölçülerini, bina girişini, yol/kör cepheleri ve konsol çıkmaları kolayca düzenleyebilirsiniz.'}
+                {activeStep === 3 && 'Bu adımda yasal otopark harcı hesaplamasını yönetebilir, kentsel dönüşüm muafiyet durumunu inceleyebilir ve sulu yerden ısıtma, bina tipi su arıtma gibi lüks seçenekleri teklife dahil edebilirsiniz.'}
               </p>
             </div>
           </div>
@@ -2093,24 +2390,28 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             {activeStep > 1 && (
               <button
                 type="button"
-                onClick={() => setActiveStep(1)}
+                onClick={() => setActiveStep(activeStep - 1)}
                 className="flex-1 sm:flex-none px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-all border border-indigo-400 cursor-pointer"
               >
-                ⬅️ 1. Adıma Dön
+                ⬅️ Geri Dön
               </button>
             )}
             <button
               type="button"
               onClick={() => {
-                if (activeStep < 2) {
-                  setActiveStep(2);
+                if (activeStep < 3) {
+                  setActiveStep(activeStep + 1);
                 } else {
                   onNext();
                 }
               }}
               className="flex-1 sm:flex-none px-5 py-2 bg-white hover:bg-slate-50 text-indigo-900 rounded-xl text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <span>{activeStep === 1 ? '2. Adım: Ölçüler & 2D Çizim ➡️' : '1. 3D Yapı Modeline Geç 🚀'}</span>
+              <span>
+                {activeStep === 1 && '2. Adım: Ölçüler & 2D Çizim ➡️'}
+                {activeStep === 2 && '3. Adım: Özet & Seçenekler ➡️'}
+                {activeStep === 3 && '1. 3D Yapı Modeline Geç 🚀'}
+              </span>
             </button>
           </div>
         </div>

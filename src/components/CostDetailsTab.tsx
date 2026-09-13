@@ -30,6 +30,7 @@ import {
   Sliders,
   ShieldCheck,
   FileSpreadsheet,
+  Car,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 
@@ -448,6 +449,30 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         total: Math.round(effIntercomPrice * 100) / 100,
         laborShare: 20,
       },
+      ...(params.hasUnderfloorHeating && results.underfloorHeatingCost ? [
+        {
+          id: 't5',
+          category: 'tesisat' as const,
+          name: 'Lüks Sulu Yerden Isıtma Sistemi (Konfor Upgrade)',
+          unit: 'm²',
+          quantity: Math.round(results.underfloorHeatingCost / 750),
+          unitPrice: 750,
+          total: results.underfloorHeatingCost,
+          laborShare: 30,
+        }
+      ] : []),
+      ...(params.hasWaterFiltration && results.waterFiltrationCost ? [
+        {
+          id: 't6',
+          category: 'tesisat' as const,
+          name: 'Bina Girişi Endüstriyel Merkezi Su Arıtma & Filtrasyon Sistemi',
+          unit: 'Sistem',
+          quantity: 1,
+          unitPrice: results.waterFiltrationCost,
+          total: results.waterFiltrationCost,
+          laborShare: 10,
+        }
+      ] : []),
 
       // RESMİ & İDARİ GİDERLER
       {
@@ -510,6 +535,18 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         total: Math.round(flatCount * effSalesMarketingPrice * 100) / 100,
         laborShare: 50,
       },
+      ...(params.parkingFeeMode === 'included' && results.parkingFeeActual !== undefined ? [
+        {
+          id: 'r7',
+          category: 'resmi' as const,
+          name: `Yasal Otopark Harcı / Bedeli (${results.parkingRequiredSpaces?.toLocaleString('tr-TR')} Araç İhtiyacı, ${results.parkingDeficientSpaces?.toLocaleString('tr-TR')} Eksik Araç)`,
+          unit: 'Adet',
+          quantity: results.parkingDeficientSpaces || 0,
+          unitPrice: results.parkingFeeIsKentselDiscount ? (results.parkingBirimBedeli || 0) * 0.25 : (results.parkingBirimBedeli || 0),
+          total: results.parkingFeeActual || 0,
+          laborShare: 0,
+        }
+      ] : []),
       // ORTAK EKSTRA MALİK GİDERLERİ
       {
         id: 'o1',
@@ -2246,6 +2283,56 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
             </tfoot>
           </table>
         </div>
+
+        {/* OTOPARK HARCI BİLGİ VE MEVZUAT BEYANI */}
+        {params.parkingFeeMode !== 'none' && (
+          <div className={`mt-4 p-4 rounded-xl border ${params.parkingFeeMode === 'included' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-amber-50/50 border-amber-200'} space-y-2 animate-fade-in`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/5 pb-2">
+              <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${params.parkingFeeMode === 'included' ? 'text-emerald-800' : 'text-amber-800'}`}>
+                <Car className="w-4 h-4" />
+                Otopark Harcı Mevzuat Beyanı & Analizi
+              </span>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${params.parkingFeeMode === 'included' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                {params.parkingFeeMode === 'included' ? 'TEKLİFE DAHİL (Müteahhit Öder)' : 'TEKLİFE HARİÇ (İşveren Öder)'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              İlgili belediyenin yasal otopark mevzuatına göre imal edilecek yapının zorunlu otopark adedi <strong>{results.parkingRequiredSpaces?.toLocaleString('tr-TR')} araç</strong> olarak hesaplanmıştır. 
+              Yapılan/sağlanan otopark sayısı <strong>{params.providedParkingSpaces || 0} adet</strong> olup, <strong>{results.parkingDeficientSpaces?.toLocaleString('tr-TR')} araçlık eksik otopark harcı</strong> ödemesi çıkmaktadır.
+              {results.parkingFeeIsKentselDiscount && " Kentsel dönüşüm (6306 sayılı kanun) kapsamında %75 yasal muafiyet/indirim uygulanmıştır."}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="p-2.5 rounded-lg bg-white/80 border border-slate-100 space-y-0.5">
+                <span className="text-[9px] font-bold text-slate-400 uppercase">1 Araçlık Birim Bedel</span>
+                <div className="text-xs font-black text-slate-800 font-mono">
+                  {sym}{(results.parkingBirimBedeli !== undefined ? results.parkingBirimBedeli * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-white/80 border border-slate-100 space-y-0.5">
+                <span className="text-[9px] font-bold text-slate-400 uppercase">Belediye Takdir Sınırları</span>
+                <div className="text-xs font-black text-slate-700 font-mono">
+                  {sym}{(results.parkingFeeMin !== undefined ? results.parkingFeeMin * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} - {sym}{(results.parkingFeeMax !== undefined ? results.parkingFeeMax * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-white/80 border border-slate-100 space-y-0.5">
+                <span className="text-[9px] font-bold text-slate-400 uppercase">Ödenecek Yasal Tutar</span>
+                <div className="text-xs font-black text-indigo-700 font-mono">
+                  {sym}{(results.parkingFeeActual !== undefined ? results.parkingFeeActual * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                </div>
+              </div>
+            </div>
+            {params.parkingFeeMode === 'excluded' && (
+              <p className="text-[10px] text-amber-700 font-medium mt-1 bg-amber-50 p-2 rounded-lg border border-amber-100">
+                ⚠️ Bu tutar teklif genel toplamına <strong>dahil edilmemiştir</strong>. İşveren (arsa sahipleri/ruhsat sahibi) ruhsat aşamasında bu bedeli ilgili belediye hesabına <strong>doğrudan kendisi ödeyecektir</strong>.
+              </p>
+            )}
+            {params.parkingFeeMode === 'included' && (
+              <p className="text-[10px] text-emerald-700 font-medium mt-1 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
+                ✅ Bu tutar resmi idari harçlar kapsamında <strong>müteahhit teklif bütçesine dahil edilmiştir</strong>. Ruhsat aşamasında bu harç müteahhit tarafından ödenecektir.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

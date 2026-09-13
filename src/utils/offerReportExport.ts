@@ -244,6 +244,48 @@ export function generateOfferHtml(
         </p>
       </div>
     </div>
+
+    <!-- İNOVATİF TEKNOLOJİ VE KONFOR SEÇENEKLERİ -->
+    <div style="margin-top:10px;background:linear-gradient(135deg, #fdf8ff 0%, #f4f5ff 100%);border:1px solid #e9d5ff;border-radius:12px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+      <div style="font-weight:900;font-size:11px;color:#581c87;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:4px;">
+        ✨ İnovatif Teknoloji ve Konfor Donanımları (Seçenekler)
+      </div>
+      <div class="grid-2" style="gap:10px;">
+        <!-- Yerden Isitma -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🔥 Yerden Isıtma (Sulu)</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasUnderfloorHeating ? '#ecfdf5' : '#f1f5f9'};color:${params.hasUnderfloorHeating ? '#065f46' : '#475569'};border:1px solid ${params.hasUnderfloorHeating ? '#a7f3d0' : '#cbd5e1'}">${params.hasUnderfloorHeating ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 6px 0;line-height:1.35;">
+              Radyatörlere kıyasla %15-20 yakıt tasarrufu, homojen ısı yayılımı, toz engelleme ve odalarda dekoratif genişlik sunan lüks sulu sistem.
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.underfloorHeatingCost ? res.underfloorHeatingCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
+
+        <!-- Su Aritma -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">💧 Merkezi Su Arıtma</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasWaterFiltration ? '#ecfdf5' : '#f1f5f9'};color:${params.hasWaterFiltration ? '#065f46' : '#475569'};border:1px solid ${params.hasWaterFiltration ? '#a7f3d0' : '#cbd5e1'}">${params.hasWaterFiltration ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 6px 0;line-height:1.35;">
+              Bina şebeke ana girişine monte edilerek tüm dairelerde klor, kireç, ağır metalleri giderir, tesisat ve beyaz eşyaları kireçten korur.
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.waterFiltrationCost ? res.waterFiltrationCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- II. PROJE ÖZETİ VE FİNANSAL ÇERÇEVE -->
