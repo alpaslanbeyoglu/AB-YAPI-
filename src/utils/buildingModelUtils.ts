@@ -177,6 +177,60 @@ export const FRAME_COLOR_PRESETS: ColorPreset[] = [
   { id: 'champagne_metal', name: 'Şampanya Metal', hex: '#a89f91' },
 ];
 
+export interface MaterialFinishOption {
+  id: 'matte' | 'satin' | 'glossy';
+  title: string;
+  subtitle: string;
+  description: string;
+  badge: string;
+}
+
+export const MATERIAL_FINISH_OPTIONS: MaterialFinishOption[] = [
+  {
+    id: 'matte',
+    title: 'Mat (Ultra Mat)',
+    subtitle: 'Işık Yansıtmaz',
+    description: 'Doğal mineral sıva, kiremit ve mat boya hissi. Düşük yansıma ile modern mimari derinlik.',
+    badge: 'Ultra Mat',
+  },
+  {
+    id: 'satin',
+    title: 'Yarı Mat (Saten)',
+    subtitle: 'İpeksi & Dengeli',
+    description: 'Doğal traverten taş, saten boya ve vernikli ahşap dokusu. Yumuşak, dengeli ışık parlaması.',
+    badge: 'Saten',
+  },
+  {
+    id: 'glossy',
+    title: 'Parlak (Cilalı)',
+    subtitle: 'Yüksek Yansıma',
+    description: 'Cilalı granit/mermer, alüminyum kompozit panel ve lake yüzey simülasyonu.',
+    badge: 'Cilalı',
+  },
+];
+
+export interface PatternOption {
+  id: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+}
+
+export const WALL_PATTERN_OPTIONS: PatternOption[] = [
+  { id: 'smooth', title: 'Pürüzsüz Düz Sıva', subtitle: 'Homojen & Modern Mineral', badge: 'Düz Sıva' },
+  { id: 'stone', title: 'Doğal Taş & Traverten', subtitle: 'Yatay Derzli & Gözenekli', badge: 'Traverten' },
+  { id: 'brick', title: 'Klinker & Rustik Tuğla', subtitle: 'Şaşırtmalı Harç Derzli', badge: 'Tuğla' },
+  { id: 'concrete', title: 'Brüt Beton Panel', subtitle: 'Kalıp Hatları & Tie-Rod', badge: 'Beton' },
+  { id: 'wood_slat', title: 'Dikey Ahşap Lambriler', subtitle: 'Ritmik Çıta & Gölgeli', badge: 'Ahşap' },
+  { id: 'composite_panel', title: 'Kompozit Panel & Fuga', subtitle: 'Geniş Mimari Fuga Derzleri', badge: 'Fuga' },
+];
+
+export const ROOF_PATTERN_OPTIONS: PatternOption[] = [
+  { id: 'tiles', title: 'Klasik Oluklu Kiremit', subtitle: 'Geleneksel Marsilya Tip', badge: 'Kiremit' },
+  { id: 'metal_seam', title: 'Kenet Çinko / Metal', subtitle: 'Modern Çinko Panel Hatları', badge: 'Kenet Çatı' },
+  { id: 'shingle', title: 'Arduvaz / Shingle', subtitle: 'Geometrik Pullu Kaplama', badge: 'Shingle' },
+];
+
 export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   facadeWidth: 14.0,       // Ön cephe 14 metre
   facadeDepth: 18.0,       // Sağ yan cephe derinlik 18 metre
@@ -217,6 +271,10 @@ export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   frameColor: '#18181b',   // Siyah / koyu antrasit doğrama
   slabColor: '#cbd5e1',    // Açık gri kat silmesi
   facadeStyle: 'wood_anthracite', // Geriye dönük uyumluluk
+  materialFinish: 'satin', // 'matte' | 'satin' | 'glossy' - Yüzey mat / parlak ayrımı
+  wallPattern: 'smooth',   // 'smooth' | 'stone' | 'brick' | 'concrete' | 'wood_slat' | 'composite_panel'
+  roofPattern: 'tiles',    // 'tiles' | 'metal_seam' | 'shingle'
+  showAppearancePanel: true,
   wallThickness: 0.25,     // 25 cm dış duvar
   showFurniture: true,     // Mobilya gösterimi açık
   showDimensions: true,    // Ölçülendirme açık

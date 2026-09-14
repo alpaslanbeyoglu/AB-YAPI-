@@ -44,6 +44,9 @@ import {
   ACCENT_COLOR_PRESETS,
   FRAME_COLOR_PRESETS,
   FACADE_STYLES,
+  MATERIAL_FINISH_OPTIONS,
+  WALL_PATTERN_OPTIONS,
+  ROOF_PATTERN_OPTIONS,
   ColorPreset,
 } from '../utils/buildingModelUtils';
 import {
@@ -107,6 +110,9 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   });
 
   const modelParams = propParams || internalModelParams;
+
+  // Collapsible section for Facade & Roof customization
+  const [isAppearanceSectionOpen, setIsAppearanceSectionOpen] = useState<boolean>(true);
 
   // Active subview: 3D Model vs Solar Exposure vs 2D Floor Plan
   const [viewMode, setViewMode] = useState<'3d' | 'solar' | '2d'>('3d');
@@ -428,304 +434,506 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   onUpdateBuildingRotation={(rot) => updateParams({ surfaceRotation: rot, buildingRotation: rot })}
                 />
 
-                {/* Bina Dış Görünümü & Çatı Renkleri Özelleştirme Paneli */}
-                <div className={`p-4 rounded-2xl border ${subCardBg} space-y-4 shadow-sm`}>
+                {/* Bina Dış Görünümü & Çatı Renkleri Özelleştirme Paneli (Gizlenebilir / Akordeon) */}
+                <div className={`p-4 rounded-2xl border ${subCardBg} shadow-sm transition-all duration-200`}>
+                  {/* Başlık & Gizle/Göster Butonu */}
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <div className="p-1.5 rounded-lg bg-indigo-50 border border-indigo-200">
                         <Paintbrush className="w-4 h-4 text-indigo-600" />
                       </div>
                       <div>
-                        <h4 className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
-                          Bina Dış Görünümü ve Çatı Renkleri
-                        </h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className={`text-xs font-bold uppercase tracking-wider ${textTitle}`}>
+                            Bina Dış Görünümü, Malzeme & Desenler
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-100/70 text-indigo-700 border border-indigo-200">
+                            {MATERIAL_FINISH_OPTIONS.find(f => f.id === (modelParams.materialFinish || 'satin'))?.badge || 'Yarı Mat'} · {WALL_PATTERN_OPTIONS.find(p => p.id === (modelParams.wallPattern || 'smooth'))?.badge || 'Düz Sıva'}
+                          </span>
+                        </div>
                         <p className={`text-[10px] ${textMuted}`}>
-                          Dış cephe duvarları, çatı kaplaması, söve/ahşap detayları ve doğrama renklerini dilediğiniz gibi belirleyin
+                          Mat/parlak malzeme simülasyonu, dış cephe/çatı doku desenleri ve mimari renk paleti
                         </p>
                       </div>
                     </div>
 
-                    {/* Hızlı Renk Paleti Kombinasyonları */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-                      <span className="text-[10px] font-semibold text-slate-500 whitespace-nowrap flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-amber-500" />
-                        Hızlı Kombinasyon:
-                      </span>
-                      {[
-                        { label: 'Açık & Kiremit', wall: '#f8fafc', roof: '#b91c1c', accent: '#b5734c', frame: '#18181b' },
-                        { label: 'Antrasit & Çinko', wall: '#22252a', roof: '#1e293b', accent: '#b5734c', frame: '#18181b' },
-                        { label: 'Bej & Kestane', wall: '#f5efe6', roof: '#451a03', accent: '#8c6239', frame: '#334155' },
-                        { label: 'Beyaz & Grafit', wall: '#f8fafc', roof: '#0f172a', accent: '#334155', frame: '#18181b' },
-                        { label: 'Tuğla & Kırmızı', wall: '#9a3412', roof: '#7f1d1d', accent: '#451a03', frame: '#18181b' },
-                      ].map((combo, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => updateParams({
-                            wallColor: combo.wall,
-                            roofColor: combo.roof,
-                            accentColor: combo.accent,
-                            frameColor: combo.frame,
+                    <div className="flex items-center gap-2">
+                      {/* Gizle / Göster Butonu */}
+                      <button
+                        type="button"
+                        onClick={() => setIsAppearanceSectionOpen(!isAppearanceSectionOpen)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-700 transition-all flex items-center gap-1.5 shadow-2xs"
+                      >
+                        {isAppearanceSectionOpen ? (
+                          <>
+                            <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Bölümü Gizle</span>
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-3.5 h-3.5 text-indigo-600" />
+                            <span className="text-indigo-600">Özelleştir / Göster</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Kapalı Durum Özeti (Collapsed State Summary) */}
+                  {!isAppearanceSectionOpen && (
+                    <div className="mt-3 pt-3 border-t border-slate-200/80 flex items-center justify-between flex-wrap gap-2 animate-fade-in">
+                      <div className="flex items-center gap-3 text-[11px] text-slate-600 flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <span className="font-semibold text-slate-800">Yüzey:</span>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 font-medium text-slate-700">
+                            {MATERIAL_FINISH_OPTIONS.find(f => f.id === (modelParams.materialFinish || 'satin'))?.title || 'Yarı Mat (Saten)'}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="font-semibold text-slate-800">Cephe Dokusu:</span>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 font-medium text-slate-700">
+                            {WALL_PATTERN_OPTIONS.find(p => p.id === (modelParams.wallPattern || 'smooth'))?.title || 'Pürüzsüz Düz Sıva'}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="font-semibold text-slate-800">Çatı Deseni:</span>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 font-medium text-slate-700">
+                            {ROOF_PATTERN_OPTIONS.find(p => p.id === (modelParams.roofPattern || 'tiles'))?.title || 'Klasik Oluklu Kiremit'}
+                          </span>
+                        </span>
+                        <div className="flex items-center gap-1.5 pl-1 border-l border-slate-200">
+                          <span className="text-[10px] text-slate-500">Renkler:</span>
+                          <span className="w-3 h-3 rounded-full border border-slate-300 shadow-2xs" style={{ backgroundColor: modelParams.wallColor || '#f1f5f9' }} title="Duvar" />
+                          <span className="w-3 h-3 rounded-full border border-slate-300 shadow-2xs" style={{ backgroundColor: modelParams.roofColor || '#b91c1c' }} title="Çatı" />
+                          <span className="w-3 h-3 rounded-full border border-slate-300 shadow-2xs" style={{ backgroundColor: modelParams.accentColor || '#b5734c' }} title="Ahşap/Söve" />
+                          <span className="w-3 h-3 rounded-full border border-slate-300 shadow-2xs" style={{ backgroundColor: modelParams.frameColor || '#18181b' }} title="Doğrama" />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsAppearanceSectionOpen(true)}
+                        className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700 underline flex items-center gap-1"
+                      >
+                        Tüm Detayları Düzenle →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Açık Durum İçeriği (Expanded State Body) */}
+                  {isAppearanceSectionOpen && (
+                    <div className="mt-4 space-y-4 animate-fade-in">
+                      {/* Hızlı Renk Paleti Kombinasyonları */}
+                      <div className="flex items-center justify-between flex-wrap gap-2 p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span className="text-[11px] font-bold text-slate-800">
+                            Hızlı Mimari Renk & Stil Kombinasyonları:
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-0.5">
+                          {[
+                            { label: 'Açık & Kiremit', wall: '#f8fafc', roof: '#b91c1c', accent: '#b5734c', frame: '#18181b' },
+                            { label: 'Antrasit & Çinko', wall: '#22252a', roof: '#1e293b', accent: '#b5734c', frame: '#18181b' },
+                            { label: 'Bej & Kestane', wall: '#f5efe6', roof: '#451a03', accent: '#8c6239', frame: '#334155' },
+                            { label: 'Beyaz & Grafit', wall: '#f8fafc', roof: '#0f172a', accent: '#334155', frame: '#18181b' },
+                            { label: 'Tuğla & Kırmızı', wall: '#9a3412', roof: '#7f1d1d', accent: '#451a03', frame: '#18181b' },
+                          ].map((combo, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => updateParams({
+                                wallColor: combo.wall,
+                                roofColor: combo.roof,
+                                accentColor: combo.accent,
+                                frameColor: combo.frame,
+                              })}
+                              className="px-2 py-1 rounded-lg text-[10px] font-medium bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-slate-700 transition-all flex items-center gap-1.5 shrink-0 shadow-2xs"
+                            >
+                              <span className="flex items-center -space-x-1">
+                                <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ backgroundColor: combo.wall }} />
+                                <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ backgroundColor: combo.roof }} />
+                              </span>
+                              <span>{combo.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 1. MALZEME SİMÜLASYONU: MAT / PARLAK AYRIMI */}
+                      <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                            <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                            Yüzey Kaplama Bitişi & Işık Yansıma Simülasyonu (Mat / Parlak Ayrımı)
+                          </span>
+                          <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                            {MATERIAL_FINISH_OPTIONS.find(f => f.id === (modelParams.materialFinish || 'satin'))?.title}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          {MATERIAL_FINISH_OPTIONS.map((fOption) => {
+                            const isSelected = (modelParams.materialFinish || 'satin') === fOption.id;
+                            return (
+                              <button
+                                key={fOption.id}
+                                type="button"
+                                onClick={() => updateParams({ materialFinish: fOption.id })}
+                                className={`p-3 rounded-xl text-left border transition-all flex flex-col justify-between gap-1.5 relative ${
+                                  isSelected
+                                    ? 'bg-gradient-to-br from-indigo-50/80 to-amber-50/30 border-indigo-600 ring-2 ring-indigo-500/25 shadow-xs'
+                                    : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${
+                                      fOption.id === 'matte' ? 'bg-amber-600' : fOption.id === 'glossy' ? 'bg-sky-500' : 'bg-indigo-600'
+                                    }`} />
+                                    {fOption.title}
+                                  </span>
+                                  {isSelected && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
+                                </div>
+                                <span className="text-[10px] text-slate-500 leading-snug">
+                                  {fOption.description}
+                                </span>
+                              </button>
+                            );
                           })}
-                          className="px-2 py-1 rounded-lg text-[10px] font-medium bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-slate-700 transition-all flex items-center gap-1.5 shrink-0 shadow-2xs"
-                        >
-                          <span className="flex items-center -space-x-1">
-                            <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ backgroundColor: combo.wall }} />
-                            <span className="w-2.5 h-2.5 rounded-full border border-white" style={{ backgroundColor: combo.roof }} />
-                          </span>
-                          <span>{combo.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                        </div>
+                      </div>
 
-                  {/* Mimari Cephe Tasarım & Kaplama Tarzı Seçici */}
-                  <div className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-                        <Building className="w-3.5 h-3.5 text-indigo-600" />
-                        Mimari Cephe Tasarım Tarzı (Dış Kaplama & Dokular)
-                      </span>
-                      <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                        {FACADE_STYLES.find(s => s.id === (modelParams.facadeStyle || 'modern'))?.title || 'Modern Açık Gri'}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-                      {FACADE_STYLES.map((style) => {
-                        const isSelected = (modelParams.facadeStyle || 'modern') === style.id;
-                        return (
-                          <button
-                            key={style.id}
-                            type="button"
-                            onClick={() => {
-                              updateParams({
-                                facadeStyle: style.id,
-                                wallColor: style.wallColorHex,
-                                accentColor: style.accentColorHex,
-                              });
-                            }}
-                            className={`p-2 rounded-xl text-left border transition-all flex flex-col justify-between gap-1 text-xs relative ${
-                              isSelected
-                                ? 'bg-gradient-to-br from-indigo-50 to-amber-50/40 border-indigo-600 ring-2 ring-indigo-500/30 shadow-xs'
-                                : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-[11px] text-slate-900 truncate">{style.title}</span>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
-                            </div>
-                            <span className="text-[9px] text-slate-500 line-clamp-2 leading-tight">
-                              {style.subtitle}
+                      {/* 2. DOKU VE DESEN SEÇENEKLERİ (DIŞ CEPHE & ÇATI) */}
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+                        {/* Dış Cephe Duvar Deseni */}
+                        <div className="lg:col-span-8 p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                              <Building className="w-3.5 h-3.5 text-indigo-600" />
+                              Dış Cephe Doku & Malzeme Deseni
                             </span>
-                            <div className="flex items-center gap-1 mt-1 pt-1 border-t border-slate-200/60">
-                              <span className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: style.wallColorHex }} title="Duvar Rengi" />
-                              <span className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: style.accentColorHex }} title="Vurgu Rengi" />
+                            <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                              {WALL_PATTERN_OPTIONS.find(p => p.id === (modelParams.wallPattern || 'smooth'))?.title}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {WALL_PATTERN_OPTIONS.map((pat) => {
+                              const isSelected = (modelParams.wallPattern || 'smooth') === pat.id;
+                              return (
+                                <button
+                                  key={pat.id}
+                                  type="button"
+                                  onClick={() => updateParams({ wallPattern: pat.id as any })}
+                                  className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between gap-1 text-xs relative ${
+                                    isSelected
+                                      ? 'bg-gradient-to-br from-indigo-50 to-amber-50/40 border-indigo-600 ring-2 ring-indigo-500/25 shadow-xs'
+                                      : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-[11px] text-slate-900">{pat.title}</span>
+                                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                                  </div>
+                                  <span className="text-[9px] text-slate-500 line-clamp-2 leading-tight">
+                                    {pat.subtitle}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Çatı Kaplama Deseni */}
+                        <div className="lg:col-span-4 p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                              <Layers className="w-3.5 h-3.5 text-rose-600" />
+                              Çatı Deseni
+                            </span>
+                            <span className="text-[10px] text-rose-600 font-semibold bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+                              {ROOF_PATTERN_OPTIONS.find(p => p.id === (modelParams.roofPattern || 'tiles'))?.title}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2">
+                            {ROOF_PATTERN_OPTIONS.map((rPat) => {
+                              const isSelected = (modelParams.roofPattern || 'tiles') === rPat.id;
+                              return (
+                                <button
+                                  key={rPat.id}
+                                  type="button"
+                                  onClick={() => updateParams({ roofPattern: rPat.id as any })}
+                                  className={`p-2 rounded-xl text-left border transition-all flex flex-col justify-between gap-0.5 text-xs relative ${
+                                    isSelected
+                                      ? 'bg-gradient-to-br from-rose-50 to-amber-50/40 border-rose-600 ring-2 ring-rose-500/25 shadow-xs'
+                                      : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-[11px] text-slate-900">{rPat.title}</span>
+                                    {isSelected && <Check className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+                                  </div>
+                                  <span className="text-[9px] text-slate-500 leading-tight">
+                                    {rPat.subtitle}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mimari Cephe Tasarım & Kaplama Tarzı Seçici */}
+                      <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                            <Building className="w-3.5 h-3.5 text-indigo-600" />
+                            Mimari Cephe Tasarım Tarzı (Hazır Kombinasyonlar)
+                          </span>
+                          <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                            {FACADE_STYLES.find(s => s.id === (modelParams.facadeStyle || 'modern'))?.title || 'Modern Açık Gri'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                          {FACADE_STYLES.map((style) => {
+                            const isSelected = (modelParams.facadeStyle || 'modern') === style.id;
+                            return (
+                              <button
+                                key={style.id}
+                                type="button"
+                                onClick={() => {
+                                  updateParams({
+                                    facadeStyle: style.id,
+                                    wallColor: style.wallColorHex,
+                                    accentColor: style.accentColorHex,
+                                  });
+                                }}
+                                className={`p-2 rounded-xl text-left border transition-all flex flex-col justify-between gap-1 text-xs relative ${
+                                  isSelected
+                                    ? 'bg-gradient-to-br from-indigo-50 to-amber-50/40 border-indigo-600 ring-2 ring-indigo-500/30 shadow-xs'
+                                    : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-[11px] text-slate-900 truncate">{style.title}</span>
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                                </div>
+                                <span className="text-[9px] text-slate-500 line-clamp-2 leading-tight">
+                                  {style.subtitle}
+                                </span>
+                                <div className="flex items-center gap-1 mt-1 pt-1 border-t border-slate-200/60">
+                                  <span className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: style.wallColorHex }} title="Duvar Rengi" />
+                                  <span className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: style.accentColorHex }} title="Vurgu Rengi" />
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 4 Ana Renk Seçim Izgarası */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {/* 1. Dış Cephe Duvar Rengi */}
+                        <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-slate-400" />
+                              Dış Cephe Duvarı
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="color"
+                                value={modelParams.wallColor || '#f1f5f9'}
+                                onChange={(e) => updateParams({ wallColor: e.target.value })}
+                                className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                                title="Özel Dış Cephe Rengi Seç"
+                              />
+                              <span className="text-[10px] font-mono text-slate-500 uppercase">
+                                {modelParams.wallColor || '#f1f5f9'}
+                              </span>
                             </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                          </div>
 
-                  {/* 4 Ana Renk Seçim Izgarası */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {/* 1. Dış Cephe Duvar Rengi */}
-                    <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-slate-400" />
-                          Dış Cephe Duvarı
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="color"
-                            value={modelParams.wallColor || '#f1f5f9'}
-                            onChange={(e) => updateParams({ wallColor: e.target.value })}
-                            className="w-6 h-6 rounded cursor-pointer border-0 p-0"
-                            title="Özel Dış Cephe Rengi Seç"
-                          />
-                          <span className="text-[10px] font-mono text-slate-500 uppercase">
-                            {modelParams.wallColor || '#f1f5f9'}
-                          </span>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {WALL_COLOR_PRESETS.map((p) => {
+                              const isSelected = (modelParams.wallColor || '#f1f5f9').toLowerCase() === p.hex.toLowerCase();
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => updateParams({ wallColor: p.hex })}
+                                  title={p.name}
+                                  className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
+                                    isSelected
+                                      ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
+                                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <span
+                                    className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
+                                    style={{ backgroundColor: p.hex }}
+                                  />
+                                  <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
+                                    {p.name}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 2. Çatı Kaplama Rengi */}
+                        <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-rose-500" />
+                              Çatı Kaplaması
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="color"
+                                value={modelParams.roofColor || '#b91c1c'}
+                                onChange={(e) => updateParams({ roofColor: e.target.value })}
+                                className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                                title="Özel Çatı Rengi Seç"
+                              />
+                              <span className="text-[10px] font-mono text-slate-500 uppercase">
+                                {modelParams.roofColor || '#b91c1c'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {ROOF_COLOR_PRESETS.map((p) => {
+                              const isSelected = (modelParams.roofColor || '#b91c1c').toLowerCase() === p.hex.toLowerCase();
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => updateParams({ roofColor: p.hex })}
+                                  title={p.name}
+                                  className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
+                                    isSelected
+                                      ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
+                                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <span
+                                    className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
+                                    style={{ backgroundColor: p.hex }}
+                                  />
+                                  <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
+                                    {p.name}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 3. Ahşap, Söve & Vurgu Rengi */}
+                        <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-amber-600" />
+                              Ahşap & Söve Detayları
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="color"
+                                value={modelParams.accentColor || '#b5734c'}
+                                onChange={(e) => updateParams({ accentColor: e.target.value })}
+                                className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                                title="Özel Vurgu Rengi Seç"
+                              />
+                              <span className="text-[10px] font-mono text-slate-500 uppercase">
+                                {modelParams.accentColor || '#b5734c'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {ACCENT_COLOR_PRESETS.map((p) => {
+                              const isSelected = (modelParams.accentColor || '#b5734c').toLowerCase() === p.hex.toLowerCase();
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => updateParams({ accentColor: p.hex })}
+                                  title={p.name}
+                                  className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
+                                    isSelected
+                                      ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
+                                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <span
+                                    className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
+                                    style={{ backgroundColor: p.hex }}
+                                  />
+                                  <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
+                                    {p.name}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 4. Doğrama & Korkuluk Rengi */}
+                        <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-slate-900" />
+                              Doğrama & Korkuluklar
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="color"
+                                value={modelParams.frameColor || '#18181b'}
+                                onChange={(e) => updateParams({ frameColor: e.target.value })}
+                                className="w-6 h-6 rounded cursor-pointer border-0 p-0"
+                                title="Özel Doğrama Rengi Seç"
+                              />
+                              <span className="text-[10px] font-mono text-slate-500 uppercase">
+                                {modelParams.frameColor || '#18181b'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {FRAME_COLOR_PRESETS.map((p) => {
+                              const isSelected = (modelParams.frameColor || '#18181b').toLowerCase() === p.hex.toLowerCase();
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => updateParams({ frameColor: p.hex })}
+                                  title={p.name}
+                                  className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
+                                    isSelected
+                                      ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
+                                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <span
+                                    className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
+                                    style={{ backgroundColor: p.hex }}
+                                  />
+                                  <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
+                                    {p.name}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {WALL_COLOR_PRESETS.map((p) => {
-                          const isSelected = (modelParams.wallColor || '#f1f5f9').toLowerCase() === p.hex.toLowerCase();
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => updateParams({ wallColor: p.hex })}
-                              title={p.name}
-                              className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
-                                isSelected
-                                  ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
-                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              <span
-                                className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
-                                style={{ backgroundColor: p.hex }}
-                              />
-                              <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
-                                {p.name}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
                     </div>
-
-                    {/* 2. Çatı Kaplama Rengi */}
-                    <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-rose-500" />
-                          Çatı Kaplaması
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="color"
-                            value={modelParams.roofColor || '#b91c1c'}
-                            onChange={(e) => updateParams({ roofColor: e.target.value })}
-                            className="w-6 h-6 rounded cursor-pointer border-0 p-0"
-                            title="Özel Çatı Rengi Seç"
-                          />
-                          <span className="text-[10px] font-mono text-slate-500 uppercase">
-                            {modelParams.roofColor || '#b91c1c'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {ROOF_COLOR_PRESETS.map((p) => {
-                          const isSelected = (modelParams.roofColor || '#b91c1c').toLowerCase() === p.hex.toLowerCase();
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => updateParams({ roofColor: p.hex })}
-                              title={p.name}
-                              className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
-                                isSelected
-                                  ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
-                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              <span
-                                className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
-                                style={{ backgroundColor: p.hex }}
-                              />
-                              <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
-                                {p.name}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* 3. Ahşap, Söve & Vurgu Rengi */}
-                    <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-amber-600" />
-                          Ahşap & Söve Detayları
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="color"
-                            value={modelParams.accentColor || '#b5734c'}
-                            onChange={(e) => updateParams({ accentColor: e.target.value })}
-                            className="w-6 h-6 rounded cursor-pointer border-0 p-0"
-                            title="Özel Vurgu Rengi Seç"
-                          />
-                          <span className="text-[10px] font-mono text-slate-500 uppercase">
-                            {modelParams.accentColor || '#b5734c'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {ACCENT_COLOR_PRESETS.map((p) => {
-                          const isSelected = (modelParams.accentColor || '#b5734c').toLowerCase() === p.hex.toLowerCase();
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => updateParams({ accentColor: p.hex })}
-                              title={p.name}
-                              className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
-                                isSelected
-                                  ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
-                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              <span
-                                className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
-                                style={{ backgroundColor: p.hex }}
-                              />
-                              <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
-                                {p.name}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* 4. Doğrama & Korkuluk Rengi */}
-                    <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-slate-900" />
-                          Doğrama & Korkuluklar
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="color"
-                            value={modelParams.frameColor || '#18181b'}
-                            onChange={(e) => updateParams({ frameColor: e.target.value })}
-                            className="w-6 h-6 rounded cursor-pointer border-0 p-0"
-                            title="Özel Doğrama Rengi Seç"
-                          />
-                          <span className="text-[10px] font-mono text-slate-500 uppercase">
-                            {modelParams.frameColor || '#18181b'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {FRAME_COLOR_PRESETS.map((p) => {
-                          const isSelected = (modelParams.frameColor || '#18181b').toLowerCase() === p.hex.toLowerCase();
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => updateParams({ frameColor: p.hex })}
-                              title={p.name}
-                              className={`p-1 rounded-lg border text-left transition-all flex flex-col items-center gap-1 ${
-                                isSelected
-                                  ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500 shadow-2xs'
-                                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                              }`}
-                            >
-                              <span
-                                className="w-5 h-5 rounded-full border border-black/10 shadow-2xs"
-                                style={{ backgroundColor: p.hex }}
-                              />
-                              <span className="text-[9px] text-slate-600 font-medium truncate w-full text-center leading-tight">
-                                {p.name}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}

@@ -516,6 +516,10 @@ export type FlatDistributionMode =
   | 'asymmetric_master' // 1 Adet Geniş Master Daire (%40) + Kalan Daireler Eşit (%20'şer)
   | 'custom_proportions'; // Özel / Tablodan Yönetilen Dağılım
 
+export type MaterialFinishType = 'matte' | 'satin' | 'glossy';
+export type WallPatternType = 'smooth' | 'stone' | 'brick' | 'concrete' | 'wood_slat' | 'composite_panel';
+export type RoofPatternType = 'tiles' | 'metal_seam' | 'shingle';
+
 export interface BuildingModelParams {
   facadeWidth: number;       // Ön cephe genişliği (m)
   facadeDepth: number;       // Sağ yan cephe derinlik (m)
@@ -557,6 +561,10 @@ export interface BuildingModelParams {
   frameColor?: string;       // Pencere, kapı ve korkuluk doğrama rengi (#hex)
   slabColor?: string;        // Kat silmesi ve döşeme rengi (#hex)
   glassColor?: string;       // Cam rengi / tonu (#hex)
+  materialFinish?: MaterialFinishType; // 'matte' | 'satin' | 'glossy' - Yüzey mat / parlak ayrımı
+  wallPattern?: WallPatternType;       // Dış cephe doku ve desen seçeneği
+  roofPattern?: RoofPatternType;       // Çatı doku ve desen seçeneği
+  showAppearancePanel?: boolean;       // Görünüm & Renk paneli açık/kapalı durumu
   wallThickness: number;     // Dış duvar kalınlığı (m)
   showFurniture: boolean;    // Mobilya katmanı
   showDimensions: boolean;   // Ölçülendirme çizgileri

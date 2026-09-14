@@ -740,95 +740,316 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
     const isConcreteFacade =
       params?.facadeStyle === 'concrete_brutalist' ||
+      params?.wallPattern === 'concrete' ||
       (params?.wallColor && ['#94a3b8', '#8b9bb4', '#64748b', '#cbd5e1'].includes(params.wallColor.toLowerCase()));
 
-    // Procedural tactile exposed concrete texture (Brüt Beton & Derz Çizgileri)
-    const createConcreteTexture = () => {
+    // Procedural Facade Wall Pattern Textures
+    const createWallPatternTexture = (pattern: string, baseHex: string) => {
       const canvas = document.createElement('canvas');
       canvas.width = 512;
       canvas.height = 512;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
 
-      // Base cement grey tint
-      const baseHex = params.wallColor || '#94a3b8';
-      ctx.fillStyle = baseHex;
+      // Base background fill
+      ctx.fillStyle = baseHex || '#f1f5f9';
       ctx.fillRect(0, 0, 512, 512);
 
-      // Fine aggregate cement noise speckles
-      for (let i = 0; i < 15000; i++) {
-        const isDark = Math.random() > 0.45;
-        const alpha = Math.random() * 0.08 + 0.02;
-        ctx.fillStyle = isDark ? `rgba(15, 23, 42, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
-        ctx.fillRect(Math.random() * 512, Math.random() * 512, Math.random() * 2 + 1, Math.random() * 2 + 1);
+      if (pattern === 'stone') {
+        // Doğal Taş & Traverten
+        // 1. Subtle mineral speckles & veins
+        for (let i = 0; i < 9000; i++) {
+          const alpha = Math.random() * 0.06 + 0.01;
+          ctx.fillStyle = Math.random() > 0.5 ? `rgba(60, 45, 30, ${alpha})` : `rgba(255, 255, 255, ${alpha * 1.6})`;
+          ctx.fillRect(Math.random() * 512, Math.random() * 512, Math.random() * 6 + 1, Math.random() * 2 + 1);
+        }
+        // 2. Travertine stone organic horizontal veins
+        for (let v = 0; v < 16; v++) {
+          const y = Math.random() * 512;
+          ctx.strokeStyle = `rgba(100, 80, 60, ${Math.random() * 0.12 + 0.04})`;
+          ctx.lineWidth = Math.random() * 2.5 + 1;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          let curY = y;
+          for (let x = 0; x <= 512; x += 32) {
+            curY += (Math.random() - 0.5) * 8;
+            ctx.lineTo(x, curY);
+          }
+          ctx.stroke();
+        }
+        // 3. Horizontal block joints (yatay taş derz hatları)
+        const rowCount = 4;
+        const rowH = 512 / rowCount;
+        ctx.strokeStyle = 'rgba(40, 30, 20, 0.35)';
+        ctx.lineWidth = 3;
+        for (let r = 1; r < rowCount; r++) {
+          ctx.beginPath();
+          ctx.moveTo(0, r * rowH);
+          ctx.lineTo(512, r * rowH);
+          ctx.stroke();
+        }
+        // 4. Staggered vertical joints
+        for (let r = 0; r < rowCount; r++) {
+          const offset = (r % 2) * 128 + 64;
+          for (let x = offset; x < 512; x += 256) {
+            ctx.beginPath();
+            ctx.moveTo(x, r * rowH);
+            ctx.lineTo(x, (r + 1) * rowH);
+            ctx.stroke();
+          }
+        }
+      } else if (pattern === 'brick') {
+        // Klinker & Rustik Tuğla
+        const rowCount = 12;
+        const rowH = 512 / rowCount;
+        const brickW = 85;
+
+        for (let r = 0; r < rowCount; r++) {
+          const isShifted = r % 2 === 1;
+          const startX = isShifted ? -brickW / 2 : 0;
+          for (let x = startX; x < 512 + brickW; x += brickW + 4) {
+            const shadeVar = (Math.random() - 0.5) * 0.16;
+            ctx.fillStyle = shadeVar > 0 ? `rgba(255, 255, 255, ${shadeVar})` : `rgba(0, 0, 0, ${-shadeVar})`;
+            ctx.fillRect(x + 2, r * rowH + 2, brickW, rowH - 4);
+
+            for (let s = 0; s < 10; s++) {
+              ctx.fillStyle = `rgba(0, 0, 0, ${Math.random() * 0.08})`;
+              ctx.fillRect(x + 2 + Math.random() * brickW, r * rowH + 2 + Math.random() * (rowH - 4), 2, 2);
+            }
+          }
+        }
+        ctx.strokeStyle = 'rgba(20, 15, 10, 0.45)';
+        ctx.lineWidth = 2.5;
+        for (let r = 0; r <= rowCount; r++) {
+          ctx.beginPath();
+          ctx.moveTo(0, r * rowH);
+          ctx.lineTo(512, r * rowH);
+          ctx.stroke();
+        }
+        for (let r = 0; r < rowCount; r++) {
+          const isShifted = r % 2 === 1;
+          const startX = isShifted ? brickW / 2 : brickW;
+          for (let x = startX; x < 512; x += brickW + 4) {
+            ctx.beginPath();
+            ctx.moveTo(x, r * rowH);
+            ctx.lineTo(x, (r + 1) * rowH);
+            ctx.stroke();
+          }
+        }
+      } else if (pattern === 'concrete' || isConcreteFacade) {
+        // Brüt Beton Panel
+        for (let i = 0; i < 15000; i++) {
+          const isDark = Math.random() > 0.45;
+          const alpha = Math.random() * 0.08 + 0.02;
+          ctx.fillStyle = isDark ? `rgba(15, 23, 42, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+          ctx.fillRect(Math.random() * 512, Math.random() * 512, Math.random() * 2 + 1, Math.random() * 2 + 1);
+        }
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.32)';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(3, 3, 506, 506);
+        ctx.beginPath();
+        ctx.moveTo(256, 0); ctx.lineTo(256, 512);
+        ctx.moveTo(0, 256); ctx.lineTo(512, 256);
+        ctx.stroke();
+
+        const tiePoints = [
+          [35, 35], [221, 35], [291, 35], [477, 35],
+          [35, 221], [221, 221], [291, 221], [477, 221],
+          [35, 291], [221, 291], [291, 291], [477, 291],
+          [35, 477], [221, 477], [291, 477], [477, 477],
+        ];
+        tiePoints.forEach(([tx, ty]) => {
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+          ctx.beginPath(); ctx.arc(tx, ty, 4, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+          ctx.beginPath(); ctx.arc(tx, ty, 2.5, 0, Math.PI * 2); ctx.fill();
+        });
+      } else if (pattern === 'wood_slat') {
+        // Dikey Ahşap Lambriler (Vertical Slats)
+        const slatW = 16;
+        for (let x = 0; x < 512; x += slatW) {
+          ctx.fillStyle = 'rgba(20, 10, 5, 0.45)';
+          ctx.fillRect(x + slatW - 3, 0, 3, 512);
+          for (let g = 0; g < 3; g++) {
+            ctx.strokeStyle = `rgba(40, 20, 10, ${Math.random() * 0.15 + 0.05})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x + g * 4 + 2, 0);
+            ctx.lineTo(x + g * 4 + 2, 512);
+            ctx.stroke();
+          }
+        }
+      } else if (pattern === 'composite_panel') {
+        // Modern Mimari Kompozit Panel & Fuga
+        const panelSize = 128;
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.45)';
+        ctx.lineWidth = 3;
+        for (let x = 0; x <= 512; x += panelSize) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke();
+        }
+        for (let y = 0; y <= 512; y += panelSize) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+        }
+        for (let x = panelSize; x < 512; x += panelSize) {
+          for (let y = panelSize; y < 512; y += panelSize) {
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+            ctx.beginPath(); ctx.arc(x - 8, y - 8, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x + 8, y + 8, 2, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+      } else {
+        // 'smooth' - Pürüzsüz Sıva / Mineral Gren Dokusu
+        for (let i = 0; i < 10000; i++) {
+          const alpha = Math.random() * 0.04 + 0.01;
+          ctx.fillStyle = Math.random() > 0.5 ? `rgba(0, 0, 0, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+          ctx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
+        }
       }
-
-      // Architectural panel grooves (derz çizgileri)
-      ctx.strokeStyle = 'rgba(15, 23, 42, 0.28)';
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(3, 3, 506, 506);
-      ctx.beginPath();
-      ctx.moveTo(256, 0);
-      ctx.lineTo(256, 512);
-      ctx.moveTo(0, 256);
-      ctx.lineTo(512, 256);
-      ctx.stroke();
-
-      // Tie-rod circular formwork holes (kalıp delikleri / brüt beton detayları)
-      const tiePoints = [
-        [35, 35], [221, 35], [291, 35], [477, 35],
-        [35, 221], [221, 221], [291, 221], [477, 221],
-        [35, 291], [221, 291], [291, 291], [477, 291],
-        [35, 477], [221, 477], [291, 477], [477, 477],
-      ];
-      tiePoints.forEach(([tx, ty]) => {
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
-        ctx.beginPath();
-        ctx.arc(tx, ty, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-        ctx.beginPath();
-        ctx.arc(tx, ty, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.beginPath();
-        ctx.arc(tx - 1, ty - 1, 1.2, 0, Math.PI * 2);
-        ctx.fill();
-      });
 
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(1.5, 1.5);
+      tex.repeat.set(2.0, 2.0);
       return tex;
     };
+
+    // Procedural Roof Pattern Textures
+    const createRoofPatternTexture = (pattern: string, baseHex: string) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      ctx.fillStyle = baseHex || '#b91c1c';
+      ctx.fillRect(0, 0, 512, 512);
+
+      if (pattern === 'metal_seam') {
+        // Kenet Çinko Metal Panel (Standing seam lines)
+        const seamW = 32;
+        for (let x = 0; x < 512; x += seamW) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+          ctx.fillRect(x + seamW - 3, 0, 3, 512);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.fillRect(x + 1, 0, 2, 512);
+        }
+      } else if (pattern === 'shingle') {
+        // Shingle & Arduvaz Pul Kaplama
+        const tileH = 24;
+        const tileW = 48;
+        for (let y = 0; y < 512; y += tileH) {
+          const isShifted = (y / tileH) % 2 === 1;
+          const startX = isShifted ? -tileW / 2 : 0;
+          for (let x = startX; x < 512 + tileW; x += tileW) {
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x, y, tileW, tileH);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+            ctx.fillRect(x, y + tileH - 4, tileW, 4);
+          }
+        }
+      } else {
+        // 'tiles' - Klasik Oluklu Kiremit
+        const rowH = 28;
+        for (let y = 0; y < 512; y += rowH) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.fillRect(0, y + rowH - 4, 512, 4);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.fillRect(0, y + 1, 512, 2);
+
+          const colW = 32;
+          for (let x = 0; x < 512; x += colW) {
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + rowH);
+            ctx.stroke();
+          }
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(3.0, 3.0);
+      return tex;
+    };
+
+    // Material Finish Calibration (Matte / Satin / Glossy)
+    const finish = params?.materialFinish || 'satin';
+    let wallRoughness = 0.55;
+    let wallMetalness = 0.08;
+    let roofRoughness = 0.45;
+    let roofMetalness = 0.18;
+    let woodRoughness = 0.45;
+    let woodMetalness = 0.12;
+    let frameRoughness = 0.25;
+    let frameMetalness = 0.70;
+    let slabRoughness = 0.75;
+    let slabMetalness = 0.08;
+
+    if (finish === 'matte') {
+      wallRoughness = 0.95;
+      wallMetalness = 0.02;
+      roofRoughness = 0.90;
+      roofMetalness = 0.02;
+      woodRoughness = 0.85;
+      woodMetalness = 0.02;
+      frameRoughness = 0.60;
+      frameMetalness = 0.20;
+      slabRoughness = 0.92;
+      slabMetalness = 0.02;
+    } else if (finish === 'glossy') {
+      wallRoughness = 0.12;
+      wallMetalness = 0.45;
+      roofRoughness = 0.15;
+      roofMetalness = 0.65;
+      woodRoughness = 0.18;
+      woodMetalness = 0.30;
+      frameRoughness = 0.06;
+      frameMetalness = 0.95;
+      slabRoughness = 0.25;
+      slabMetalness = 0.35;
+    }
+
+    // Textures
+    const wallEffectivePattern = params?.wallPattern || (isConcreteFacade ? 'concrete' : 'smooth');
+    const wallTexture = !isXRay ? createWallPatternTexture(wallEffectivePattern, params?.wallColor || '#f1f5f9') : null;
+    const roofTexture = !isXRay ? createRoofPatternTexture(params?.roofPattern || 'tiles', params?.roofColor || '#b91c1c') : null;
 
     // Materials
     const slabMaterial = new THREE.MeshStandardMaterial({
       color: colors.slab,
-      roughness: 0.8,
-      metalness: 0.1,
+      roughness: slabRoughness,
+      metalness: slabMetalness,
       wireframe: isWireframe,
       side: THREE.DoubleSide,
     });
 
-    const concreteTex = isConcreteFacade && !isXRay ? createConcreteTexture() : null;
-
     // Exterior Wall Material (Transparent in X-Ray mode so rooms are visible!)
     const wallMaterial = new THREE.MeshStandardMaterial({
       color: isXRay ? (isLight ? 0x94a3b8 : 0x38bdf8) : colors.wall,
-      roughness: isConcreteFacade ? 0.75 : 0.6,
-      metalness: isConcreteFacade ? 0.05 : 0.1,
-      map: concreteTex,
+      roughness: wallRoughness,
+      metalness: wallMetalness,
+      map: wallTexture,
       wireframe: isWireframe,
       transparent: isXRay,
       opacity: isXRay ? 0.18 : 1.0,
       depthWrite: !isXRay,
     });
 
+    const roofMaterial = new THREE.MeshStandardMaterial({
+      color: colors.roof,
+      roughness: roofRoughness,
+      metalness: roofMetalness,
+      map: roofTexture,
+      wireframe: isWireframe,
+      side: THREE.DoubleSide,
+    });
+
     const woodMaterial = new THREE.MeshStandardMaterial({
       color: colors.woodAccent,
-      roughness: 0.5,
-      metalness: 0.1,
+      roughness: woodRoughness,
+      metalness: woodMetalness,
       wireframe: isWireframe,
       transparent: isXRay,
       opacity: isXRay ? 0.22 : 1.0,
@@ -837,8 +1058,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
     const columnMaterial = new THREE.MeshStandardMaterial({
       color: colors.column,
-      roughness: 0.7,
-      metalness: 0.2,
+      roughness: slabRoughness,
+      metalness: slabMetalness,
       wireframe: isWireframe,
       transparent: isXRay,
       opacity: isXRay ? 0.45 : 1.0,
@@ -860,8 +1081,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
     const frameMaterial = new THREE.MeshStandardMaterial({
       color: colors.frame,
-      roughness: 0.2,
-      metalness: 0.8
+      roughness: frameRoughness,
+      metalness: frameMetalness
     });
 
     // Turkish Architectural Balcony Materials
@@ -2964,31 +3185,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         if (isCustomPoly && roofPolyPts) {
           const bounds = getPolygonBounds(roofPolyPts);
           const roofGeo = createPolygonHipRoofGeometry(roofPolyPts, bounds.centerX, bounds.centerY, roofHeight, eavesOverhang, 0.25);
-          const roofMesh = new THREE.Mesh(
-            roofGeo,
-            new THREE.MeshStandardMaterial({
-              color: colors.roof,
-              roughness: 0.5,
-              metalness: 0.1,
-              wireframe: isWireframe,
-              side: THREE.DoubleSide,
-            })
-          );
+          const roofMesh = new THREE.Mesh(roofGeo, roofMaterial);
           roofMesh.position.set(0, topFloorY, 0);
           roofMesh.castShadow = true;
           roofGroup.add(roofMesh);
         } else {
           const roofGeom = createRectangularHipRoofGeometry(topFloorW, topFloorD, roofHeight, eavesOverhang);
-          const roofMesh = new THREE.Mesh(
-            roofGeom,
-            new THREE.MeshStandardMaterial({
-              color: colors.roof,
-              roughness: 0.5,
-              metalness: 0.1,
-              wireframe: isWireframe,
-              side: THREE.DoubleSide,
-            })
-          );
+          const roofMesh = new THREE.Mesh(roofGeom, roofMaterial);
           roofMesh.position.set(topFloorCenterX, topFloorY, topFloorCenterZ);
           roofMesh.castShadow = true;
           roofGroup.add(roofMesh);
@@ -2996,18 +3199,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       } else if (roofType === 'mansard') {
         // 2. MANSARD ROOF (Fransız Mansart Çatı - Dik Alt Eğimler + Güvercinlik Pencereleri)
         const mansardLowerH = Math.max(2.0, Math.min(3.5, minSpan * 0.22 + 0.8));
-        const mansardMat = new THREE.MeshStandardMaterial({
-          color: colors.roof, // User-selected roof color
-          roughness: 0.4,
-          metalness: 0.2,
-          wireframe: isWireframe,
-          side: THREE.DoubleSide,
-        });
 
         if (isCustomPoly && roofPolyPts) {
           const bounds = getPolygonBounds(roofPolyPts);
           const lowerGeo = createPolygonHipRoofGeometry(roofPolyPts, bounds.centerX, bounds.centerY, mansardLowerH, eavesOverhang, 0.2);
-          const lowerMesh = new THREE.Mesh(lowerGeo, mansardMat);
+          const lowerMesh = new THREE.Mesh(lowerGeo, roofMaterial);
           lowerMesh.position.set(0, topFloorY, 0);
           lowerMesh.castShadow = true;
           roofGroup.add(lowerMesh);
@@ -3040,14 +3236,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           }
         } else {
           const lowerGeo = createRectangularHipRoofGeometry(topFloorW, topFloorD, mansardLowerH, eavesOverhang);
-          const lowerMesh = new THREE.Mesh(lowerGeo, mansardMat);
+          const lowerMesh = new THREE.Mesh(lowerGeo, roofMaterial);
           lowerMesh.position.set(topFloorCenterX, topFloorY, topFloorCenterZ);
           lowerMesh.castShadow = true;
           roofGroup.add(lowerMesh);
 
           const setback = 0.8;
           const upperCapGeo = safeBox(Math.max(1, topFloorW - setback * 2), 0.15, Math.max(1, topFloorD - setback * 2));
-          const upperCapMesh = new THREE.Mesh(upperCapGeo, mansardMat);
+          const upperCapMesh = new THREE.Mesh(upperCapGeo, roofMaterial);
           upperCapMesh.position.set(topFloorCenterX, topFloorY + mansardLowerH + 0.08, topFloorCenterZ);
           upperCapMesh.castShadow = true;
           roofGroup.add(upperCapMesh);
@@ -3073,7 +3269,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
             const dRoofGeo = safeCone(dormerW * 0.8, 0.5, 4);
             dRoofGeo.rotateY(Math.PI / 4);
-            const dRoof = new THREE.Mesh(dRoofGeo, mansardMat);
+            const dRoof = new THREE.Mesh(dRoofGeo, roofMaterial);
             dRoof.position.set(dx, topFloorY + dormerH + 0.3 + 0.25, topFloorCenterZ + topFloorD / 2 - dormerD / 2 + 0.1);
             roofGroup.add(dRoof);
           }
@@ -3121,14 +3317,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           roofGroup.add(livingMesh);
 
           const pRoofGeo = safeBox(W * 0.75, 0.2, livingDepth * 0.85);
-          const pRoof = new THREE.Mesh(
-            pRoofGeo,
-            new THREE.MeshStandardMaterial({
-              color: colors.roof,
-              roughness: 0.4,
-              metalness: 0.2,
-            })
-          );
+          const pRoof = new THREE.Mesh(pRoofGeo, roofMaterial);
           pRoof.position.set(roofCoreCenterX, topFloorY + duplexFloorH + 0.1, roofCoreCenterZ - D * 0.1);
           roofGroup.add(pRoof);
         } else {
@@ -3145,14 +3334,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           roofGroup.add(slidingGlass);
 
           const pRoofGeo = safeBox(W * 0.9, 0.2, livingDepth + 0.4);
-          const pRoof = new THREE.Mesh(
-            pRoofGeo,
-            new THREE.MeshStandardMaterial({
-              color: colors.roof,
-              roughness: 0.4,
-              metalness: 0.2,
-            })
-          );
+          const pRoof = new THREE.Mesh(pRoofGeo, roofMaterial);
           pRoof.position.set(0, topFloorY + duplexFloorH + 0.1, -terraceDepth / 2);
           pRoof.rotation.x = -0.05;
           roofGroup.add(pRoof);
