@@ -32,9 +32,9 @@ export const Logo: React.FC<LogoProps> = ({
   const activeSlogan = customSlogan || profile?.slogan || 'Güvene Yükselen Yapılar';
   const activeTagline = customTagline || profile?.tagline || 'Kentsel Dönüşüm & Danışmanlık';
 
-  // Extract initials dynamically from company name (e.g. "AB YAPI" -> "AB")
+  // Extract initials dynamically from company name (e.g. "AB YAPI" -> "AY" or "AB")
   const getInitials = (name: string) => {
-    if (!name) return 'AB';
+    if (!name) return 'AY';
     const words = name.trim().split(/\s+/).filter(Boolean);
     if (words.length === 1) {
       return words[0].substring(0, 2).toUpperCase();
@@ -46,10 +46,10 @@ export const Logo: React.FC<LogoProps> = ({
 
   // Responsive dimensions
   const sizeMap = {
-    sm: { box: 'w-8 h-8', text: 'text-xs', icon: 'w-4 h-4', title: 'text-sm', slogan: 'text-[9px]' },
-    md: { box: 'w-10 h-10', text: 'text-sm', icon: 'w-5 h-5', title: 'text-base sm:text-lg', slogan: 'text-[10px]' },
-    lg: { box: 'w-12 h-12 sm:w-14 sm:h-14', text: 'text-base sm:text-lg font-black', icon: 'w-6 h-6', title: 'text-xl sm:text-2xl', slogan: 'text-xs' },
-    xl: { box: 'w-16 h-16 sm:w-20 sm:h-20', text: 'text-xl sm:text-2xl font-black', icon: 'w-8 h-8', title: 'text-2xl sm:text-3xl', slogan: 'text-sm' },
+    sm: { box: 'w-8 h-8', text: 'text-xs', icon: 'w-4 h-4', title: 'text-sm font-black', slogan: 'text-[9px]' },
+    md: { box: 'w-9 h-9 sm:w-10 sm:h-10', text: 'text-sm', icon: 'w-5 h-5', title: 'text-base sm:text-lg font-black', slogan: 'text-[10px]' },
+    lg: { box: 'w-12 h-12 sm:w-14 sm:h-14', text: 'text-base sm:text-lg font-black', icon: 'w-6 h-6', title: 'text-xl sm:text-2xl font-black', slogan: 'text-xs' },
+    xl: { box: 'w-16 h-16 sm:w-20 sm:h-20', text: 'text-xl sm:text-2xl font-black', icon: 'w-8 h-8', title: 'text-2xl sm:text-3xl font-black', slogan: 'text-sm' },
   };
 
   const currentSize = sizeMap[size] || sizeMap.md;
@@ -85,7 +85,7 @@ export const Logo: React.FC<LogoProps> = ({
 
   if (variant === 'icon') {
     return (
-      <div className={`inline-flex items-center justify-center ${className}`}>
+      <div className={`inline-flex items-center justify-center shrink-0 ${className}`}>
         {markGraphic}
       </div>
     );
@@ -93,11 +93,11 @@ export const Logo: React.FC<LogoProps> = ({
 
   if (variant === 'compact') {
     return (
-      <div className={`inline-flex items-center gap-2.5 ${className}`}>
+      <div className={`inline-flex items-center gap-2.5 min-w-0 max-w-full overflow-hidden ${className}`}>
         {markGraphic}
-        <div className="leading-none">
+        <div className="leading-tight min-w-0 flex-1 overflow-hidden">
           <span
-            className={`font-black tracking-tight ${
+            className={`block truncate font-black tracking-tight ${
               size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-xl' : 'text-base'
             } ${isDark ? 'text-white' : 'text-slate-900'}`}
           >
@@ -105,8 +105,8 @@ export const Logo: React.FC<LogoProps> = ({
           </span>
           {activeTagline && (
             <span
-              className={`block font-mono tracking-widest text-[8px] uppercase mt-0.5 ${
-                isDark ? 'text-zinc-400' : 'text-slate-600'
+              className={`block truncate font-medium text-[9px] tracking-tight uppercase ${
+                isDark ? 'text-indigo-400' : 'text-indigo-600 font-bold'
               }`}
             >
               {activeTagline}
@@ -119,12 +119,12 @@ export const Logo: React.FC<LogoProps> = ({
 
   // Full Variant with Motto / Slogan
   return (
-    <div className={`inline-flex items-center gap-3 ${className}`}>
+    <div className={`inline-flex items-center gap-2.5 sm:gap-3 min-w-0 max-w-full overflow-hidden ${className}`}>
       {markGraphic}
-      <div className="flex flex-col justify-center leading-tight">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col justify-center leading-tight min-w-0 flex-1 overflow-hidden">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <span
-            className={`font-black tracking-tight ${currentSize.title} ${
+            className={`font-black tracking-tight truncate ${currentSize.title} ${
               isDark ? 'text-white' : 'text-slate-900'
             }`}
           >
@@ -132,7 +132,7 @@ export const Logo: React.FC<LogoProps> = ({
           </span>
           {activeTagline && (
             <span
-              className={`hidden sm:inline-block px-2 py-0.5 text-[9px] font-semibold rounded-full border ${
+              className={`hidden md:inline-block px-2 py-0.5 text-[9px] font-semibold rounded-full border truncate max-w-[200px] ${
                 isDark
                   ? 'bg-zinc-800/80 text-zinc-300 border-zinc-700'
                   : isGray
@@ -146,7 +146,7 @@ export const Logo: React.FC<LogoProps> = ({
         </div>
         {activeSlogan && (
           <span
-            className={`hidden sm:block font-mono ${currentSize.slogan} tracking-[0.15em] uppercase font-bold mt-0.5 truncate max-w-[280px] lg:max-w-none ${
+            className={`hidden sm:block font-mono ${currentSize.slogan} tracking-[0.12em] uppercase font-bold mt-0.5 truncate max-w-[240px] md:max-w-[340px] lg:max-w-none ${
               isDark ? 'text-indigo-400' : 'text-indigo-600'
             }`}
           >
@@ -157,4 +157,3 @@ export const Logo: React.FC<LogoProps> = ({
     </div>
   );
 };
-

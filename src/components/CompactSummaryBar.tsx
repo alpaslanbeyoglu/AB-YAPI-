@@ -97,9 +97,9 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
     {
       id: 'kat-bolum',
       label: 'KAT & BAĞIMSIZ BÖLÜM',
-      value: `${floorCount} Kat • ${totalUnits}`,
+      value: `Z+${floorCount - 1} Kat • ${totalUnits}`,
       unit: 'Bölüm',
-      subValue: `${normalFlats} Daire${shopCount > 0 ? ` + ${shopCount} Dükkan` : ''}${basementCount > 0 ? ` • ${basementCount} Bodrum` : ''}`,
+      subValue: `1 Zemin + ${floorCount - 1} Normal Kat${shopCount > 0 ? ` (${shopCount} Dükkan)` : ''}${basementCount > 0 ? ` • ${basementCount} Bodrum` : ''}`,
       icon: Layers,
       badgeColor: 'bg-purple-50 text-purple-700 border-purple-200/80',
       valueColor: 'text-purple-950',

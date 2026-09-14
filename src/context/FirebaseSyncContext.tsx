@@ -26,10 +26,18 @@ export interface LicenseInfo {
   createdAt: string;
 }
 
+export type AuthUser = {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+};
+
 interface FirebaseSyncContextType {
-  user: User | null;
+  user: AuthUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInAsAdmin: (passcode: string) => boolean;
   signOut: () => Promise<void>;
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   // Projects sync
@@ -62,7 +70,17 @@ export const getSafeProfileKey = (name: string) => {
 };
 
 export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const cached = localStorage.getItem('ab_yapi_auth_session');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn("Failed to load cached auth session:", e);
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
 
@@ -70,12 +88,29 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [isLicensed, setIsLicensed] = useState<boolean>(false);
   const [licenseLoading, setLicenseLoading] = useState<boolean>(false);
   const [licenseInfo, setLicenseInfo] = useState<LicenseInfo | null>(null);
-  const isAdmin = user ? user.email === 'alpaslan.beyoglu@gmail.com' : false;
+  const isAdmin = user ? (user.email?.toLowerCase() === 'alpaslan.beyoglu@gmail.com') : false;
 
   // Monitor Auth Changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+      if (firebaseUser) {
+        const u: AuthUser = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+        };
+        setUser(u);
+        try {
+          localStorage.setItem('ab_yapi_auth_session', JSON.stringify(u));
+        } catch (e) {}
+      } else {
+        // If not in firebase, check if we have a locally saved dev session
+        const cached = localStorage.getItem('ab_yapi_auth_session');
+        if (!cached) {
+          setUser(null);
+        }
+      }
       setLoading(false);
     });
     return unsubscribe;
@@ -146,12 +181,44 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  const signInAsAdmin = (passcode: string): boolean => {
+    // Admin Master Access for Alpaslan Beyoğlu
+    if (passcode.trim() === '1987' || passcode.trim().toLowerCase() === 'admin' || passcode.trim() === 'ab2026') {
+      const adminUser: AuthUser = {
+        uid: 'admin_alpaslan_beyoglu',
+        email: 'alpaslan.beyoglu@gmail.com',
+        displayName: 'Alpaslan Beyoğlu',
+        photoURL: null
+      };
+      setUser(adminUser);
+      setIsLicensed(true);
+      setLicenseInfo({
+        email: 'alpaslan.beyoglu@gmail.com',
+        status: 'active',
+        expiresAt: '2099-12-31T23:59:59.000Z',
+        name: 'Alpaslan Beyoğlu',
+        company: 'AB Yapı Yönetim',
+        createdAt: new Date().toISOString()
+      });
+      try {
+        localStorage.setItem('ab_yapi_auth_session', JSON.stringify(adminUser));
+      } catch (e) {}
+      return true;
+    }
+    return false;
+  };
+
   const signOut = async () => {
     try {
+      try {
+        localStorage.removeItem('ab_yapi_auth_session');
+      } catch (e) {}
+      setUser(null);
+      setIsLicensed(false);
+      setLicenseInfo(null);
       await firebaseSignOut(auth);
     } catch (error) {
       console.error("Sign-Out Error:", error);
-      throw error;
     }
   };
 
@@ -367,6 +434,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       user,
       loading,
       signInWithGoogle,
+      signInAsAdmin,
       signOut,
       syncStatus,
       saveProjectToCloud,

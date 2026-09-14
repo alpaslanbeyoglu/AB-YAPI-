@@ -205,7 +205,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         balconyDepth: modelParams.balconyDepth,
       });
       setSyncedFeedback(
-        `Taban Alanı (${metrics.footprintArea} m²), ${modelParams.floorCount} Kat, ${modelParams.roofType === 'duplex' ? 'Çatı Dubleksi' : modelParams.roofType === 'mansard' ? 'Mansart Çatı' : modelParams.roofType === 'flat' ? 'Düz Teras Çatı' : 'Kırma Çatı'} ve ${metrics.totalFlats} Daire ana hesaplama tablosuna aktarıldı!`
+        `Taban Alanı (${metrics.footprintArea} m²), Z+${(modelParams.floorCount || 5) - 1} Kat, ${modelParams.roofType === 'duplex' ? 'Çatı Dubleksi' : modelParams.roofType === 'mansard' ? 'Mansart Çatı' : modelParams.roofType === 'flat' ? 'Düz Teras Çatı' : 'Kırma Çatı'} ve ${metrics.totalFlats} Daire ana hesaplama tablosuna aktarıldı!`
       );
       setTimeout(() => setSyncedFeedback(null), 4000);
     }
@@ -1680,7 +1680,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
                   <span>
-                    {modelParams.floorCount} Kat, {modelParams.flatsPerFloor || 2} Daire/Kat
+                    Z+{(modelParams.floorCount || 5) - 1} Kat, {modelParams.flatsPerFloor || 2} Daire/Kat
                   </span>
                   {collapsedSections.generalStructure ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                 </div>
@@ -1694,7 +1694,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-700 uppercase">Yeni Normal Kat Sayısı:</label>
                         <span className="text-xs font-bold font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">
-                          {modelParams.floorCount} Kat
+                          Z+{(modelParams.floorCount || 5) - 1} Kat
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1877,7 +1877,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg">
-                          {(modelParams.hasGroundFloorShop ? Math.max(1, modelParams.floorCount - 1) : modelParams.floorCount)} Normal Kat × {modelParams.flatsPerFloor || 2} Daire
+                          {(modelParams.hasGroundFloorShop ? `1 Zemin Dükkan + ${Math.max(0, modelParams.floorCount - 1)} Normal Kat` : `1 Zemin Konut + ${Math.max(0, modelParams.floorCount - 1)} Normal Kat`)} × {modelParams.flatsPerFloor || 2} Daire
                           {modelParams.roofType === 'mansard' ? ' + Mansart Çatı' : ''}
                         </span>
                         <span className="font-mono font-black text-indigo-800 text-sm bg-indigo-200/60 px-3 py-1 rounded-xl">
@@ -2570,7 +2570,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               AB YAPI İnşaat ve Mimari Hesap Modeli
             </span>
             <p className={`leading-relaxed ${textMuted}`}>
-              Burada girdiğiniz ölçüler (Ön cephe: {modelParams.facadeWidth}m, Yan cephe: {modelParams.facadeDepth}m, Kat: {modelParams.floorCount}, {modelParams.hasGroundFloorShop ? `Zemin Dükkan: ${modelParams.shopCount} adet, ` : ''}Çatı:{' '}
+              Burada girdiğiniz ölçüler (Ön cephe: {modelParams.facadeWidth}m, Yan cephe: {modelParams.facadeDepth}m, Kat: Z+{(modelParams.floorCount || 5) - 1}, {modelParams.hasGroundFloorShop ? `Zemin Dükkan: ${modelParams.shopCount} adet, ` : ''}Çatı:{' '}
               {modelParams.roofType === 'duplex'
                 ? 'Çatı Dubleksi'
                 : modelParams.roofType === 'mansard'

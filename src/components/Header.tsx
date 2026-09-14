@@ -45,10 +45,10 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-100/60'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-2.5 sm:px-4 h-16 flex items-center justify-between gap-1.5 sm:gap-3 w-full">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-4 h-16 flex items-center justify-between gap-2 sm:gap-4 w-full min-w-0">
         {/* Brand Logo & Title using official AB YAPI SVG Logo */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink min-w-0">
-          <Logo size="md" theme={theme} />
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
+          <Logo size="md" theme={theme} className="max-w-full" />
           {appMode === 'lite' && (
             <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black bg-indigo-600 text-white shadow-xs shrink-0">
               LİTE
@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
         </div>
 
         {/* Right Actions: Mode Switch, Theme toggle & local save */}
-        <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
 
           {/* App Mode Conversion Button (Mobil Lite vs Tam Sürüm) */}
           {onToggleAppMode && (

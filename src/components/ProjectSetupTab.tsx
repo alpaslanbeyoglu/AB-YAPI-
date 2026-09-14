@@ -967,7 +967,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-500">
               <span className="font-mono text-[11px] font-bold text-slate-600">
-                {params.floorCount || 5} Kat • {newFlatCount} Daire {newHasShop ? `• ${newShopCount} Dükkan` : ''} • {newTotalConstructionArea.toLocaleString('tr-TR')} m² Brüt
+                Z+{(params.floorCount || 5) - 1} Kat • {newFlatCount} Daire {newHasShop ? `• ${newShopCount} Dükkan` : ''} • {newTotalConstructionArea.toLocaleString('tr-TR')} m² Brüt
               </span>
               <button
                 type="button"
@@ -1088,7 +1088,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                               <span>🏢 {b.name}</span>
                             </div>
                             <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                              {b.floorCount} Kat • {b.flatCount} Daire ({b.avgFlatArea || 80} m²)
+                              Z+{(b.floorCount || 1) - 1} Kat • {b.flatCount} Daire ({b.avgFlatArea || 80} m²)
                               {b.hasShop && ` • ${b.shopCount || 1} Dükkan (${b.avgShopArea || 60} m²)`}
                             </div>
                             <div className="text-[10px] text-slate-400 mt-0.5">
@@ -1347,7 +1347,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   {/* Normal Kat Sayısı */}
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      🏢 Normal Kat Sayısı
+                      🏢 Bina Kat Sayısı (Z+{(params.floorCount || 5) - 1})
                     </label>
                     <input
                       id="minimalFloorCountInput"
@@ -1367,7 +1367,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       }}
                       className={`w-full text-xs font-black font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
                     />
-                    <span className="text-[9px] text-slate-400 mt-0.5 block">Toplam kat adedi</span>
+                    <span className="text-[9px] text-slate-400 mt-0.5 block">Zemin + {(params.floorCount || 5) - 1} Normal Kat</span>
                   </div>
 
                   {/* Katta Daire Sayısı */}
@@ -1865,10 +1865,10 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 <span>Kat Düzeni</span>
               </div>
               <div className="text-xs font-black text-slate-800">
-                {params.floorCount || 5} Normal Kat
+                Z+{(params.floorCount || 5) - 1} Kat Yapısı
               </div>
               <div className="text-[10px] text-slate-500">
-                {params.hasGroundFloorShop ? '+ 1 Zemin Dükkan' : '+ Zemin Konut'} • {params.basementCount ? `${params.basementCount} Kat Bodrum` : 'Bodrumsuz'}
+                1 Zemin ({params.hasGroundFloorShop ? 'Dükkan' : 'Konut'}) + {(params.floorCount || 5) - 1} Normal Kat • {params.basementCount ? `${params.basementCount} Kat Bodrum` : 'Bodrumsuz'}
               </div>
             </div>
 

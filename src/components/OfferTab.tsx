@@ -705,10 +705,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kat Yapısı</span>
               <div className="text-sm font-bold text-slate-900">
-                {params.floorCount || 5} Katlı Yapı
+                Z+{(params.floorCount || 5) - 1} Katlı Yapı
               </div>
               <span className="text-[10px] text-slate-500">
-                {params.hasGroundFloorShop ? 'Ticari + Konut' : 'Tamamı Konut'}
+                1 Zemin + {(params.floorCount || 5) - 1} Normal Kat
               </span>
             </div>
 

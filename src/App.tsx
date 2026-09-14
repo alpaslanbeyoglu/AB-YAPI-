@@ -884,27 +884,26 @@ export default function App() {
       <div className="flex flex-1 relative w-full min-w-0">
         {/* DESKTOP SIDEBAR (Hidden on mobile) */}
         <aside
-          className={`hidden md:flex flex-col shrink-0 border-r transition-all duration-300 print:hidden ${
+          className={`hidden md:flex flex-col shrink-0 border-r transition-all duration-300 print:hidden sticky top-0 h-screen z-20 ${
             sidebarOpen ? 'w-64' : 'w-16'
           } ${
             isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200/60'
           }`}
         >
           {/* Sidebar Logo & Branding Header */}
-          <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 shrink-0">
+          <div className="h-16 flex items-center justify-between px-3.5 border-b border-slate-100 shrink-0 min-w-0">
             {sidebarOpen ? (
-              <div className="flex items-center gap-2 animate-fade-in">
-                <Logo size="sm" theme={theme} />
-                <span className="text-[10px] font-black tracking-widest text-slate-400">DASHBOARD</span>
+              <div className="flex items-center gap-2 min-w-0 flex-1 animate-fade-in pr-1 overflow-hidden">
+                <Logo size="sm" variant="compact" theme={theme} />
               </div>
             ) : (
               <div className="mx-auto">
-                <Logo size="sm" theme={theme} />
+                <Logo size="sm" variant="icon" theme={theme} />
               </div>
             )}
             <button
               onClick={toggleSidebar}
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors hidden md:block cursor-pointer active:scale-95"
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors hidden md:block cursor-pointer active:scale-95 shrink-0 ml-1"
               title={sidebarOpen ? "Menüyü Daralt" : "Menüyü Genişlet"}
             >
               {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
