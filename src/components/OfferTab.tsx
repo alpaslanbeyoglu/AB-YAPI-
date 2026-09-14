@@ -49,6 +49,7 @@ import {
   ChevronRight,
   Minus,
   Store,
+  X,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { getAcOptionById } from '../utils/acOptions';
@@ -84,6 +85,38 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const [aiPromptText, setAiPromptText] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  // Unit & Floor Configurator Modal State
+  const [isUnitConfigOpen, setIsUnitConfigOpen] = useState(false);
+  const [tempFloorCount, setTempFloorCount] = useState<number>(params.floorCount || 5);
+  const [tempFlatsPerFloor, setTempFlatsPerFloor] = useState<number>(params.flatsPerFloor || 2);
+  const [tempHasShop, setTempHasShop] = useState<boolean>(!!params.hasGroundFloorShop);
+  const [tempShopCount, setTempShopCount] = useState<number>(params.shopCount || 1);
+
+  const handleOpenUnitConfig = () => {
+    setTempFloorCount(params.floorCount || 5);
+    setTempFlatsPerFloor(params.flatsPerFloor || 2);
+    setTempHasShop(!!params.hasGroundFloorShop);
+    setTempShopCount(params.shopCount || 1);
+    setIsUnitConfigOpen(true);
+  };
+
+  const handleApplyUnitConfig = (overrides?: Partial<ProjectParams>) => {
+    const fc = overrides?.floorCount ?? tempFloorCount;
+    const fpf = overrides?.flatsPerFloor ?? tempFlatsPerFloor;
+    const hasShop = overrides?.hasGroundFloorShop ?? tempHasShop;
+    const sc = overrides?.shopCount ?? (hasShop ? tempShopCount : 0);
+
+    if (onUpdateAllParams) {
+      onUpdateAllParams({
+        floorCount: fc,
+        flatsPerFloor: fpf,
+        hasGroundFloorShop: hasShop,
+        shopCount: sc,
+      });
+    }
+    setIsUnitConfigOpen(false);
+  };
 
   const handleAiGenerate = async () => {
     if (!aiPromptText.trim()) {
@@ -237,6 +270,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const totalUnits = results.flatResults.length;
   const contractorCount = results.flatResults.filter(f => f.isContractorShare).length;
   const ownerCount = totalUnits - contractorCount;
+  const contractorFlats = results.flatResults.filter(f => f.isContractorShare);
+  const contractorMansardCount = contractorFlats.filter(f => f.flatType === 'mansard' || f.flatType === 'duplex').length;
+  const contractorNormalCount = contractorFlats.filter(f => f.flatType !== 'mansard' && f.flatType !== 'duplex' && f.flatType !== 'shop').length;
 
   const physicalGrossArea = residentialFlats.length > 0
     ? Math.round((residentialFlats.reduce((s, f) => s + f.area, 0) / residentialFlats.length) * 10) / 10
@@ -1648,9 +1684,18 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kat Yapısı</span>
-              <div className="text-sm font-bold text-slate-900">
+            <div 
+              onClick={handleOpenUnitConfig}
+              className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group relative"
+              title="Kat yapısı ve daire sayısını düzenlemek için tıklayın"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kat Yapısı</span>
+                <span className="text-[9px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-indigo-50 px-1.5 py-0.5 rounded">
+                  <Sliders className="w-2.5 h-2.5" /> Düzenle
+                </span>
+              </div>
+              <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                 Z+{(params.floorCount || 5) - 1} Katlı Yapı
               </div>
               <span className="text-[10px] text-slate-500">
@@ -1658,12 +1703,23 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               </span>
             </div>
 
-            <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Toplam Birim</span>
-              <div className="text-sm font-bold text-slate-900">
+            <div 
+              onClick={handleOpenUnitConfig}
+              className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group relative"
+              title="Daire ve dükkan dağılımını düzenlemek için tıklayın"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Toplam Birim</span>
+                <span className="text-[9px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-indigo-50 px-1.5 py-0.5 rounded">
+                  <Sliders className="w-2.5 h-2.5" /> Düzenle
+                </span>
+              </div>
+              <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                 {residentialCount} Daire {shopCount > 0 ? `+ ${shopCount} Dükkan` : ''}
               </div>
-              <span className="text-[10px] text-slate-500">Bağımsız Bölüm</span>
+              <span className="text-[10px] text-slate-500 font-medium">
+                {residentialCount + shopCount} Bağımsız Bölüm
+              </span>
             </div>
 
             <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
@@ -2413,9 +2469,25 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 <div className="flex items-start gap-3">
                   <BadgePercent className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
                   <div className="space-y-1">
-                    <h5 className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider">İmar Teşvik Avantajı</h5>
+                    <h5 className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider">İmar Teşvik & Model Yapısı</h5>
                     <p className="text-[10px] text-emerald-800 leading-relaxed">
-                      Mevcut imar planındaki teşviklerden yararlanılarak kazanılan <strong>4 adet mansart daire</strong> ve <strong>2 adet normal kat dairenin</strong> mülkiyeti finansman karşılığı olarak yükleniciye devredilmiştir. Bu model sayesinde hak sahiplerinin imalat maliyetleri piyasa rayiçlerinin önemli ölçüde altında (subvanse edilmiş şekilde) belirlenmiştir.
+                      {contractorCount > 0 ? (
+                        <>
+                          Mevcut imar planındaki teşviklerden yararlanılarak kazanılan{' '}
+                          {contractorMansardCount > 0 && (
+                            <strong>{contractorMansardCount} adet mansart daire </strong>
+                          )}
+                          {contractorMansardCount > 0 && contractorNormalCount > 0 && 've '}
+                          {contractorNormalCount > 0 && (
+                            <strong>{contractorNormalCount} adet normal kat dairenin </strong>
+                          )}
+                          mülkiyeti finansman karşılığı olarak yükleniciye devredilmiştir. Bu model sayesinde hak sahiplerinin imalat maliyetleri piyasa rayiçlerinin önemli ölçüde altında (subvanse edilmiş şekilde) belirlenmiştir.
+                        </>
+                      ) : (
+                        <>
+                          Hak sahiplerinin tüm bağımsız bölümleri korunarak, imalat maliyetleri optimize edilmiş ve şeffaf hak ediş modelleriyle planlanmıştır.
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -2849,6 +2921,194 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* BAĞIMSIZ BÖLÜM VE KAT DAĞILIMI DÜZENLEME MODALI */}
+      {isUnitConfigOpen && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50/50 to-purple-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold">🏢</div>
+                <div>
+                  <h4 className="font-extrabold text-slate-900 text-sm">Bağımsız Bölüm & Kat Yapılandırması</h4>
+                  <p className="text-[10px] text-slate-500">Mimar Yapısal Veri Düzeltme Paneli</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsUnitConfigOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-6 text-left">
+              {/* Açıklama Callout */}
+              <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-100/70 text-[11px] text-amber-900 leading-relaxed space-y-2">
+                <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <span>💡</span> Bağımsız Bölüm Hesaplama Rehberi
+                </div>
+                <p>
+                  Teklifteki daire ve dükkan sayıları; <strong>Kat Sayısı</strong>, <strong>Katta Daire</strong> ve <strong>Zemin Kat Ticari (Dükkan)</strong> durumuna göre otomatik olarak birbirini dengeler:
+                </p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li><strong>Zemin+8 Kat (Toplam 9 Kat)</strong>, katta 4 daire ve zemin dükkan ise: <strong>32 Daire + 4 Dükkan (36 Bölüm)</strong> olur.</li>
+                  <li>Eğer bina <strong>zemin dahil toplam 8 kat (Z+7)</strong> ise: 1 Zemin (4 Dükkan) + 7 Normal Kat (28 Daire) = <strong>28 Daire + 4 Dükkan (32 Bölüm)</strong> olur.</li>
+                  <li>Eğer binanızda <strong>hiç dükkan yoksa</strong> ve sadece konut ise: Zemin Kat Dükkan seçeneğini kapatarak doğrudan <strong>32 Daire</strong> yapabilirsiniz.</li>
+                </ul>
+              </div>
+
+              {/* HIZLI ŞABLONLAR / ÇÖZÜMLER */}
+              <div className="space-y-2.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Hızlı Çözüm Şablonları (Tek Tıkla Uygula)</span>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={() => handleApplyUnitConfig({
+                      floorCount: 8,
+                      flatsPerFloor: 4,
+                      hasGroundFloorShop: true,
+                      shopCount: 4,
+                    })}
+                    className="p-3 text-left bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/80 hover:border-indigo-200 rounded-xl transition-all flex items-center justify-between group"
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-indigo-900 group-hover:text-indigo-700">8 Katlı Yapı (Zemin Dahil Toplam 8 Kat)</div>
+                      <div className="text-[10px] text-indigo-700/80">7 Normal Kat × 4 Daire = 28 Daire + 4 Zemin Dükkan</div>
+                    </div>
+                    <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-100 px-2 py-1 rounded font-mono">32 Birim</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleApplyUnitConfig({
+                      floorCount: 8,
+                      flatsPerFloor: 4,
+                      hasGroundFloorShop: false,
+                      shopCount: 0,
+                    })}
+                    className="p-3 text-left bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100/80 hover:border-emerald-200 rounded-xl transition-all flex items-center justify-between group"
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-emerald-900 group-hover:text-emerald-700">32 Dairelik Saf Konut Projesi (Dükkansız)</div>
+                      <div className="text-[10px] text-emerald-700/80">8 Normal Kat × 4 Daire = 32 Daire • Otopark ve Sığınaklı</div>
+                    </div>
+                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-1 rounded font-mono">32 Daire</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleApplyUnitConfig({
+                      floorCount: 9,
+                      flatsPerFloor: 4,
+                      hasGroundFloorShop: true,
+                      shopCount: 4,
+                    })}
+                    className="p-3 text-left bg-purple-50/50 hover:bg-purple-50 border border-purple-100/80 hover:border-purple-200 rounded-xl transition-all flex items-center justify-between group"
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-purple-900 group-hover:text-purple-700">Zemin + 8 Katlı Yapı (Toplam 9 Kat)</div>
+                      <div className="text-[10px] text-purple-700/80">8 Normal Kat × 4 Daire = 32 Daire + 4 Zemin Dükkan</div>
+                    </div>
+                    <span className="text-[10px] font-extrabold text-purple-700 bg-purple-100 px-2 py-1 rounded font-mono">36 Birim</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* İNCE AYAR PARAMETRELERİ */}
+              <div className="border-t border-slate-100 pt-5 space-y-4">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">İnce Ayar Mekanizması</span>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Kat Sayısı */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">🏢 Toplam Kat Sayısı</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={40}
+                      value={tempFloorCount}
+                      onChange={(e) => setTempFloorCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 font-mono bg-slate-50"
+                    />
+                    <span className="text-[9px] text-slate-400 mt-0.5 block font-medium">Zemin + {Math.max(0, tempFloorCount - 1)} Normal Kat</span>
+                  </div>
+
+                  {/* Katta Daire Sayısı */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">🔢 Katta Daire Sayısı</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={tempFlatsPerFloor}
+                      onChange={(e) => setTempFlatsPerFloor(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 font-mono bg-slate-50"
+                    />
+                    <span className="text-[9px] text-slate-400 mt-0.5 block font-medium">Her kattaki daire</span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tempHasShop}
+                        onChange={(e) => setTempHasShop(e.target.checked)}
+                        className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                      />
+                      <span>Zemin Katta Dükkan Var</span>
+                    </label>
+
+                    {tempHasShop && (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min={1}
+                          max={15}
+                          value={tempShopCount}
+                          onChange={(e) => setTempShopCount(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-12 text-[11px] font-bold font-mono px-1.5 py-0.5 rounded border border-slate-300 bg-white"
+                        />
+                        <span className="text-[10px] text-slate-500 font-bold">Adet</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Live Preview Bar */}
+                <div className="p-4 bg-indigo-900 rounded-2xl text-white flex items-center justify-between shadow-inner">
+                  <div>
+                    <span className="text-[9px] text-indigo-300 uppercase font-black tracking-widest block">Yeni Dağılım Taslağı</span>
+                    <span className="text-sm font-black font-mono">
+                      {tempHasShop ? Math.max(1, tempFloorCount - 1) : tempFloorCount} Kat × {tempFlatsPerFloor} Daire = { (tempHasShop ? Math.max(1, tempFloorCount - 1) : tempFloorCount) * tempFlatsPerFloor } Daire
+                      {tempHasShop ? ` + ${tempShopCount} Dükkan` : ''}
+                    </span>
+                  </div>
+                  <span className="text-xs font-black bg-indigo-800 border border-indigo-700 px-3 py-1.5 rounded-xl font-mono text-emerald-400">
+                    Toplam {((tempHasShop ? Math.max(1, tempFloorCount - 1) : tempFloorCount) * tempFlatsPerFloor) + (tempHasShop ? tempShopCount : 0)} Ünite
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50">
+              <button
+                onClick={() => setIsUnitConfigOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 text-xs font-bold transition-all"
+              >
+                İptal Et
+              </button>
+              <button
+                onClick={() => handleApplyUnitConfig()}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/10 transition-all flex items-center gap-1.5"
+              >
+                Değişiklikleri Teklife Uygula 🚀
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
