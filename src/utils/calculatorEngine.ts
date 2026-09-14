@@ -605,6 +605,12 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     ? Math.round((totalFeeRaw * 0.25) * 100) / 100 
     : Math.round(totalFeeRaw * 100) / 100;
 
+  // Toplam bağımsız bölüm (daire + dükkan) adedine göre daire/bölüm başı otopark harcı payı
+  const totalIndependentUnits = synchronizedFlats.length > 0 ? synchronizedFlats.length : ((params.flatCount || 0) + (params.shopCount || 0) || 1);
+  const parkingFeePerFlat = totalIndependentUnits > 0
+    ? Math.round((parkingFeeActual / totalIndependentUnits) * 100) / 100
+    : 0;
+
   // Yaklaşık Alt ve Üst Sınır Hesaplaması (Belediye grup farklılıkları ve takdir marjlarına göre)
   // Alt Sınır: Y = 0.60, Land Value A = A * 0.8
   const birimMin = (A_val * 0.8 + B_val) * 20 * 0.60;
@@ -1190,6 +1196,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     parkingFeeMin,
     parkingFeeMax,
     parkingFeeActual,
+    parkingFeePerFlat,
     parkingFeeIsKentselDiscount,
 
     // İnovatif Seçenekler Maliyet Çıktıları

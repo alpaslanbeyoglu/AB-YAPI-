@@ -2301,24 +2301,34 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
               Yapılan/sağlanan otopark sayısı <strong>{params.providedParkingSpaces || 0} adet</strong> olup, <strong>{results.parkingDeficientSpaces?.toLocaleString('tr-TR')} araçlık eksik otopark harcı</strong> ödemesi çıkmaktadır.
               {results.parkingFeeIsKentselDiscount && " Kentsel dönüşüm (6306 sayılı kanun) kapsamında %75 yasal muafiyet/indirim uygulanmıştır."}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              <div className="p-2.5 rounded-lg bg-white/80 border border-slate-100 space-y-0.5">
-                <span className="text-[9px] font-bold text-slate-400 uppercase">1 Araçlık Birim Bedel</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
+              <div className="p-2.5 rounded-lg bg-white/80 border border-slate-200 space-y-0.5">
+                <span className="text-[9px] font-bold text-slate-500 uppercase">1 Araç Birim Bedeli</span>
                 <div className="text-xs font-black text-slate-800 font-mono">
                   {sym}{(results.parkingBirimBedeli !== undefined ? results.parkingBirimBedeli * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                 </div>
+                <span className="text-[8px] text-slate-400 block leading-none">Tek araç harcı</span>
               </div>
-              <div className="p-2.5 rounded-lg bg-white/80 border border-slate-100 space-y-0.5">
-                <span className="text-[9px] font-bold text-slate-400 uppercase">Belediye Takdir Sınırları</span>
-                <div className="text-xs font-black text-slate-700 font-mono">
-                  {sym}{(results.parkingFeeMin !== undefined ? results.parkingFeeMin * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} - {sym}{(results.parkingFeeMax !== undefined ? results.parkingFeeMax * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+              <div className="p-2.5 rounded-lg bg-blue-50/80 border border-blue-200 space-y-0.5">
+                <span className="text-[9px] font-bold text-blue-700 uppercase">Ödenecek Araç Sayısı</span>
+                <div className="text-xs font-black text-blue-950 font-mono">
+                  {results.parkingDeficientSpaces?.toLocaleString('tr-TR')} Araç
                 </div>
+                <span className="text-[8px] text-blue-600 block leading-none">Eksik otopark</span>
               </div>
-              <div className="p-2.5 rounded-lg bg-white/80 border border-slate-100 space-y-0.5">
-                <span className="text-[9px] font-bold text-slate-400 uppercase">Ödenecek Yasal Tutar</span>
-                <div className="text-xs font-black text-indigo-700 font-mono">
+              <div className="p-2.5 rounded-lg bg-indigo-50/80 border border-indigo-200 space-y-0.5">
+                <span className="text-[9px] font-bold text-indigo-700 uppercase">Toplam Ödenecek Harç</span>
+                <div className="text-xs font-black text-indigo-950 font-mono">
                   {sym}{(results.parkingFeeActual !== undefined ? results.parkingFeeActual * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                 </div>
+                <span className="text-[8px] text-indigo-600 block leading-none">{results.parkingDeficientSpaces} araç için</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-purple-50/80 border border-purple-200 space-y-0.5">
+                <span className="text-[9px] font-bold text-purple-700 uppercase">Daire Başı Harç Payı</span>
+                <div className="text-xs font-black text-purple-950 font-mono">
+                  {sym}{(results.parkingFeePerFlat !== undefined ? results.parkingFeePerFlat * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                </div>
+                <span className="text-[8px] text-purple-600 block leading-none">Daire başına düşen</span>
               </div>
             </div>
             {params.parkingFeeMode === 'excluded' && (

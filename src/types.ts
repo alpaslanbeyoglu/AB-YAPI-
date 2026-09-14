@@ -476,7 +476,8 @@ export interface CalculationResult {
   parkingBirimBedeli?: number;         // 1 araçlık otopark bedeli
   parkingFeeMin?: number;              // Yaklaşık alt sınır bedeli
   parkingFeeMax?: number;              // Yaklaşık üst sınır bedeli
-  parkingFeeActual?: number;           // Teklife yansıyan veya hesaplanan yasal bedel
+  parkingFeeActual?: number;           // Teklife yansıyan veya hesaplanan yasal bedel (Toplam araç için)
+  parkingFeePerFlat?: number;          // Daire / Bağımsız bölüm başına düşen otopark harcı tutarı
   parkingFeeIsKentselDiscount?: boolean; // Kentsel dönüşüm %75 indirim uygulandı mı?
 
   // İnovatif Seçenekler Maliyet Çıktıları

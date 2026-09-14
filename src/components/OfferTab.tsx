@@ -983,11 +983,21 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <Car className="w-3.5 h-3.5 text-blue-400" />
-                            <span className="text-xs text-slate-300">Hesaplanan Otopark Harcı</span>
+                            <div>
+                              <span className="text-xs text-slate-300 block">Hesaplanan Otopark Harcı</span>
+                              <span className="text-[10px] text-blue-400/90 font-medium">
+                                {results.parkingDeficientSpaces} Araç İçin Toplam • Daire Başı: {results.parkingFeePerFlat?.toLocaleString('tr-TR')} ₺
+                              </span>
+                            </div>
                           </div>
-                          <span className="text-xs font-bold font-mono text-blue-400">
-                            {results.parkingFeeActual?.toLocaleString('tr-TR')} ₺
-                          </span>
+                          <div className="text-right">
+                            <span className="text-xs font-bold font-mono text-blue-400 block">
+                              {results.parkingFeeActual?.toLocaleString('tr-TR')} ₺
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              (1 Araç: {results.parkingBirimBedeli?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺)
+                            </span>
+                          </div>
                         </div>
                         <span className="text-[10px] text-slate-400 leading-normal pl-6">
                           {params.parkingFeeMode === 'included' 

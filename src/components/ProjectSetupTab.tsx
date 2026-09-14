@@ -2220,62 +2220,77 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       )}
                     </h4>
 
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 space-y-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Yasal Otopark Zorunluluğu</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Yasal Zorunluluk</span>
                         <div className="text-xs font-black text-slate-800 font-mono">
                           {results.parkingRequiredSpaces?.toLocaleString('tr-TR')} Araç
                         </div>
-                        <span className="text-[8px] text-slate-500 block leading-none">M2 alanlarına göre hesaplanan</span>
+                        <span className="text-[8px] text-slate-500 block leading-none">M² bazlı yasal adet</span>
                       </div>
 
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 space-y-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Ödeme Yapılacak Eksik Otopark</span>
-                        <div className="text-xs font-black text-slate-800 font-mono">
+                      <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200/80 space-y-0.5">
+                        <span className="text-[9px] font-bold text-blue-700 uppercase tracking-wide">Ödenecek Eksik Araç</span>
+                        <div className="text-xs font-black text-blue-950 font-mono">
                           {results.parkingDeficientSpaces?.toLocaleString('tr-TR')} Araç
                         </div>
-                        <span className="text-[8px] text-slate-500 block leading-none">Mevcut otopark harici eksik</span>
+                        <span className="text-[8px] text-blue-600 font-medium block leading-none">
+                          {params.providedParkingSpaces ? `(${params.providedParkingSpaces} yapıldı)` : 'Harca tabi toplam'}
+                        </span>
                       </div>
 
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 space-y-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">1 Araçlık Birim Harç Bedeli</span>
+                      <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">1 Araç Birim Bedeli</span>
                         <div className="text-xs font-black text-slate-800 font-mono">
                           {results.parkingBirimBedeli?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                         </div>
-                        <span className="text-[8px] text-slate-500 block leading-none">(A + B) x 20 x {params.parkingRegionalRatio || 80}%</span>
+                        <span className="text-[8px] text-slate-500 block leading-none">Tek 1 araçlık yasal harç</span>
                       </div>
 
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 space-y-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Tahmini Bedel Sınırları</span>
-                        <div className="text-[10px] font-black text-slate-700 font-mono whitespace-nowrap">
-                          {results.parkingFeeMin?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} - {results.parkingFeeMax?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      <div className="p-2.5 rounded-lg bg-indigo-50 border border-indigo-200/80 space-y-0.5">
+                        <span className="text-[9px] font-bold text-indigo-700 uppercase tracking-wide">Daire Başı Harç Payı</span>
+                        <div className="text-xs font-black text-indigo-950 font-mono">
+                          {results.parkingFeePerFlat?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
                         </div>
-                        <span className="text-[8px] text-slate-500 block leading-none">Min (%60) & Max (%100) katsayılı</span>
+                        <span className="text-[8px] text-indigo-600 font-medium block leading-none">Daire başına düşen pay</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block leading-none mb-1">Hesaplanan Otopark Harcı</span>
-                      <div className="text-xl font-black text-slate-900 font-mono">
-                        {results.parkingFeeActual?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Toplam Ödenecek Otopark Harcı:</span>
+                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                          {results.parkingDeficientSpaces?.toLocaleString('tr-TR')} Araç İçin
+                        </span>
                       </div>
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <span className="text-2xl font-black text-slate-900 font-mono">
+                          {results.parkingFeeActual?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL
+                        </span>
+                        <span className="text-xs font-bold text-indigo-600">
+                          (Daire Başı: {results.parkingFeePerFlat?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL)
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 block mt-0.5">
+                        {results.parkingDeficientSpaces} Araç × {results.parkingBirimBedeli?.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL {results.parkingFeeIsKentselDiscount ? '(%75 kentsel indirimli)' : ''}
+                      </span>
                     </div>
-                    <div>
+                    <div className="shrink-0">
                       {params.parkingFeeMode === 'included' ? (
-                        <div className="text-center">
-                          <span className="inline-block text-[10px] font-black text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-lg shadow-2xs">
+                        <div className="text-left sm:text-right">
+                          <span className="inline-block text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-lg shadow-2xs">
                             🟢 TEKLİFE DAHİL EDİLDİ
                           </span>
-                          <span className="block text-[9px] text-slate-500 mt-1">Müteahhit maliyetine eklendi.</span>
+                          <span className="block text-[9px] text-slate-500 mt-1">Müteahhit maliyetine dahil.</span>
                         </div>
                       ) : (
-                        <div className="text-center">
-                          <span className="inline-block text-[10px] font-black text-amber-800 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-lg shadow-2xs">
-                            🟡 TEKLİF HARİCİ - İŞVEREN ÖDER
+                        <div className="text-left sm:text-right">
+                          <span className="inline-block text-[10px] font-black text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-lg shadow-2xs">
+                            🟡 TEKLİF HARİCİ (İŞVEREN ÖDER)
                           </span>
-                          <span className="block text-[9px] text-slate-500 mt-1">İşveren doğrudan belediyeye öder.</span>
+                          <span className="block text-[9px] text-slate-500 mt-1">Malikler/işveren belediyeye öder.</span>
                         </div>
                       )}
                     </div>
