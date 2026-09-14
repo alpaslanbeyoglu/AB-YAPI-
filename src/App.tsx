@@ -637,6 +637,95 @@ export default function App() {
     return calculateProject(params);
   }, [params]);
 
+  // LITE SURUM GENEL HESAPLAMADAN BAGIMSIZ PARAMETRELER VE HESAP MOTORU
+  const [liteParams, setLiteParams] = useState<ProjectParams>(() => {
+    try {
+      const saved = localStorage.getItem('ab_yapi_lite_params');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {}
+    return {
+      ...DEFAULT_PARAMS,
+      projectName: 'Hızlı Sözlü Teklif',
+      projectAddress: 'Hızlı Teklif Sahası',
+      floorCount: 5,
+      flatsPerFloor: 2,
+      hasGroundFloorShop: false,
+      shopCount: 0,
+      flatCount: 10,
+    };
+  });
+
+  const liteResults: CalculationResult = useMemo(() => {
+    return calculateProject(liteParams);
+  }, [liteParams]);
+
+  const updateLiteCalculatorParams = (newParamsOrUpdates: ProjectParams | Partial<ProjectParams>) => {
+    const newParams: ProjectParams = {
+      ...liteParams,
+      ...newParamsOrUpdates,
+    };
+    
+    const footprintResult = calculateFootprint(newParams.footprintInputMode, newParams);
+    let activeBaseArea = newParams.baseBuildArea;
+    if (!activeBaseArea || activeBaseArea <= 0) {
+      activeBaseArea = footprintResult.area;
+    }
+
+    const cantileverInfo = calculateCantileverDetails(newParams, activeBaseArea, footprintResult);
+    const upperFloorArea = cantileverInfo.upperFloorArea;
+
+    const resFloors = newParams.hasGroundFloorShop
+      ? Math.max(1, newParams.floorCount - 1)
+      : newParams.floorCount;
+
+    const roofType = newParams.roofType || 'gable';
+    const isMansard = roofType === 'mansard';
+    const isDuplex = roofType === 'duplex';
+    const flatsPerFloor = newParams.flatsPerFloor || 2;
+
+    const totalFlats = calculateFlatCount(newParams);
+
+    const roofAtticArea = isDuplex
+      ? Math.round(upperFloorArea * 0.65 * 100) / 100
+      : isMansard
+      ? Math.round(upperFloorArea * 0.70 * 100) / 100
+      : 0;
+
+    const synchronizedFlats = synchronizeFlats(
+      newParams.flats,
+      totalFlats,
+      activeBaseArea,
+      newParams.floorCount,
+      newParams.transformationStatus,
+      roofType,
+      flatsPerFloor,
+      newParams.mansardFlatCount,
+      roofAtticArea,
+      newParams.hasGroundFloorShop,
+      newParams.shopCount || 1,
+      upperFloorArea
+    );
+
+    const sanitizedContractorIds = (newParams.contractorFlatIds || []).filter(
+      (id) => id <= totalFlats
+    );
+
+    const sanitizedParams: ProjectParams = {
+      ...newParams,
+      baseBuildArea: activeBaseArea,
+      flatCount: totalFlats,
+      flats: synchronizedFlats,
+      contractorFlatIds: sanitizedContractorIds,
+    };
+
+    setLiteParams(sanitizedParams);
+    try {
+      localStorage.setItem('ab_yapi_lite_params', JSON.stringify(sanitizedParams));
+    } catch (e) {}
+  };
+
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const [historyList, setHistoryList] = useState<SavedProjectData[]>(() => {
@@ -857,9 +946,9 @@ export default function App() {
     return (
       <Suspense fallback={<TabLoadingSkeleton theme={theme} title="Mobil Lite Sürüm Hazırlanıyor..." />}>
         <LiteMobileView
-          params={params}
-          results={results}
-          onChangeParams={updateCalculatorParams}
+          params={liteParams}
+          results={liteResults}
+          onChangeParams={updateLiteCalculatorParams}
           onSwitchToFull={() => {
             setAppMode('full');
             try {

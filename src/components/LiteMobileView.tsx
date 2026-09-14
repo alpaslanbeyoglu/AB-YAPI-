@@ -427,6 +427,17 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
         {/* =========================================================== */}
         {activeTab === 'hesapla' && (
           <div className="space-y-4">
+            {/* Bağımsız Lite Sürüm Bilgilendirme Bannerı */}
+            <div className="p-3 bg-indigo-950 text-white rounded-2xl border border-indigo-900 shadow-sm flex items-start gap-2.5">
+              <span className="text-sm">⚡</span>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300 block">Müstakil / Sözlü Teklif Modu</span>
+                <span className="text-[10px] text-indigo-100 leading-relaxed block">
+                  Buradaki tüm parametreler ve hesaplamalar masaüstü genel projesinden <strong>bağımsızdır</strong>. Sahada veya sözlü pazarlık esnasında hızlıca teklif hazırlamak için güvenle kullanabilirsiniz!
+                </span>
+              </div>
+            </div>
+
             {/* Quick Param Adjustment Steppers */}
             <div className={`${cardBg} rounded-2xl border p-4 shadow-xs space-y-4`}>
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
