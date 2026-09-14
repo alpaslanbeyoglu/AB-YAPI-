@@ -626,7 +626,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
     const rows = (results.flatResults || []).map((f) => {
       const isContractor = !!f.isContractorShare;
-      const flatType = f.flatType === 'duplex' ? 'Çatı Dubleksi' : f.flatType === 'mansard' ? 'Mansart' : f.flatType === 'shop' ? 'Dükkan' : 'Standart';
+      const flatType = (f.flatType as any) === 'duplex' ? 'Çatı Dubleksi' : (f.flatType as any) === 'mansard' ? 'Mansart' : (f.flatType as any) === 'shop' ? 'Zemin Dükkan' : (f.flatType as any) === 'basement_shop' ? 'Bodrum İşyeri' : 'Standart Daire';
       const facadeLabel = f.facade === 'guney' ? 'Güney' : f.facade === 'kuzey' ? 'Kuzey' : f.facade === 'dogu' ? 'Doğu' : f.facade === 'bati' ? 'Batı' : f.facade === 'on' ? 'Ön Cephe' : f.facade === 'arka' ? 'Arka Cephe' : 'Standart';
       return [
         `"Daire ${f.id}"`,
@@ -2244,6 +2244,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                 <span className="text-[10px] text-slate-500 font-semibold mt-0.5">
                                   {flat.floorNumber === 0
                                     ? 'Zemin Kat'
+                                    : flat.floorNumber === -1
+                                    ? 'Bodrum Kat'
                                     : flat.flatType === 'mansard'
                                     ? `${flat.floorNumber || params.floorCount}. Kat (Mansart)`
                                     : `${flat.floorNumber !== undefined ? flat.floorNumber : (params.hasGroundFloorShop ? (originalIndex < (params.shopCount || 1) ? 'Zemin' : `${1 + Math.floor((originalIndex - (params.shopCount || 1)) / (params.flatsPerFloor || 2))}. Kat`) : `${1 + Math.floor(originalIndex / (params.flatsPerFloor || 2))}. Kat`)}`}
@@ -2272,16 +2274,29 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                       floorNumber: Math.max(1, params.floorCount || 1),
                                       description: `En Üst Kat (${params.floorCount}. Kat) Mansart`,
                                     });
+                                  } else if (val === 'basement_shop') {
+                                    handleFlatChange(originalIndex, {
+                                      flatType: 'basement_shop',
+                                      floorNumber: -1,
+                                      description: '1. Bodrum Kat Ticari İşyeri',
+                                    });
+                                  } else if (val === 'shop') {
+                                    handleFlatChange(originalIndex, {
+                                      flatType: 'shop',
+                                      floorNumber: 0,
+                                      description: 'Zemin Kat Dükkan',
+                                    });
                                   } else {
                                     handleFlatChange(originalIndex, 'flatType', val);
                                   }
                                 }}
                                 className={`text-[10px] px-1.5 py-1.5 rounded border font-bold ${
-                                  flat.flatType === 'shop' ? 'bg-amber-50 border-amber-300 text-amber-800' : inputBg
+                                  flat.flatType === 'shop' || flat.flatType === 'basement_shop' ? 'bg-amber-50 border-amber-300 text-amber-800' : inputBg
                                 } w-28 text-center`}
                               >
                                 <option value="standard">🏠 Konut</option>
-                                <option value="shop">🏪 Dükkan</option>
+                                <option value="shop">🏪 Zemin Dükkan</option>
+                                <option value="basement_shop">🏬 Bodrum İşyeri</option>
                                 <option value="mansard">🏚️ Mansart (En Üst)</option>
                                 <option value="duplex">🏘️ Dubleks</option>
                               </select>
@@ -2619,15 +2634,17 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         <span className="flex items-center gap-1.5">
                           <span
                             className={`w-2.5 h-2.5 rounded-full ${
-                              isContractor ? 'bg-amber-500' : flat.flatType === 'shop' ? 'bg-amber-600' : 'bg-indigo-500'
+                              isContractor ? 'bg-amber-500' : (flat.flatType === 'shop' || flat.flatType === 'basement_shop') ? 'bg-amber-600' : 'bg-indigo-500'
                             }`}
                           />
                           <span className="font-extrabold">
-                            {flat.flatType === 'shop' ? `🏪 Dükkan ${flat.id}` : `Daire ${flat.id}`}
+                            {flat.flatType === 'basement_shop' ? `🏬 Bodrum İşyeri ${flat.id}` : flat.flatType === 'shop' ? `🏪 Dükkan ${flat.id}` : `Daire ${flat.id}`}
                           </span>
                           <span className="text-[10px] text-slate-600 font-semibold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                             {flat.floorNumber === 0
                               ? 'Zemin Kat'
+                              : flat.floorNumber === -1
+                              ? 'Bodrum Kat'
                               : flat.flatType === 'mansard'
                               ? `${flat.floorNumber || params.floorCount}. Kat (Mansart)`
                               : `${flat.floorNumber !== undefined ? flat.floorNumber : (params.hasGroundFloorShop ? (originalIndex < (params.shopCount || 1) ? 'Zemin' : `${1 + Math.floor((originalIndex - (params.shopCount || 1)) / (params.flatsPerFloor || 2))}. Kat`) : `${1 + Math.floor(originalIndex / (params.flatsPerFloor || 2))}. Kat`)}`}
@@ -2636,12 +2653,12 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                             className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                               isContractor
                                 ? 'bg-amber-100 text-amber-800'
-                                : flat.flatType === 'shop'
+                                : (flat.flatType === 'shop' || flat.flatType === 'basement_shop')
                                 ? 'bg-amber-100 text-amber-900 border border-amber-300'
                                 : 'bg-indigo-100 text-indigo-800'
                             }`}
                           >
-                            {isContractor ? 'Müteahhit' : flat.flatType === 'shop' ? 'Zemin Dükkan' : 'Hak Sahibi'}
+                            {isContractor ? 'Müteahhit' : flat.flatType === 'basement_shop' ? 'Bodrum İşyeri' : flat.flatType === 'shop' ? 'Zemin Dükkan' : 'Hak Sahibi'}
                           </span>
                         </span>
                         <div className="flex items-center gap-1.5">
@@ -2724,16 +2741,29 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                 floorNumber: Math.max(1, params.floorCount || 1),
                                 description: `En Üst Kat (${params.floorCount}. Kat) Mansart`,
                               });
+                            } else if (val === 'basement_shop') {
+                              handleFlatChange(originalIndex, {
+                                flatType: 'basement_shop',
+                                floorNumber: -1,
+                                description: '1. Bodrum Kat Ticari İşyeri',
+                              });
+                            } else if (val === 'shop') {
+                              handleFlatChange(originalIndex, {
+                                flatType: 'shop',
+                                floorNumber: 0,
+                                description: 'Zemin Kat Dükkan',
+                              });
                             } else {
                               handleFlatChange(originalIndex, 'flatType', val);
                             }
                           }}
                           className={`w-full text-xs px-3 py-1.5 rounded-xl border font-bold ${
-                            flat.flatType === 'shop' ? 'bg-amber-50 border-amber-300 text-amber-800' : inputBg
+                            flat.flatType === 'shop' || flat.flatType === 'basement_shop' ? 'bg-amber-50 border-amber-300 text-amber-800' : inputBg
                           }`}
                         >
                           <option value="standard">🏠 Konut (Daire)</option>
-                          <option value="shop">🏪 Ticari (Dükkan/Mağaza)</option>
+                          <option value="shop">🏪 Ticari (Zemin Dükkan)</option>
+                          <option value="basement_shop">🏬 Ticari (Bodrum İşyeri)</option>
                           <option value="mansard">
                             {flat.floorNumber === params.floorCount ? '🏚️ Mansart (En Üst Kat)' : '🏚️ Mansart (En Üst Kata Taşınır)'}
                           </option>
@@ -2831,7 +2861,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           {/* Hibe */}
                           {(() => {
-                            const isShop = flat.flatType === 'shop';
+                            const isShop = flat.flatType === 'shop' || flat.flatType === 'basement_shop';
                             const applicableGrant = isShop
                               ? (params.shopGrantAmountPerFlat !== undefined ? params.shopGrantAmountPerFlat : 350000)
                               : (params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : 700000);
@@ -3005,7 +3035,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
               {results.flatResults?.map((flat) => {
                 const flatItem = params.flats.find((f) => f.id === flat.id);
                 const isSelected = selectedFlatId === flat.id;
-                const isShop = flatItem?.flatType === 'shop' || flat.flatType === 'shop';
+                const isShop = (flatItem?.flatType as any) === 'shop' || (flat.flatType as any) === 'shop' || (flatItem?.flatType as any) === 'basement_shop' || (flat.flatType as any) === 'basement_shop';
 
                 return (
                   <tr
@@ -3030,12 +3060,12 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                           isShop
                             ? 'bg-amber-100 text-amber-900 border-amber-300'
-                            : flat.flatType === 'duplex'
+                            : (flat.flatType as any) === 'duplex'
                             ? 'bg-purple-100 text-purple-900 border-purple-300'
                             : 'bg-slate-100 text-slate-700 border-slate-200'
                         }`}
                       >
-                        {isShop ? '🏪 Dükkan' : flat.flatType === 'duplex' ? '🏘️ Dubleks' : flat.flatType === 'mansard' ? '🏚️ Mansart' : '🏠 Konut'}
+                        {(flat.flatType as any) === 'basement_shop' ? '🏬 Bodrum İşyeri' : isShop ? '🏪 Zemin Dükkan' : (flat.flatType as any) === 'duplex' ? '🏘️ Dubleks' : (flat.flatType as any) === 'mansard' ? '🏚️ Mansart' : '🏠 Konut'}
                       </span>
                     </td>
                     <td className="p-3">
@@ -3173,7 +3203,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
               {(() => {
                 const flatIndex = params.flats.findIndex((f) => f.id === selectedFlatId);
                 const currentFlat = params.flats[flatIndex] || selectedFlatResult;
-                const isShop = currentFlat.flatType === 'shop';
+                const isShop = currentFlat.flatType === 'shop' || currentFlat.flatType === 'basement_shop';
                 const applicableGrant = isShop
                   ? (params.shopGrantAmountPerFlat !== undefined ? params.shopGrantAmountPerFlat : 350000)
                   : (params.grantAmountPerFlat !== undefined ? params.grantAmountPerFlat : 700000);
@@ -3290,6 +3320,18 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                   floorNumber: Math.max(1, params.floorCount || 1),
                                   description: `En Üst Kat (${params.floorCount}. Kat) Mansart`,
                                 });
+                              } else if (val === 'basement_shop') {
+                                handleFlatChange(flatIndex, {
+                                  flatType: 'basement_shop',
+                                  floorNumber: -1,
+                                  description: '1. Bodrum Kat Ticari İşyeri',
+                                });
+                              } else if (val === 'shop') {
+                                handleFlatChange(flatIndex, {
+                                  flatType: 'shop',
+                                  floorNumber: 0,
+                                  description: 'Zemin Kat Dükkan',
+                                });
                               } else {
                                 handleFlatChange(flatIndex, 'flatType', val);
                               }
@@ -3299,7 +3341,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                             }`}
                           >
                             <option value="standard">🏠 Konut (Daire)</option>
-                            <option value="shop">🏪 Ticari (Dükkan/Mağaza)</option>
+                            <option value="shop">🏪 Ticari (Zemin Dükkan)</option>
+                            <option value="basement_shop">🏬 Ticari (Bodrum İşyeri)</option>
                             <option value="mansard">
                               {currentFlat.floorNumber === params.floorCount ? '🏚️ Mansart Katı (En Üst Kat)' : '🏚️ Mansart Katı (En Üst Kata Taşınır)'}
                             </option>

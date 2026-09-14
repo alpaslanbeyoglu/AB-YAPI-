@@ -141,7 +141,7 @@ export interface FlatItem {
   useCredit?: boolean; // Kentsel Dönüşüm Faiz Destekli Kredisi kullanımı
   isContractorShare?: boolean; // true = Müteahhit Dairesi, false = Hak Sahibi Dairesi
   salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
-  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop'; // Daire tipi
+  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop' | 'basement_shop'; // Daire tipi
   description?: string; // Ek açıklama (örn: "Çatı Katı Mansart - Ayrı Bağımsız Bölüm", "Çatı Dubleksi - Tek Bağımsız Bölüm")
   floorNumber?: number; // Bulunduğu Kat No (örn: 0 Zemin, 1, 2, 3...)
   facade?: 'guney' | 'kuzey' | 'dogu' | 'bati' | 'guney_bati' | 'guney_dogu' | 'kuzey_bati' | 'kuzey_dogu' | 'kose' | 'on' | 'arka'; // Cephe / Yön
@@ -421,7 +421,7 @@ export interface FlatCalcResult {
   netRemainingDebt: number;
   isContractorShare?: boolean;
   salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
-  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop';
+  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop' | 'basement_shop';
   description?: string;
   floorNumber?: number;
   facade?: string;

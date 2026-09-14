@@ -350,7 +350,7 @@ export function synchronizeFlats(
     let defaultArea = normalFloorFlatAvg;
 
     if (isBasementShopFlat) {
-      flatType = 'shop';
+      flatType = 'basement_shop';
       defaultArea = basementShopAvg;
       calculatedFloor = -1; // Bodrum Kat
       defaultSerefiye = 1.15;
@@ -396,18 +396,22 @@ export function synchronizeFlats(
     }
 
     if (existing) {
-      const mergedFlatType = (isBasementShopFlat || isShopFlat) ? 'shop' : (existing.flatType === 'shop' ? 'standard' : (existing.flatType || flatType));
+      const mergedFlatType = (isBasementShopFlat || isShopFlat) 
+        ? (isBasementShopFlat ? 'basement_shop' : 'shop') 
+        : (existing.flatType === 'shop' || existing.flatType === 'basement_shop' ? 'standard' : (existing.flatType || flatType));
       
       let mergedFloor = calculatedFloor;
       if (mergedFlatType === 'mansard') {
         mergedFloor = floorCount;
       } else if (mergedFlatType === 'shop') {
-        mergedFloor = isBasementShopFlat ? -1 : 0;
+        mergedFloor = 0;
+      } else if (mergedFlatType === 'basement_shop') {
+        mergedFloor = -1;
       } else if (existing.floorNumber !== undefined) {
         mergedFloor = existing.floorNumber;
       }
 
-      const mergedArea = existing.area !== undefined && existing.area > 0 && !((isBasementShopFlat || isShopFlat) && existing.flatType !== 'shop') 
+      const mergedArea = existing.area !== undefined && existing.area > 0 && !((isBasementShopFlat || isShopFlat) && existing.flatType !== 'shop' && existing.flatType !== 'basement_shop') 
         ? existing.area 
         : defaultArea;
 
@@ -576,7 +580,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   let parkingRequiredSpaces = 0;
   synchronizedFlats.forEach((flat) => {
     const area = flat.area || 100;
-    if (flat.flatType === 'shop') {
+    if (flat.flatType === 'shop' || flat.flatType === 'basement_shop') {
       // Ticari dükkanlar için: 1 araçlık otopark bedeli / 40 m²
       parkingRequiredSpaces += area / 40;
     } else {
@@ -743,7 +747,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const localGroundShopCount = params.hasGroundFloorShop ? Math.max(1, params.shopCount || 1) : 0;
   let explicitShopCount = 0;
   if (params.flats && params.flats.length > 0) {
-    explicitShopCount = params.flats.filter((f) => f.flatType === 'shop').length;
+    explicitShopCount = params.flats.filter((f) => f.flatType === 'shop' || f.flatType === 'basement_shop').length;
   }
   const totalShopUnits = Math.max(localActiveBasementShopCount + localGroundShopCount, explicitShopCount);
   const residentialUnitsCount = Math.max(0, effectiveFlatCount - totalShopUnits);
@@ -991,10 +995,10 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     // veya müteahhite kalan daireler/özelleştirme nedeniyle (örn: daireler için 32.000 TL, dükkanlar için 30.000 TL) belirleyebilir
     let unitBaseCost = baseCostPerSqM;
     if (hasManualPrice) {
-      unitBaseCost = flat.flatType === 'shop' ? finalShopPrice : finalFlatPrice;
-    } else if (params.manualFlatUnitPrice && params.manualFlatUnitPrice > 0 && flat.flatType !== 'shop') {
+      unitBaseCost = (flat.flatType === 'shop' || flat.flatType === 'basement_shop') ? finalShopPrice : finalFlatPrice;
+    } else if (params.manualFlatUnitPrice && params.manualFlatUnitPrice > 0 && flat.flatType !== 'shop' && flat.flatType !== 'basement_shop') {
       unitBaseCost = params.manualFlatUnitPrice;
-    } else if (params.manualShopUnitPrice && params.manualShopUnitPrice > 0 && flat.flatType === 'shop') {
+    } else if (params.manualShopUnitPrice && params.manualShopUnitPrice > 0 && (flat.flatType === 'shop' || flat.flatType === 'basement_shop')) {
       unitBaseCost = params.manualShopUnitPrice;
     }
 
@@ -1005,7 +1009,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       : unitBaseCost;
 
     // Merkezi Borç Hesaplama Fonksiyonu Kullanımı
-    const isShop = flat.flatType === 'shop';
+    const isShop = flat.flatType === 'shop' || flat.flatType === 'basement_shop';
     const defaultGrant = isShop ? 350000 : (transformationStatus === 'futureSupport2027' ? 1000000 : 700000);
     const grantLimit = isShop
       ? (params.shopGrantAmountPerFlat !== undefined ? params.shopGrantAmountPerFlat : 350000)
@@ -1066,6 +1070,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     if (floorNumber === undefined) {
       if (flatType === 'shop') {
         floorNumber = 0;
+      } else if (flatType === 'basement_shop') {
+        floorNumber = -1;
       } else if (flatType === 'mansard') {
         floorNumber = floorCount;
       } else {
@@ -1083,7 +1089,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
     // Dükkanlar ortak alandan daha az pay alır (Örn: %35 oranında ortak alan payı)
     const commonWeights = synchronizedFlats.map(f => {
-      if (f.flatType === 'shop') return 0.35;
+      if (f.flatType === 'shop' || f.flatType === 'basement_shop') return 0.35;
       return 1.0;
     });
     const totalCommonWeight = commonWeights.reduce((sum, w) => sum + w, 0) || 1;
@@ -1097,7 +1103,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
     // Balkon Alanı Hesaplama
     let balconyAreaShare = 0;
-    if (flatType === 'shop') {
+    if (flatType === 'shop' || flatType === 'basement_shop') {
       balconyAreaShare = 0;
     } else if (flatType === 'mansard') {
       balconyAreaShare = Math.round(flat.area * 0.12 * 100) / 100;
@@ -1121,7 +1127,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
     // Bağımsız Bölüm Net Alanı (Net usable space)
     let netArea = 0;
-    if (flatType === 'shop') {
+    if (flatType === 'shop' || flatType === 'basement_shop') {
       netArea = Math.round(flat.area * 0.88 * 100) / 100;
     } else if (flatType === 'mansard') {
       netArea = Math.round(flat.area * 0.72 * 100) / 100;
@@ -1152,8 +1158,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       totalSupport,
       netRemainingDebt: Math.round(netRemainingDebt * 100) / 100,
       isContractorShare: isContractor,
-      salePrice: flat.salePrice !== undefined ? flat.salePrice : Math.round(flat.area * (flat.flatType === 'shop' ? finalShopPrice : finalFlatPrice) * 1.5 * (flat.serefiyeMultiplier || 1.0)),
-      flatType: flat.flatType || 'standard',
+      salePrice: flat.salePrice !== undefined ? flat.salePrice : Math.round(flat.area * ((flat.flatType === 'shop' || flat.flatType === 'basement_shop') ? finalShopPrice : finalFlatPrice) * 1.5 * (flat.serefiyeMultiplier || 1.0)),
+      flatType: (flat.flatType || 'standard') as any,
       description: flat.description,
       floorNumber: floorNumber,
       facade: flat.facade,
