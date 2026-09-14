@@ -4,6 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { CompanyProfileProvider } from './context/CompanyProfileContext';
 import { FirebaseSyncProvider } from './context/FirebaseSyncContext';
+import { LicenseGate } from './components/LicenseGate';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Ignore benign Firebase IndexedDB error when user clears browser data
@@ -18,7 +19,9 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <FirebaseSyncProvider>
         <CompanyProfileProvider>
-          <App />
+          <LicenseGate>
+            <App />
+          </LicenseGate>
         </CompanyProfileProvider>
       </FirebaseSyncProvider>
     </ErrorBoundary>

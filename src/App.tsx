@@ -10,8 +10,11 @@ import {
   Check,
   PanelLeftClose,
   PanelLeft,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 import { Header } from './components/Header';
+import { AdminLicenseManager } from './components/AdminLicenseManager';
 import { TabNavigation } from './components/TabNavigation';
 import { CompactSummaryBar } from './components/CompactSummaryBar';
 import { ConfirmModal } from './components/ConfirmModal';
@@ -70,6 +73,7 @@ import {
 
 export default function App() {
   const { user, saveProjectToCloud, loadProjectsFromCloud, deleteProjectFromCloud } = useFirebaseSync();
+  const [isAdminLicensesOpen, setIsAdminLicensesOpen] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_theme');
@@ -983,6 +987,7 @@ export default function App() {
               onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}
               appMode={appMode}
               onToggleAppMode={toggleAppMode}
+              onOpenAdminLicenses={() => setIsAdminLicensesOpen(true)}
             />
           </div>
 
@@ -1257,6 +1262,28 @@ export default function App() {
       historyList={historyList}
       theme={theme}
     />
+
+    {isAdminLicensesOpen && (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs z-50 p-4">
+        <div className="w-full max-w-4xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="font-bold text-slate-950 flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-indigo-600" />
+              Yönetici Lisans Paneli
+            </h3>
+            <button 
+              onClick={() => setIsAdminLicensesOpen(false)}
+              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            <AdminLicenseManager />
+          </div>
+        </div>
+      </div>
+    )}
 
     </div>
   );

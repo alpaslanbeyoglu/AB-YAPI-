@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Save, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor, LogIn, LogOut, Cloud } from 'lucide-react';
+import { Save, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor, LogIn, LogOut, Cloud, ShieldCheck } from 'lucide-react';
 import { Logo } from './Logo';
 import { AppTheme } from '../types';
 import { useFirebaseSync } from '../context/FirebaseSyncContext';
@@ -13,6 +13,7 @@ interface HeaderProps {
   onNavigateToCompletedProjects?: () => void;
   appMode?: 'full' | 'lite';
   onToggleAppMode?: () => void;
+  onOpenAdminLicenses?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -24,10 +25,11 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   onNavigateToCompletedProjects,
   appMode = 'full',
   onToggleAppMode,
+  onOpenAdminLicenses,
 }) => {
   const isGray = theme === 'gray';
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { user, signInWithGoogle, signOut, syncStatus } = useFirebaseSync();
+  const { user, signInWithGoogle, signOut, syncStatus, isAdmin } = useFirebaseSync();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -179,6 +181,17 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   className="w-8 h-8 rounded-full border border-slate-200 shadow-xs object-cover"
                   referrerPolicy="no-referrer"
                 />
+                {isAdmin && onOpenAdminLicenses && (
+                  <button
+                    type="button"
+                    onClick={onOpenAdminLicenses}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+                    title="Müşteri Lisanslarını Yönet"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="hidden sm:inline">Lisans Paneli</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={signOut}

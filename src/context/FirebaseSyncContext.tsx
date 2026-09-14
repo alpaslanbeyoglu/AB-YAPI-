@@ -17,6 +17,15 @@ import {
 import { auth, db, googleProvider } from '../lib/firebase';
 import { SavedProjectData, CompanyProfile } from '../types';
 
+export interface LicenseInfo {
+  email: string;
+  status: 'active' | 'suspended';
+  expiresAt: string; // ISO String
+  name?: string;
+  company?: string;
+  createdAt: string;
+}
+
 interface FirebaseSyncContextType {
   user: User | null;
   loading: boolean;
@@ -31,6 +40,15 @@ interface FirebaseSyncContextType {
   saveCompanyProfileToCloud: (profile: CompanyProfile) => Promise<void>;
   loadCompanyProfilesFromCloud: () => Promise<CompanyProfile[]>;
   deleteCompanyProfileToCloud: (companyName: string) => Promise<void>;
+  
+  // Licensing & SaaS
+  isLicensed: boolean;
+  licenseLoading: boolean;
+  licenseInfo: LicenseInfo | null;
+  isAdmin: boolean;
+  getAllLicenses: () => Promise<LicenseInfo[]>;
+  createOrUpdateLicense: (license: LicenseInfo) => Promise<void>;
+  deleteLicense: (email: string) => Promise<void>;
 }
 
 const FirebaseSyncContext = createContext<FirebaseSyncContextType | null>(null);
@@ -48,6 +66,12 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
 
+  // Licensing States
+  const [isLicensed, setIsLicensed] = useState<boolean>(false);
+  const [licenseLoading, setLicenseLoading] = useState<boolean>(false);
+  const [licenseInfo, setLicenseInfo] = useState<LicenseInfo | null>(null);
+  const isAdmin = user ? user.email === 'alpaslan.beyoglu@gmail.com' : false;
+
   // Monitor Auth Changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -56,6 +80,62 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
     return unsubscribe;
   }, []);
+
+  // Monitor License Status when user changes
+  useEffect(() => {
+    const checkLicense = async () => {
+      if (!user) {
+        setIsLicensed(false);
+        setLicenseInfo(null);
+        return;
+      }
+
+      // Admin (Alpaslan) always has active license and bypasses check
+      if (user.email === 'alpaslan.beyoglu@gmail.com') {
+        setIsLicensed(true);
+        setLicenseInfo({
+          email: user.email,
+          status: 'active',
+          expiresAt: '2099-12-31T23:59:59.000Z',
+          name: 'Alpaslan Beyoğlu',
+          company: 'Admin',
+          createdAt: new Date().toISOString()
+        });
+        return;
+      }
+
+      setLicenseLoading(true);
+      try {
+        const emailLower = user.email ? user.email.toLowerCase().trim() : '';
+        const docRef = doc(db, 'licenses', emailLower);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const data = docSnap.data() as LicenseInfo;
+          const isNotExpired = new Date(data.expiresAt) > new Date();
+          const isActive = data.status === 'active';
+
+          if (isActive && isNotExpired) {
+            setIsLicensed(true);
+            setLicenseInfo(data);
+          } else {
+            setIsLicensed(false);
+            setLicenseInfo(data);
+          }
+        } else {
+          setIsLicensed(false);
+          setLicenseInfo(null);
+        }
+      } catch (error) {
+        console.error("Error checking license:", error);
+        setIsLicensed(false);
+      } finally {
+        setLicenseLoading(false);
+      }
+    };
+
+    checkLicense();
+  }, [user]);
 
   const signInWithGoogle = async () => {
     try {
@@ -77,7 +157,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Pushes a single project and its associated construction state to the cloud
   const saveProjectToCloud = async (project: SavedProjectData) => {
-    if (!user) return;
+    if (!user || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProjectKey(project.projectAddress);
@@ -127,7 +207,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Loads all projects from cloud and hydrates localStorage to preserve app state
   const loadProjectsFromCloud = async (): Promise<SavedProjectData[]> => {
-    if (!user) return [];
+    if (!user || !isLicensed) return [];
     setSyncStatus('syncing');
     try {
       const colRef = collection(db, 'users', user.uid, 'projects');
@@ -173,7 +253,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const deleteProjectFromCloud = async (projectAddress: string) => {
-    if (!user) return;
+    if (!user || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProjectKey(projectAddress);
@@ -188,7 +268,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const saveCompanyProfileToCloud = async (profile: CompanyProfile) => {
-    if (!user) return;
+    if (!user || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProfileKey(profile.companyName);
@@ -203,7 +283,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const loadCompanyProfilesFromCloud = async (): Promise<CompanyProfile[]> => {
-    if (!user) return [];
+    if (!user || !isLicensed) return [];
     setSyncStatus('syncing');
     try {
       const colRef = collection(db, 'users', user.uid, 'companyProfiles');
@@ -224,7 +304,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const deleteCompanyProfileToCloud = async (companyName: string) => {
-    if (!user) return;
+    if (!user || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProfileKey(companyName);
@@ -234,6 +314,50 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch (error) {
       console.error("Error deleting company profile from cloud:", error);
       setSyncStatus('error');
+      throw error;
+    }
+  };
+
+  // Admin Licensing Operations
+  const getAllLicenses = async (): Promise<LicenseInfo[]> => {
+    if (!isAdmin) return [];
+    try {
+      const colRef = collection(db, 'licenses');
+      const snapshot = await getDocs(colRef);
+      const licenses: LicenseInfo[] = [];
+      snapshot.forEach((docSnapshot) => {
+        licenses.push(docSnapshot.data() as LicenseInfo);
+      });
+      return licenses;
+    } catch (error) {
+      console.error("Error loading all licenses:", error);
+      throw error;
+    }
+  };
+
+  const createOrUpdateLicense = async (licenseData: LicenseInfo) => {
+    if (!isAdmin) return;
+    try {
+      const emailLower = licenseData.email.toLowerCase().trim();
+      const docRef = doc(db, 'licenses', emailLower);
+      await setDoc(docRef, {
+        ...licenseData,
+        email: emailLower
+      }, { merge: true });
+    } catch (error) {
+      console.error("Error updating license:", error);
+      throw error;
+    }
+  };
+
+  const deleteLicense = async (email: string) => {
+    if (!isAdmin) return;
+    try {
+      const emailLower = email.toLowerCase().trim();
+      const docRef = doc(db, 'licenses', emailLower);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error("Error deleting license:", error);
       throw error;
     }
   };
@@ -250,7 +374,16 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       deleteProjectFromCloud,
       saveCompanyProfileToCloud,
       loadCompanyProfilesFromCloud,
-      deleteCompanyProfileToCloud
+      deleteCompanyProfileToCloud,
+      
+      // Licensing & Admin
+      isLicensed,
+      licenseLoading,
+      licenseInfo,
+      isAdmin,
+      getAllLicenses,
+      createOrUpdateLicense,
+      deleteLicense
     }}>
       {children}
     </FirebaseSyncContext.Provider>
