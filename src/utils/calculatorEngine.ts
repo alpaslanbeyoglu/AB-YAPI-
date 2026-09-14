@@ -1,6 +1,7 @@
 import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem } from '../types';
 import { calculateNetDebt } from './debtUtils';
 import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint, FootprintCalculationResult } from './footprintUtils';
+import { getAcOptionById } from './acOptions';
 
 export interface FacadeCantileverDetail {
   index: number;
@@ -189,6 +190,14 @@ export const DEFAULT_PARAMS: ProjectParams = {
   // İnovatif Seçenekler Varsayılan Değerleri
   hasUnderfloorHeating: false,
   hasWaterFiltration: false,
+  hasAcOption: false,
+  acType: '18k_btu',
+  acCustomPricePerFlat: 39500,
+  acScope: 'all_units',
+  hasThermostaticShowerMixer: false,
+  thermostaticMixerPricePerFlat: 6500,
+  hasLinearShowerDrain: false,
+  linearDrainPricePerFlat: 2800,
 
   // Cost items
   costNotaryContract: 40000,
@@ -731,14 +740,70 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const localShopArea = localGroundShopTotalArea + localBasementShopTotalArea;
   const localFlatArea = Math.max(0, totalArea - localShopArea);
 
+  const localGroundShopCount = params.hasGroundFloorShop ? Math.max(1, params.shopCount || 1) : 0;
+  let explicitShopCount = 0;
+  if (params.flats && params.flats.length > 0) {
+    explicitShopCount = params.flats.filter((f) => f.flatType === 'shop').length;
+  }
+  const totalShopUnits = Math.max(localActiveBasementShopCount + localGroundShopCount, explicitShopCount);
+  const residentialUnitsCount = Math.max(0, effectiveFlatCount - totalShopUnits);
+
   const underfloorHeatingCost = params.hasUnderfloorHeating ? Math.round(localFlatArea * 750) : 0;
 
   // Bina Tipi Merkezi Su Arıtma: Bina girişi merkezi sistem (tortu, klor, kireç filtreli) ~150.000 TL taban + daire başı ~5.000 TL
   const waterFiltrationCost = params.hasWaterFiltration ? Math.round(150000 + effectiveFlatCount * 5000) : 0;
 
+  // Klima & İklimlendirme Konfor Seçeneği
+  const selectedAcPreset = getAcOptionById(params.acType || '18k_btu');
+  const acUnitCount = params.acScope === 'residential_only' 
+    ? residentialUnitsCount
+    : effectiveFlatCount;
+  const acPricePerFlat = params.acCustomPricePerFlat !== undefined && params.acCustomPricePerFlat > 0 
+    ? params.acCustomPricePerFlat 
+    : selectedAcPreset.avgPricePerFlat;
+  const acCostTotal = params.hasAcOption ? Math.round(acUnitCount * acPricePerFlat) : 0;
+  const acLaborPercent = selectedAcPreset.laborShare || 15;
+  const acLaborCost = params.hasAcOption ? Math.round(acCostTotal * (acLaborPercent / 100)) : 0;
+
+  // Banyo Konforu: Termostatik Duş Bataryası (38°C Emniyet Kilitli, Haşlanma Önleyici)
+  // DÜKKANLARDA DUŞ OLMADIĞINDAN SADECE KONUT/DAİRELER HESABA KATILIR
+  const thermostaticMixerUnits = residentialUnitsCount;
+  const thermostaticMixerPricePerFlat = params.thermostaticMixerPricePerFlat !== undefined && params.thermostaticMixerPricePerFlat > 0
+    ? params.thermostaticMixerPricePerFlat
+    : 6500;
+  const thermostaticMixerCost = params.hasThermostaticShowerMixer ? Math.round(thermostaticMixerUnits * thermostaticMixerPricePerFlat) : 0;
+  const thermostaticLabor = Math.round(thermostaticMixerCost * 0.15);
+
+  // Banyo Konforu: Lineer Duş Süzgeci / Kanalı (304 Paslanmaz Çelik, Koku Çekvalfli)
+  // DÜKKANLARDA DUŞ KABİNİ OLMADIĞINDAN SADECE KONUT/DAİRELER HESABA KATILIR
+  const linearDrainUnits = residentialUnitsCount;
+  const linearDrainPricePerFlat = params.linearDrainPricePerFlat !== undefined && params.linearDrainPricePerFlat > 0
+    ? params.linearDrainPricePerFlat
+    : 2800;
+  const linearDrainCost = params.hasLinearShowerDrain ? Math.round(linearDrainUnits * linearDrainPricePerFlat) : 0;
+  const linearDrainLabor = Math.round(linearDrainCost * 0.25);
+
+  // Banyo Konforu: Nem Sensörlü Sessiz Banyo Havalandırma Fanı (Geri Tepme Klapeli, Küf & Buğu Önleyici)
+  // DÜKKANLARDA BANYO DUŞU OLMADIĞINDAN SADECE KONUT/DAİRELER HESABA KATILIR
+  const bathroomHumidityFanUnits = residentialUnitsCount;
+  const bathroomHumidityFanPricePerFlat = params.bathroomHumidityFanPricePerFlat !== undefined && params.bathroomHumidityFanPricePerFlat > 0
+    ? params.bathroomHumidityFanPricePerFlat
+    : 3200;
+  const bathroomHumidityFanCost = params.hasBathroomHumidityFan ? Math.round(bathroomHumidityFanUnits * bathroomHumidityFanPricePerFlat) : 0;
+  const bathroomHumidityFanLabor = Math.round(bathroomHumidityFanCost * 0.20);
+
+  // Mutfak Konforu: Kadınların Hayatını Kolaylaştıran Fotoselli / Temassız Akıllı Eviye Bataryası (%40 Su Tasarrufu & Hijyen)
+  // DÜKKANLARDA KONUT MUTFAĞI OLMADIĞINDAN SADECE KONUT/DAİRELER HESABA KATILIR
+  const touchlessKitchenFaucetUnits = residentialUnitsCount;
+  const touchlessKitchenFaucetPricePerFlat = params.touchlessKitchenFaucetPricePerFlat !== undefined && params.touchlessKitchenFaucetPricePerFlat > 0
+    ? params.touchlessKitchenFaucetPricePerFlat
+    : 4500;
+  const touchlessKitchenFaucetCost = params.hasTouchlessKitchenFaucet ? Math.round(touchlessKitchenFaucetUnits * touchlessKitchenFaucetPricePerFlat) : 0;
+  const touchlessKitchenFaucetLabor = Math.round(touchlessKitchenFaucetCost * 0.15);
+
   const systemsRawTotal = costElevatorTotal + costSmartHomeTotal + costIntercomTotal + costGasTotal;
   const systemsCostNormal = Math.round(systemsRawTotal * costMultiplier * 100) / 100;
-  const systemsCost = Math.round((systemsCostNormal + underfloorHeatingCost + waterFiltrationCost) * 100) / 100;
+  const systemsCost = Math.round((systemsCostNormal + underfloorHeatingCost + waterFiltrationCost + acCostTotal + thermostaticMixerCost + linearDrainCost + bathroomHumidityFanCost + touchlessKitchenFaucetCost) * 100) / 100;
 
   const systemsLaborCostNormal = Math.round(
     (costElevatorTotal * 0.20 + costSmartHomeTotal * 0.15 + costIntercomTotal * 0.20 + costGasTotal * 0.30) *
@@ -746,10 +811,10 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       100
   ) / 100;
 
-  // Yerden ısıtmada işçilik payı %30, su arıtmada %10 işçilik
+  // Yerden ısıtmada işçilik payı %30, su arıtmada %10 işçilik, klimada %15-%40 montaj/işçilik, bataryada %15, süzgeçte %25, banyo fanında %20, mutfak bataryasında %15
   const underfloorLabor = Math.round(underfloorHeatingCost * 0.30);
   const waterLabor = Math.round(waterFiltrationCost * 0.10);
-  const systemsLaborCost = Math.round((systemsLaborCostNormal + underfloorLabor + waterLabor) * 100) / 100;
+  const systemsLaborCost = Math.round((systemsLaborCostNormal + underfloorLabor + waterLabor + acLaborCost + thermostaticLabor + linearDrainLabor + bathroomHumidityFanLabor + touchlessKitchenFaucetLabor) * 100) / 100;
 
   const systemsMaterialCost = Math.round((systemsCost - systemsLaborCost) * 100) / 100;
 
@@ -781,8 +846,9 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const costElectric = effectiveFlatCount * safePriceElectric;
   const costPvc = totalArea * pvcAreaFactor * safePricePvc;
   const costTiles = totalArea * safePriceTiles;
-  const costKitchen = effectiveFlatCount * safePriceKitchen;
-  const costDoors = effectiveFlatCount * safePriceDoors;
+  // Dükkanlarda konut tipi tam mutfak yerine basit çay ocağı / lavabo tesisi (%20)
+  const costKitchen = (residentialUnitsCount * safePriceKitchen) + (totalShopUnits * Math.round(safePriceKitchen * 0.20));
+  const costDoors = (residentialUnitsCount * safePriceDoors) + (totalShopUnits * Math.round(safePriceDoors * 0.40));
   const costPaintPlaster = totalArea * paintPlasterAreaFactor * safePricePaintPlaster;
 
   const finishingRawTotal =
@@ -1202,5 +1268,26 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     // İnovatif Seçenekler Maliyet Çıktıları
     underfloorHeatingCost,
     waterFiltrationCost,
+    acCostTotal,
+    acCostPerFlat: acPricePerFlat,
+    acBtuInfo: selectedAcPreset.btu,
+    acTitle: selectedAcPreset.title,
+    acTargetArea: selectedAcPreset.targetArea,
+    acLaborShare: acLaborPercent,
+    acUnitCount,
+    residentialUnitsCount,
+    shopUnitsCount: totalShopUnits,
+    thermostaticMixerCost,
+    thermostaticMixerPricePerFlat,
+    thermostaticMixerUnits,
+    linearDrainCost,
+    linearDrainPricePerFlat,
+    linearDrainUnits,
+    bathroomHumidityFanCost,
+    bathroomHumidityFanPricePerFlat,
+    bathroomHumidityFanUnits,
+    touchlessKitchenFaucetCost,
+    touchlessKitchenFaucetPricePerFlat,
+    touchlessKitchenFaucetUnits,
   };
 }

@@ -36,14 +36,29 @@ import {
   Car,
   Flame,
   Droplets,
+  Wind,
+  Bath,
+  Sliders,
+  Fan,
+  ChefHat,
+  Calculator,
+  DollarSign,
+  ArrowRight,
+  Coins,
+  Percent,
+  ChevronRight,
+  Minus,
+  Store,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
+import { getAcOptionById } from '../utils/acOptions';
 import { generateOfferHtml } from '../utils/offerReportExport';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { getRoofTypeShortTitle } from '../utils/roofUtils';
+import { computeDualOffer, DUAL_OFFER_NAMING_PRESETS, DualOfferNamingPresetItem } from '../utils/dualOfferUtils';
 
 interface OfferTabProps {
   params: ProjectParams;
@@ -271,6 +286,144 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       ? '2027 Kentsel Dönüşüm Kredi Modeli (3 Milyon TL / 180 Ay Vade)'
       : 'Öz Kaynaklı / Desteksiz Yapım Modeli';
 
+  const isDualOffer = params.offerPresentationMode === 'dual';
+  const dualData = computeDualOffer(params);
+
+  const [deltaNotification, setDeltaNotification] = useState<string | null>(null);
+
+  const handleApplyDelta = (deltaValue: number | undefined, label: string) => {
+    if (onUpdateAllParams) {
+      onUpdateAllParams({ plusOfferCustomFlatDelta: deltaValue });
+    } else if (onUpdateParam) {
+      onUpdateParam('plusOfferCustomFlatDelta', deltaValue);
+    }
+    const formatted = deltaValue !== undefined
+      ? `${deltaValue.toLocaleString('tr-TR')} ₺ / Daire`
+      : `Şantiye Maliyetine (${dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺ / Daire)`;
+    const msg = `✓ Daire Başı Plus Farkı: ${formatted} olarak güncellendi (${label})`;
+    setDeltaNotification(msg);
+    setTimeout(() => {
+      setDeltaNotification((prev) => (prev === msg ? null : prev));
+    }, 4000);
+  };
+
+  const handleStepDelta = (amount: number) => {
+    const current = params.plusOfferCustomFlatDelta ?? dualData.calculatedAvgCostPerFlatDiff;
+    const newVal = Math.max(0, Math.round(current + amount));
+    handleApplyDelta(newVal, amount > 0 ? `+${amount.toLocaleString('tr-TR')} ₺` : `${amount.toLocaleString('tr-TR')} ₺`);
+  };
+
+  const deltaPresets = [
+    {
+      id: 'cost',
+      label: 'Maliyetine (%0)',
+      percentBadge: '%0',
+      value: undefined,
+      displayVal: dualData.calculatedAvgCostPerFlatDiff,
+      isActive: params.plusOfferCustomFlatDelta === undefined || params.plusOfferCustomFlatDelta === 0 || params.plusOfferCustomFlatDelta === dualData.calculatedAvgCostPerFlatDiff,
+    },
+    {
+      id: 'p10',
+      label: '+%10 Kâr',
+      percentBadge: '+%10',
+      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.10),
+      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.10),
+      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.10),
+    },
+    {
+      id: 'p15',
+      label: '+%15 Kâr',
+      percentBadge: '+%15',
+      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.15),
+      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.15),
+      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.15),
+    },
+    {
+      id: 'p20',
+      label: '+%20 Kâr',
+      percentBadge: '+%20',
+      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.20),
+      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.20),
+      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.20),
+    },
+    {
+      id: 'p25',
+      label: '+%25 Kâr',
+      percentBadge: '+%25',
+      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.25),
+      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.25),
+      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.25),
+    },
+    {
+      id: 'p30',
+      label: '+%30 Kâr',
+      percentBadge: '+%30',
+      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.30),
+      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.30),
+      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.30),
+    },
+    {
+      id: 'p35',
+      label: '+%35 Kâr',
+      percentBadge: '+%35',
+      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.35),
+      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.35),
+      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.35),
+    },
+    {
+      id: 'p50',
+      label: '+%50 Kâr',
+      percentBadge: '+%50',
+      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.50),
+      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.50),
+      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.50),
+    },
+    {
+      id: 'round',
+      label: '5.000 ₺ Tamamla',
+      percentBadge: 'Yuvarlak',
+      value: Math.ceil((dualData.calculatedAvgCostPerFlatDiff * 1.20) / 5000) * 5000,
+      displayVal: Math.ceil((dualData.calculatedAvgCostPerFlatDiff * 1.20) / 5000) * 5000,
+      isActive: params.plusOfferCustomFlatDelta === Math.ceil((dualData.calculatedAvgCostPerFlatDiff * 1.20) / 5000) * 5000 && params.plusOfferCustomFlatDelta !== Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.20),
+    },
+  ];
+
+  const handleTogglePresentationMode = (mode: 'single' | 'dual') => {
+    if (onUpdateParam) {
+      onUpdateParam('offerPresentationMode', mode);
+    }
+  };
+
+  const handleSelectNamingPreset = (presetId: 'standard_prestij' | 'klasik_konfor' | 'gumus_altin' | 'temel_akilli' | 'custom') => {
+    if (onUpdateParam) {
+      const preset = DUAL_OFFER_NAMING_PRESETS.find(p => p.id === presetId);
+      onUpdateParam('offerNamingPreset', presetId);
+      if (presetId !== 'custom' && preset) {
+        onUpdateParam('baseOfferTitle', preset.baseTitle);
+        onUpdateParam('plusOfferTitle', preset.plusTitle);
+      }
+    }
+  };
+
+  const handleTogglePlusFeature = (featKey: 'underfloorHeating' | 'waterFiltration' | 'acOption' | 'thermostaticShowerMixer' | 'linearShowerDrain' | 'bathroomHumidityFan' | 'touchlessKitchenFaucet' | 'smartHome') => {
+    if (onUpdateParam) {
+      const currentFeatures = params.plusOfferFeatures || {
+        underfloorHeating: true,
+        waterFiltration: true,
+        acOption: true,
+        thermostaticShowerMixer: true,
+        linearShowerDrain: true,
+        bathroomHumidityFan: true,
+        touchlessKitchenFaucet: true,
+        smartHome: true,
+      };
+      onUpdateParam('plusOfferFeatures', {
+        ...currentFeatures,
+        [featKey]: currentFeatures[featKey] === false ? true : false,
+      });
+    }
+  };
+
   const proposalNumber = `${compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-${new Date().getFullYear()}-${String(results.flatCount || 10).padStart(3, '0')}`;
   const proposalDate = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const validityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -318,6 +471,23 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              if (params.offerPresentationMode !== 'dual' && onUpdateParam) {
+                onUpdateParam('offerPresentationMode', 'dual');
+              }
+              setTimeout(() => {
+                const el = document.getElementById('contractor-financial-reflection-panel');
+                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 60);
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:to-indigo-900 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold shadow-md shadow-slate-900/30 transition-all active:scale-95 cursor-pointer"
+            title="Plus paketin müteahhite (size) yansıyan maliyet, kâr ve hak ediş farkını inceleyin"
+          >
+            <ShieldCheck className="w-4 h-4 text-amber-400" />
+            <span>🔒 Bana (Müteahhite) Yansıyan Fark</span>
+          </button>
           {onNavigateToSurec && (
             <button
               type="button"
@@ -579,6 +749,782 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         )}
       </div>
 
+      {/* ========================================================
+          DUAL OFFER PRESENTATION MODE & CUSTOMIZATION PANEL
+         ======================================================== */}
+      <div className="bg-white border-2 border-indigo-100 rounded-3xl p-6 shadow-sm space-y-5 print:hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg">
+                <Sliders className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-black text-slate-900">Teklif Sunum Modu & Paket Seçenekleri</h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Kat maliklerine tek bir standart teklif sunabilir veya alternatifli <strong>2 Seçenekli (Baz vs. Plus)</strong> karşılaştırmalı teklif sunumu oluşturabilirsiniz.
+            </p>
+          </div>
+
+          {/* Mode Selector Buttons */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => handleTogglePresentationMode('single')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                !isDualOffer
+                  ? 'bg-white text-indigo-900 shadow-sm font-black'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Tek Paket Teklifi</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTogglePresentationMode('dual')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isDualOffer
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-black'
+                  : 'text-slate-600 hover:text-indigo-600'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>2 Seçenekli Teklif (Baz + Plus)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Dual Offer Configuration Controls (Visible when Dual Mode is Active) */}
+        {isDualOffer && (
+          <div className="space-y-5 animate-fade-in">
+            {/* 1. Naming Presets */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 block">
+                Paket İsimlendirme Şablonu (Türkçe İsimler):
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                {DUAL_OFFER_NAMING_PRESETS.map((preset) => {
+                  const isSelected = (params.offerNamingPreset || 'standard_prestij') === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleSelectNamingPreset(preset.id)}
+                      className={`p-2.5 text-left rounded-xl border text-xs transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-bold shadow-xs'
+                          : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/80 text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-extrabold text-[11px] text-slate-900">{preset.label}</span>
+                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
+                      </div>
+                      <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                        <span>1: {preset.baseTitle}</span>
+                        <span>•</span>
+                        <span className="text-indigo-700 font-semibold">2: {preset.plusTitle}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. Custom Title Inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700">1. Seçenek (Baz Teklif) Başlığı:</label>
+                <input
+                  type="text"
+                  value={params.baseOfferTitle || dualData.baseTitle}
+                  onChange={(e) => {
+                    if (onUpdateParam) {
+                      onUpdateParam('baseOfferTitle', e.target.value);
+                      onUpdateParam('offerNamingPreset', 'custom');
+                    }
+                  }}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-500 focus:outline-none bg-slate-50 focus:bg-white transition-all text-slate-900"
+                  placeholder="Örn: Standart (Baz) Paket"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-indigo-900">2. Seçenek (Plus Teklif) Başlığı:</label>
+                <input
+                  type="text"
+                  value={params.plusOfferTitle || dualData.plusTitle}
+                  onChange={(e) => {
+                    if (onUpdateParam) {
+                      onUpdateParam('plusOfferTitle', e.target.value);
+                      onUpdateParam('offerNamingPreset', 'custom');
+                    }
+                  }}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-purple-200 rounded-xl focus:border-purple-500 focus:outline-none bg-purple-50/40 focus:bg-white transition-all text-purple-950 font-bold"
+                  placeholder="Örn: Prestij Plus Paket"
+                />
+              </div>
+            </div>
+
+            {/* 3. Plus Offer Feature Selection (Dilediğim özellikleri ekleyebileceğim Plus Teklif) */}
+            <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-purple-950 flex items-center gap-1.5 uppercase tracking-wide">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    Plus Teklifte Yer Alacak İlave Konfor Özellikleri:
+                  </h4>
+                  <p className="text-[10px] text-purple-700 mt-0.5">
+                    İşaretlediğiniz özellikler 2. Teklife dahil edilecek ve 1. Teklif (Baz) ile aradaki maliyet farkı otomatik hesaplanacaktır.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                {/* Underfloor Heating */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.underfloorHeating !== false}
+                    onChange={() => handleTogglePlusFeature('underfloorHeating')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">🔥 Sulu Yerden Isıtma</span>
+                    <span className="text-[10px] text-slate-500">Peteksiz, homojen & tasarruflu</span>
+                  </div>
+                </label>
+
+                {/* Water Filtration */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.waterFiltration !== false}
+                    onChange={() => handleTogglePlusFeature('waterFiltration')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">💧 Merkezi Su Arıtma</span>
+                    <span className="text-[10px] text-slate-500">Tüm binada klor & kireçsiz su</span>
+                  </div>
+                </label>
+
+                {/* AC */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.acOption !== false}
+                    onChange={() => handleTogglePlusFeature('acOption')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">❄️ A++ Inverter Klima</span>
+                    <span className="text-[10px] text-slate-500">{getAcOptionById(params.acType || '18k_btu').shortTitle}</span>
+                  </div>
+                </label>
+
+                {/* Thermostatic Mixer */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.thermostaticShowerMixer !== false}
+                    onChange={() => handleTogglePlusFeature('thermostaticShowerMixer')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">🚿 Termostatik Duş Bataryası</span>
+                    <span className="text-[10px] text-slate-500">38°C emniyet (Konutlar)</span>
+                  </div>
+                </label>
+
+                {/* Linear Shower Drain */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.linearShowerDrain !== false}
+                    onChange={() => handleTogglePlusFeature('linearShowerDrain')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">✨ Lineer Duş Süzgeci</span>
+                    <span className="text-[10px] text-slate-500">304 Paslanmaz & koku çekvalfli</span>
+                  </div>
+                </label>
+
+                {/* Bathroom Humidity Fan */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.bathroomHumidityFan !== false}
+                    onChange={() => handleTogglePlusFeature('bathroomHumidityFan')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">🌀 Nem Sensörlü Banyo Fanı</span>
+                    <span className="text-[10px] text-slate-500">25 dB sessiz & buhar önleyici</span>
+                  </div>
+                </label>
+
+                {/* Touchless Kitchen Faucet */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.touchlessKitchenFaucet !== false}
+                    onChange={() => handleTogglePlusFeature('touchlessKitchenFaucet')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">🫧 Fotoselli Mutfak Bataryası</span>
+                    <span className="text-[10px] text-slate-500">Kadınların hayatını kolaylaştıran</span>
+                  </div>
+                </label>
+
+                {/* Smart Home */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.smartHome !== false}
+                    onChange={() => handleTogglePlusFeature('smartHome')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">🏡 Akıllı Ev Modülü</span>
+                    <span className="text-[10px] text-slate-500">Aydınlatma & ana vana kontrolü</span>
+                  </div>
+                </label>
+              </div>
+
+              {/* MÜŞTERİYE SUNULACAK DAİRE BAŞI PLUS FARKI HIZLI SEÇİCİ */}
+              <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 via-amber-50/50 to-purple-50 rounded-2xl border-2 border-purple-200/80 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-purple-600 text-white rounded-lg shadow-sm">
+                      <Sliders className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-slate-900 uppercase tracking-wider block">
+                        Müşteriye Sunulacak Daire Başı Plus Farkı:
+                      </span>
+                      <span className="text-[11px] text-slate-600">
+                        Aşağıdaki butonlara tıklayarak teklifte müşterinin göreceği daire başı farkı tek tıkla belirleyin.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {deltaNotification && (
+                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-600 text-white shadow-sm animate-pulse">
+                        {deltaNotification}
+                      </span>
+                    )}
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-purple-600 text-white shadow-sm shrink-0">
+                      Resmî Teklife Yansır
+                    </span>
+                  </div>
+                </div>
+
+                {/* Percentage Preset Buttons */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  {deltaPresets.map((preset) => (
+                    <button
+                      key={`top-${preset.id}`}
+                      type="button"
+                      onClick={() => handleApplyDelta(preset.value, preset.label)}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                        preset.isActive
+                          ? 'bg-purple-700 text-white shadow-md shadow-purple-700/30 ring-2 ring-purple-400 scale-[1.02]'
+                          : 'bg-white hover:bg-purple-50 text-slate-700 border border-purple-200 hover:border-purple-300 shadow-sm'
+                      }`}
+                      title={`${preset.label} - Daire Başı ${preset.displayVal.toLocaleString('tr-TR')} ₺`}
+                    >
+                      {preset.isActive ? (
+                        <Check className="w-3.5 h-3.5 text-amber-300 stroke-[3]" />
+                      ) : (
+                        <span className="text-[10px] px-1 py-0.2 rounded bg-purple-100 text-purple-800 font-mono font-bold">
+                          {preset.percentBadge}
+                        </span>
+                      )}
+                      <span>{preset.label}</span>
+                      <span className={`font-mono text-[11px] font-bold ${preset.isActive ? 'text-amber-300' : 'text-purple-700'}`}>
+                        ({preset.displayVal.toLocaleString('tr-TR')} ₺)
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Live Cost & Profit Preview Strip */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-purple-200/60 text-xs">
+                  <div className="p-2 bg-white rounded-xl border border-purple-100">
+                    <span className="text-[10px] text-slate-500 block">Şantiye Maliyeti:</span>
+                    <strong className="text-slate-800 font-mono">{dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺</strong>
+                  </div>
+                  <div className="p-2 bg-purple-100/60 rounded-xl border border-purple-200">
+                    <span className="text-[10px] text-purple-700 font-bold block">Teklif Farkı (Müşteri):</span>
+                    <strong className="text-purple-900 font-mono font-black">+{dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺</strong>
+                  </div>
+                  <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <span className="text-[10px] text-emerald-700 font-bold block">Daire Başı Ek Kârınız:</span>
+                    <strong className="text-emerald-800 font-mono font-black">+{dualData.contractorNetMarginPerFlat.toLocaleString('tr-TR')} ₺</strong>
+                  </div>
+                  <div className="p-2 bg-amber-50 rounded-xl border border-amber-200">
+                    <span className="text-[10px] text-amber-800 font-bold block">Şirket Toplam Ek Kârı:</span>
+                    <strong className="text-amber-900 font-mono font-black">+{dualData.contractorNetTotalProfit.toLocaleString('tr-TR')} ₺</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. CONTRACTOR PRIVATE FINANCIAL CONTROL PANEL (Yalnızca Müteahhit Görür - Teklifte/PDF'te Kesinlikle Görünmez) */}
+            <div 
+              id="contractor-financial-reflection-panel"
+              className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white border-2 border-amber-500/40 shadow-2xl space-y-6 scroll-mt-6"
+            >
+              {/* Header */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-500/40 shrink-0">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="text-sm font-black text-white uppercase tracking-wider">
+                        Yüklenici Finansal Tablosu: Plus Paketin Müteahhite (Bana) Yansıyan Farkı
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                        🔒 Gizli (Müşteri Teklifinde ve PDF'te Görünmez)
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1">
+                      Plus paketin şantiye imalat maliyetinize, müşterilerden toplanacak nakit akışına, daire başı net kârınıza ve toplam şirket kazancınıza yansıyan tüm finansal farkları inceleyin.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start lg:self-center">
+                  <span className="text-[11px] text-slate-400 font-mono bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
+                    Proje Birim Adedi: <strong className="text-white">{results.flatCount || 1}</strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* 1. DÖRT TEMEL FİNANSAL YANSIMA KARTI (EXECUTIVE OVERVIEW) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                {/* KART 1: Şantiyeye / Bana Ekstra Maliyet */}
+                <div className="p-4 bg-slate-900/90 rounded-2xl border border-rose-500/30 relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-xl pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-extrabold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Calculator className="w-3.5 h-3.5 text-rose-400" />
+                        1. Bana (Şantiyeye) Yansıyan Maliyet
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">Çıkan Para</span>
+                    </div>
+                    <div className="text-2xl font-black font-mono text-white mt-1">
+                      {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺
+                      <span className="text-xs font-normal text-slate-400 block mt-0.5">Daire Başı Net İmalat</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                    <span className="text-slate-400">Toplam Ek Maliyet:</span>
+                    <strong className="font-mono text-rose-300 font-bold">{dualData.calculatedTotalCostDiff.toLocaleString('tr-TR')} ₺</strong>
+                  </div>
+                </div>
+
+                {/* KART 2: Müşteriden Toplanacak Tutar */}
+                <div className="p-4 bg-slate-900/90 rounded-2xl border border-sky-500/30 relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/5 rounded-full blur-xl pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-extrabold text-sky-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5 text-sky-400" />
+                        2. Müşteriden Alınacak Hasılat
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">Giren Para</span>
+                    </div>
+                    <div className="text-2xl font-black font-mono text-sky-300 mt-1">
+                      {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
+                      <span className="text-xs font-normal text-slate-400 block mt-0.5">Daire Başı Teklif Farkı</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                    <span className="text-slate-400">Toplam Tahsilat:</span>
+                    <strong className="font-mono text-white font-bold">{dualData.customerTotalCostDiff.toLocaleString('tr-TR')} ₺</strong>
+                  </div>
+                </div>
+
+                {/* KART 3: Müteahhide (Bana) Kalan Net İlave Kâr */}
+                <div className="p-4 bg-slate-900/90 rounded-2xl border border-emerald-500/40 relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                        3. Bana Kalan Net Ekstra Kâr
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">Cepte Kalan</span>
+                    </div>
+                    <div className="text-2xl font-black font-mono text-emerald-400 mt-1">
+                      {dualData.contractorNetExtraMargin >= 0 ? '+' : ''}{dualData.contractorNetExtraMargin.toLocaleString('tr-TR')} ₺
+                      <span className="text-xs font-normal text-slate-400 block mt-0.5">
+                        Daire Başı: {dualData.unitProfitPerFlat >= 0 ? '+' : ''}{dualData.unitProfitPerFlat.toLocaleString('tr-TR')} ₺
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                    <span className="text-slate-400">İlave Kâr Marjı:</span>
+                    <strong className="font-mono text-emerald-300 font-bold">+{dualData.contractorMarginPercent}%</strong>
+                  </div>
+                </div>
+
+                {/* KART 4: Toplam Şirket Kârı Değişimi */}
+                <div className="p-4 bg-slate-900/90 rounded-2xl border border-amber-500/40 relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-extrabold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-amber-400" />
+                        4. Toplam Proje Kârı Büyümesi
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">Genel Kâr</span>
+                    </div>
+                    <div className="text-2xl font-black font-mono text-amber-300 mt-1">
+                      {dualData.plusProfitAmount.toLocaleString('tr-TR')} ₺
+                      <span className="text-xs font-normal text-slate-400 block mt-0.5">
+                        Baz Kâr: {dualData.baseProfitAmount.toLocaleString('tr-TR')} ₺
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                    <span className="text-slate-400">Net Kâr Artışınız:</span>
+                    <strong className="font-mono text-emerald-400 font-bold">
+                      +{dualData.profitDiffAmount.toLocaleString('tr-TR')} ₺ ({dualData.profitDiffPercent > 0 ? `+${dualData.profitDiffPercent}%` : 'Aynı'})
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. KAT KARŞILIĞI VE MÜTEAHHİT MÜLKİYETİNDEKİ DAİRELERİN ANALİZİ (Varsa) */}
+              {dualData.contractorFlatsCount > 0 && (
+                <div className="p-4 bg-indigo-950/40 rounded-2xl border border-indigo-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-200 uppercase tracking-wider flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-indigo-400" />
+                      Kat Karşılığı Analizi: Müteahhidin (Sizin) Dairelerine Yansıyan Finansal Bakiye
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">
+                      {dualData.contractorFlatsCount} Daire Sizin / {dualData.ownerFlatsCount} Daire Kat Maliklerinin
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                    <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[10px]">Sizin Dairelerinizin Plus Maliyeti:</span>
+                      <strong className="font-mono text-base text-rose-300 block mt-0.5">
+                        {dualData.contractorOwnFlatsCost.toLocaleString('tr-TR')} ₺
+                      </strong>
+                      <span className="text-[9px] text-slate-400">{dualData.contractorFlatsCount} daire × {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺</span>
+                    </div>
+
+                    <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[10px]">Kat Maliklerinden Toplanan Tutar:</span>
+                      <strong className="font-mono text-base text-sky-300 block mt-0.5">
+                        {dualData.collectedFromOwners.toLocaleString('tr-TR')} ₺
+                      </strong>
+                      <span className="text-[9px] text-slate-400">{dualData.ownerFlatsCount} daire × {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺</span>
+                    </div>
+
+                    <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[10px]">Nakit Finansman Dengesi:</span>
+                      <strong className={`font-mono text-base block mt-0.5 ${dualData.netContractorBalance >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {dualData.netContractorBalance >= 0 ? '+' : ''}{dualData.netContractorBalance.toLocaleString('tr-TR')} ₺
+                      </strong>
+                      <span className="text-[9px] text-slate-400">
+                        {dualData.netContractorBalance >= 0 ? 'Malik payları kendi maliyetinizi de karşılıyor' : 'Kendi dairelerinize kalan net yatırım'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-indigo-200/90 leading-relaxed pt-1">
+                    💡 <strong>Satış Primi Avantajı:</strong> Mülkiyetinizdeki {dualData.contractorFlatsCount} adet bağımsız bölüme uygulanan Plus donanımlar (yerden ısıtma, klima, merkezi su arıtma, akıllı banyo ve mutfak), dairelerinizin piyasa satış değerini ortalama <strong>+%15-25 artıracak</strong> ve satış hızını katlayacaktır.
+                  </p>
+                </div>
+              )}
+
+              {/* 3. KALEM KALEM ŞANTİYE VE TAŞERON MALİYETLERİ TABLOSU */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-amber-400" />
+                    Bana Yansıyan Plus Kalemleri Maliyet ve Kâr Tablosu
+                  </span>
+                  <span className="text-[10px] text-slate-400">Şantiye Taşeron & Malzeme Birim Fiyatları</span>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/70">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-400 bg-slate-900/90 text-[10px] uppercase font-bold tracking-wider">
+                        <th className="py-2.5 px-3">Plus Donanım Kalemi</th>
+                        <th className="py-2.5 px-3">Uygulama Kapsamı</th>
+                        <th className="py-2.5 px-3 text-right">Şantiye Maliyeti (₺/Daire)</th>
+                        <th className="py-2.5 px-3 text-right">Toplam Ek İmalat (₺)</th>
+                        <th className="py-2.5 px-3 text-right">Müşteriye Sunulan (₺/Daire)</th>
+                        <th className="py-2.5 px-3 text-right">Birim Net Kâr (₺)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-medium">
+                      {dualData.itemizedContractorCosts.map((item) => {
+                        const itemShareOfCustomer = dualData.calculatedAvgCostPerFlatDiff > 0
+                          ? Math.round(dualData.customerFlatDelta * (item.unitCost / dualData.calculatedAvgCostPerFlatDiff))
+                          : item.unitCost;
+                        const itemUnitProfit = itemShareOfCustomer - item.unitCost;
+
+                        return (
+                          <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="py-2 px-3 text-white font-semibold flex items-center gap-2">
+                              <span>{item.icon}</span>
+                              <span>{item.name}</span>
+                            </td>
+                            <td className="py-2 px-3 text-slate-400 text-[11px]">
+                              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 text-[9.5px]">
+                                {item.scope}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-slate-300">
+                              {item.unitCost.toLocaleString('tr-TR')} ₺
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-indigo-300 font-bold">
+                              {item.totalCost.toLocaleString('tr-TR')} ₺
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-sky-300">
+                              {itemShareOfCustomer.toLocaleString('tr-TR')} ₺
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold">
+                              <span className={itemUnitProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                {itemUnitProfit >= 0 ? '+' : ''}{itemUnitProfit.toLocaleString('tr-TR')} ₺
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {/* Toplam Satırı */}
+                      <tr className="bg-slate-900 border-t-2 border-slate-700 text-white font-bold">
+                        <td className="py-2.5 px-3" colSpan={2}>
+                          GENEL PLUS PAKET TOPLAMI
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-rose-300">
+                          {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-indigo-300">
+                          {dualData.calculatedTotalCostDiff.toLocaleString('tr-TR')} ₺
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-sky-300">
+                          {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-emerald-400">
+                          {dualData.unitProfitPerFlat >= 0 ? '+' : ''}{dualData.unitProfitPerFlat.toLocaleString('tr-TR')} ₺
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 4. MÜŞTERİYE SUNULACAK DAİRE BAŞI FARK GİRİŞİ & HIZLI KÂR SİMÜLATÖRÜ */}
+              <div className="p-4 sm:p-5 bg-slate-900/90 rounded-2xl border-2 border-amber-400/60 space-y-4 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sliders className="w-4 h-4 text-amber-400" />
+                      Müşteriye Sunulacak Daire Başı Plus Farkını Belirleyin
+                    </span>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      Yüzdelik kâr butonlarına basarak veya özel tutar girerek teklif mektubunda müşterinin göreceği daire başı Plus bedelini belirleyin.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {deltaNotification && (
+                      <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-400 text-slate-950 flex items-center gap-1.5 shadow-sm">
+                        <Check className="w-3.5 h-3.5" />
+                        {deltaNotification}
+                      </span>
+                    )}
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-400 text-slate-950 shrink-0">
+                      Teklif Belgesine Yansır
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Percentage Presets */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-300 font-bold flex items-center gap-1.5">
+                      <Percent className="w-3.5 h-3.5 text-amber-400" />
+                      Hızlı Kâr Marjı ve Yuvarlama Butonları:
+                    </span>
+                    <span className="text-slate-400 font-mono text-[10px]">
+                      Net Şantiye Maliyeti: <strong className="text-amber-300">{dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺/daire</strong>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {deltaPresets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleApplyDelta(preset.value, preset.label)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                          preset.isActive
+                            ? 'bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-400/30 ring-2 ring-amber-300 scale-[1.03]'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600'
+                        }`}
+                        title={`${preset.label} - Daire Başı ${preset.displayVal.toLocaleString('tr-TR')} ₺`}
+                      >
+                        {preset.isActive ? (
+                          <Check className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />
+                        ) : (
+                          <span className="text-[10px] px-1 py-0.2 rounded bg-slate-700/80 text-slate-300 font-mono">
+                            {preset.percentBadge}
+                          </span>
+                        )}
+                        <span>{preset.label}</span>
+                        <span className={`font-mono text-[11px] ${preset.isActive ? 'text-slate-950 font-black' : 'text-amber-400'}`}>
+                          ({preset.displayVal.toLocaleString('tr-TR')} ₺)
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Fine-Tuning & Custom Input Row */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center pt-2 border-t border-slate-800">
+                  <div className="lg:col-span-6 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleStepDelta(-5000)}
+                      className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1 shrink-0 cursor-pointer"
+                      title="5.000 ₺ Azalt"
+                    >
+                      <Minus className="w-3.5 h-3.5 text-amber-400" />
+                      <span>-5.000 ₺</span>
+                    </button>
+
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        min={0}
+                        step={1000}
+                        value={params.plusOfferCustomFlatDelta ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                          handleApplyDelta(val, 'Özel Tutar');
+                        }}
+                        placeholder={`Maliyet: ${dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺`}
+                        className="w-full text-base font-black font-mono px-4 py-2.5 rounded-xl border-2 border-amber-400 bg-slate-950 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-inner"
+                      />
+                      <span className="absolute right-3 top-[11px] text-xs font-black text-amber-400 pointer-events-none">
+                        ₺ / Daire
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleStepDelta(5000)}
+                      className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1 shrink-0 cursor-pointer"
+                      title="5.000 ₺ Arttır"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>+5.000 ₺</span>
+                    </button>
+                  </div>
+
+                  <div className="lg:col-span-6 p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Daire Başı Net İlave Kâr:</span>
+                      <span className={`font-mono text-sm font-black ${dualData.contractorNetMarginPerFlat >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {dualData.contractorNetMarginPerFlat >= 0 ? '+' : ''}{dualData.contractorNetMarginPerFlat.toLocaleString('tr-TR')} ₺
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Toplam Şirket Ek Kârı:</span>
+                      <span className={`font-mono text-sm font-black ${dualData.contractorNetTotalProfit >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                        {dualData.contractorNetTotalProfit >= 0 ? '+' : ''}{dualData.contractorNetTotalProfit.toLocaleString('tr-TR')} ₺
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyDelta(undefined, 'Maliyetine Sıfırla')}
+                      className="px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer"
+                      title="Sıfırla ve teknik maliyete dön"
+                    >
+                      Sıfırla (%0)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Güvenlik & Gizlilik Bildirimi */}
+              <div className="text-[11px] text-slate-400 flex items-center gap-2 pt-2 border-t border-slate-800">
+                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>Gizlilik Garantisi:</strong> Yukarıdaki maliyet farkı, şantiye taşeron bedelleri ve yüklenici net kâr rakamları yalnızca sizin ekranınızda görünür. Müşteriye sunulan resmi teklif özetinde, mukavele ekinde ve PDF çıktısında sadece müşteriye sunduğunuz nihai Plus Paket tutarı yer alır.
+                </span>
+              </div>
+            </div>
+
+            {/* 5. Live Dual Financial KPI Preview Bar (Customer Presentation Preview) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-slate-900 text-white rounded-2xl border border-slate-800">
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase block">1. Seçenek ({dualData.baseTitle}):</span>
+                <div className="text-base font-extrabold text-white font-mono mt-0.5">
+                  {dualData.customerBaseGrandTotal.toLocaleString('tr-TR')} ₺
+                </div>
+                <div className="text-[11px] text-slate-300 font-medium">
+                  🏠 Daire Başı: <strong className="font-mono text-white">{dualData.baseFlatShare.toLocaleString('tr-TR')} ₺</strong>
+                </div>
+                {dualData.hasShops && (
+                  <div className="text-[11px] text-indigo-300 font-medium">
+                    🏪 Dükkan Başı: <strong className="font-mono text-indigo-200">{dualData.baseShopShare.toLocaleString('tr-TR')} ₺</strong>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-purple-300 font-bold uppercase block">2. Seçenek ({dualData.plusTitle}):</span>
+                  {dualData.isCustomDeltaApplied && (
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-bold">Özel Fiyatlı</span>
+                  )}
+                </div>
+                <div className="text-base font-extrabold text-purple-300 font-mono mt-0.5">
+                  {dualData.customerPlusGrandTotal.toLocaleString('tr-TR')} ₺
+                </div>
+                <div className="text-[11px] text-purple-200 font-medium">
+                  🏠 Daire Başı: <strong className="font-mono text-purple-100">{dualData.plusFlatShare.toLocaleString('tr-TR')} ₺</strong>
+                </div>
+                {dualData.hasShops && (
+                  <div className="text-[11px] text-indigo-200 font-medium">
+                    🏪 Dükkan Başı: <strong className="font-mono text-indigo-100">{dualData.plusShopShare.toLocaleString('tr-TR')} ₺</strong>
+                  </div>
+                )}
+              </div>
+
+              <div className="sm:border-l sm:border-slate-800 sm:pl-4 flex flex-col justify-center">
+                <span className="text-[10px] text-amber-400 font-bold uppercase block">Müşteriye Sunulan Plus Farkı:</span>
+                <div className="text-base font-extrabold text-amber-400 font-mono mt-0.5">
+                  +{dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺ / Daire
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  Toplam Proje Farkı: +{dualData.customerTotalCostDiff.toLocaleString('tr-TR')} ₺
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Main Corporate Proposal Sheet */}
       <div
         ref={offerDocRef}
@@ -721,16 +1667,26 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             </div>
 
             <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">İmalat Bedelleri</span>
-              <div className="space-y-1">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">İmalat Birim Fiyatları</span>
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-900">
-                  <span className="text-[10px] text-slate-400 font-normal">Konut:</span>
-                  <span className="text-emerald-600">~{(params.manualFlatUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR')} ₺/m²</span>
+                  <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                    <span>🏠</span> Konut:
+                  </span>
+                  <div className="text-right">
+                    <span className="text-emerald-700 font-mono">~{dualData.baseFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²</span>
+                    <span className="text-[9px] text-slate-400 block font-normal">Ort. {dualData.baseFlatShare.toLocaleString('tr-TR')} ₺/daire</span>
+                  </div>
                 </div>
                 {params.hasGroundFloorShop && (
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-900 pt-1 border-t border-slate-50">
-                    <span className="text-[10px] text-slate-400 font-normal">Dükkan:</span>
-                    <span className="text-indigo-600">~{(params.manualShopUnitPrice || results.grossCostPerSqM).toLocaleString('tr-TR')} ₺/m²</span>
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-900 pt-1.5 border-t border-slate-100">
+                    <span className="text-[10px] text-indigo-700 font-medium flex items-center gap-1">
+                      <span>🏪</span> Dükkan:
+                    </span>
+                    <div className="text-right">
+                      <span className="text-indigo-700 font-mono">~{dualData.baseShopUnitPrice.toLocaleString('tr-TR')} ₺/m²</span>
+                      <span className="text-[9px] text-indigo-400 block font-normal">Ort. {dualData.baseShopShare.toLocaleString('tr-TR')} ₺/dükkan</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -776,82 +1732,595 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
 
           {/* İNOVATİF SEÇENEKLER VE KONFOR DONANIMLARI */}
-          <div className="mt-6 p-5 bg-gradient-to-r from-purple-50/50 to-indigo-50/50 rounded-2xl border border-purple-100/70 space-y-4">
-            <h4 className="text-xs font-black text-purple-950 flex items-center gap-2 uppercase tracking-wider">
-              <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
-              İnovatif Teknoloji ve Konfor Donanımları
-            </h4>
+          <div className="mt-6 p-5 bg-gradient-to-r from-purple-50/50 to-indigo-50/50 rounded-2xl border border-purple-100/70 space-y-6">
+            <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+              <h4 className="text-xs font-black text-purple-950 flex items-center gap-2 uppercase tracking-wider">
+                <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
+                İnovatif Teknoloji ve Yaşam Konforu Donanımları
+              </h4>
+              <span className="text-[10px] font-bold text-purple-700 bg-purple-100/70 px-2.5 py-0.5 rounded-full">
+                Teklife Eklenen & Opsiyonel Donanımlar
+              </span>
+            </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Card 1: Yerden Isıtma */}
-              <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Flame className="w-3.5 h-3.5 text-purple-500" />
-                      Yerden Isıtma Sistemi (Sulu)
-                    </span>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasUnderfloorHeating ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                      {params.hasUnderfloorHeating ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
-                    </span>
+            {/* 1. GRUP: İKLİMLENDİRME VE MERKEZİ TESİSAT */}
+            <div className="space-y-3">
+              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                1. İklimlendirme ve Tesisat Altyapısı
+              </span>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Card 1: Yerden Isıtma */}
+                <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Flame className="w-3.5 h-3.5 text-purple-500" />
+                        Yerden Isıtma Sistemi (Sulu)
+                      </span>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasUnderfloorHeating ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                        {params.hasUnderfloorHeating ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      </span>
+                    </div>
+                    
+                    <p className="text-[10px] text-slate-600 leading-relaxed">
+                      <strong>Alternatifi (Petek/Radyatör) ile Karşılaştırmalı Avantajları:</strong>
+                    </p>
+                    <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
+                      <li><strong>Maksimum Isı Konforu:</strong> Isı zeminden homojen yükselir; ayakları sıcak, başı serin tutan ideal fizyolojik ısı dağılımı sağlar.</li>
+                      <li><strong>%15-20 Yakıt Tasarrufu:</strong> 35-40°C su sıcaklığı ile çalıştığı için kombi/ısı pompası tüketimini ve faturaları azaltır.</li>
+                      <li><strong>Estetik ve Alan Kazancı:</strong> Odalardaki petekleri elemine ederek mobilya yerleşim özgürlüğü sağlar.</li>
+                      <li><strong>Hipoalerjenik & Sağlıklı:</strong> Toz sirkülasyonu yapmaz, ev tozu akarı ve rutubeti engeller.</li>
+                    </ul>
                   </div>
                   
-                  <p className="text-[10px] text-slate-600 leading-relaxed">
-                    <strong>Alternatifi (Petek/Radyatör) ile Karşılaştırmalı Avantajları:</strong>
-                  </p>
-                  <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
-                    <li><strong>Maksimum Isı Konforu:</strong> Isı zeminden homojen yükselir; ayakları sıcak, başı serin tutan ideal fizyolojik ısı dağılımı sağlar.</li>
-                    <li><strong>%15-20 Yakıt Tasarrufu:</strong> 35-40°C su sıcaklığı ile çalıştığı için kombi/ısı pompası tüketimini ve faturaları azaltır.</li>
-                    <li><strong>Estetik ve Alan Kazancı:</strong> Odalardaki çirkin ve yer kaplayan radyatör peteklerini tamamen elemine ederek mobilya yerleşim özgürlüğü sağlar.</li>
-                    <li><strong>Hipoalerjenik & Sağlıklı:</strong> Toz sirkülasyonu yapmaz, ev tozu akarı (mite) oluşumunu ve rutubeti engeller.</li>
-                  </ul>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-slate-400">Yatırım Değeri:</span>
+                    <span className="font-black text-purple-700 font-mono">
+                      {params.hasUnderfloorHeating 
+                        ? `${results.underfloorHeatingCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                        : `+${results.underfloorHeatingCost?.toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    </span>
+                  </div>
                 </div>
-                
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-slate-400">Yatırım Değeri:</span>
-                  <span className="font-black text-purple-700 font-mono">
-                    {params.hasUnderfloorHeating 
-                      ? `${results.underfloorHeatingCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                      : `+${results.underfloorHeatingCost?.toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
-                  </span>
+
+                {/* Card 2: Su Arıtma */}
+                <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Droplets className="w-3.5 h-3.5 text-blue-500" />
+                        Bina Girişi Merkezi Su Arıtma
+                      </span>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasWaterFiltration ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                        {params.hasWaterFiltration ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      </span>
+                    </div>
+                    
+                    <p className="text-[10px] text-slate-600 leading-relaxed">
+                      <strong>Alternatifi (Bireysel Arıtıcı & Damacana) ile Karşılaştırmalı Avantajları:</strong>
+                    </p>
+                    <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
+                      <li><strong>Bütünsel Koruma:</strong> Şebeke girişinden itibaren tortu, klor, kireç ve ağır metallerden arındırılmış su sağlar.</li>
+                      <li><strong>Cihaz ve Tesisat Ömrü:</strong> Kireç oluşumunu önleyerek kombi ve beyaz eşyaların ömrünü 2 kat uzatır.</li>
+                      <li><strong>Cilt ve Saç Sağlığı:</strong> Duşta klorsuz yumuşak su ile cilt kuruluğunu ve saç dökülmesini azaltır.</li>
+                      <li><strong>Ekonomik Bağımsızlık:</strong> Damacana taşıma derdine ve filtre değişim masraflarına son verir.</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-slate-400">Yatırım Değeri:</span>
+                    <span className="font-black text-purple-700 font-mono">
+                      {params.hasWaterFiltration 
+                        ? `${results.waterFiltrationCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                        : `+${results.waterFiltrationCost?.toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 3: İklimlendirme ve Klima Sistemleri */}
+                {(() => {
+                  const currentAc = getAcOptionById(params.acType || '18k_btu');
+                  return (
+                    <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <Wind className="w-3.5 h-3.5 text-indigo-500" />
+                            A++ Inverter Klima Paketi
+                          </span>
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasAcOption ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                            {params.hasAcOption ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                          </span>
+                        </div>
+                        
+                        <div className="p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/80 space-y-1 text-[10px]">
+                          <div className="flex items-center justify-between font-bold text-indigo-950">
+                            <span>{currentAc.shortTitle}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-200/70 text-indigo-900">{currentAc.energyClass}</span>
+                          </div>
+                          <div className="text-slate-600">
+                            <strong>Kapasite:</strong> {currentAc.btu}
+                          </div>
+                          <div className="text-slate-600">
+                            <strong>Salon Alanı:</strong> {currentAc.targetArea} ({currentAc.recommendedRoom})
+                          </div>
+                        </div>
+
+                        <p className="text-[10px] text-slate-600 leading-relaxed">
+                          <strong>Standart İnşaata Göre Konfor ve Yaşam Avantajları:</strong>
+                        </p>
+                        <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
+                          {currentAc.advantages.map((adv, idx) => (
+                            <li key={idx}><strong>{adv.split(' ')[0]}:</strong> {adv.slice(adv.indexOf(' ') + 1)}</li>
+                          ))}
+                          <li><strong>Estetik Montaj:</strong> Sıva altı bakır boru ve drenaj altyapısı sıfır hata ile teslim edilir.</li>
+                        </ul>
+                      </div>
+                      
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <div>
+                          <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
+                          {params.hasAcOption && (
+                            <span className="text-[9px] text-indigo-700 font-semibold">
+                              {results.acUnitCount || results.flatCount} Ünite × {results.acCostPerFlat?.toLocaleString('tr-TR')} ₺
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-black text-purple-700 font-mono">
+                          {params.hasAcOption 
+                            ? `${results.acCostTotal?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                            : `+${((results.flatCount || 1) * currentAc.avgPricePerFlat).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* 2. GRUP: BANYO KONFORU & EVİN BANYOSUNDAKİ YAŞAM KALİTESİNE YAPTIĞIMIZ DOKUNUŞLAR */}
+            <div className="space-y-3 pt-3 border-t border-purple-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <span className="text-[11px] font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <Bath className="w-3.5 h-3.5 text-purple-600" />
+                  2. Evin Banyosundaki Yaşam Kalitesine Değer Katan Konfor Dokunuşları (Banyo & Duş Paketi)
+                </span>
+                <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-medium">
+                  🏠 Yalnızca Konut Daireleri İçindir (Dükkanlarda duş olmadığından hariçtir)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Card 4: Termostatik Duş Bataryası */}
+                <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Bath className="w-3.5 h-3.5 text-purple-600" />
+                        Termostatik Duş Bataryası
+                      </span>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasThermostaticShowerMixer ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                        {params.hasThermostaticShowerMixer ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      </span>
+                    </div>
+                    
+                    <div className="p-2 bg-purple-50/50 rounded-lg border border-purple-100/80 space-y-1 text-[10px]">
+                      <div className="flex items-center justify-between font-bold text-purple-950">
+                        <span>38°C Emniyet Kilidi & Sabit Sıcaklık</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200/70 text-purple-900 font-bold">%30 Su Tasarrufu</span>
+                      </div>
+                      <div className="text-slate-600">
+                        <strong>Standart:</strong> Pirinç Gövde, Haşlanma Korumalı Kartuş & Duş Seti
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-600 leading-relaxed">
+                      <strong>Banyo Konforuna Katkıları & Avantajları:</strong>
+                    </p>
+                    <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
+                      <li><strong>Haşlanma ve Yanma Önleyici:</strong> 38°C emniyet butonu sayesinde çocuklar ve yaşlılar için ani sıcak su yanma riskini sıfırlar.</li>
+                      <li><strong>Sabit Sıcaklık Konforu:</strong> Evde başka bir musluk veya makine çalıştığında duş suyunda sıcaklık dalgalanması yaşanmaz.</li>
+                      <li><strong>%30 Su Tasarrufu:</strong> Doğru sıcaklığı ayarlamak için boşa su akıtmayı tamamen önler.</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                    <div>
+                      <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
+                      {params.hasThermostaticShowerMixer && (
+                        <span className="text-[9px] text-purple-700 font-semibold">
+                          {results.thermostaticMixerUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.thermostaticMixerPricePerFlat || 6500).toLocaleString('tr-TR')} ₺
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-black text-purple-700 font-mono">
+                      {params.hasThermostaticShowerMixer 
+                        ? `${results.thermostaticMixerCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                        : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.thermostaticMixerPricePerFlat || 6500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 5: Duş Kabinine Lineer Su Süzgeci */}
+                <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5 text-teal-600" />
+                        Lineer Duş Süzgeci & Kanalı
+                      </span>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasLinearShowerDrain ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                        {params.hasLinearShowerDrain ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      </span>
+                    </div>
+                    
+                    <div className="p-2 bg-teal-50/50 rounded-lg border border-teal-100/80 space-y-1 text-[10px]">
+                      <div className="flex items-center justify-between font-bold text-teal-950">
+                        <span>304 Kalite Paslanmaz Çelik Izgara</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-teal-200/70 text-teal-900 font-bold">Koku Çekvalfli</span>
+                      </div>
+                      <div className="text-slate-600">
+                        <strong>Uygulama:</strong> Etekli İzolasyon Membranlı Hemzemin Duş Kanalı
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-600 leading-relaxed">
+                      <strong>Banyo Konforuna Katkıları & Avantajları:</strong>
+                    </p>
+                    <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
+                      <li><strong>Hemzemin Mimari Estetik:</strong> Duş teknesi olmaksızın banyo seramiğiyle sıfır kotta modern ve engelsiz duş alanı yaratır.</li>
+                      <li><strong>%100 Koku ve Böcek Bariyeri:</strong> Çift hazneli koku klapesi (çekvalf) sayesinde giderden kötü koku ve haşere geçişini kesin engeller.</li>
+                      <li><strong>Hızlı Drenaj ve Kolay Temizlik:</strong> Geniş ızgara yüzeyi ve entegre saç tutucu filtresiyle su birikmesini önler.</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                    <div>
+                      <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
+                      {params.hasLinearShowerDrain && (
+                        <span className="text-[9px] text-teal-700 font-semibold">
+                          {results.linearDrainUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.linearDrainPricePerFlat || 2800).toLocaleString('tr-TR')} ₺
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-black text-purple-700 font-mono">
+                      {params.hasLinearShowerDrain 
+                        ? `${results.linearDrainCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                        : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.linearDrainPricePerFlat || 2800)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 6: Nem Sensörlü Sessiz Banyo Fanı */}
+                <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Fan className="w-3.5 h-3.5 text-cyan-600" />
+                        Nem Sensörlü Sessiz Banyo Fanı
+                      </span>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasBathroomHumidityFan ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                        {params.hasBathroomHumidityFan ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      </span>
+                    </div>
+                    
+                    <div className="p-2 bg-cyan-50/50 rounded-lg border border-cyan-100/80 space-y-1 text-[10px]">
+                      <div className="flex items-center justify-between font-bold text-cyan-950">
+                        <span>Elektronik Nem Sensörü (Higrostat)</span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-200/70 text-cyan-900 font-bold">25 dB Sessiz</span>
+                      </div>
+                      <div className="text-slate-600">
+                        <strong>Özellik:</strong> Otomatik Nem Algılama + Geri Tepme Klapesi
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-600 leading-relaxed">
+                      <strong>Banyo Konforuna Katkıları & Avantajları:</strong>
+                    </p>
+                    <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
+                      <li><strong>Buhar ve Küf Önleme:</strong> Duş sırasında nem %60 eşiğini aştığında otomatik devreye girer; ayna buğulanmasını ve duvar küflenmesini önler.</li>
+                      <li><strong>Geri Tepme Klapesi:</strong> Şafttan alt/üst katların yemek ve sigara kokularının banyoya sızmasını kesin olarak bloke eder.</li>
+                      <li><strong>25 dB Ultra Sessiz:</strong> Fısıltı seviyesinde çalışarak gece kullanımında dahi ev sakinlerini asla rahatsız etmez.</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                    <div>
+                      <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
+                      {params.hasBathroomHumidityFan && (
+                        <span className="text-[9px] text-cyan-700 font-semibold">
+                          {results.bathroomHumidityFanUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.bathroomHumidityFanPricePerFlat || 3200).toLocaleString('tr-TR')} ₺
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-black text-purple-700 font-mono">
+                      {params.hasBathroomHumidityFan 
+                        ? `${results.bathroomHumidityFanCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                        : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.bathroomHumidityFanPricePerFlat || 3200)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. GRUP: KADINLARIN VE EV ŞEFLERİNİN HAYATINI KOLAYLAŞTIRAN MUTFAK KONFORU */}
+            <div className="space-y-3 pt-3 border-t border-purple-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <span className="text-[11px] font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <ChefHat className="w-3.5 h-3.5 text-purple-600" />
+                  3. Kadınların ve Ev Şeflerinin Hayatını Kolaylaştıran Mutfak Konforu
+                </span>
+                <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-medium">
+                  🏠 Yalnızca Konut Daireleri İçindir (Dükkanlar muaftır)
+                </span>
+              </div>
+
+              {/* Kurumsal Farkındalık Bannerı */}
+              <div className="p-3.5 bg-gradient-to-r from-purple-100/70 via-pink-50/70 to-indigo-50/70 rounded-xl border border-purple-200 text-purple-950 flex items-center gap-3">
+                <div className="p-2 bg-purple-600 text-white rounded-lg shrink-0">
+                  <Heart className="w-4 h-4" />
+                </div>
+                <div className="text-xs">
+                  <strong className="block text-purple-900 font-bold">Kadınların Hayatını Kolaylaştıran Mühendislik Anlayışı:</strong>
+                  <p className="text-[11px] text-purple-800/90 mt-0.5">
+                    "Mutfak için fotoselli batarya ile kadınların hayatını kolaylaştıran, mutfakta hijyeni, pratikliği ve konforu en ince detayına kadar düşünen öncü bir firmayız."
+                  </p>
                 </div>
               </div>
 
-              {/* Card 2: Su Arıtma */}
+              {/* Card 7: Fotoselli Mutfak Bataryası */}
               <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Droplets className="w-3.5 h-3.5 text-blue-500" />
-                      Bina Girişi Merkezi Su Arıtma
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                      Fotoselli / Temassız Akıllı Mutfak Eviye Bataryası
                     </span>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasWaterFiltration ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                      {params.hasWaterFiltration ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasTouchlessKitchenFaucet ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                      {params.hasTouchlessKitchenFaucet ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
                     </span>
                   </div>
                   
+                  <div className="p-2 bg-pink-50/50 rounded-lg border border-pink-100/80 space-y-1 text-[10px]">
+                    <div className="flex items-center justify-between font-bold text-pink-950">
+                      <span>Kızılötesi Hassas Sensör & Çift Akış Modu</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-pink-200/70 text-pink-900 font-bold">%40 Su Tasarrufu</span>
+                    </div>
+                    <div className="text-slate-600">
+                      <strong>Standart:</strong> Spiralli Çek-Bırak Başlık, Parmak İzi Bırakmayan Paslanmaz Kaplama
+                    </div>
+                  </div>
+
                   <p className="text-[10px] text-slate-600 leading-relaxed">
-                    <strong>Alternatifi (Bireysel Arıtıcı & Damacana) ile Karşılaştırmalı Avantajları:</strong>
+                    <strong>Neden Mutfakta Fotoselli Batarya? (Kadınların ve Ailelerin Hayatını Nasıl Kolaylaştırır?):</strong>
                   </p>
-                  <ul className="text-[10px] text-slate-600 space-y-1.5 list-disc pl-4">
-                    <li><strong>Bütünsel Koruma:</strong> Sadece mutfak suyunu değil, tüm dairelerin şebeke girişinden itibaren tortu, klor, kireç ve ağır metallerden arındırılmış su almasını sağlar.</li>
-                    <li><strong>Cihaz ve Tesisat Ömrü:</strong> Kireç oluşumunu önleyerek kombi, çamaşır, bulaşık makineleri ve boruların ömrünü 2 kat uzatır.</li>
-                    <li><strong>Cilt ve Saç Sağlığı:</strong> Duşta klorsuz ve yumuşak su kullanımı ile cilt kuruluğunu, egzamayı ve saç dökülmesini azaltır.</li>
-                    <li><strong>Ekonomik Bağımsızlık:</strong> Damacana taşıma derdine ve bireysel mutfak filtre değişim masraflarına ömür boyu son verir.</li>
-                  </ul>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] text-slate-600">
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">✋ Temassız ve Lekesiz Kullanım:</span>
+                      <p>Hamur yoğururken, köfte veya tavuk hazırlarken kirli ve yağlı ellerle batarya koluna dokunmadan su açıp kapama kolaylığı sağlar.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🧽 Tezgah Üstü Su Damlamalarına Son:</span>
+                      <p>Islak ellerle bataryaya uzanırken tezgah arkasına ve mermere su damlamasını, kireç lekelerini ve sürekli bezle silme derdini tamamen yok eder.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🦠 Çapraz Bulaşmayı Sıfırlar:</span>
+                      <p>Çiğ gıdalarla temas eden bakterilerin musluk kolundan diğer yüzeylere taşınmasını önleyerek en üst düzey mutfak hijyeni sağlar.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">💧 Otomatik Kapanma & Tasarruf:</span>
+                      <p>El çekildiğinde suyu anında keserek suyun açık unutulmasını önler, ev bütçesine %40'a varan su tasarrufu sağlar.</p>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-slate-400">Yatırım Değeri:</span>
+                  <div>
+                    <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
+                    {params.hasTouchlessKitchenFaucet && (
+                      <span className="text-[9px] text-purple-700 font-semibold">
+                        {results.touchlessKitchenFaucetUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.touchlessKitchenFaucetPricePerFlat || 4500).toLocaleString('tr-TR')} ₺
+                      </span>
+                    )}
+                  </div>
                   <span className="font-black text-purple-700 font-mono">
-                    {params.hasWaterFiltration 
-                      ? `${results.waterFiltrationCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                      : `+${results.waterFiltrationCost?.toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    {params.hasTouchlessKitchenFaucet 
+                      ? `${results.touchlessKitchenFaucetCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                      : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.touchlessKitchenFaucetPricePerFlat || 4500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
                   </span>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* ÇİFT SEÇENEKLİ TEKLİF VE PAKET KARŞILAŞTIRMA MATRİSİ (DUAL OFFER İÇİN BELGE İÇİ GÖRÜNÜM) */}
+          {isDualOffer && (
+            <div className="mt-8 p-6 bg-gradient-to-br from-indigo-50/70 via-purple-50/50 to-white rounded-3xl border-2 border-indigo-200 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-100">
+                <div>
+                  <h4 className="text-sm font-black text-indigo-950 flex items-center gap-2 uppercase tracking-wide">
+                    <Sparkles className="w-4 h-4 text-purple-600" />
+                    <span>Seçenekli Teklif ve Paket Karşılaştırma Matrisi (Baz vs. Plus)</span>
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Kat malikleri kurulunun bütçe ve konfor beklentilerine göre tercih edebileceği 2 farklı resmî teklif seçeneği aşağıda karşılaştırmalı olarak sunulmuştur.
+                  </p>
+                </div>
+                <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold shrink-0">
+                  2 Alternatifli Resmî Paket
+                </span>
+              </div>
+
+              {/* Side-by-Side Comparison Executive Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* 1. SEÇENEK: BAZ PAKET */}
+                <div className="bg-white rounded-2xl border-2 border-slate-200 p-5 shadow-xs flex flex-col justify-between space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">1. Teklif Seçeneği</span>
+                        <h5 className="text-base font-black text-slate-900">{dualData.baseTitle}</h5>
+                      </div>
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold border border-slate-200">
+                        Temel Standart
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Yasal deprem ve yangın yönetmeliklerine %100 uyumlu, C35/40 beton, radye temel, panel radyatörlü merkezi/bireysel ısıtma ve standart kaliteli ince işçilik içeren ekonomik yapım paketi.
+                    </p>
+
+                    <div className="p-3.5 bg-slate-50 rounded-xl space-y-2 border border-slate-100 text-xs">
+                      <div className="flex justify-between items-center text-slate-600">
+                        <span>Toplam İmalat Bedeli:</span>
+                        <span className="font-bold font-mono text-slate-900">{dualData.customerBaseGrandTotal.toLocaleString('tr-TR')} ₺</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-700">
+                        <span className="flex items-center gap-1 font-medium">🏠 Daire Başı Pay (Konut):</span>
+                        <div className="text-right">
+                          <span className="font-bold font-mono text-slate-900">{dualData.baseFlatShare.toLocaleString('tr-TR')} ₺</span>
+                          <span className="text-[10px] text-slate-400 block font-normal">(~{dualData.baseFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²)</span>
+                        </div>
+                      </div>
+                      {dualData.hasShops && (
+                        <div className="flex justify-between items-center text-indigo-900 pt-1 border-t border-slate-200/60">
+                          <span className="flex items-center gap-1 font-medium">🏪 Dükkan Başı Pay (Ticari):</span>
+                          <div className="text-right">
+                            <span className="font-bold font-mono text-indigo-950">{dualData.baseShopShare.toLocaleString('tr-TR')} ₺</span>
+                            <span className="text-[10px] text-indigo-400 block font-normal">(~{dualData.baseShopUnitPrice.toLocaleString('tr-TR')} ₺/m²)</span>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 border-t border-slate-200 font-bold text-slate-900">
+                        <span>Daire Başı Destek Sonrası Net Pay:</span>
+                        <span className="text-emerald-700 font-mono">
+                          {dualData.baseFlatNetDebt.toLocaleString('tr-TR')} ₺
+                        </span>
+                      </div>
+                      {dualData.hasShops && (
+                        <div className="flex justify-between items-center font-bold text-slate-900 text-[11px]">
+                          <span>Dükkan Başı Destek Sonrası Net Pay:</span>
+                          <span className="text-indigo-800 font-mono">
+                            {dualData.baseShopNetDebt.toLocaleString('tr-TR')} ₺
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
+                    ✅ Standart radyatörlü ısıtma ve klasik bataryalar dahildir.
+                  </div>
+                </div>
+
+                {/* 2. SEÇENEK: PLUS PAKET */}
+                <div className="bg-gradient-to-b from-purple-50/70 to-white rounded-2xl border-2 border-purple-400 p-5 shadow-sm flex flex-col justify-between space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-black text-purple-600 uppercase tracking-wider block">2. Teklif Seçeneği (Tavsiye Edilen)</span>
+                        <h5 className="text-base font-black text-purple-950 flex items-center gap-1.5">
+                          <span>✨ {dualData.plusTitle}</span>
+                        </h5>
+                      </div>
+                      <span className="px-2.5 py-1 bg-purple-600 text-white rounded-lg text-xs font-black shadow-xs">
+                        Prestij & Konfor
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-purple-900/80 leading-relaxed">
+                      Temel standartlara ilave olarak; peteksiz sulu yerden ısıtma, merkezi su arıtma, salon A++ inverter klima, termostatik duş bataryası, hemzemin lineer süzgeç, sessiz nem sensörlü banyo fanı ve kadınların mutfaktaki hayatını kolaylaştıran fotoselli batarya içeren yüksek katma değerli yaşam paketi.
+                    </p>
+
+                    <div className="p-3.5 bg-purple-100/60 rounded-xl space-y-2 border border-purple-200 text-xs">
+                      <div className="flex justify-between items-center text-purple-900">
+                        <span>Toplam İmalat Bedeli:</span>
+                        <span className="font-bold font-mono text-purple-950">{dualData.customerPlusGrandTotal.toLocaleString('tr-TR')} ₺</span>
+                      </div>
+                      <div className="flex justify-between items-center text-purple-950">
+                        <span className="flex items-center gap-1 font-semibold">🏠 Daire Başı Pay (Konut):</span>
+                        <div className="text-right">
+                          <span className="font-bold font-mono text-purple-950">{dualData.plusFlatShare.toLocaleString('tr-TR')} ₺</span>
+                          <span className="text-[10px] text-purple-600 block font-normal">(~{dualData.plusFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²)</span>
+                        </div>
+                      </div>
+                      {dualData.hasShops && (
+                        <div className="flex justify-between items-center text-indigo-950 pt-1 border-t border-purple-200/70">
+                          <span className="flex items-center gap-1 font-semibold">🏪 Dükkan Başı Pay (Ticari):</span>
+                          <div className="text-right">
+                            <span className="font-bold font-mono text-indigo-950">{dualData.plusShopShare.toLocaleString('tr-TR')} ₺</span>
+                            <span className="text-[10px] text-indigo-500 block font-normal">(~{dualData.plusShopUnitPrice.toLocaleString('tr-TR')} ₺/m²)</span>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 border-t border-purple-200 font-bold text-purple-950">
+                        <span>Daire Başı Destek Sonrası Net Pay:</span>
+                        <span className="text-purple-700 font-mono font-extrabold">
+                          {dualData.plusFlatNetDebt.toLocaleString('tr-TR')} ₺
+                        </span>
+                      </div>
+                      {dualData.hasShops && (
+                        <div className="flex justify-between items-center font-bold text-indigo-950 text-[11px]">
+                          <span>Dükkan Başı Destek Sonrası Net Pay:</span>
+                          <span className="text-indigo-800 font-mono font-extrabold">
+                            {dualData.plusShopNetDebt.toLocaleString('tr-TR')} ₺
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-purple-200 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-purple-900">
+                      <span>🏠 Daire Başına Ek Yatırım:</span>
+                      <span className="text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md font-mono font-black">
+                        +{dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
+                      </span>
+                    </div>
+                    {dualData.hasShops && (
+                      <div className="flex items-center justify-between text-xs font-bold text-indigo-900">
+                        <span>🏪 Dükkan Başına Ek Yatırım:</span>
+                        <span className="text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md font-mono font-black">
+                          +{dualData.customerShopDelta.toLocaleString('tr-TR')} ₺
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Feature Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-900 font-bold">
+                      <th className="p-3.5 w-1/4">Donanım / İmalat Kalemi</th>
+                      <th className="p-3.5 w-3/8 text-slate-600">1. Seçenek: {dualData.baseTitle}</th>
+                      <th className="p-3.5 w-3/8 text-purple-900 bg-purple-50/50">2. Seçenek: {dualData.plusTitle}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {dualData.features.map((feat, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-3.5 font-bold text-slate-800 flex items-center gap-2">
+                          <span className="text-base">{feat.icon}</span>
+                          <span>{feat.name}</span>
+                        </td>
+                        <td className="p-3.5 text-slate-600">
+                          <span className="inline-block w-2 h-2 rounded-full bg-slate-400 mr-2" />
+                          {feat.baseSpec}
+                        </td>
+                        <td className="p-3.5 text-purple-950 font-semibold bg-purple-50/30">
+                          <span className="text-purple-600 font-bold mr-1.5">✓</span>
+                          {feat.plusSpec}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ========================================================
@@ -875,46 +2344,64 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 </h4>
                 <div className="space-y-3">
                   {shopUnits.length > 0 && (
-                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                    <div className="p-3.5 bg-indigo-50/40 rounded-2xl border border-indigo-100 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center border border-slate-100 text-indigo-600">🏪</div>
+                        <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center border border-indigo-100 text-indigo-600 shadow-2xs">🏪</div>
                         <div>
-                          <div className="text-[11px] font-bold text-slate-900">Zemin Kat Ticari Alanlar</div>
-                          <div className="text-[10px] text-slate-500">{shopUnits.length} Adet Bağımsız Dükkan</div>
+                          <div className="text-[11px] font-bold text-slate-900 flex items-center gap-1.5">
+                            <span>Zemin Kat Ticari Alanlar (Dükkan)</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 font-bold font-mono">
+                              ~{dualData.baseShopUnitPrice.toLocaleString('tr-TR')} ₺/m²
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            {shopUnits.length} Adet Bağımsız Dükkan • Ort. ~{avgShopArea} m²
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-bold text-slate-900">~{avgShopArea} m²</div>
-                        <div className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Ort. Brüt</div>
+                        <div className="text-xs font-black text-indigo-900 font-mono">
+                          ~{dualData.baseShopShare.toLocaleString('tr-TR')} ₺
+                        </div>
+                        <div className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">Dükkan Başı Bedel</div>
                       </div>
                     </div>
                   )}
                   {normalUnits.length > 0 && (
-                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                    <div className="p-3.5 bg-emerald-50/40 rounded-2xl border border-emerald-100 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center border border-slate-100 text-indigo-600">🏠</div>
+                        <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center border border-emerald-100 text-emerald-600 shadow-2xs">🏠</div>
                         <div>
-                          <div className="text-[11px] font-bold text-slate-900">Modern Yaşam Daireleri</div>
-                          <div className="text-[10px] text-slate-500">{normalUnits.length} Adet Aile Konutu</div>
+                          <div className="text-[11px] font-bold text-slate-900 flex items-center gap-1.5">
+                            <span>Modern Yaşam Daireleri (Konut)</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold font-mono">
+                              ~{dualData.baseFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            {normalUnits.length} Adet Aile Konutu • Ort. ~{avgNormalArea} m²
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-bold text-slate-900">~{avgNormalArea} m²</div>
-                        <div className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Ort. Brüt</div>
+                        <div className="text-xs font-black text-emerald-900 font-mono">
+                          ~{dualData.baseFlatShare.toLocaleString('tr-TR')} ₺
+                        </div>
+                        <div className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">Daire Başı Bedel</div>
                       </div>
                     </div>
                   )}
                   {mansardUnits.length > 0 && (
-                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                    <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center border border-slate-100 text-indigo-600">📐</div>
+                        <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center border border-slate-100 text-indigo-600 shadow-2xs">📐</div>
                         <div>
                           <div className="text-[11px] font-bold text-slate-900">Mansart ve Çatı Özel Birimler</div>
-                          <div className="text-[10px] text-slate-500">{mansardUnits.length} Adet Ünite</div>
+                          <div className="text-[10px] text-slate-500">{mansardUnits.length} Adet Ünite • Ort. ~{avgMansardArea} m²</div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-bold text-slate-900">~{avgMansardArea} m²</div>
+                        <div className="text-xs font-bold text-slate-900 font-mono">~{avgMansardArea} m²</div>
                         <div className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Ort. Brüt</div>
                       </div>
                     </div>
@@ -978,6 +2465,39 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       <span className="text-xs font-bold font-mono">{(results.grandTotal * 0.15).toLocaleString('tr-TR')} ₺</span>
                     </div>
 
+                    {/* Daire ve Dükkan Payı Detayı */}
+                    <div className="p-3 bg-white/5 rounded-xl border border-white/10 space-y-2 mt-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-300 flex items-center gap-1.5">
+                          <span>🏠</span> Konut Birim Fiyatı & Daire Payı:
+                        </span>
+                        <div className="text-right">
+                          <span className="text-emerald-400 font-bold font-mono block">
+                            ~{dualData.baseFlatShare.toLocaleString('tr-TR')} ₺ / daire
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            (~{dualData.baseFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²)
+                          </span>
+                        </div>
+                      </div>
+
+                      {shopUnits.length > 0 && (
+                        <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/10">
+                          <span className="text-indigo-300 flex items-center gap-1.5">
+                            <span>🏪</span> Dükkan Birim Fiyatı & Dükkan Payı:
+                          </span>
+                          <div className="text-right">
+                            <span className="text-indigo-300 font-bold font-mono block">
+                              ~{dualData.baseShopShare.toLocaleString('tr-TR')} ₺ / dükkan
+                            </span>
+                            <span className="text-[10px] text-indigo-400 font-mono">
+                              (~{dualData.baseShopUnitPrice.toLocaleString('tr-TR')} ₺/m²)
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {params.parkingFeeMode && params.parkingFeeMode !== 'none' && (
                       <div className="flex flex-col gap-1.5 pt-3 mt-1 border-t border-white/5 animate-fade-in">
                         <div className="flex items-center justify-between">
@@ -1021,6 +2541,133 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Bağımsız Bölüm Türlerine Göre Birim Fiyat ve İmalat Dağılım Tablosu */}
+          <div className="mt-8 p-5 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl">
+                  <Calculator className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                    Bağımsız Bölüm Türlerine Göre İmalat ve Birim Fiyat Dağılımı
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Konut ve ticari alanların birim metrekare fiyatları ve bağımsız bölüm başına düşen imalat payları
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-[11px] font-bold self-start sm:self-auto font-mono">
+                Toplam İnşaat Alanı: {results.totalArea.toLocaleString('tr-TR')} m²
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-900 font-bold">
+                    <th className="p-3">Bağımsız Bölüm Türü</th>
+                    <th className="p-3 text-center">Adet</th>
+                    <th className="p-3 text-right">Ort. Alan</th>
+                    <th className="p-3 text-right">Toplam İnşaat Alanı</th>
+                    <th className="p-3 text-right text-emerald-800">İmalat Birim Fiyatı</th>
+                    <th className="p-3 text-right text-slate-900">Bölüm Başı İmalat Payı</th>
+                    <th className="p-3 text-right text-slate-900">Toplam İmalat Tutarı</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {/* Konut Daireleri */}
+                  <tr className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-3 font-bold text-slate-900 flex items-center gap-2">
+                      <span className="text-base">🏠</span>
+                      <div>
+                        <span>Modern Konut Daireleri</span>
+                        <span className="block text-[10px] text-slate-400 font-normal">Standart Kat Aile Konutları</span>
+                      </div>
+                    </td>
+                    <td className="p-3 text-center font-bold font-mono text-slate-800">{normalUnits.length}</td>
+                    <td className="p-3 text-right font-mono text-slate-700">~{avgNormalArea} m²</td>
+                    <td className="p-3 text-right font-mono text-slate-700">{(normalUnits.length * avgNormalArea).toLocaleString('tr-TR')} m²</td>
+                    <td className="p-3 text-right font-mono font-bold text-emerald-700 bg-emerald-50/30">
+                      ~{dualData.baseFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²
+                    </td>
+                    <td className="p-3 text-right font-mono font-extrabold text-slate-900">
+                      ~{dualData.baseFlatShare.toLocaleString('tr-TR')} ₺
+                    </td>
+                    <td className="p-3 text-right font-mono font-black text-slate-900">
+                      {(normalUnits.length * dualData.baseFlatShare).toLocaleString('tr-TR')} ₺
+                    </td>
+                  </tr>
+
+                  {/* Dükkanlar (varsa) */}
+                  {shopUnits.length > 0 && (
+                    <tr className="hover:bg-indigo-50/20 transition-colors bg-indigo-50/10">
+                      <td className="p-3 font-bold text-indigo-950 flex items-center gap-2">
+                        <span className="text-base">🏪</span>
+                        <div>
+                          <span>Zemin Kat Ticari Dükkanlar</span>
+                          <span className="block text-[10px] text-indigo-400 font-normal">Cadde Cepheli Ticari Alanlar</span>
+                        </div>
+                      </td>
+                      <td className="p-3 text-center font-bold font-mono text-indigo-950">{shopUnits.length}</td>
+                      <td className="p-3 text-right font-mono text-indigo-900">~{avgShopArea} m²</td>
+                      <td className="p-3 text-right font-mono text-indigo-900">{(shopUnits.length * avgShopArea).toLocaleString('tr-TR')} m²</td>
+                      <td className="p-3 text-right font-mono font-bold text-indigo-700 bg-indigo-50/50">
+                        ~{dualData.baseShopUnitPrice.toLocaleString('tr-TR')} ₺/m²
+                      </td>
+                      <td className="p-3 text-right font-mono font-extrabold text-indigo-950">
+                        ~{dualData.baseShopShare.toLocaleString('tr-TR')} ₺
+                      </td>
+                      <td className="p-3 text-right font-mono font-black text-indigo-950">
+                        {(shopUnits.length * dualData.baseShopShare).toLocaleString('tr-TR')} ₺
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Mansart (varsa) */}
+                  {mansardUnits.length > 0 && (
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-3 font-bold text-slate-900 flex items-center gap-2">
+                        <span className="text-base">📐</span>
+                        <div>
+                          <span>Mansart ve Çatı Özel Birimleri</span>
+                          <span className="block text-[10px] text-slate-400 font-normal">Finansman Teşvik Üniteleri</span>
+                        </div>
+                      </td>
+                      <td className="p-3 text-center font-bold font-mono text-slate-800">{mansardUnits.length}</td>
+                      <td className="p-3 text-right font-mono text-slate-700">~{avgMansardArea} m²</td>
+                      <td className="p-3 text-right font-mono text-slate-700">{(mansardUnits.length * avgMansardArea).toLocaleString('tr-TR')} m²</td>
+                      <td className="p-3 text-right font-mono font-bold text-emerald-700 bg-emerald-50/30">
+                        ~{dualData.baseFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²
+                      </td>
+                      <td className="p-3 text-right font-mono font-extrabold text-slate-900">
+                        ~{dualData.baseFlatShare.toLocaleString('tr-TR')} ₺
+                      </td>
+                      <td className="p-3 text-right font-mono font-black text-slate-900">
+                        {(mansardUnits.length * dualData.baseFlatShare).toLocaleString('tr-TR')} ₺
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
+                    <td className="p-3">TOPLAM İMALAT VE YAPI DEĞERİ</td>
+                    <td className="p-3 text-center font-mono">{residentialCount + shopCount}</td>
+                    <td className="p-3 text-right font-mono">-</td>
+                    <td className="p-3 text-right font-mono">{results.totalArea.toLocaleString('tr-TR')} m²</td>
+                    <td className="p-3 text-right font-mono text-slate-600">
+                      Ort. ~{results.grossCostPerSqM.toLocaleString('tr-TR')} ₺/m²
+                    </td>
+                    <td className="p-3 text-right font-mono text-slate-600">-</td>
+                    <td className="p-3 text-right font-mono text-emerald-700 text-sm">
+                      {results.grandTotal.toLocaleString('tr-TR')} ₺
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
         </div>
@@ -1162,7 +2809,26 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 ARSA SAHİPLERİ / BİNA YÖNETİMİ
               </div>
               <p className="text-[11px] text-slate-500">Kat Malikleri Kurulu / Temsilci Heyeti</p>
-              <div className="h-20 flex items-center justify-center text-slate-300 italic text-[11px]">
+
+              {isDualOffer && (
+                <div className="my-2 p-2 bg-slate-50 rounded-xl border border-slate-200 text-left inline-block w-full max-w-[280px]">
+                  <span className="text-[10px] font-bold text-slate-800 block text-center mb-1">
+                    Muvafakat Edilen Teklif Paketi:
+                  </span>
+                  <div className="flex items-center justify-around gap-2 text-[10px]">
+                    <span className="flex items-center gap-1 text-slate-700">
+                      <span className="w-3 h-3 border border-slate-400 rounded-sm inline-block" />
+                      1. Seçenek ({dualData.baseTitle})
+                    </span>
+                    <span className="flex items-center gap-1 font-bold text-purple-900">
+                      <span className="w-3 h-3 border border-purple-500 rounded-sm inline-block" />
+                      2. Seçenek ({dualData.plusTitle})
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="h-16 flex items-center justify-center text-slate-300 italic text-[11px]">
                 (İmza / Tarih / T.C. Kimlik)
               </div>
               <div className="text-slate-400 font-mono text-[11px]">Tarih: ..... / ..... / 2026</div>

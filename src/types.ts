@@ -352,9 +352,40 @@ export interface ProjectParams {
   parkingRegionalRatio?: number;     // Belediye bölgesel grup katsayısı (%)
   providedParkingSpaces?: number;    // Yapılan / sağlanan otopark sayısı
 
-  // İnovatif Seçenekler (Yerden Isıtma ve Su Arıtma)
+  // İnovatif Seçenekler (Yerden Isıtma, Su Arıtma, Klima, Banyo & Mutfak Konforu)
   hasUnderfloorHeating?: boolean;
   hasWaterFiltration?: boolean;
+  hasAcOption?: boolean; // Klima konfor paketi aktif mi?
+  acType?: '12k_btu' | '18k_btu' | '24k_btu' | 'multi_split' | 'infrastructure_only'; // Seçilen klima tipi ve BTU gücü
+  acCustomPricePerFlat?: number; // Daire başı özel klima birim fiyatı (opsiyonel)
+  acScope?: 'all_units' | 'residential_only'; // Klima uygulama kapsamı (tüm birimler veya sadece konutlar)
+  hasThermostaticShowerMixer?: boolean; // Banyo duşunda 38°C emniyetli termostatik batarya
+  thermostaticMixerPricePerFlat?: number; // Daire başı termostatik batarya birim fiyatı
+  hasLinearShowerDrain?: boolean; // Duş kabininde paslanmaz çelik lineer su süzgeci / duş kanalı
+  linearDrainPricePerFlat?: number; // Daire başı lineer süzgeç birim fiyatı
+  hasBathroomHumidityFan?: boolean; // Banyoda nem sensörlü, geri tepme klapeli sessiz havalandırma fanı (Konutlar)
+  bathroomHumidityFanPricePerFlat?: number; // Konut başı nem sensörlü fan birim fiyatı
+  hasTouchlessKitchenFaucet?: boolean; // Mutfakta fotoselli / temassız akıllı eviye bataryası (Konutlar)
+  touchlessKitchenFaucetPricePerFlat?: number; // Konut başı fotoselli mutfak bataryası birim fiyatı
+
+  // Çift Teklif (Dual Offer) & Paket Seçenekleri
+  offerPresentationMode?: 'single' | 'dual'; // 'single' = Tek Seçenekli Sunum, 'dual' = 2 Seçenekli (Baz & Plus) Karşılaştırmalı Teklif
+  baseOfferTitle?: string; // Örn: 'Standart (Baz) Paket' / 'Klasik Teklif'
+  plusOfferTitle?: string; // Örn: 'Prestij Plus Paket' / 'Konfor Plus Teklif'
+  offerNamingPreset?: 'standard_prestij' | 'klasik_konfor' | 'gumus_altin' | 'temel_akilli' | 'custom';
+  plusOfferCustomFlatDelta?: number; // Müteahhidin müşteriye sunacağı daire başı özel Plus paket fiyat farkı (TL). Teklifte bu tutar görünür, iç maliyet gizli kalır.
+  plusOfferFeatures?: {
+    underfloorHeating?: boolean;
+    waterFiltration?: boolean;
+    acOption?: boolean;
+    acType?: '12k_btu' | '18k_btu' | '24k_btu' | 'multi_split' | 'infrastructure_only';
+    thermostaticShowerMixer?: boolean;
+    linearShowerDrain?: boolean;
+    bathroomHumidityFan?: boolean;
+    touchlessKitchenFaucet?: boolean;
+    smartHome?: boolean;
+    highEndElevator?: boolean;
+  };
 
   // Flats
   flats: FlatItem[];
@@ -483,6 +514,27 @@ export interface CalculationResult {
   // İnovatif Seçenekler Maliyet Çıktıları
   underfloorHeatingCost?: number;
   waterFiltrationCost?: number;
+  acCostTotal?: number;
+  acCostPerFlat?: number;
+  acBtuInfo?: string;
+  acTitle?: string;
+  acTargetArea?: string;
+  acLaborShare?: number;
+  acUnitCount?: number;
+  residentialUnitsCount?: number;
+  shopUnitsCount?: number;
+  thermostaticMixerCost?: number;
+  thermostaticMixerPricePerFlat?: number;
+  thermostaticMixerUnits?: number;
+  linearDrainCost?: number;
+  linearDrainPricePerFlat?: number;
+  linearDrainUnits?: number;
+  bathroomHumidityFanCost?: number;
+  bathroomHumidityFanPricePerFlat?: number;
+  bathroomHumidityFanUnits?: number;
+  touchlessKitchenFaucetCost?: number;
+  touchlessKitchenFaucetPricePerFlat?: number;
+  touchlessKitchenFaucetUnits?: number;
 }
 
 export interface SavedProjectData {

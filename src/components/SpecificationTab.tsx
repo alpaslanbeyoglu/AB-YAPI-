@@ -227,7 +227,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   <div class="subsection-title">Mutfak, Banyo ve İç Kapılar</div>
   <ul>
     <li>Mutfak dolapları gövde MDF, kapaklar Highgloss veya Lake; tezgahlar ise 1. sınıf granit/kuvars esaslı malzemeden yapılacaktır.</li>
-    <li>Banyolarda gömme rezervuar, TSE belgeli armatürler, duşakabin ve suya dayanıklı banyo dolabı uygulanacaktır. İç kapılar PVC kaplamalı veya Lake ahşap kapı olacaktır.</li>
+    <li>Konut banyolarında gömme rezervuar, TSE belgeli armatürler, duşakabin ve suya dayanıklı banyo dolabı uygulanacaktır. Ticari dükkan/işyeri birimlerinde duş bulunmayıp yalnızca bağımsız lavabo ve WC tesisatı yer alır. İç kapılar PVC kaplamalı veya Lake ahşap kapı olacaktır.</li>
   </ul>
 
   <div class="section-title">05. MEKANİK, ELEKTRİK VE ASANSÖR STANDARTLARI</div>
@@ -435,6 +435,25 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
       <th>Dış Cephe Yalıtımı (Mantolama) & Renk</th>
       <td>Projede seçilen özel renk kombinasyonları (${params.facadeColor || params.wallColor || 'Kullanıcı Tercihi Renk'}), TS 825 standartlarında minimum 5 cm Karbonlu EPS mantolama, dekoratif mineral sıva ve silikon esaslı dış cephe boyası.</td>
     </tr>
+    <tr>
+      <th>İç Mekân, Banyo & Konfor Donanımları</th>
+      <td>
+        ${[
+          params.hasUnderfloorHeating ? '<strong>Yerden Isıtma:</strong> Sulu yerden ısıtma sistemi ile homojen zemin ısınması ve enerji tasarrufu.' : null,
+          params.hasWaterFiltration ? '<strong>Su Arıtma:</strong> Bina şebeke girişinde merkezi klor, tortu ve kireç filtrasyon sistemi.' : null,
+          params.hasAcOption ? `<strong>İklimlendirme:</strong> A++ Inverter klima sistemi (${results.acBtuInfo || '18.000 BTU/h'}) ${params.acScope === 'residential_only' ? '(Yalnızca Konutlar)' : '(Tüm Birimler)'}.` : null,
+          params.hasThermostaticShowerMixer ? '<strong>Banyo Duş Bataryası:</strong> 38°C emniyet kilitli, haşlanma korumalı ve %30 su tasarruflu termostatik duş bataryası seti (Yalnızca Konutlar — Dükkanlar Hariç).' : '<strong>Banyo Duş Bataryası:</strong> 1. sınıf TSE belgeli aç-kapa pirinç duş bataryası (Konutlar).',
+          params.hasLinearShowerDrain ? '<strong>Duş Drenajı:</strong> Duş kabinlerinde 304 kalite paslanmaz çelik ızgaralı, koku önleyici çekvalfli hemzemin lineer duş süzgeci (Yalnızca Konutlar — Dükkanlar Hariç).' : '<strong>Duş Drenajı:</strong> Standart koku perdeli banyo süzgeci (Konutlar).',
+        ].filter(Boolean).join('<br>')}
+      </td>
+    </tr>
+    ${params.hasGroundFloorShop || safeBasementCount > 0 ? `
+    <tr>
+      <th>Dükkan & Ticari Alanlar Teslim Standardı</th>
+      <td>
+        Ticari dükkan/işyeri bağımsız bölümlerinde konut tipi duşakabin, termostatik duş bataryası ve lineer duş süzgeci bulunmaz. Bağımsız WC, lavabo ve soğuk/sıcak su tesisatı ile standart yer süzgeci tesis edilir.
+      </td>
+    </tr>` : ''}
   </table>
 
   <div class="section-title">04. PAYDAŞ MALİK KATILIM LİSTESİ</div>
@@ -1040,6 +1059,29 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   <p className="text-xs font-semibold text-slate-800 mt-0.5">
                     Proje ve kullanıcı onaylı renk kombinasyonları ({params.facadeColor || params.wallColor || 'Kullanıcı Tercihi Renk'}). Isı yalıtım yönetmeliği TS 825 standartlarına uygun <span className="font-semibold text-indigo-700">minimum 5 cm kalınlığında Karbonlu EPS/Taşyünü mantolama</span>, fileli sıva ve nefes alan silikonlu dış cephe boyası tatbikatı yapılacaktır.
                   </p>
+                </div>
+
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase">İç Mekân, Banyo & Konfor Donanımları</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
+                      <span className="font-bold text-slate-800 block text-[11px]">🚿 Banyo Duş Bataryası</span>
+                      <p className="text-slate-600 text-[11px]">
+                        {params.hasThermostaticShowerMixer
+                          ? '38°C emniyet kilitli, haşlanma korumalı, anlık basınç dengeleyici ve %30 su tasarruflu termostatik banyo bataryası seti.'
+                          : '1. sınıf TSE belgeli aç-kapa pirinç gövdeli seramik kartuşlu duş bataryası.'}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
+                      <span className="font-bold text-slate-800 block text-[11px]">✨ Duş Kabini Drenajı</span>
+                      <p className="text-slate-600 text-[11px]">
+                        {params.hasLinearShowerDrain
+                          ? '304 kalite paslanmaz çelik ızgaralı, çift hazneli koku önleyici mekanik çekvalfli, su yalıtım etekli hemzemin lineer duş kanalı.'
+                          : 'Standart noktasal koku perdeli banyo yer süzgeci.'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">

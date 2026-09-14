@@ -473,6 +473,42 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
           laborShare: 10,
         }
       ] : []),
+      ...(params.hasAcOption && results.acCostTotal ? [
+        {
+          id: 't7',
+          category: 'tesisat' as const,
+          name: `A++ Inverter Klima Sistemi (${results.acBtuInfo || '18.000 BTU/h'}) - Salon Konfor Paketi`,
+          unit: 'Daire',
+          quantity: results.acUnitCount || flatCount,
+          unitPrice: results.acCostPerFlat || Math.round(results.acCostTotal / (results.acUnitCount || flatCount || 1)),
+          total: results.acCostTotal,
+          laborShare: results.acLaborShare || 15,
+        }
+      ] : []),
+      ...(params.hasThermostaticShowerMixer && results.thermostaticMixerCost ? [
+        {
+          id: 't8',
+          category: 'tesisat' as const,
+          name: 'Termostatik Banyo Duş Bataryası (38°C Emniyet Kilitli, Haşlanma Önleyici Kartuş)',
+          unit: 'Daire/Banyo',
+          quantity: flatCount,
+          unitPrice: results.thermostaticMixerPricePerFlat || 6500,
+          total: results.thermostaticMixerCost,
+          laborShare: 15,
+        }
+      ] : []),
+      ...(params.hasLinearShowerDrain && results.linearDrainCost ? [
+        {
+          id: 't9',
+          category: 'tesisat' as const,
+          name: 'Duş Kabini Lineer Su Süzgeci / Duş Kanalı (304 Paslanmaz Çelik, Koku Çekvalfli, Etekli Yalıtım)',
+          unit: 'Daire/Duş',
+          quantity: flatCount,
+          unitPrice: results.linearDrainPricePerFlat || 2800,
+          total: results.linearDrainCost,
+          laborShare: 25,
+        }
+      ] : []),
 
       // RESMİ & İDARİ GİDERLER
       {

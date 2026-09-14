@@ -1,4 +1,6 @@
 import { ProjectParams, CalculationResult, CompanyProfile } from '../types';
+import { getAcOptionById } from './acOptions';
+import { computeDualOffer } from './dualOfferUtils';
 
 export function generateOfferHtml(
   params: ProjectParams,
@@ -7,6 +9,8 @@ export function generateOfferHtml(
   companyProfile?: CompanyProfile,
   uploadedImages?: Array<{ url: string; caption?: string }>
 ): string {
+  const isDualOffer = params.offerPresentationMode === 'dual';
+  const dualData = isDualOffer ? computeDualOffer(params) : null;
   const opts = companyProfile?.printOptions || {};
   const showLogo = opts.showLogo !== false;
   const showLegal = opts.showLegalName !== false;
@@ -245,12 +249,15 @@ export function generateOfferHtml(
       </div>
     </div>
 
-    <!-- İNOVATİF TEKNOLOJİ VE KONFOR SEÇENEKLERİ -->
+    <!-- İNOVATİF TEKNOLOJİ VE KONFOR SEÇENEKLERİ (TEK TEKLİF İÇİN) -->
+    ${!isDualOffer ? (() => {
+      const currentAc = getAcOptionById(params.acType || '18k_btu');
+      return `
     <div style="margin-top:10px;background:linear-gradient(135deg, #fdf8ff 0%, #f4f5ff 100%);border:1px solid #e9d5ff;border-radius:12px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
       <div style="font-weight:900;font-size:11px;color:#581c87;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:4px;">
         ✨ İnovatif Teknoloji ve Konfor Donanımları (Seçenekler)
       </div>
-      <div class="grid-2" style="gap:10px;">
+      <div class="grid-3" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;">
         <!-- Yerden Isitma -->
         <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
           <div>
@@ -284,8 +291,196 @@ export function generateOfferHtml(
             <span style="font-weight:bold;color:#6b21a8;">${res.waterFiltrationCost ? res.waterFiltrationCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
+
+        <!-- Klima & Iklimlendirme -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">❄️ A++ Inverter Klima</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasAcOption ? '#ecfdf5' : '#f1f5f9'};color:${params.hasAcOption ? '#065f46' : '#475569'};border:1px solid ${params.hasAcOption ? '#a7f3d0' : '#cbd5e1'}">${params.hasAcOption ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
+              <strong>${currentAc.shortTitle}</strong> (${currentAc.btu}) - ${currentAc.targetArea} salonlar için A++ inverter enerji tasarruflu iklimlendirme.
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.acCostTotal ? res.acCostTotal.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
+
+        <!-- Termostatik Duş Bataryası -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🚿 Termostatik Duş Bataryası (Konutlar)</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasThermostaticShowerMixer ? '#ecfdf5' : '#f1f5f9'};color:${params.hasThermostaticShowerMixer ? '#065f46' : '#475569'};border:1px solid ${params.hasThermostaticShowerMixer ? '#a7f3d0' : '#cbd5e1'}">${params.hasThermostaticShowerMixer ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
+              38°C emniyet kilitli, haşlanma önleyici ve %30 su tasarruflu termostatik batarya. Yalnızca konut dairelerine uygulanır (Dükkanlar hariç).
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.thermostaticMixerCost ? res.thermostaticMixerCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
+
+        <!-- Lineer Duş Süzgeci -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">✨ Lineer Duş Süzgeci (Konutlar)</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasLinearShowerDrain ? '#ecfdf5' : '#f1f5f9'};color:${params.hasLinearShowerDrain ? '#065f46' : '#475569'};border:1px solid ${params.hasLinearShowerDrain ? '#a7f3d0' : '#cbd5e1'}">${params.hasLinearShowerDrain ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
+              304 paslanmaz çelik ızgaralı, çift hazneli koku çekvalfli hemzemin duş kanalı. Yalnızca konut dairelerine uygulanır.
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.linearDrainCost ? res.linearDrainCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
+
+        <!-- Nem Sensörlü Sessiz Banyo Fanı -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🌀 Nem Sensörlü Banyo Fanı (Konutlar)</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasBathroomHumidityFan ? '#ecfdf5' : '#f1f5f9'};color:${params.hasBathroomHumidityFan ? '#065f46' : '#475569'};border:1px solid ${params.hasBathroomHumidityFan ? '#a7f3d0' : '#cbd5e1'}">${params.hasBathroomHumidityFan ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
+              Banyo konfor dokunuşu: Otomatik higrostat sensörlü, 25 dB fısıltı sessizliğinde buhar ve küf önleyici fan.
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.bathroomHumidityFanCost ? res.bathroomHumidityFanCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
+
+        <!-- Fotoselli Mutfak Bataryası -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🫧 Fotoselli Mutfak Bataryası</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasTouchlessKitchenFaucet ? '#ecfdf5' : '#f1f5f9'};color:${params.hasTouchlessKitchenFaucet ? '#065f46' : '#475569'};border:1px solid ${params.hasTouchlessKitchenFaucet ? '#a7f3d0' : '#cbd5e1'}">${params.hasTouchlessKitchenFaucet ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
+              Kadınların hayatını kolaylaştıran dokunuş: Temassız kızılötesi sensör, lekesiz tezgah, %40 su tasarrufu ve spiralli başlık.
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.touchlessKitchenFaucetCost ? res.touchlessKitchenFaucetCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
       </div>
     </div>
+    `;
+    })() : ''}
+
+    <!-- ÇİFT TEKLİF & SEÇENEK KARŞILAŞTIRMA MATRİSİ (DUAL OFFER İÇİN) -->
+    ${isDualOffer && dualData ? `
+    <div style="margin-top:14px;background:#ffffff;border:2px solid #818cf8;border-radius:12px;padding:12px;box-shadow:0 2px 6px rgba(99,102,241,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #e0e7ff;padding-bottom:6px;">
+        <div style="font-weight:900;font-size:11.5px;color:#312e81;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+          📑 İkili Teklif & Paket Karşılaştırma Matrisi (Seçenekli Sunum)
+        </div>
+        <span style="font-size:8.5px;font-weight:bold;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:12px;">2 Alternatifli Resmi Teklif</span>
+      </div>
+
+      <!-- SIDE BY SIDE SUMMARY CARDS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <!-- BASE OFFER BOX -->
+        <div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:10px;padding:10px;display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:11px;font-weight:800;color:#1e293b;">1. SEÇENEK: ${dualData.baseTitle}</span>
+              <span style="font-size:8px;font-weight:bold;background:#e2e8f0;color:#334155;padding:1px 6px;border-radius:10px;">Temel Standart</span>
+            </div>
+            <p style="font-size:8.5px;color:#64748b;margin:0 0 8px 0;line-height:1.35;">
+              Yasal mevzuat ve şartnamelere uygun, ekonomik ve güvenilir temel yapım paketi.
+            </p>
+            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:8px;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:4px;">
+                <span>Toplam İmalat Bedeli:</span>
+                <strong style="color:#0f172a;font-family:monospace;">${dualData.customerBaseGrandTotal.toLocaleString('tr-TR')} ₺</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:4px;">
+                <span>Daire Başı Ortalama Pay:</span>
+                <strong style="color:#0f172a;font-family:monospace;">${dualData.customerBaseFlatShare.toLocaleString('tr-TR')} ₺</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:9.5px;color:#0f172a;font-weight:bold;border-top:1px dashed #cbd5e1;padding-top:4px;">
+                <span>Hibe/Kredi Sonrası Net:</span>
+                <span style="color:#16a34a;font-family:monospace;">${dualData.customerBaseNetDebtPerFlat.toLocaleString('tr-TR')} ₺</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLUS OFFER BOX -->
+        <div style="background:linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);border:2px solid #8b5cf6;border-radius:10px;padding:10px;display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:11px;font-weight:900;color:#5b21b6;">2. SEÇENEK: ✨ ${dualData.plusTitle}</span>
+              <span style="font-size:8px;font-weight:900;background:#7c3aed;color:#ffffff;padding:1px 6px;border-radius:10px;">Prestij & Konfor</span>
+            </div>
+            <p style="font-size:8.5px;color:#6d28d9;margin:0 0 8px 0;line-height:1.35;">
+              Yerden ısıtma, su arıtma, A++ klima, termostatik batarya, lineer süzgeç, sessiz banyo fanı ve kadınların hayatını kolaylaştıran fotoselli mutfak bataryası paketi.
+            </p>
+            <div style="background:#ffffff;border:1px solid #ddd6fe;border-radius:6px;padding:8px;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:4px;">
+                <span>Toplam İmalat Bedeli:</span>
+                <strong style="color:#5b21b6;font-family:monospace;">${dualData.customerPlusGrandTotal.toLocaleString('tr-TR')} ₺</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:4px;">
+                <span>Daire Başı Ortalama Pay:</span>
+                <strong style="color:#5b21b6;font-family:monospace;">${dualData.customerPlusFlatShare.toLocaleString('tr-TR')} ₺</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:9.5px;color:#5b21b6;font-weight:bold;border-top:1px dashed #ddd6fe;padding-top:4px;">
+                <span>Hibe/Kredi Sonrası Net:</span>
+                <span style="color:#7c3aed;font-family:monospace;">${dualData.customerPlusNetDebtPerFlat.toLocaleString('tr-TR')} ₺</span>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:8.5px;color:#6d28d9;font-weight:bold;text-align:right;">
+            Daire Başı Yatırım Farkı: +${dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
+          </div>
+        </div>
+      </div>
+
+      <!-- DETAILED FEATURE COMPARISON TABLE -->
+      <table style="width:100%;border-collapse:collapse;font-size:8.5px;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+        <thead>
+          <tr style="background:#f1f5f9;color:#1e293b;border-bottom:1.5px solid #cbd5e1;text-align:left;">
+            <th style="padding:5px 8px;width:24%;">Teknik Donanım & Sistem</th>
+            <th style="padding:5px 8px;width:34%;color:#475569;">1. Seçenek: ${dualData.baseTitle}</th>
+            <th style="padding:5px 8px;width:42%;color:#6d28d9;background:#f5f3ff;">2. Seçenek: ${dualData.plusTitle}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${dualData.features.map((f, idx) => `
+          <tr style="border-bottom:1px solid #e2e8f0;background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+            <td style="padding:5px 8px;font-weight:bold;color:#0f172a;">
+              ${f.icon} ${f.name}
+            </td>
+            <td style="padding:5px 8px;color:#475569;">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.baseIncluded ? '#94a3b8' : '#e2e8f0'};margin-right:4px;"></span>
+              ${f.baseSpec}
+            </td>
+            <td style="padding:5px 8px;color:#4c1d95;font-weight:600;background:${idx % 2 === 0 ? '#faf5ff' : '#f3e8ff'};">
+              <span style="display:inline-block;color:#7c3aed;font-weight:900;margin-right:4px;">✓</span>
+              ${f.plusSpec}
+            </td>
+          </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+  </div>
   </div>
 
   <!-- II. PROJE ÖZETİ VE FİNANSAL ÇERÇEVE -->
@@ -439,8 +634,25 @@ export function generateOfferHtml(
       <!-- CLIENTS SIGNATURE -->
       <div style="text-align:center;border-right:1px dashed #cbd5e1;padding-right:16px;">
         <div style="font-weight:bold;font-size:11px;color:#0f172a;">ARSA SAHİPLERİ / BİNA YÖNETİMİ</div>
-        <div style="color:#64748b;font-size:9.5px;margin:2px 0 24px 0;">Kat Malikleri Kurulu / Temsilci Heyeti</div>
-        <div style="height:32px;border-bottom:1px solid #94a3b8;margin:0 24px 6px 24px;"></div>
+        <div style="color:#64748b;font-size:9.5px;margin:2px 0 6px 0;">Kat Malikleri Kurulu / Temsilci Heyeti</div>
+        
+        ${isDualOffer && dualData ? `
+        <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:5px 8px;margin:0 auto 10px auto;font-size:8.5px;text-align:left;display:inline-block;">
+          <strong style="color:#1e293b;display:block;margin-bottom:3px;text-align:center;">Muvafakat Edilen Teklif Paketi:</strong>
+          <div style="display:flex;gap:12px;justify-content:center;">
+            <label style="display:flex;align-items:center;gap:3px;color:#334155;cursor:pointer;">
+              <span style="display:inline-block;width:10px;height:10px;border:1.5px solid #64748b;border-radius:2px;"></span>
+              1. Seçenek (${dualData.baseTitle})
+            </label>
+            <label style="display:flex;align-items:center;gap:3px;color:#6d28d9;font-weight:bold;cursor:pointer;">
+              <span style="display:inline-block;width:10px;height:10px;border:1.5px solid #7c3aed;border-radius:2px;"></span>
+              2. Seçenek (${dualData.plusTitle})
+            </label>
+          </div>
+        </div>
+        ` : ''}
+
+        <div style="height:28px;border-bottom:1px solid #94a3b8;margin:0 24px 6px 24px;"></div>
         <div style="color:#64748b;font-size:9px;">(İmza / Tarih / TC)</div>
       </div>
 

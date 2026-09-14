@@ -48,7 +48,13 @@ import {
   ShieldCheck,
   Flame,
   Droplets,
+  Wind,
+  Zap,
+  Bath,
+  Fan,
+  ChefHat,
 } from 'lucide-react';
+import { AC_PRESET_OPTIONS, getAcOptionById } from '../utils/acOptions';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
 import { calculateCantileverDetails, calculateFlatCount, calculateProject } from '../utils/calculatorEngine';
 import {
@@ -2321,7 +2327,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Option 1: Yerden Isıtma */}
               <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasUnderfloorHeating ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
                 <div className="space-y-2">
@@ -2402,6 +2408,496 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Ekstra İmalat Bedeli</span>
                   <div className="text-sm font-black text-slate-900 font-mono">
                     {params.hasWaterFiltration ? `${results.waterFiltrationCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 3: İklimlendirme ve Klima Sistemleri */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasAcOption ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasAcOption ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Wind className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">A++ Inverter Klima Paketi</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">Salon İklimlendirme & Konfor</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasAcOption}
+                        onChange={(e) => onChangeParams({ ...params, hasAcOption: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                  
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Yaz ve kış 4 mevsim bağımsız iklimlendirme sağlayan, <strong>%40 enerji tasarruflu</strong> Inverter A++ split veya multi klima paketidir. Bakır borulama, drenaj hattı ve montaj işçiliği dahildir.
+                  </p>
+                  
+                  {params.hasAcOption ? (
+                    <div className="space-y-2.5 pt-1">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                          Salon Ölçüsü & BTU Kapasite Seçimi
+                        </label>
+                        <select
+                          value={params.acType || '18k_btu'}
+                          onChange={(e) => onChangeParams({ ...params, acType: e.target.value as any })}
+                          className="w-full text-xs font-black px-2.5 py-2 rounded-xl border border-purple-200 bg-white text-purple-950 focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 shadow-2xs"
+                        >
+                          {AC_PRESET_OPTIONS.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.shortTitle} — {opt.targetArea} ({opt.avgPricePerFlat.toLocaleString('tr-TR')} TL/Daire)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {(() => {
+                        const currentAc = getAcOptionById(params.acType || '18k_btu');
+                        return (
+                          <div className="text-[11px] text-slate-600 bg-purple-50/60 p-2.5 rounded-lg border border-purple-100 space-y-1.5">
+                            <div className="flex items-center justify-between font-bold text-purple-950">
+                              <span>{currentAc.btu}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200/80 text-purple-900">{currentAc.energyClass}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-600">
+                              <strong>Uygun Alan:</strong> {currentAc.targetArea} ({currentAc.recommendedRoom})
+                            </div>
+                            <div className="text-[10px] text-slate-500 border-t border-purple-100/80 pt-1">
+                              {currentAc.description}
+                            </div>
+                            <div className="text-[9.5px] text-purple-800 font-semibold pt-0.5">
+                              ✨ Gaz / Çevre: {currentAc.refrigerant} • Montaj Payı: %{currentAc.laborShare}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div className="space-y-0.5">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase block">Klima Kapsamı</label>
+                          <select
+                            value={params.acScope || 'all_units'}
+                            onChange={(e) => onChangeParams({ ...params, acScope: e.target.value as any })}
+                            className="w-full text-[11px] font-semibold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800"
+                          >
+                            <option value="all_units">Tüm Birimler ({results.flatCount} Adet)</option>
+                            <option value="residential_only">Sadece Konutlar</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase block">Daire Başı Fiyat (TL)</label>
+                          <input
+                            type="number"
+                            value={params.acCustomPricePerFlat ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                              onChangeParams({ ...params, acCustomPricePerFlat: val });
+                            }}
+                            placeholder={getAcOptionById(params.acType || '18k_btu').avgPricePerFlat.toString()}
+                            className="w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-700 block">Piyasa & Salon Standartları:</span>
+                      <ul className="list-disc pl-3.5 space-y-0.5">
+                        <li>Standart 25-35 m² salonlar için en yaygın: <strong>18.000 BTU/h A++ Inverter (~39.500 TL/Daire)</strong>.</li>
+                        <li>12.000 BTU, 24.000 BTU veya Multi-Split seçenekleri teklife entegre edilebilir.</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ekstra İmalat Bedeli</span>
+                    {params.hasAcOption && (
+                      <span className="text-[9px] text-purple-700 font-bold">
+                        {results.acUnitCount || results.flatCount} Daire × {results.acCostPerFlat?.toLocaleString('tr-TR')} TL
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasAcOption ? `${results.acCostTotal?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 4: Banyo Duşunda Termostatik Batarya */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasThermostaticShowerMixer ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasThermostaticShowerMixer ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Bath className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Termostatik Duş Bataryası</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">38°C Emniyet Kilitli & Haşlanma Korumalı</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasThermostaticShowerMixer}
+                        onChange={(e) => onChangeParams({ ...params, hasThermostaticShowerMixer: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                  
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-semibold">
+                    <span>🏠 Yalnızca Konut Daireleri İçindir</span>
+                    <span className="text-amber-600 font-normal">(Dükkanlarda duş olmadığından hariç tutulur)</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Banyoda su sıcaklığını milisaniyeler içinde dengeleyen, <strong>38°C çocuk/yaşlı haşlanma emniyet kilitli</strong> ve %30 su tasarruflu lüks termostatik banyo bataryası setidir (Pirinç gövde, duş başlığı seti ve montaj dahil).
+                  </p>
+                  
+                  {params.hasThermostaticShowerMixer ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] text-slate-600 bg-purple-50/60 p-2.5 rounded-lg border border-purple-100 space-y-1">
+                        <div className="flex items-center justify-between font-bold text-purple-950">
+                          <span>38°C SafeStop Emniyet Kilidi</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">%30 Su Tasarrufu</span>
+                        </div>
+                        <ul className="text-[10px] text-slate-600 space-y-0.5 list-disc pl-3.5 pt-0.5">
+                          <li>Ani kombi/basınç dalgalanmasında sıcak su şokunu ve yanmayı sıfırlar.</li>
+                          <li>İstenen sıcaklığa anında ulaşarak gereksiz su akıtma süresini önler.</li>
+                          {(results.shopUnitsCount || 0) > 0 && (
+                            <li className="text-amber-800 font-medium font-mono text-[9px]">
+                              {results.shopUnitsCount} adet ticari dükkan duş donanımından muaf tutulmuştur ({results.residentialUnitsCount ?? (results.flatCount - (results.shopUnitsCount || 0))} konut daireye uygulanır).
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block">Konut Başı Batarya Seti Bedeli (TL)</label>
+                        <input
+                          type="number"
+                          value={params.thermostaticMixerPricePerFlat ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                            onChangeParams({ ...params, thermostaticMixerPricePerFlat: val });
+                          }}
+                          placeholder="6500"
+                          className="w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-700 block">Konfor & Güvenlik Standardı:</span>
+                      <ul className="list-disc pl-3.5 space-y-0.5">
+                        <li>Konut başı ortalama maliyet: <strong>6.500 TL</strong> (Malzeme + Montaj).</li>
+                        <li>Özellikle çocuklu ve yaşlı aileler için kentsel dönüşümde yüksek ikna edicilik sağlar.</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ekstra İmalat Bedeli</span>
+                    {params.hasThermostaticShowerMixer && (
+                      <span className="text-[9px] text-purple-700 font-bold">
+                        {results.thermostaticMixerUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.thermostaticMixerPricePerFlat || 6500).toLocaleString('tr-TR')} TL
+                        {(results.shopUnitsCount || 0) > 0 && <span className="text-amber-700 block text-[8px] font-medium">({results.shopUnitsCount} dükkan hariç)</span>}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasThermostaticShowerMixer ? `${results.thermostaticMixerCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 5: Duş Kabinine Lineer Su Süzgeci (Duş Kanalı) */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasLinearShowerDrain ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasLinearShowerDrain ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Sliders className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Lineer Duş Süzgeci</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">304 Paslanmaz Çelik & Koku Çekvalfli</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasLinearShowerDrain}
+                        onChange={(e) => onChangeParams({ ...params, hasLinearShowerDrain: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                  
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-semibold">
+                    <span>🏠 Yalnızca Konut Daireleri İçindir</span>
+                    <span className="text-amber-600 font-normal">(Dükkanlarda duş olmadığından hariç tutulur)</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Klasik noktasal süzgeç yerine duş zeminine sıfır gömülen, <strong>304 kalite paslanmaz çelik ızgaralı</strong>, çift hazneli koku önleyici çekvalfli ve su yalıtım etekli modern lineer duş kanalıdır.
+                  </p>
+                  
+                  {params.hasLinearShowerDrain ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] text-slate-600 bg-purple-50/60 p-2.5 rounded-lg border border-purple-100 space-y-1">
+                        <div className="flex items-center justify-between font-bold text-purple-950">
+                          <span>304 Paslanmaz Duş Kanalı</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">Koku & Böcek Önleyici</span>
+                        </div>
+                        <ul className="text-[10px] text-slate-600 space-y-0.5 list-disc pl-3.5 pt-0.5">
+                          <li>Hemzemin duş zeminlerinde kesintisiz mimari akış ve hızlı tahliye.</li>
+                          <li>Giderden gelen kötü kokuları ve böcekleri %100 kesen mekanik çekvalf.</li>
+                          {(results.shopUnitsCount || 0) > 0 && (
+                            <li className="text-amber-800 font-medium font-mono text-[9px]">
+                              {results.shopUnitsCount} adet ticari dükkan duş donanımından muaf tutulmuştur ({results.residentialUnitsCount ?? (results.flatCount - (results.shopUnitsCount || 0))} konut daireye uygulanır).
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block">Konut Başı Duş Kanalı Bedeli (TL)</label>
+                        <input
+                          type="number"
+                          value={params.linearDrainPricePerFlat ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                            onChangeParams({ ...params, linearDrainPricePerFlat: val });
+                          }}
+                          placeholder="2800"
+                          className="w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-700 block">Modern Banyo Mimarisi:</span>
+                      <ul className="list-disc pl-3.5 space-y-0.5">
+                        <li>Konut başı ortalama maliyet: <strong>2.800 TL</strong> (304 Çelik Kanal + Etekli Yalıtım + Montaj).</li>
+                        <li>Duş küveti veya yüksek basamak ihtiyacını ortadan kaldırarak engelsiz ve modern banyo sağlar.</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ekstra İmalat Bedeli</span>
+                    {params.hasLinearShowerDrain && (
+                      <span className="text-[9px] text-purple-700 font-bold">
+                        {results.linearDrainUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.linearDrainPricePerFlat || 2800).toLocaleString('tr-TR')} TL
+                        {(results.shopUnitsCount || 0) > 0 && <span className="text-amber-700 block text-[8px] font-medium">({results.shopUnitsCount} dükkan hariç)</span>}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasLinearShowerDrain ? `${results.linearDrainCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 6: Nem Sensörlü Sessiz Banyo Fanı */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasBathroomHumidityFan ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasBathroomHumidityFan ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Fan className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Nem Sensörlü Banyo Fanı</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">Geri Tepme Klapeli & Ultra Sessiz</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasBathroomHumidityFan}
+                        onChange={(e) => onChangeParams({ ...params, hasBathroomHumidityFan: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-semibold">
+                    <span>🏠 Yalnızca Konut Daireleri İçindir</span>
+                    <span className="text-amber-600 font-normal">(Dükkanlarda banyo/duş olmadığından hariç tutulur)</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Banyodaki nem ve buharı otomatik algılayarak çalışan, <strong>25 dB ultra sessiz motorlu</strong> ve şafttan koku geri dönüşünü sıfırlayan çekvalfli akıllı egzoz fanıdır. Küf, mantar ve rutubet kokusunu tamamen yok eder.
+                  </p>
+
+                  {params.hasBathroomHumidityFan ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] text-slate-600 bg-purple-50/60 p-2.5 rounded-lg border border-purple-100 space-y-1">
+                        <div className="flex items-center justify-between font-bold text-purple-950">
+                          <span>Elektronik Nem Sensörü (Higrostat)</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">25 dB Sessiz</span>
+                        </div>
+                        <ul className="text-[10px] text-slate-600 space-y-0.5 list-disc pl-3.5 pt-0.5">
+                          <li>Nem %60 eşiğini aştığında otomatik devreye girer, ortam kuruyunca kapanır.</li>
+                          <li>Geri tepme klapesi şafttan diğer katların kokusunun ve haşerenin içeri sızmasını önler.</li>
+                          {(results.shopUnitsCount || 0) > 0 && (
+                            <li className="text-amber-800 font-medium font-mono text-[9px]">
+                              {results.shopUnitsCount} adet dükkan muaf tutulmuştur ({results.residentialUnitsCount ?? (results.flatCount - (results.shopUnitsCount || 0))} konuta uygulanır).
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block">Konut Başı Nem Sensörlü Fan Bedeli (TL)</label>
+                        <input
+                          type="number"
+                          value={params.bathroomHumidityFanPricePerFlat ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                            onChangeParams({ ...params, bathroomHumidityFanPricePerFlat: val });
+                          }}
+                          placeholder="3200"
+                          className="w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-700 block">Banyo Havalandırma Konforu:</span>
+                      <ul className="list-disc pl-3.5 space-y-0.5">
+                        <li>Konut başı ortalama maliyet: <strong>3.200 TL</strong> (Otomatik Higrostatlı Fan + Montaj).</li>
+                        <li>Ayna buğulanmasını önler, banyo dolaplarının nemden şişmesini engeller.</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ekstra İmalat Bedeli</span>
+                    {params.hasBathroomHumidityFan && (
+                      <span className="text-[9px] text-purple-700 font-bold">
+                        {results.bathroomHumidityFanUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.bathroomHumidityFanPricePerFlat || 3200).toLocaleString('tr-TR')} TL
+                        {(results.shopUnitsCount || 0) > 0 && <span className="text-amber-700 block text-[8px] font-medium">({results.shopUnitsCount} dükkan hariç)</span>}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasBathroomHumidityFan ? `${results.bathroomHumidityFanCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 7: Kadınların Hayatını Kolaylaştıran Fotoselli Mutfak Bataryası */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasTouchlessKitchenFaucet ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasTouchlessKitchenFaucet ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <ChefHat className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Fotoselli Mutfak Bataryası</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">Kadınların Hayatını Kolaylaştıran Dokunuş</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasTouchlessKitchenFaucet}
+                        onChange={(e) => onChangeParams({ ...params, hasTouchlessKitchenFaucet: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-semibold">
+                    <span>🏠 Yalnızca Konut Daireleri İçindir</span>
+                    <span className="text-amber-600 font-normal">(Dükkanlarda konut tipi mutfak olmadığından hariç tutulur)</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Mutfakta yemek hazırlarken hamurlu, yağlı veya çiğ etli ellerle bataryaya dokunmadan <strong>temassız kızılötesi sensörle</strong> su akışı sağlayan hijyenik eviye bataryasıdır. Tezgahın su içinde kalmasını ve kirlenmesini tamamen önler.
+                  </p>
+
+                  {params.hasTouchlessKitchenFaucet ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] text-slate-600 bg-purple-50/60 p-2.5 rounded-lg border border-purple-100 space-y-1">
+                        <div className="flex items-center justify-between font-bold text-purple-950">
+                          <span>Temassız Kızılötesi Sensör</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">%40 Su Tasarrufu</span>
+                        </div>
+                        <ul className="text-[10px] text-slate-600 space-y-0.5 list-disc pl-3.5 pt-0.5">
+                          <li>El yaklaştırıldığında anında akar, çekildiğinde otomatik durur; tezgaha damlamaz.</li>
+                          <li>Çapraz bulaşmayı önler, gıda hazırlığında en üst düzey bakteri hijyeni sağlar.</li>
+                          {(results.shopUnitsCount || 0) > 0 && (
+                            <li className="text-amber-800 font-medium font-mono text-[9px]">
+                              {results.shopUnitsCount} adet dükkan muaf tutulmuştur ({results.residentialUnitsCount ?? (results.flatCount - (results.shopUnitsCount || 0))} konuta uygulanır).
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block">Konut Başı Fotoselli Mutfak Bataryası Bedeli (TL)</label>
+                        <input
+                          type="number"
+                          value={params.touchlessKitchenFaucetPricePerFlat ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                            onChangeParams({ ...params, touchlessKitchenFaucetPricePerFlat: val });
+                          }}
+                          placeholder="4500"
+                          className="w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-700 block">Mutfak Hijyeni & Pratiklik:</span>
+                      <ul className="list-disc pl-3.5 space-y-0.5">
+                        <li>Konut başı ortalama maliyet: <strong>4.500 TL</strong> (Sensörlü Batarya + Çiftli Güç Ünitesi + Montaj).</li>
+                        <li>Özellikle kadınların günlük temizlik ve mutfak yükünü hafifleterek yüksek memnuniyet oluşturur.</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ekstra İmalat Bedeli</span>
+                    {params.hasTouchlessKitchenFaucet && (
+                      <span className="text-[9px] text-purple-700 font-bold">
+                        {results.touchlessKitchenFaucetUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.touchlessKitchenFaucetPricePerFlat || 4500).toLocaleString('tr-TR')} TL
+                        {(results.shopUnitsCount || 0) > 0 && <span className="text-amber-700 block text-[8px] font-medium">({results.shopUnitsCount} dükkan hariç)</span>}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasTouchlessKitchenFaucet ? `${results.touchlessKitchenFaucetCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
                   </div>
                 </div>
               </div>
