@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
-import { Save, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor } from 'lucide-react';
+import { Save, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor, LogIn, LogOut, Cloud } from 'lucide-react';
 import { Logo } from './Logo';
 import { AppTheme } from '../types';
+import { useFirebaseSync } from '../context/FirebaseSyncContext';
 
 interface HeaderProps {
   onExportJson: () => void;
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
 }) => {
   const isGray = theme === 'gray';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user, signInWithGoogle, signOut, syncStatus } = useFirebaseSync();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -157,6 +159,47 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             </>
           )}
           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
+
+          {/* User Sign In / Profile and Sync Status */}
+          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col text-right hidden md:flex">
+                  <span className="text-[11px] font-black leading-3 max-w-[120px] truncate text-slate-700">
+                    {user.displayName}
+                  </span>
+                  <span className="text-[9px] text-emerald-600 font-bold flex items-center justify-end gap-0.5 mt-0.5">
+                    <Cloud className="w-2.5 h-2.5" />
+                    Bulut Aktif
+                  </span>
+                </div>
+                <img
+                  src={user.photoURL || 'https://www.gravatar.com/avatar/?d=mp'}
+                  alt="Avatar"
+                  className="w-8 h-8 rounded-full border border-slate-200 shadow-xs object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="p-1.5 rounded-xl border border-rose-100 hover:bg-rose-50 text-rose-600 transition-all active:scale-95 cursor-pointer"
+                  title="Bulut Oturumunu Kapat"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={signInWithGoogle}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer"
+                title="Google ile Giriş Yap ve Verilerini Bulutta Yedekle"
+              >
+                <LogIn className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Bulut Girişi</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </header>

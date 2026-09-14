@@ -97,6 +97,24 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     ? 'bg-slate-900 text-gray-100 border-slate-700 focus:border-indigo-500'
     : 'bg-white text-slate-900 border-slate-200 focus:border-indigo-500';
 
+  const inputClass = `w-full text-xs font-bold px-3.5 py-3 rounded-xl border transition-all duration-200 focus:outline-hidden focus:ring-4 ${
+    isGray
+      ? 'bg-slate-900 text-gray-100 border-slate-700 focus:border-indigo-500 focus:ring-indigo-500/10'
+      : 'bg-white text-slate-900 border-slate-200/80 focus:border-indigo-500 focus:ring-indigo-500/10 shadow-2xs'
+  }`;
+
+  const inputClassEmerald = `w-full text-xs font-black px-3.5 py-3 rounded-xl border transition-all duration-200 focus:outline-hidden focus:ring-4 ${
+    isGray
+      ? 'border-emerald-800/80 bg-slate-900 text-emerald-100 focus:border-emerald-500 focus:ring-emerald-500/10'
+      : 'border-emerald-300 bg-white text-emerald-950 focus:border-emerald-500 focus:ring-emerald-500/10 shadow-2xs'
+  }`;
+
+  const inputClassIndigo = `w-full text-xs font-black px-3.5 py-3 rounded-xl border transition-all duration-200 focus:outline-hidden focus:ring-4 ${
+    isGray
+      ? 'border-indigo-800/80 bg-slate-900 text-indigo-100 focus:border-indigo-500 focus:ring-indigo-500/10'
+      : 'border-indigo-300 bg-white text-indigo-950 focus:border-indigo-500 focus:ring-indigo-500/10 shadow-2xs'
+  }`;
+
   const addressInputRef = useRef<HTMLInputElement>(null);
   const minimalAddressInputRef = useRef<HTMLInputElement>(null);
 
@@ -716,7 +734,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   👤 Müşteri / Proje Adı
                 </label>
                 <input
@@ -725,7 +743,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   value={params.projectName || ''}
                   onChange={(e) => onChangeParams({ ...params, projectName: e.target.value })}
                   placeholder="Örn: Alpaslan Beyoğlu Apartmanı Kentsel Dönüşüm Projesi"
-                  className={`w-full text-xs font-bold px-3 py-2.5 rounded-lg border ${inputBg}`}
+                  className={inputClass}
                 />
                 <span className="text-[10px] text-slate-400 mt-1 block">
                   Teklif çıktılarında ve sözleşme metinlerinde proje başlığı olarak görünecektir.
@@ -733,7 +751,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   📍 Yapı / Proje Adresi (Ada & Parsel)
                 </label>
                 <div className="relative">
@@ -744,7 +762,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     value={params.projectAddress || ''}
                     onChange={(e) => onChangeParams({ ...params, projectAddress: e.target.value })}
                     placeholder="Örn: İstanbul, Kadıköy, Göztepe Mah. 1024 Ada 15 Parsel"
-                    className={`w-full text-xs font-bold px-3 py-2.5 rounded-lg border ${inputBg}`}
+                    className={inputClass}
                   />
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">
@@ -752,14 +770,14 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200/80 space-y-1">
+              <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-1.5">
                 <label className="block text-xs font-bold text-emerald-950 flex items-center justify-between">
                   <span>📐 Arsa / Parsel Alanı (m²)</span>
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded">
                     Temel Giriş
                   </span>
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center">
                   <input
                     id="projectLandAreaInput"
                     type="number"
@@ -770,23 +788,23 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       onChangeParams({ ...params, landArea: newLandArea });
                     }}
                     placeholder="Örn: 350"
-                    className={`w-full text-xs font-black px-3 py-2 rounded-lg border border-emerald-300 bg-white text-emerald-950 focus:ring-2 focus:ring-emerald-500/30`}
+                    className={inputClassEmerald}
                   />
-                  <span className="absolute right-3 top-2 text-xs font-bold text-emerald-600">m²</span>
+                  <span className="absolute right-3.5 text-xs font-black text-emerald-600 font-mono">m²</span>
                 </div>
                 <span className="text-[10px] text-emerald-700 block font-medium">
                   Tüm modüllerdeki (TAKS, KAKS, Arsa Payı) hesaplamaları doğrudan günceller.
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-indigo-50/50 border border-indigo-200/80 space-y-1">
+              <div className="p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-200/80 space-y-1.5">
                 <label className="block text-xs font-bold text-indigo-950 flex items-center justify-between">
                   <span>🏗️ Taban Oturumu (m²)</span>
                   <span className="text-[10px] bg-indigo-100 text-indigo-800 font-extrabold px-1.5 py-0.5 rounded">
                     Zemin Kat
                   </span>
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center">
                   <input
                     id="projectBaseAreaInput"
                     type="number"
@@ -794,9 +812,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     value={params.baseBuildArea || ''}
                     onChange={(e) => onChangeParams({ ...params, baseBuildArea: Math.max(0, parseFloat(e.target.value) || 0) })}
                     placeholder="Örn: 140"
-                    className={`w-full text-xs font-black px-3 py-2 rounded-lg border border-indigo-300 bg-white text-indigo-950 focus:ring-2 focus:ring-indigo-500/30`}
+                    className={inputClassIndigo}
                   />
-                  <span className="absolute right-3 top-2 text-xs font-bold text-indigo-600">m²</span>
+                  <span className="absolute right-3.5 text-xs font-black text-indigo-600 font-mono">m²</span>
                 </div>
                 <span className="text-[10px] text-indigo-700 block font-medium">
                   Binanın arsa üzerine oturacağı net zemin alanı (m²).
@@ -2029,42 +2047,58 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           )}
 
           {/* CANLI HESAPLAMA METRİK KARTLARI (Birim Satış Maliyeti, Net İnşaat, Genel Bedel, Teslim Süresi) */}
-          <div className="pt-4 border-t border-slate-100 space-y-3">
-            <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+          <div className="pt-5 border-t border-slate-100 space-y-4 animate-fade-in">
+            <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-emerald-600" />
-              <span>Finansal Özet & Maliyet Metrikleri</span>
+              <span>Finansal Özet & Maliyet Metrikleri (Bento Grid)</span>
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="p-3.5 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 space-y-1">
-                <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider block">Birim Satış / İnşaat Maliyeti</span>
-                <div className="text-base font-black text-indigo-950 font-mono">
-                  {results.grossCostPerSqM ? `${results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / m²` : 'Hesaplanıyor...'}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Bento Hero Card: Tahmini Genel Proje Bedeli + Tahmini Teslim Süresi */}
+              <div className="lg:col-span-2 md:col-span-2 p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 to-amber-600/[0.015] border-2 border-amber-300 flex flex-col justify-between shadow-xs">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-amber-200/40 pb-3 mb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-800">Tahmini Genel Proje Bedeli</span>
+                    </div>
+                    <div className="text-2xl sm:text-3xl font-black text-amber-950 font-mono tracking-tight leading-none pt-1">
+                      {results.grandTotal ? `${results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : 'Hesaplanıyor...'}
+                    </div>
+                  </div>
+                  <div className="bg-amber-500/10 border border-amber-300/60 px-3 py-1.5 rounded-xl text-center shrink-0">
+                    <span className="text-[9px] font-bold text-amber-800 uppercase block tracking-wider leading-none mb-1">Tahmini Süre</span>
+                    <span className="text-sm font-black text-amber-950 font-mono leading-none">{results.finalMonths} Ay</span>
+                  </div>
                 </div>
-                <span className="text-[10px] text-indigo-600 block">Yapı ruhsatı & resmi birim maliyet</span>
+                <div className="text-[10.5px] text-amber-700/80 leading-relaxed font-medium">
+                  Yapı yaklaşık inşaat maliyeti, resmi belediye harçları, otopark payı ve %15 genel yüklenici kârı dahil tüm bütçeyi kapsar.
+                </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 space-y-1">
-                <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">Net İnşaat Yapım Maliyeti</span>
-                <div className="text-base font-black text-emerald-950 font-mono">
-                  {results.subTotalCost ? `${results.subTotalCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : 'Hesaplanıyor...'}
+              {/* Bento Card 2: Birim Satış / İnşaat Maliyeti */}
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 transition-colors duration-200 flex flex-col justify-between shadow-xs">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 block">Birim Metrekare Maliyeti</span>
+                  <div className="text-lg font-black text-slate-800 font-mono tracking-tight pt-1">
+                    {results.grossCostPerSqM ? `${results.grossCostPerSqM.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL / m²` : 'Hesaplanıyor...'}
+                  </div>
                 </div>
-                <span className="text-[10px] text-emerald-600 block">Kaba + İnce karkas imalat bedeli</span>
+                <div className="text-[10px] text-slate-500 leading-normal border-t border-slate-100 pt-2.5 mt-3">
+                  Brüt inşaat alanı üzerinden hesaplanan resmi m² imalat birim maliyeti.
+                </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-100 space-y-1">
-                <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">Tahmini Genel Proje Bedeli</span>
-                <div className="text-base font-black text-amber-950 font-mono">
-                  {results.grandTotal ? `${results.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : 'Hesaplanıyor...'}
+              {/* Bento Card 3: Net İnşaat Yapım Maliyeti */}
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 transition-colors duration-200 flex flex-col justify-between shadow-xs">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 block">Net Yapım Maliyet Alt Toplamı</span>
+                  <div className="text-lg font-black text-slate-800 font-mono tracking-tight pt-1">
+                    {results.subTotalCost ? `${results.subTotalCost.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : 'Hesaplanıyor...'}
+                  </div>
                 </div>
-                <span className="text-[10px] text-amber-700 block">Ruhsat, harçlar & genel giderler dahil</span>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-50 to-fuchsia-50 border border-purple-100 space-y-1">
-                <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wider block">Tahmini Teslim Süresi</span>
-                <div className="text-base font-black text-purple-950 font-mono">
-                  {results.finalMonths} Ay
+                <div className="text-[10px] text-slate-500 leading-normal border-t border-slate-100 pt-2.5 mt-3">
+                  Sözleşme kapsamındaki kaba karkas ve ince yapı imalat işleri alt toplamı.
                 </div>
-                <span className="text-[10px] text-purple-700 block">Ruhsat & şantiye tamamlama süresi</span>
               </div>
             </div>
           </div>
@@ -2094,7 +2128,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 <select
                   value={params.parkingFeeMode || 'excluded'}
                   onChange={(e) => onChangeParams({ ...params, parkingFeeMode: e.target.value as any })}
-                  className="text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-300 bg-white text-blue-950 outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                  className="text-xs font-black px-3.5 py-2.5 rounded-xl border border-blue-300 bg-white text-blue-950 transition-all duration-200 outline-hidden focus:ring-4 focus:ring-blue-500/10 cursor-pointer"
                 >
                   <option value="none">Hesaplamayı Kapat</option>
                   <option value="excluded">Teklife Hariç (İşveren Öder - Bilgi Amaçlı Hesapla)</option>
@@ -2117,39 +2151,39 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         value={params.providedParkingSpaces !== undefined ? params.providedParkingSpaces : 0}
                         onChange={(e) => onChangeParams({ ...params, providedParkingSpaces: Math.max(0, parseInt(e.target.value) || 0) })}
                         placeholder="Yapılan otopark sayısı"
-                        className="w-full text-xs font-bold font-mono px-3 py-1.5 rounded-lg border border-slate-200 bg-white"
+                        className="w-full text-xs font-black font-mono px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 shadow-2xs"
                       />
                       <span className="text-[10px] text-slate-500 block leading-tight">Parselde yapılan otopark adedi zorunlu miktarı düşürür.</span>
                     </div>
 
                     <div className="space-y-1">
                       <label className="text-[11px] font-bold text-slate-600 block">Emlak Vergisi Arsa m² Değeri (A)</label>
-                      <div className="relative">
+                      <div className="relative flex items-center">
                         <input
                           type="number"
                           min="0"
                           value={params.parkingLandTaxValue !== undefined ? params.parkingLandTaxValue : 12000}
                           onChange={(e) => onChangeParams({ ...params, parkingLandTaxValue: Math.max(0, parseFloat(e.target.value) || 0) })}
                           placeholder="Emlak vergisi değeri"
-                          className="w-full text-xs font-bold font-mono pl-3 pr-8 py-1.5 rounded-lg border border-slate-200 bg-white"
+                          className="w-full text-xs font-black font-mono pl-3.5 pr-8 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 shadow-2xs"
                         />
-                        <span className="absolute right-3 top-1.5 text-[10px] font-bold text-slate-400">TL</span>
+                        <span className="absolute right-3.5 text-xs font-black text-slate-400 font-mono">TL</span>
                       </div>
                       <span className="text-[10px] text-slate-500 block leading-tight">Belediye Emlak Vergisi arsa rayiç m² bedelidir.</span>
                     </div>
 
                     <div className="space-y-1">
                       <label className="text-[11px] font-bold text-slate-600 block">Yapı Yaklaşık Birim Maliyeti (B)</label>
-                      <div className="relative">
+                      <div className="relative flex items-center">
                         <input
                           type="number"
                           min="0"
                           value={params.parkingBuildingCostValue !== undefined ? params.parkingBuildingCostValue : 9000}
                           onChange={(e) => onChangeParams({ ...params, parkingBuildingCostValue: Math.max(0, parseFloat(e.target.value) || 0) })}
                           placeholder="Maliye birim değeri"
-                          className="w-full text-xs font-bold font-mono pl-3 pr-8 py-1.5 rounded-lg border border-slate-200 bg-white"
+                          className="w-full text-xs font-black font-mono pl-3.5 pr-8 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 shadow-2xs"
                         />
-                        <span className="absolute right-3 top-1.5 text-[10px] font-bold text-slate-400">TL</span>
+                        <span className="absolute right-3.5 text-xs font-black text-slate-400 font-mono">TL</span>
                       </div>
                       <span className="text-[10px] text-slate-500 block leading-tight">Bakanlık tebliğindeki otopark birim yapı bedelidir.</span>
                     </div>

@@ -4,14 +4,22 @@ import {
   AlertCircle,
   Settings2,
   Smartphone,
+  Menu as MenuIcon,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 import { Header } from './components/Header';
 import { TabNavigation } from './components/TabNavigation';
 import { CompactSummaryBar } from './components/CompactSummaryBar';
 import { ConfirmModal } from './components/ConfirmModal';
 import { TabLoadingSkeleton } from './components/TabLoadingSkeleton';
+import { Logo } from './components/Logo';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { useFirebaseSync } from './context/FirebaseSyncContext';
 
 // Primary tabs imported directly for instant, rock-solid mobile & Safari initial paint
 import { ProjectSetupTab } from './components/ProjectSetupTab';
@@ -61,6 +69,7 @@ import {
 } from './types';
 
 export default function App() {
+  const { user, saveProjectToCloud, loadProjectsFromCloud, deleteProjectFromCloud } = useFirebaseSync();
   const [theme, setTheme] = useState<AppTheme>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_theme');
@@ -111,6 +120,22 @@ export default function App() {
   const [requestedSetupStep, setRequestedSetupStep] = useState<number | undefined>(2);
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isProjectTransferOpen, setIsProjectTransferOpen] = useState(false);
+
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('ab_yapi_sidebar');
+      if (saved !== null) return saved === 'true';
+    } catch (e) {}
+    return true;
+  });
+
+  const toggleSidebar = () => {
+    const next = !sidebarOpen;
+    setSidebarOpen(next);
+    try {
+      localStorage.setItem('ab_yapi_sidebar', String(next));
+    } catch (e) {}
+  };
 
   const handleSummaryChipNavigate = (itemId: string) => {
     let targetTab: TabId = 'kurulum';
@@ -618,6 +643,28 @@ export default function App() {
     return [];
   });
 
+  // Synchronize calculation history with Firebase on login
+  useEffect(() => {
+    const syncProjectsWithFirebase = async () => {
+      if (!user) return;
+      try {
+        const cloudProjects = await loadProjectsFromCloud();
+        if (cloudProjects && cloudProjects.length > 0) {
+          setHistoryList(cloudProjects);
+          localStorage.setItem('ab_yapi_history', JSON.stringify(cloudProjects));
+        } else {
+          // Back up local history to cloud if cloud is empty
+          for (const localProj of historyList) {
+            await saveProjectToCloud(localProj);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to sync project history with Firebase:", err);
+      }
+    };
+    syncProjectsWithFirebase();
+  }, [user]);
+
   // High-performance debounced persistence (prevents input lag and stutter)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -669,6 +716,13 @@ export default function App() {
     try {
       localStorage.setItem('ab_yapi_history', JSON.stringify(updatedHistory));
     } catch (e) {}
+
+    // Back up calculated project to cloud
+    if (user) {
+      saveProjectToCloud(newSnapshot).catch(err => 
+        console.warn("Failed to save calculated project to cloud:", err)
+      );
+    }
     showNotification('success', 'Hesaplama tamamlandı ve tüm tablolar güncellendi!');
   };
 
@@ -758,19 +812,33 @@ export default function App() {
   };
 
   const handleClearHistory = () => {
+    const oldHistory = [...historyList];
     setHistoryList([]);
     try {
       localStorage.removeItem('ab_yapi_history');
     } catch (e) {}
+
+    if (user) {
+      for (const proj of oldHistory) {
+        deleteProjectFromCloud(proj.projectAddress).catch(() => {});
+      }
+    }
     showNotification('success', 'Hesaplama geçmişi temizlendi.');
   };
 
   const handleDeleteHistoryItem = (index: number) => {
+    const targetProject = historyList[index];
     const updated = historyList.filter((_, idx) => idx !== index);
     setHistoryList(updated);
     try {
       localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
     } catch (e) {}
+
+    if (user && targetProject) {
+      deleteProjectFromCloud(targetProject.projectAddress).catch(err => 
+        console.warn("Failed to delete project from cloud:", err)
+      );
+    }
     showNotification('success', 'Seçilen proje kaydı başarıyla silindi.');
   };
 
@@ -806,34 +874,50 @@ export default function App() {
   return (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 w-full max-w-full overflow-x-hidden ${
-        isGray ? 'bg-slate-200/80 text-slate-900' : 'bg-slate-50 text-slate-900'
+        isGray ? 'bg-slate-100 text-slate-900' : 'bg-[#fafafa] text-slate-900'
       }`}
     >
-      <div className="sticky top-0 z-30 print:hidden w-full max-w-full overflow-hidden">
-        <Header
-          onExportJson={handleExportJson}
-          onImportJson={handleImportJson}
-          onOpenTransferModal={() => setIsProjectTransferOpen(true)}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}
-          appMode={appMode}
-          onToggleAppMode={toggleAppMode}
-        />
-      </div>
+      <div className="flex flex-1 relative w-full min-w-0">
+        {/* DESKTOP SIDEBAR (Hidden on mobile) */}
+        <aside
+          className={`hidden md:flex flex-col shrink-0 border-r transition-all duration-300 print:hidden ${
+            sidebarOpen ? 'w-64' : 'w-16'
+          } ${
+            isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200/60'
+          }`}
+        >
+          {/* Sidebar Logo & Branding Header */}
+          <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 shrink-0">
+            {sidebarOpen ? (
+              <div className="flex items-center gap-2 animate-fade-in">
+                <Logo size="sm" theme={theme} />
+                <span className="text-[10px] font-black tracking-widest text-slate-400">DASHBOARD</span>
+              </div>
+            ) : (
+              <div className="mx-auto">
+                <Logo size="sm" theme={theme} />
+              </div>
+            )}
+            <button
+              onClick={toggleSidebar}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors hidden md:block cursor-pointer active:scale-95"
+              title={sidebarOpen ? "Menüyü Daralt" : "Menüyü Genişlet"}
+            >
+              {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
+            </button>
+          </div>
 
-      {/* Top Menu Bar (Categorized & Sticky) */}
-      <div className={`sticky top-[64px] z-20 border-b shadow-sm transition-colors print:hidden w-full max-w-full overflow-hidden ${
-        isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'
-      }`}>
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar w-full max-w-full">
-          {categorizedTabs.map((cat, catIdx) => (
-            <div key={cat.id} className="flex items-center gap-1 shrink-0">
-              {catIdx > 0 && <div className="w-[1px] h-4 bg-slate-300 mx-1" />}
-              <div className={`flex flex-col gap-0.5 ${catIdx === 0 ? '' : 'ml-1'}`}>
-                <span className="text-[8px] uppercase tracking-tighter font-bold text-slate-400 px-1">{cat.label}</span>
-                <div className="flex items-center gap-1.5">
-                  {cat.tabs.map(tab => {
+          {/* Sidebar Menu Items (Categorized with light hiyerarsi) */}
+          <div className="flex-1 overflow-y-auto py-5 px-3 space-y-5 no-scrollbar">
+            {categorizedTabs.map((cat) => (
+              <div key={cat.id} className="space-y-1">
+                {sidebarOpen && (
+                  <h4 className="text-[9px] uppercase tracking-widest font-black text-slate-400 px-2.5 mb-1.5">
+                    {cat.label}
+                  </h4>
+                )}
+                <div className="space-y-0.5">
+                  {cat.tabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
                     return (
@@ -842,18 +926,24 @@ export default function App() {
                         type="button"
                         onClick={() => setActiveTab(tab.id)}
                         title={tab.label}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap shrink-0 ${
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap overflow-hidden group cursor-pointer ${
                           isActive
-                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]'
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/15 font-black scale-[1.01]'
                             : isGray
-                            ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200'
+                            ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                         }`}
                       >
-                        <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : ''}`} />
-                        <span>{tab.shortLabel}</span>
-                        {tab.id === 'gecmis' && (
-                          <span className={`ml-0.5 text-[9px] px-1.5 rounded-full font-bold ${
+                        <Icon className={`w-4 h-4 shrink-0 transition-colors ${
+                          isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+                        }`} />
+                        {sidebarOpen && (
+                          <span className="truncate flex-1 text-left animate-fade-in">
+                            {tab.shortLabel}
+                          </span>
+                        )}
+                        {sidebarOpen && tab.id === 'gecmis' && (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                             isActive ? 'bg-indigo-500 text-white' : 'bg-pink-100 text-pink-800'
                           }`}>
                             {historyList.length}
@@ -864,51 +954,125 @@ export default function App() {
                   })}
                 </div>
               </div>
+            ))}
+          </div>
+
+          {/* Sidebar Collapse Quick Actions Footer */}
+          {sidebarOpen && (
+            <div className="p-3 border-t border-slate-100 shrink-0 space-y-1">
+              <button
+                onClick={toggleAppMode}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-black text-indigo-700 hover:bg-indigo-50 bg-indigo-50/40 border border-indigo-100/50 transition-all cursor-pointer"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>Mobil Sürüm</span>
+              </button>
             </div>
-          ))}
-          
-          {/* Quick Mobile Lite Mode Switch Button */}
-          <button
-            type="button"
-            onClick={toggleAppMode}
-            title="Mobil Lite Sürüme Geç"
-            className={`self-end mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 border cursor-pointer active:scale-95 ${
-              isGray
-                ? 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border-indigo-200 shadow-xs'
-                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-xs'
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden sm:inline">Mobil Lite</span>
-          </button>
+          )}
+        </aside>
 
-          <button
-            type="button"
-            onClick={() => setIsMenuSettingsOpen(true)}
-            title="Menü Ayarları"
-            className={`ml-auto self-end mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
-              isGray
-                ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-slate-300'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
-            }`}
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Menü</span>
-          </button>
-        </div>
-      </div>
+        {/* RIGHT CONTENT BODY COLUMN */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden relative">
+          <div className="sticky top-0 z-30 print:hidden w-full max-w-full overflow-hidden">
+            <Header
+              onExportJson={handleExportJson}
+              onImportJson={handleImportJson}
+              onOpenTransferModal={() => setIsProjectTransferOpen(true)}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}
+              appMode={appMode}
+              onToggleAppMode={toggleAppMode}
+            />
+          </div>
 
-      {/* Global Live Summary Bar */}
-      <div className="sticky top-[118px] z-10 print:hidden w-full max-w-full overflow-hidden">
-        <CompactSummaryBar
-          results={results}
-          params={params}
-          theme={theme}
-          onNavigateToItem={handleSummaryChipNavigate}
-        />
-      </div>
+          {/* Top Menu Bar (Categorized & Sticky) - MOBILE ONLY */}
+          <div className={`md:hidden sticky top-[64px] z-20 border-b shadow-sm transition-colors print:hidden w-full max-w-full overflow-hidden ${
+            isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'
+          }`}>
+            <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar w-full max-w-full">
+              {categorizedTabs.map((cat, catIdx) => (
+                <div key={cat.id} className="flex items-center gap-1 shrink-0">
+                  {catIdx > 0 && <div className="w-[1px] h-4 bg-slate-300 mx-1" />}
+                  <div className={`flex flex-col gap-0.5 ${catIdx === 0 ? '' : 'ml-1'}`}>
+                    <span className="text-[8px] uppercase tracking-tighter font-bold text-slate-400 px-1">{cat.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      {cat.tabs.map(tab => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setActiveTab(tab.id)}
+                            title={tab.label}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap shrink-0 ${
+                              isActive
+                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]'
+                                : isGray
+                                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : ''}`} />
+                            <span>{tab.shortLabel}</span>
+                            {tab.id === 'gecmis' && (
+                              <span className={`ml-0.5 text-[9px] px-1.5 rounded-full font-bold ${
+                                isActive ? 'bg-indigo-50 text-white' : 'bg-pink-100 text-pink-800'
+                              }`}>
+                                {historyList.length}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Quick Mobile Lite Mode Switch Button */}
+              <button
+                type="button"
+                onClick={toggleAppMode}
+                title="Mobil Lite Sürüme Geç"
+                className={`self-end mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 border cursor-pointer active:scale-95 ${
+                  isGray
+                    ? 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border-indigo-200 shadow-xs'
+                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-xs'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="hidden sm:inline">Mobil Lite</span>
+              </button>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 w-full max-w-full overflow-x-hidden min-w-0">
+              <button
+                type="button"
+                onClick={() => setIsMenuSettingsOpen(true)}
+                title="Menü Ayarları"
+                className={`ml-auto self-end mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
+                  isGray
+                    ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-slate-300'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
+                }`}
+              >
+                <Settings2 className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Menü</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Global Live Summary Bar - STICKY (Optimized height top-[118px] mobile / top-[64px] desktop) */}
+          <div className="sticky top-[118px] md:top-[64px] z-10 print:hidden w-full max-w-full overflow-hidden">
+            <CompactSummaryBar
+              results={results}
+              params={params}
+              theme={theme}
+              onNavigateToItem={handleSummaryChipNavigate}
+            />
+          </div>
+
+          <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 w-full max-w-full overflow-x-hidden min-w-0">
         {/* Tab Views */}
         <div className="flex-1 w-full min-w-0 max-w-full overflow-x-hidden">
           {feedback && (
@@ -1068,6 +1232,8 @@ export default function App() {
         />
       </div>
     </main>
+    </div>
+    </div>
 
     {isMenuSettingsOpen && (
       <Suspense fallback={null}>

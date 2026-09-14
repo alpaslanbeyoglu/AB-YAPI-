@@ -51,9 +51,13 @@ import {
   ConstructionStageStatus,
   ConstructionPeriodType,
   ClientNotificationDraft,
-  ConstructionProgressProjectState
+  ConstructionProgressProjectState,
+  Subcontractor,
+  SubcontractorPayment,
+  SavedProjectData
 } from '../types';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
+import { useFirebaseSync } from '../context/FirebaseSyncContext';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { Logo } from './Logo';
 
@@ -283,6 +287,64 @@ const DEFAULT_STAGE_DEFINITIONS: Array<Omit<ConstructionStage, 'startDatePlanned
   }
 ];
 
+const DEFAULT_SUBCONTRACTORS: Subcontractor[] = [
+  {
+    id: 'sub_1',
+    name: 'Yıldız Hafriyat ve Altyapı Ltd.',
+    trade: 'Hafriyat, Kazı & Şev Koruma',
+    contactPerson: 'Adnan Yıldız',
+    phone: '0532 456 78 90',
+    contractAmount: 450000,
+    contractDate: '2026-03-10',
+    startDate: '2026-03-15',
+    endDatePlanned: '2026-04-10',
+    progressPercent: 100,
+    status: 'completed',
+    payments: [
+      { id: 'p_1_1', date: '2026-03-10', amount: 150000, paymentType: 'bank', paymentTypeLabel: 'Banka Havalesi', description: 'Sözleşme Avansı (%33)' },
+      { id: 'p_1_2', date: '2026-04-12', amount: 300000, paymentType: 'bank', paymentTypeLabel: 'Banka Havalesi', description: 'Kazı ve İksa İşleri Teslim Hakedişi' }
+    ],
+    notes: 'Hafriyat işleri kotunda ve komşu binalara zarar vermeden mini kazık sistemiyle başarıyla tamamlandı.'
+  },
+  {
+    id: 'sub_2',
+    name: 'Karadeniz Betonarme Yapı',
+    trade: 'Kaba İnşaat, Kalıp & Demir İşleri',
+    contactPerson: 'Mustafa Temel',
+    phone: '0542 987 65 43',
+    contractAmount: 3200000,
+    contractDate: '2026-04-05',
+    startDate: '2026-04-15',
+    endDatePlanned: '2026-09-30',
+    progressPercent: 65,
+    status: 'in_progress',
+    payments: [
+      { id: 'p_2_1', date: '2026-04-05', amount: 500000, paymentType: 'bank', paymentTypeLabel: 'Banka Havalesi', description: 'Mobilizasyon ve Demir Avansı' },
+      { id: 'p_2_2', date: '2026-05-20', amount: 750000, paymentType: 'check', paymentTypeLabel: 'Şirket Çeki', description: 'Temel & Bodrum Kat Betonu Hakedişi' },
+      { id: 'p_2_3', date: '2026-07-15', amount: 800000, paymentType: 'bank', paymentTypeLabel: 'Banka Havalesi', description: '1. ve 2. Normal Kat Döşeme Betonu Hakedişi' }
+    ],
+    notes: 'Şu an 4. kat kalıp imalatı devam etmektedir. Çelik hasır ve donatı denetimleri yapı denetim tarafından onaylıdır.'
+  },
+  {
+    id: 'sub_3',
+    name: 'Öz Aras Elektrik & Mekanik Tesisat',
+    trade: 'Elektrik & Sıhhi Tesisat Altyapısı',
+    contactPerson: 'Yılmaz Aras',
+    phone: '0533 111 22 33',
+    contractAmount: 1800000,
+    contractDate: '2026-05-10',
+    startDate: '2026-06-01',
+    endDatePlanned: '2026-11-15',
+    progressPercent: 30,
+    status: 'in_progress',
+    payments: [
+      { id: 'p_3_1', date: '2026-05-12', amount: 300000, paymentType: 'bank', paymentTypeLabel: 'Banka Havalesi', description: 'Sözleşme İmza Avansı' },
+      { id: 'p_3_2', date: '2026-07-01', amount: 200000, paymentType: 'cash', paymentTypeLabel: 'Kasa Nakit', description: 'Kaba Tesisat Borulama Malzeme Desteği' }
+    ],
+    notes: 'Kaba inşaatla eş zamanlı olarak beton içi borulama ve sorti çalışmaları yürütülmektedir.'
+  }
+];
+
 export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = ({
   params,
   results,
@@ -291,6 +353,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   onNavigateToContract,
 }) => {
   const { profile } = useCompanyProfile();
+  const { user, saveProjectToCloud } = useFirebaseSync();
   const isGray = theme === 'gray';
   const cardBg = isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200';
   const printDocRef = useRef<HTMLDivElement>(null);
@@ -408,8 +471,41 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   // View Mode: 'admin' (can edit everything) vs 'client' (clean view for clients)
   const [isClientMode, setIsClientMode] = useState<boolean>(false);
 
-  // Active Sub-Tab: 'timeline' | 'logs' | 'notification' | 'report'
-  const [activeSubTab, setActiveSubTab] = useState<'timeline' | 'logs' | 'notification' | 'report'>('timeline');
+  // Active Sub-Tab: 'timeline' | 'logs' | 'notification' | 'report' | 'subcontractors'
+  const [activeSubTab, setActiveSubTab] = useState<'timeline' | 'logs' | 'notification' | 'report' | 'subcontractors'>('timeline');
+
+  // Subcontractor State
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>(() => {
+    try {
+      const saved = localStorage.getItem(safeProjectKey + '_subcontractors');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_SUBCONTRACTORS;
+  });
+
+  // Selected subcontractor for viewing/editing details
+  const [selectedSubcontractorId, setSelectedSubcontractorId] = useState<string | null>(null);
+
+  // Subcontractor Modal/Form states
+  const [isAddSubOpen, setIsAddSubOpen] = useState<boolean>(false);
+  const [subName, setSubName] = useState('');
+  const [subTrade, setSubTrade] = useState('');
+  const [subContact, setSubContact] = useState('');
+  const [subPhone, setSubPhone] = useState('');
+  const [subContractAmount, setSubContractAmount] = useState<number>(0);
+  const [subContractDate, setSubContractDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [subStartDate, setSubStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [subEndDatePlanned, setSubEndDatePlanned] = useState(() => new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+  const [subProgress, setSubProgress] = useState<number>(0);
+  const [subStatus, setSubStatus] = useState<'not_started' | 'in_progress' | 'completed' | 'paused'>('not_started');
+  const [subNotes, setSubNotes] = useState('');
+
+  // Payment Form states inside subcontractor detail
+  const [isAddPaymentOpen, setIsAddPaymentOpen] = useState<boolean>(false);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [payType, setPayType] = useState<'cash' | 'bank' | 'check' | 'other'>('bank');
+  const [payDescription, setPayDescription] = useState('');
 
   // New Log Form Modal / State
   const [isAddLogOpen, setIsAddLogOpen] = useState<boolean>(false);
@@ -487,8 +583,27 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       localStorage.setItem(safeProjectKey + '_offer_accepted', JSON.stringify(isOfferAccepted));
       localStorage.setItem(safeProjectKey + '_contract_date', contractDate);
       localStorage.setItem(safeProjectKey + '_target_date', plannedCompletionDate);
+      localStorage.setItem(safeProjectKey + '_subcontractors', JSON.stringify(subcontractors));
     } catch (e) {}
-  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, safeProjectKey]);
+  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, safeProjectKey]);
+
+  // Debounced cloud sync for construction progress details to avoid rapid Firestore writes
+  useEffect(() => {
+    if (!user) return;
+    const timer = setTimeout(() => {
+      const currentSnapshot: SavedProjectData = {
+        version: '1.0.0',
+        savedAt: new Date().toISOString(),
+        projectAddress: params.projectAddress,
+        params,
+        results,
+      };
+      saveProjectToCloud(currentSnapshot).catch(err => 
+        console.warn("Cloud construction progress sync error:", err)
+      );
+    }, 1500); // 1.5 seconds debounce
+    return () => clearTimeout(timer);
+  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, user]);
 
   // Overall progress calculation (weighted sum of stages)
   const overallProgress = useMemo(() => {
@@ -515,6 +630,25 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     const diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
     return diff > 0 ? diff : 0;
   }, [plannedCompletionDate]);
+
+  // Subcontractor financial summary calculation
+  const subcontractorSummary = useMemo(() => {
+    let totalContract = 0;
+    let totalPaid = 0;
+    subcontractors.forEach(sub => {
+      totalContract += sub.contractAmount;
+      const subPaid = sub.payments.reduce((acc, p) => acc + p.amount, 0);
+      totalPaid += subPaid;
+    });
+    const totalRemaining = totalContract - totalPaid;
+    const paymentProgress = totalContract > 0 ? Math.round((totalPaid / totalContract) * 100) : 0;
+    return {
+      totalContract,
+      totalPaid,
+      totalRemaining,
+      paymentProgress
+    };
+  }, [subcontractors]);
 
   // Update Stage Progress
   const handleUpdateStageProgress = (id: string, percent: number) => {
@@ -601,6 +735,92 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   const handleDeleteLog = (id: string) => {
     if (window.confirm('Bu şantiye günlüğü kaydını silmek istediğinize emin misiniz?')) {
       setLogs(logs.filter(l => l.id !== id));
+    }
+  };
+
+  // Add Subcontractor
+  const handleAddSubcontractor = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subName.trim() || !subTrade.trim()) return;
+
+    const newSub: Subcontractor = {
+      id: 'sub_' + Date.now(),
+      name: subName.trim(),
+      trade: subTrade.trim(),
+      contactPerson: subContact.trim(),
+      phone: subPhone.trim(),
+      contractAmount: Number(subContractAmount) || 0,
+      contractDate: subContractDate,
+      startDate: subStartDate,
+      endDatePlanned: subEndDatePlanned,
+      progressPercent: Number(subProgress) || 0,
+      status: subStatus,
+      payments: [],
+      notes: subNotes.trim()
+    };
+
+    setSubcontractors([...subcontractors, newSub]);
+    setIsAddSubOpen(false);
+
+    // Reset fields
+    setSubName('');
+    setSubTrade('');
+    setSubContact('');
+    setSubPhone('');
+    setSubContractAmount(0);
+    setSubNotes('');
+    setSubProgress(0);
+    setSubStatus('not_started');
+  };
+
+  // Delete Subcontractor
+  const handleDeleteSubcontractor = (id: string) => {
+    if (window.confirm('Bu taşeron kaydını ve yapılan tüm ödeme geçmişini silmek istediğinize emin misiniz?')) {
+      setSubcontractors(subcontractors.filter(s => s.id !== id));
+      if (selectedSubcontractorId === id) {
+        setSelectedSubcontractorId(null);
+      }
+    }
+  };
+
+  // Add Subcontractor Payment
+  const handleAddPayment = (e: React.FormEvent, subId: string) => {
+    e.preventDefault();
+    if (payAmount <= 0) return;
+
+    const newPayment: SubcontractorPayment = {
+      id: 'p_' + Date.now(),
+      date: payDate,
+      amount: payAmount,
+      paymentType: payType,
+      paymentTypeLabel: payType === 'cash' ? 'Kasa Nakit' : payType === 'bank' ? 'Banka Havalesi' : payType === 'check' ? 'Şirket Çeki' : 'Diğer',
+      description: payDescription.trim() || 'Hakediş Ödemesi'
+    };
+
+    setSubcontractors(prev => prev.map(sub => {
+      if (sub.id !== subId) return sub;
+      return {
+        ...sub,
+        payments: [...sub.payments, newPayment]
+      };
+    }));
+
+    setIsAddPaymentOpen(false);
+    // Reset fields
+    setPayAmount(0);
+    setPayDescription('');
+  };
+
+  // Delete Subcontractor Payment
+  const handleDeletePayment = (subId: string, paymentId: string) => {
+    if (window.confirm('Bu ödeme kaydını silmek istediğinize emin misiniz?')) {
+      setSubcontractors(prev => prev.map(sub => {
+        if (sub.id !== subId) return sub;
+        return {
+          ...sub,
+          payments: sub.payments.filter(p => p.id !== paymentId)
+        };
+      }));
     }
   };
 
@@ -1153,6 +1373,19 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
         >
           <Printer className="w-4 h-4" />
           <span>Resmî Canlı Süreç Raporu (A4)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('subcontractors')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeSubTab === 'subcontractors'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>🏢 Şirket İçi Takip & Taşeron Yönetimi ({subcontractors.length})</span>
         </button>
       </div>
 
@@ -2506,6 +2739,634 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                 </div>
                 <span className="text-[9px] text-slate-400">Kaşe / Islak İmza</span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* 5. SUB-TAB: INTERNAL TRACKING & SUBCONTRACTORS                 */}
+      {/* ------------------------------------------------------------- */}
+      {activeSubTab === 'subcontractors' && (
+        <div className="space-y-6">
+          {/* TOP ANALYTICS BENTO GRID */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1">
+              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">
+                🤝 Toplam Taşeron Taahhütleri
+              </span>
+              <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 tracking-tight">
+                {subcontractorSummary.totalContract.toLocaleString('tr-TR')} <span className="text-xs font-bold text-slate-500">TL</span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium">
+                Aktif şantiyedeki toplam sözleşmeli taşeron iş bedeli.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100 shadow-2xs space-y-1">
+              <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider block">
+                💵 Toplam Yapılan Ödemeler
+              </span>
+              <div className="text-xl sm:text-2xl font-black font-mono text-emerald-900 tracking-tight">
+                {subcontractorSummary.totalPaid.toLocaleString('tr-TR')} <span className="text-xs font-bold text-emerald-600">TL</span>
+              </div>
+              <p className="text-[10px] text-emerald-700 font-medium">
+                Taşeronlara bugüne kadar kasa ve bankadan ödenen miktar.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-100 shadow-2xs space-y-1">
+              <span className="text-[10px] font-black uppercase text-amber-800 tracking-wider block">
+                ⏳ Kalan Finansal Bakiye
+              </span>
+              <div className="text-xl sm:text-2xl font-black font-mono text-amber-900 tracking-tight">
+                {subcontractorSummary.totalRemaining.toLocaleString('tr-TR')} <span className="text-xs font-bold text-amber-600">TL</span>
+              </div>
+              <p className="text-[10px] text-amber-700 font-medium">
+                Sözleşmelere göre taşeronlara yapılacak kalan borç tutarı.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 shadow-2xs flex flex-col justify-between min-h-[105px]">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase text-indigo-800 tracking-wider flex items-center justify-between">
+                  <span>📊 Ödeme Oranı</span>
+                  <span className="font-mono text-xs font-extrabold text-indigo-700">%{subcontractorSummary.paymentProgress}</span>
+                </span>
+                <div className="w-full bg-indigo-100 h-2 rounded-full overflow-hidden mt-1.5">
+                  <div 
+                    className="bg-indigo-600 h-full transition-all duration-500 rounded-full" 
+                    style={{ width: `${subcontractorSummary.paymentProgress}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-indigo-700 font-medium mt-1">
+                Kaba ve ince yapı taşeron hakedişlerinin ödenme yüzdesi.
+              </p>
+            </div>
+          </div>
+
+          {/* ADD NEW SUBCONTRACTOR COLLAPSIBLE PANEL */}
+          {isAddSubOpen && (
+            <div className="bg-white rounded-2xl border border-emerald-200/80 p-5 shadow-sm space-y-4 animate-fadeIn">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <HardHat className="w-5 h-5 text-emerald-600" />
+                  <h3 className="text-sm font-black text-slate-800">Yeni Alt Yüklenici / Taşeron Tanımla</h3>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setIsAddSubOpen(false)}
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  Kapat
+                </button>
+              </div>
+
+              <form onSubmit={handleAddSubcontractor} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">👤 Taşeron / Firma Adı</label>
+                    <input 
+                      type="text"
+                      required
+                      value={subName}
+                      onChange={(e) => setSubName(e.target.value)}
+                      placeholder="Örn: Kuzey Yapı Doğrama A.Ş."
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">🏗️ Yapacağı İş Kolu / Kategori</label>
+                    <input 
+                      type="text"
+                      required
+                      value={subTrade}
+                      onChange={(e) => setSubTrade(e.target.value)}
+                      placeholder="Örn: PVC Pencere ve Cam Çözümleri"
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">📞 Yetkili Kişi & İletişim</label>
+                    <input 
+                      type="text"
+                      value={subContact}
+                      onChange={(e) => setSubContact(e.target.value)}
+                      placeholder="Örn: Serkan Demir (Şantiye Sorumlusu)"
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">📱 Telefon Numarası</label>
+                    <input 
+                      type="text"
+                      value={subPhone}
+                      onChange={(e) => setSubPhone(e.target.value)}
+                      placeholder="Örn: 0532 123 45 67"
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">💰 Toplam Sözleşme Tutarı (TL)</label>
+                    <div className="relative flex items-center">
+                      <input 
+                        type="number"
+                        min="0"
+                        required
+                        value={subContractAmount || ''}
+                        onChange={(e) => setSubContractAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="Örn: 750000"
+                        className="w-full text-xs font-black font-mono pl-3.5 pr-8 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                      />
+                      <span className="absolute right-3.5 text-xs font-black text-slate-400 font-mono">TL</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">📅 Sözleşme İmza Tarihi</label>
+                    <input 
+                      type="date"
+                      value={subContractDate}
+                      onChange={(e) => setSubContractDate(e.target.value)}
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">🚀 İşe Başlama Tarihi</label>
+                    <input 
+                      type="date"
+                      value={subStartDate}
+                      onChange={(e) => setSubStartDate(e.target.value)}
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">🏁 Planlanan İmalat Bitiş Tarihi</label>
+                    <input 
+                      type="date"
+                      value={subEndDatePlanned}
+                      onChange={(e) => setSubEndDatePlanned(e.target.value)}
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">📊 Başlangıç İlerleme Yüzdesi (%)</label>
+                    <input 
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={subProgress}
+                      onChange={(e) => setSubProgress(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                      placeholder="Örn: 0"
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">🚦 Taşeronun Aktif Durumu</label>
+                    <select 
+                      value={subStatus}
+                      onChange={(e) => setSubStatus(e.target.value as any)}
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    >
+                      <option value="not_started">Henüz Başlamadı</option>
+                      <option value="in_progress">Aktif Çalışıyor (Şantiyede)</option>
+                      <option value="completed">İşini Tamamladı / Devretti</option>
+                      <option value="paused">Geçici Olarak Durduruldu / Askıda</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-700">📝 Genel Notlar & Sözleşme Detayları</label>
+                    <input 
+                      type="text"
+                      value={subNotes}
+                      onChange={(e) => setSubNotes(e.target.value)}
+                      placeholder="Örn: Ödemeler 3 ara hakedişle yapılacaktır."
+                      className="w-full text-xs font-bold px-3.5 py-3 rounded-xl border border-slate-200 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsAddSubOpen(false)}
+                    className="px-4 py-2 text-xs font-bold bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 cursor-pointer animate-scaleIn"
+                  >
+                    Vazgeç
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-4 py-2 text-xs font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-md shadow-emerald-600/10 cursor-pointer animate-scaleIn"
+                  >
+                    Taşeronu Kaydet
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* MAIN GRID COLLABORATION VIEW */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* LEFT 2 COLUMNS: LIST OF SUBCONTRACTORS */}
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                    <span>📋 Aktif Alt Yükleniciler & Sözleşmeler</span>
+                    <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                      {subcontractors.length} Firma
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Projede görevli alt yükleniciler, taahhüt tutarları ve finansal durum hakedişleri.
+                  </p>
+                </div>
+                {!isClientMode && (
+                  <button 
+                    type="button" 
+                    onClick={() => setIsAddSubOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 shadow-xs transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Yeni Taşeron Ekle</span>
+                  </button>
+                )}
+              </div>
+
+              {subcontractors.length === 0 ? (
+                <div className="p-12 border-2 border-dashed border-slate-200 rounded-2xl text-center space-y-2">
+                  <HardHat className="w-8 h-8 text-slate-300 mx-auto" />
+                  <p className="text-xs font-bold text-slate-500">Tanımlı Alt Yüklenici Bulunamadı</p>
+                  <p className="text-[11px] text-slate-400">Yeni bir taşeron eklemek için sağ üstteki butona tıklayın.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 font-bold">
+                        <th className="p-3">Taşeron / Firma</th>
+                        <th className="p-3">Sözleşme Bedeli</th>
+                        <th className="p-3">Ödenen Tutar</th>
+                        <th className="p-3">Kalan Borç</th>
+                        <th className="p-3 text-center">İş İlerleme</th>
+                        <th className="p-3">Durum</th>
+                        <th className="p-3 text-right">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subcontractors.map((sub) => {
+                        const subPaid = sub.payments.reduce((acc, p) => acc + p.amount, 0);
+                        const subRemaining = sub.contractAmount - subPaid;
+                        const isSelected = selectedSubcontractorId === sub.id;
+
+                        return (
+                          <tr 
+                            key={sub.id}
+                            onClick={() => setSelectedSubcontractorId(sub.id)}
+                            className={`border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer transition-colors ${
+                              isSelected ? 'bg-indigo-50/40 hover:bg-indigo-50/50' : ''
+                            }`}
+                          >
+                            <td className="p-3 space-y-1">
+                              <div className="font-black text-slate-900 flex items-center gap-1.5">
+                                <HardHat className="w-3.5 h-3.5 text-slate-500" />
+                                <span>{sub.name}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded w-max">
+                                {sub.trade}
+                              </div>
+                            </td>
+                            <td className="p-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                              {sub.contractAmount.toLocaleString('tr-TR')} <span className="text-[10px] font-bold text-slate-400">TL</span>
+                            </td>
+                            <td className="p-3 font-mono font-bold text-emerald-700 whitespace-nowrap">
+                              {subPaid.toLocaleString('tr-TR')} <span className="text-[10px] font-bold text-emerald-400">TL</span>
+                            </td>
+                            <td className="p-3 font-mono font-bold text-amber-700 whitespace-nowrap">
+                              {subRemaining.toLocaleString('tr-TR')} <span className="text-[10px] font-bold text-amber-400">TL</span>
+                            </td>
+                            <td className="p-3 text-center space-y-1 min-w-[80px]">
+                              <span className="font-mono font-black text-[11px] text-slate-800">%{sub.progressPercent}</span>
+                              <div className="w-16 bg-slate-100 h-1 rounded-full overflow-hidden mx-auto">
+                                <div 
+                                  className="bg-emerald-500 h-full" 
+                                  style={{ width: `${sub.progressPercent}%` }}
+                                />
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                sub.status === 'completed' 
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : sub.status === 'in_progress'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : sub.status === 'paused'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {sub.status === 'completed' ? 'Tamamlandı' : sub.status === 'in_progress' ? 'Çalışıyor' : sub.status === 'paused' ? 'Askıda' : 'Başlamadı'}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
+                                <button 
+                                  type="button"
+                                  onClick={() => setSelectedSubcontractorId(sub.id)}
+                                  className="p-1 text-slate-400 hover:text-indigo-600 rounded hover:bg-slate-100 cursor-pointer"
+                                  title="Detay ve Ödemeler"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                </button>
+                                {!isClientMode && (
+                                  <button 
+                                    type="button"
+                                    onClick={() => handleDeleteSubcontractor(sub.id)}
+                                    className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-slate-100 cursor-pointer"
+                                    title="Taşeronu Sil"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT COLUMN: INSPECTOR PANEL FOR SELECTED SUBCONTRACTOR */}
+            <div className="space-y-6">
+              {(() => {
+                const selectedSub = subcontractors.find(s => s.id === selectedSubcontractorId);
+
+                if (!selectedSub) {
+                  return (
+                    <div className="bg-white rounded-2xl border border-slate-200/80 p-6 text-center space-y-3.5 shadow-2xs h-full flex flex-col justify-center items-center py-16">
+                      <div className="p-3 bg-slate-50 text-slate-400 rounded-full">
+                        <HardHat className="w-8 h-8" />
+                      </div>
+                      <div className="space-y-1 max-w-[240px]">
+                        <h4 className="text-xs font-black text-slate-800">Taşeron Detay Paneli</h4>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          Ödeme hakediş geçmişi kaydetmek, sözleşme taahhüt detaylarını ve iletişim bilgilerini yönetmek için soldaki tablodan bir taşeron seçin.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const subPaid = selectedSub.payments.reduce((acc, p) => acc + p.amount, 0);
+                const subRemaining = selectedSub.contractAmount - subPaid;
+
+                return (
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden divide-y divide-slate-100">
+                    {/* PANEL HEADER */}
+                    <div className="p-5 bg-slate-50/50 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-black bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded uppercase tracking-wide inline-block">
+                            {selectedSub.trade}
+                          </span>
+                          <h4 className="text-xs font-black text-slate-900">{selectedSub.name}</h4>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setSelectedSubcontractorId(null)}
+                          className="text-[10px] font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          Kapat
+                        </button>
+                      </div>
+
+                      {/* CALL INFO */}
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="bg-white p-2.5 rounded-xl border border-slate-100 space-y-0.5">
+                          <span className="text-[9px] text-slate-400 font-bold block">İletişim Yetkilisi</span>
+                          <span className="font-bold text-slate-800 truncate block">{selectedSub.contactPerson || 'Belirtilmedi'}</span>
+                        </div>
+                        <div className="bg-white p-2.5 rounded-xl border border-slate-100 space-y-0.5">
+                          <span className="text-[9px] text-slate-400 font-bold block">Telefon</span>
+                          <a 
+                            href={`tel:${selectedSub.phone}`}
+                            className="font-bold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Phone className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{selectedSub.phone || 'Girilmedi'}</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* INTERACTIVE STATE MODIFIERS */}
+                    {!isClientMode && (
+                      <div className="p-4 bg-white space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 block">İş Tamamlama %</label>
+                            <input 
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={selectedSub.progressPercent}
+                              onChange={(e) => {
+                                const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                setSubcontractors(prev => prev.map(s => s.id === selectedSub.id ? { ...s, progressPercent: val, status: val === 100 ? 'completed' : s.status } : s));
+                              }}
+                              className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 block">Şantiye Durumu</label>
+                            <select 
+                              value={selectedSub.status}
+                              onChange={(e) => {
+                                const val = e.target.value as any;
+                                setSubcontractors(prev => prev.map(s => s.id === selectedSub.id ? { ...s, status: val } : s));
+                              }}
+                              className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                            >
+                              <option value="not_started">Başlamadı</option>
+                              <option value="in_progress">Çalışıyor</option>
+                              <option value="completed">Tamamlandı</option>
+                              <option value="paused">Askıda</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {selectedSub.notes && (
+                          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[10px] text-slate-500 font-medium leading-relaxed">
+                            <b>Sözleşme Notu:</b> {selectedSub.notes}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* FINANCES COMPARISON */}
+                    <div className="p-4 bg-slate-50/30 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-bold">Sözleşme Tutarı:</span>
+                        <span className="font-mono font-black text-slate-900">{selectedSub.contractAmount.toLocaleString('tr-TR')} TL</span>
+                      </div>
+                      <div className="flex items-center justify-between text-emerald-700">
+                        <span className="font-bold">Ödenen Tutar:</span>
+                        <span className="font-mono font-black">{subPaid.toLocaleString('tr-TR')} TL</span>
+                      </div>
+                      <div className="flex items-center justify-between text-amber-700 pt-1.5 border-t border-slate-100">
+                        <span className="font-bold">Kalan Bakiye:</span>
+                        <span className="font-mono font-black">{subRemaining.toLocaleString('tr-TR')} TL</span>
+                      </div>
+                    </div>
+
+                    {/* PAYMENTS HISTORY LIST */}
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-wider">
+                          💵 Ödeme & Hakediş Geçmişi ({selectedSub.payments.length})
+                        </h5>
+                        {!isClientMode && (
+                          <button 
+                            type="button"
+                            onClick={() => setIsAddPaymentOpen(!isAddPaymentOpen)}
+                            className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Ödeme Ekle</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* COMPACT ADD PAYMENT FORM INLINE */}
+                      {isAddPaymentOpen && !isClientMode && (
+                        <form 
+                          onSubmit={(e) => handleAddPayment(e, selectedSub.id)} 
+                          className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-3 space-y-2.5 animate-fadeIn"
+                        >
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-0.5">
+                              <label className="text-[9px] font-bold text-slate-600">Ödeme Tutarı (TL)</label>
+                              <input 
+                                type="number"
+                                min="1"
+                                required
+                                value={payAmount || ''}
+                                onChange={(e) => setPayAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                                placeholder="Tutar"
+                                className="w-full text-xs font-black px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-hidden"
+                              />
+                            </div>
+                            <div className="space-y-0.5">
+                              <label className="text-[9px] font-bold text-slate-600">Ödeme Tarihi</label>
+                              <input 
+                                type="date"
+                                required
+                                value={payDate}
+                                onChange={(e) => setPayDate(e.target.value)}
+                                className="w-full text-xs font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-hidden"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-0.5">
+                              <label className="text-[9px] font-bold text-slate-600">Ödeme Yöntemi</label>
+                              <select 
+                                value={payType}
+                                onChange={(e) => setPayType(e.target.value as any)}
+                                className="w-full text-[10px] font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-hidden"
+                              >
+                                <option value="bank">Banka Havalesi</option>
+                                <option value="cash">Kasa Nakit</option>
+                                <option value="check">Şirket Çeki</option>
+                                <option value="other">Diğer</option>
+                              </select>
+                            </div>
+                            <div className="space-y-0.5">
+                              <label className="text-[9px] font-bold text-slate-600">Açıklama / Hakediş</label>
+                              <input 
+                                type="text"
+                                value={payDescription}
+                                onChange={(e) => setPayDescription(e.target.value)}
+                                placeholder="Örn: 2. Kat Döşeme Hakedişi"
+                                className="w-full text-xs font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-hidden"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end gap-1.5 pt-1">
+                            <button 
+                              type="button" 
+                              onClick={() => setIsAddPaymentOpen(false)}
+                              className="px-2.5 py-1 text-[10px] font-bold bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300 cursor-pointer"
+                            >
+                              İptal
+                            </button>
+                            <button 
+                              type="submit" 
+                              className="px-2.5 py-1 text-[10px] font-black bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-xs cursor-pointer"
+                            >
+                              Kaydet
+                            </button>
+                          </div>
+                        </form>
+                      )}
+
+                      {/* COMPACT PAYMENTS HISTORY ROWS */}
+                      {selectedSub.payments.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-100">
+                          Henüz hiçbir ödeme veya avans kaydı yapılmadı.
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                          {selectedSub.payments.map((p) => (
+                            <div 
+                              key={p.id}
+                              className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/50 transition-colors"
+                            >
+                              <div className="space-y-0.5 min-w-0 flex-1 pr-2">
+                                <div className="text-[11px] font-black text-slate-800 flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-mono text-emerald-700">{p.amount.toLocaleString('tr-TR')} TL</span>
+                                  <span className="text-[9px] bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded font-bold">{p.paymentTypeLabel}</span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-medium truncate">
+                                  {p.description} &bull; <span className="text-slate-400 font-semibold">{p.date}</span>
+                                </div>
+                              </div>
+                              {!isClientMode && (
+                                <button 
+                                  type="button"
+                                  onClick={() => handleDeletePayment(selectedSub.id, p.id)}
+                                  className="p-1 text-slate-400 hover:text-red-600 rounded-md cursor-pointer hover:bg-white flex-shrink-0"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

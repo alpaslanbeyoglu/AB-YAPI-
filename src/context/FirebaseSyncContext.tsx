@@ -1,0 +1,266 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { 
+  User, 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signOut as firebaseSignOut, 
+  GoogleAuthProvider 
+} from 'firebase/auth';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDocs, 
+  deleteDoc,
+  getDoc
+} from 'firebase/firestore';
+import { auth, db, googleProvider } from '../lib/firebase';
+import { SavedProjectData, CompanyProfile } from '../types';
+
+interface FirebaseSyncContextType {
+  user: User | null;
+  loading: boolean;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
+  syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  // Projects sync
+  saveProjectToCloud: (project: SavedProjectData) => Promise<void>;
+  loadProjectsFromCloud: () => Promise<SavedProjectData[]>;
+  deleteProjectFromCloud: (projectAddress: string) => Promise<void>;
+  // Company profiles sync
+  saveCompanyProfileToCloud: (profile: CompanyProfile) => Promise<void>;
+  loadCompanyProfilesFromCloud: () => Promise<CompanyProfile[]>;
+  deleteCompanyProfileToCloud: (companyName: string) => Promise<void>;
+}
+
+const FirebaseSyncContext = createContext<FirebaseSyncContextType | null>(null);
+
+export const getSafeProjectKey = (address: string) => {
+  return (address || 'default_project').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+};
+
+export const getSafeProfileKey = (name: string) => {
+  return (name || 'default_profile').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+};
+
+export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+
+  // Monitor Auth Changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  const signInWithGoogle = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Google Sign-In Error:", error);
+      throw error;
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+    } catch (error) {
+      console.error("Sign-Out Error:", error);
+      throw error;
+    }
+  };
+
+  // Pushes a single project and its associated construction state to the cloud
+  const saveProjectToCloud = async (project: SavedProjectData) => {
+    if (!user) return;
+    setSyncStatus('syncing');
+    try {
+      const safeKey = getSafeProjectKey(project.projectAddress);
+      
+      // Attempt to load associated construction progress details from localStorage to bundle them
+      let construction: any = null;
+      try {
+        const stages = localStorage.getItem(`ab_yapi_progress_${safeKey}_stages`);
+        const logs = localStorage.getItem(`ab_yapi_progress_${safeKey}_logs`);
+        const offerAccepted = localStorage.getItem(`ab_yapi_progress_${safeKey}_offer_accepted`);
+        const contractDate = localStorage.getItem(`ab_yapi_progress_${safeKey}_contract_date`);
+        const targetDate = localStorage.getItem(`ab_yapi_progress_${safeKey}_target_date`);
+        const subcontractors = localStorage.getItem(`ab_yapi_progress_${safeKey}_subcontractors`);
+        const notifHistory = localStorage.getItem(`ab_yapi_progress_${safeKey}_notif_history`);
+
+        construction = {
+          stages: stages ? JSON.parse(stages) : null,
+          logs: logs ? JSON.parse(logs) : null,
+          isOfferAccepted: offerAccepted ? JSON.parse(offerAccepted) : null,
+          contractDate: contractDate || null,
+          plannedCompletionDate: targetDate || null,
+          subcontractors: subcontractors ? JSON.parse(subcontractors) : null,
+          notifHistory: notifHistory ? JSON.parse(notifHistory) : null
+        };
+      } catch (err) {
+        console.warn("Failed to gather construction states for cloud sync:", err);
+      }
+
+      const docRef = doc(db, 'users', user.uid, 'projects', safeKey);
+      await setDoc(docRef, {
+        id: safeKey,
+        version: project.version || '1.0.0',
+        savedAt: project.savedAt || new Date().toISOString(),
+        projectAddress: project.projectAddress,
+        params: project.params,
+        results: project.results,
+        construction: construction
+      }, { merge: true });
+
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error("Error saving project to cloud:", error);
+      setSyncStatus('error');
+      throw error;
+    }
+  };
+
+  // Loads all projects from cloud and hydrates localStorage to preserve app state
+  const loadProjectsFromCloud = async (): Promise<SavedProjectData[]> => {
+    if (!user) return [];
+    setSyncStatus('syncing');
+    try {
+      const colRef = collection(db, 'users', user.uid, 'projects');
+      const snapshot = await getDocs(colRef);
+      const cloudProjects: SavedProjectData[] = [];
+
+      snapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        const project: SavedProjectData = {
+          version: data.version,
+          savedAt: data.savedAt,
+          projectAddress: data.projectAddress,
+          params: data.params,
+          results: data.results
+        };
+        cloudProjects.push(project);
+
+        // Hydrate local storage for construction trackers belonging to this project
+        if (data.construction) {
+          const safeKey = docSnapshot.id;
+          const { stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, notifHistory } = data.construction;
+          
+          if (stages) localStorage.setItem(`ab_yapi_progress_${safeKey}_stages`, JSON.stringify(stages));
+          if (logs) localStorage.setItem(`ab_yapi_progress_${safeKey}_logs`, JSON.stringify(logs));
+          if (isOfferAccepted !== null) localStorage.setItem(`ab_yapi_progress_${safeKey}_offer_accepted`, JSON.stringify(isOfferAccepted));
+          if (contractDate) localStorage.setItem(`ab_yapi_progress_${safeKey}_contract_date`, contractDate);
+          if (plannedCompletionDate) localStorage.setItem(`ab_yapi_progress_${safeKey}_target_date`, plannedCompletionDate);
+          if (subcontractors) localStorage.setItem(`ab_yapi_progress_${safeKey}_subcontractors`, JSON.stringify(subcontractors));
+          if (notifHistory) localStorage.setItem(`ab_yapi_progress_${safeKey}_notif_history`, JSON.stringify(notifHistory));
+        }
+      });
+
+      // Sort by savedAt descending
+      cloudProjects.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+
+      setSyncStatus('synced');
+      return cloudProjects;
+    } catch (error) {
+      console.error("Error loading projects from cloud:", error);
+      setSyncStatus('error');
+      throw error;
+    }
+  };
+
+  const deleteProjectFromCloud = async (projectAddress: string) => {
+    if (!user) return;
+    setSyncStatus('syncing');
+    try {
+      const safeKey = getSafeProjectKey(projectAddress);
+      const docRef = doc(db, 'users', user.uid, 'projects', safeKey);
+      await deleteDoc(docRef);
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error("Error deleting project from cloud:", error);
+      setSyncStatus('error');
+      throw error;
+    }
+  };
+
+  const saveCompanyProfileToCloud = async (profile: CompanyProfile) => {
+    if (!user) return;
+    setSyncStatus('syncing');
+    try {
+      const safeKey = getSafeProfileKey(profile.companyName);
+      const docRef = doc(db, 'users', user.uid, 'companyProfiles', safeKey);
+      await setDoc(docRef, profile, { merge: true });
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error("Error saving company profile to cloud:", error);
+      setSyncStatus('error');
+      throw error;
+    }
+  };
+
+  const loadCompanyProfilesFromCloud = async (): Promise<CompanyProfile[]> => {
+    if (!user) return [];
+    setSyncStatus('syncing');
+    try {
+      const colRef = collection(db, 'users', user.uid, 'companyProfiles');
+      const snapshot = await getDocs(colRef);
+      const profiles: CompanyProfile[] = [];
+
+      snapshot.forEach((docSnapshot) => {
+        profiles.push(docSnapshot.data() as CompanyProfile);
+      });
+
+      setSyncStatus('synced');
+      return profiles;
+    } catch (error) {
+      console.error("Error loading company profiles from cloud:", error);
+      setSyncStatus('error');
+      throw error;
+    }
+  };
+
+  const deleteCompanyProfileToCloud = async (companyName: string) => {
+    if (!user) return;
+    setSyncStatus('syncing');
+    try {
+      const safeKey = getSafeProfileKey(companyName);
+      const docRef = doc(db, 'users', user.uid, 'companyProfiles', safeKey);
+      await deleteDoc(docRef);
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error("Error deleting company profile from cloud:", error);
+      setSyncStatus('error');
+      throw error;
+    }
+  };
+
+  return (
+    <FirebaseSyncContext.Provider value={{
+      user,
+      loading,
+      signInWithGoogle,
+      signOut,
+      syncStatus,
+      saveProjectToCloud,
+      loadProjectsFromCloud,
+      deleteProjectFromCloud,
+      saveCompanyProfileToCloud,
+      loadCompanyProfilesFromCloud,
+      deleteCompanyProfileToCloud
+    }}>
+      {children}
+    </FirebaseSyncContext.Provider>
+  );
+};
+
+export const useFirebaseSync = () => {
+  const context = useContext(FirebaseSyncContext);
+  if (!context) {
+    throw new Error('useFirebaseSync must be used within a FirebaseSyncProvider');
+  }
+  return context;
+};

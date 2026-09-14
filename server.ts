@@ -11,14 +11,25 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+let aiInstance: GoogleGenAI | null = null;
+
+function getGenAI(): GoogleGenAI {
+  if (!aiInstance) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      throw new Error("GEMINI_API_KEY is not defined. Please define it in your environment settings.");
     }
+    aiInstance = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
   }
-});
+  return aiInstance;
+}
 
 // Quota tracking to prevent unnecessary 429 exceptions when image model quota is exhausted
 let geminiImageQuotaExceededUntil = 0;
@@ -72,7 +83,7 @@ Lütfen şu anahtarları içeren geçerli bir JSON objesi döndür (Markdown blo
 }
 `;
 
-    const response = await ai.models.generateContent({
+    const response = await getGenAI().models.generateContent({
       model: 'gemini-3.8-flash',
       contents: prompt,
     });
@@ -304,7 +315,7 @@ ${customPromptNote ? `User specific requirements: ${customPromptNote}` : ""}`;
     } else {
       // Try Gemini image model if preferredEngine is not forced to vector
       try {
-        const imageResponse = await ai.models.generateContent({
+        const imageResponse = await getGenAI().models.generateContent({
           model: "gemini-3.1-flash-lite-image",
           contents: {
             parts: [

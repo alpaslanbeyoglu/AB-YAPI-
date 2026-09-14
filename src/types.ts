@@ -667,3 +667,31 @@ export interface ConstructionProgressProjectState {
   logs: ConstructionProgressLog[];
   lastUpdated: string;
 }
+
+export type SubcontractorPaymentType = 'cash' | 'bank' | 'check' | 'other';
+
+export interface SubcontractorPayment {
+  id: string;
+  date: string;
+  amount: number;
+  paymentType: SubcontractorPaymentType;
+  paymentTypeLabel: string;
+  description: string;
+}
+
+export interface Subcontractor {
+  id: string;
+  name: string;
+  trade: string;
+  contactPerson: string;
+  phone: string;
+  contractAmount: number;
+  contractDate: string;
+  startDate: string;
+  endDatePlanned: string;
+  progressPercent: number;
+  status: 'not_started' | 'in_progress' | 'completed' | 'paused';
+  payments: SubcontractorPayment[];
+  notes?: string;
+}
+

@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "CompanyProfile": {
+      "title": "Company Profile",
+      "description": "Company legal, branding and contact information.",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string", "maxLength": 100 },
+        "legalName": { "type": "string", "maxLength": 250 },
+        "slogan": { "type": "string", "maxLength": 200 },
+        "tagline": { "type": "string", "maxLength": 300 },
+        "authorizedPerson": { "type": "string", "maxLength": 100 },
+        "authorizedTitle": { "type": "string", "maxLength": 100 },
+        "authorizedChamberNo": { "type": "string", "maxLength": 50 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "website": { "type": "string", "maxLength": 100 },
+        "address": { "type": "string", "maxLength": 500 },
+        "taxOffice": { "type": "string", "maxLength": 100 },
+        "taxNumber": { "type": "string", "maxLength": 50 },
+        "tradeRegistryNo": { "type": "string", "maxLength": 100 },
+        "mersisNo": { "type": "string", "maxLength": 50 },
+        "contractorLicenceNo": { "type": "string", "maxLength": 100 },
+        "chamberNo": { "type": "string", "maxLength": 100 },
+        "iban": { "type": "string", "maxLength": 100 },
+        "bankName": { "type": "string", "maxLength": 150 },
+        "logoBase64": { "type": "string", "maxLength": 2000000 },
+        "stampBase64": { "type": "string", "maxLength": 2000000 }
+      },
+      "required": ["companyName", "legalName"]
+    },
+    "ProjectSnapshot": {
+      "title": "Project Snapshot",
+      "description": "Calculation and construction data of a specific construction project.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "savedAt": { "type": "string", "maxLength": 50 },
+        "projectAddress": { "type": "string", "maxLength": 300 },
+        "params": { "type": "object" },
+        "results": { "type": "object" },
+        "buildingModelParams": { "type": "object" },
+        "construction": { "type": "object" }
+      },
+      "required": ["id", "projectAddress", "params", "results"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/companyProfiles/{profileId}": {
+      "schema": "CompanyProfile",
+      "description": "User specific company profiles."
+    },
+    "/users/{userId}/projects/{projectId}": {
+      "schema": "ProjectSnapshot",
+      "description": "User specific construction and calculation projects."
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CompanyProfile, CompanyProfilePrintOptions } from '../types';
+import { useFirebaseSync } from './FirebaseSyncContext';
 
 export const DEFAULT_PRINT_OPTIONS: CompanyProfilePrintOptions = {
   showLogo: true,
@@ -93,6 +94,8 @@ const CompanyProfileContext = createContext<CompanyProfileContextType>({
 });
 
 export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, saveCompanyProfileToCloud, loadCompanyProfilesFromCloud, deleteCompanyProfileToCloud } = useFirebaseSync();
+
   // 1. Initialize Active Profile
   const [profile, setProfile] = useState<CompanyProfile>(() => {
     try {
@@ -130,7 +133,7 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
     return [DEFAULT_COMPANY_PROFILE];
   });
 
-  // Keep them synced if the list doesn't contain the loaded profile
+  // Keep them synced if the list doesn't contain the loaded profile (offline fallback)
   useEffect(() => {
     const exists = profiles.some(p => p.companyName === profile.companyName);
     if (!exists) {
@@ -142,6 +145,37 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
     }
   }, [profile, profiles]);
 
+  // Synchronize company profiles on login
+  useEffect(() => {
+    const syncWithFirebase = async () => {
+      if (!user) return;
+      try {
+        const cloudProfiles = await loadCompanyProfilesFromCloud();
+        if (cloudProfiles && cloudProfiles.length > 0) {
+          setProfiles(cloudProfiles);
+          const activeExists = cloudProfiles.some(p => p.companyName === profile.companyName);
+          if (activeExists) {
+            const currentActive = cloudProfiles.find(p => p.companyName === profile.companyName)!;
+            setProfile(currentActive);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(currentActive));
+          } else {
+            setProfile(cloudProfiles[0]);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudProfiles[0]));
+          }
+          localStorage.setItem(LIST_STORAGE_KEY, JSON.stringify(cloudProfiles));
+        } else {
+          // Upload local profiles to cloud to back them up
+          for (const localProf of profiles) {
+            await saveCompanyProfileToCloud(localProf);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to sync company profiles with Firebase:", err);
+      }
+    };
+    syncWithFirebase();
+  }, [user]);
+
   // Helper to save both state
   const saveAndSync = (updatedActive: CompanyProfile, updatedList: CompanyProfile[]) => {
     setProfile(updatedActive);
@@ -151,6 +185,12 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
       localStorage.setItem(LIST_STORAGE_KEY, JSON.stringify(updatedList));
     } catch (e) {
       console.error('Firma profilleri kaydedilemedi:', e);
+    }
+
+    if (user) {
+      saveCompanyProfileToCloud(updatedActive).catch(err => 
+        console.warn("Cloud company profile save error:", err)
+      );
     }
   };
 
@@ -257,6 +297,12 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
       nextActive = updatedList[0];
     }
     saveAndSync(nextActive, updatedList);
+
+    if (user) {
+      deleteCompanyProfileToCloud(companyName).catch(err => 
+        console.warn("Cloud company profile delete error:", err)
+      );
+    }
   };
 
   return (
