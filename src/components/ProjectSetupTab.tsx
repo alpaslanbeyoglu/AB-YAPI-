@@ -34,6 +34,7 @@ import {
   Sliders,
   Info,
   Sparkles,
+  Wand2,
   MapPin,
   Maximize2,
   ArrowDownUp,
@@ -53,6 +54,7 @@ import {
   Bath,
   Fan,
   ChefHat,
+  Lock,
 } from 'lucide-react';
 import { AC_PRESET_OPTIONS, getAcOptionById } from '../utils/acOptions';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
@@ -160,7 +162,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   }, [params.flats]);
 
   const getFlatStyles = (flat: any, isContractor: boolean) => {
-    if (isContractor) return 'bg-amber-50 border-amber-300 text-amber-950 shadow-sm ring-1 ring-amber-400/20';
+    if (isContractor) return 'bg-amber-100 border-amber-400 text-amber-950 shadow-sm ring-2 ring-amber-400/50';
     
     const type = flat.flatType || 'standard';
     const desc = (flat.description || '').toLowerCase();
@@ -181,9 +183,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       return 'bg-blue-100 border-blue-300 text-blue-900 shadow-sm';
     }
 
-    // Dubleks ve Mansart
+    // Dubleks ve Mansart (Ayrı mor/eflatun renk tonu ile Müteahhit sarısından belirgin ayrışır)
     if (type === 'duplex') return 'bg-purple-50 border-purple-200 text-purple-900';
-    if (type === 'mansard') return 'bg-amber-50 border-amber-200 text-amber-900';
+    if (type === 'mansard') return 'bg-fuchsia-50/70 border-fuchsia-200 text-fuchsia-900';
     
     return 'bg-white border-slate-200 text-slate-800 hover:border-indigo-300';
   };
@@ -1500,18 +1502,99 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
                   {/* Yapım Modeli */}
                   <div>
-                    <label className="block text-[11px] font-bold text-emerald-800 mb-1">
-                      🤝 Yapım Modeli
+                    <label className="block text-[11px] font-bold text-emerald-800 mb-1 flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                      🤝 İş / Yapım Modeli
                     </label>
                     <select
-                      value={params.projectModel || 'cash'}
+                      value={params.projectModel || 'contractorService'}
                       onChange={(e) => onChangeParams({ ...params, projectModel: e.target.value as any })}
                       className="w-full text-[11px] font-bold px-2 py-1.5 rounded-lg border bg-emerald-50/50 border-emerald-300 text-emerald-950"
                     >
-                      <option value="cash">Nakit Ödemeli / Müteahhit</option>
-                      <option value="contractorShare">Kat Karşılığı Paylaşımlı</option>
+                      <option value="contractorService">1. Müteahhitlik Hizmeti (% Komisyon)</option>
+                      <option value="contractorShare">2. Kat Karşılığı İnşaat Yapımı</option>
+                      <option value="urbanTransformation">3. Kentsel Dönüşüm / İmar Artışlı</option>
                     </select>
-                    <span className="text-[9px] text-slate-400 mt-0.5 block">Sözleşme modeli</span>
+
+                    {/* Model Özel Parametreleri */}
+                    {(params.projectModel === 'contractorService' || params.projectModel === 'cash') && (
+                      <div className="mt-1.5 p-1.5 bg-emerald-50 rounded-lg border border-emerald-200 text-[10px]">
+                        <span className="font-bold text-emerald-900 block">Müteahhitlik Hizmet Bedeli (%):</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <input
+                            type="number"
+                            min="0"
+                            max="50"
+                            value={params.contractorFeeRate ?? 15}
+                            onChange={(e) => onChangeParams({ ...params, contractorFeeRate: Math.max(0, parseFloat(e.target.value) || 0) })}
+                            className="w-16 text-xs font-mono font-bold px-1 py-0.5 rounded border border-emerald-300 bg-white text-center"
+                          />
+                          <span className="text-emerald-800 font-bold">% Komisyon</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {params.projectModel === 'contractorShare' && (
+                      <div className="mt-1.5 p-1.5 bg-amber-50 rounded-lg border border-amber-200 text-[10px]">
+                        <span className="font-bold text-amber-900 block">Müteahhit Pay Oranı (%):</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={params.contractorShareRate ?? 50}
+                            onChange={(e) => onChangeParams({ ...params, contractorShareRate: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                            className="w-16 text-xs font-mono font-bold px-1 py-0.5 rounded border border-amber-300 bg-white text-center"
+                          />
+                          <span className="text-amber-800 font-bold">% Daire Payı</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {params.projectModel === 'urbanTransformation' && (
+                      <div className="mt-1.5 p-2 bg-indigo-50 rounded-lg border border-indigo-200 space-y-1.5 text-[10px]">
+                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-indigo-900">
+                          <input
+                            type="checkbox"
+                            checked={!!params.hasZoningIncrease}
+                            onChange={(e) => onChangeParams({ ...params, hasZoningIncrease: e.target.checked })}
+                            className="w-3.5 h-3.5 rounded text-indigo-600"
+                          />
+                          <span>İmar / Kat Artışı Var mı?</span>
+                        </label>
+
+                        {params.hasZoningIncrease && (
+                          <div className="space-y-1.5 pt-1 border-t border-indigo-200/60">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold text-indigo-900">İmar Artış Oranı:</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={params.zoningIncreaseRate ?? 20}
+                                  onChange={(e) => onChangeParams({ ...params, zoningIncreaseRate: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                  className="w-12 text-xs font-mono font-bold px-1 py-0.5 rounded border border-indigo-300 bg-white text-center"
+                                />
+                                <span className="font-bold text-indigo-800">%</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <span className="font-bold text-indigo-900 block mb-0.5">Ekstra Dairelerin Kullanımı:</span>
+                              <select
+                                value={params.zoningExtraFlatsAction || 'sellForOwners'}
+                                onChange={(e) => onChangeParams({ ...params, zoningExtraFlatsAction: e.target.value as any })}
+                                className="w-full text-[10px] font-bold px-1.5 py-1 rounded border border-indigo-300 bg-white text-indigo-950"
+                              >
+                                <option value="sellForOwners">Satılıp Malik Borcundan Düşülsün</option>
+                                <option value="contractor">Müteahhit Payına Aktarılsın</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Destek Modeli */}
@@ -1647,12 +1730,15 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         >
                           <option value="shelter_depot">🛡️ Sığınak & Depo</option>
                           <option value="parking">🚗 Kapalı Otopark</option>
-                          <option value="shop">🛍️ Dükkan Deposu</option>
+                          <option value="residential">🏠 Bodrum Kat Konut / Daire</option>
                           <option value="commercial_shop">🏪 Bodrum Kat İşyeri / Ticari Dükkan</option>
+                          <option value="shop">🛍️ Dükkan Deposu</option>
                         </select>
-                        {params.basementPurpose === 'commercial_shop' && (
+                        {(params.basementPurpose === 'commercial_shop' || params.basementPurpose === 'residential' || params.basementPurpose === 'shop') && (
                           <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
-                            <span className="text-[10px] font-bold text-slate-700">İşyeri Adedi:</span>
+                            <span className="text-[10px] font-bold text-slate-700">
+                              {params.basementPurpose === 'residential' ? 'Daire Adedi:' : 'İşyeri/Dükkan Adedi:'}
+                            </span>
                             <div className="flex items-center gap-1">
                               <input
                                 type="number"
@@ -1931,9 +2017,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             </div>
           </div>
 
-          {/* MÜTEAHHİT KAT KARŞILIĞI VE FİNANSAL FİZİBİLİTE BÖLÜMÜ */}
-          {params.projectModel === 'contractorShare' && (
-            <div className="pt-4 border-t border-slate-200/80 space-y-4">
+          {/* BAĞIMSIZ BÖLÜM VE KAT BAZLI DAĞILIM ŞEMASI */}
+          <div className="pt-4 border-t border-slate-200/80 space-y-4">
+            {params.projectModel === 'contractorShare' && (
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-200">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold">
@@ -1957,100 +2043,192 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   <span className="text-xs font-bold text-amber-900">%</span>
                 </div>
               </div>
+            )}
 
-              {/* Daire ve Dükkan Satış Fiyatları & Paylaşım Grid */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            {/* Daire ve Dükkan Kat Bazlı Dağılım Grid */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                     <Building2 className="w-4 h-4 text-indigo-600" />
-                    <span>Bağımsız Bölüm Paylaşımı & Tahmini Satış Fiyatları</span>
+                    <span>Kat Bazlı Bağımsız Bölüm Şeması & Müteahhit Pay Dağılımı</span>
                   </h4>
-                  <span className="text-[11px] text-slate-500">Müteahhit payı olarak seçilen daireler renklendirilir</span>
+                  <p className="text-[11px] text-slate-500 font-medium">Tıklayarak bağımsız bölümü Müteahhit veya Hak Sahibi arasında atayabilirsiniz.</p>
                 </div>
 
-                <div className="space-y-6">
-                  {groupedFlats.map(([floor, floorFlats]) => (
-                    <div key={floor} className="space-y-2.5">
-                      <div className="flex items-center gap-3 px-1">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                          {Number(floor) === 0 ? 'Zemin Kat' : Number(floor) > 0 ? `${floor}. Kat` : `${Math.abs(Number(floor))}. Bodrum`}
-                        </span>
-                        <div className="h-px flex-1 bg-slate-200/80"></div>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">{floorFlats.length} Bağımsız Bölüm</span>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                        {floorFlats.map((flat) => {
-                          const isContractor = (params.contractorFlatIds || []).includes(flat.id);
-                          const styles = getFlatStyles(flat, isContractor);
-                          return (
-                            <div
-                              key={flat.id}
-                              className={`p-3 rounded-2xl border transition-all duration-300 space-y-2 text-xs relative overflow-hidden group ${styles}`}
-                            >
-                              <div className="flex items-center justify-between font-bold relative z-10">
-                                <span className="truncate pr-1">{flat.name}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const currentIds = params.contractorFlatIds || [];
-                                    const newIds = isContractor
-                                      ? currentIds.filter((id) => id !== flat.id)
-                                      : [...currentIds, flat.id];
-                                    onChangeParams({ ...params, contractorFlatIds: newIds });
-                                  }}
-                                  className={`px-1.5 py-0.5 text-[9px] font-black rounded-lg cursor-pointer shadow-sm transition-transform active:scale-90 shrink-0 ${
-                                    isContractor
-                                      ? 'bg-amber-600 text-white hover:bg-amber-700'
-                                      : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                                  }`}
-                                >
-                                  {isContractor ? 'MÜTEAHHİT' : 'SAHİBİ'}
-                                </button>
-                              </div>
-                              
-                              <div className="text-[10px] opacity-70 flex items-center justify-between relative z-10">
-                                <span className="flex items-center gap-1 font-medium">
-                                  {flat.flatType === 'shop' ? <Store className="w-3 h-3" /> : <Home className="w-3 h-3" />}
-                                  {flat.description || flat.flatType || 'Daire'}
-                                </span>
-                                <span className="font-bold">{flat.area} m²</span>
-                              </div>
-                              
-                              <div className="pt-2 border-t border-black/5 relative z-10">
-                                <div className="flex items-center justify-between mb-1">
-                                  <label className="text-[9px] font-bold opacity-60 uppercase tracking-tighter">Satış Değeri</label>
-                                  <span className="text-[9px] font-black text-indigo-600">TL</span>
-                                </div>
-                                <input
-                                  type="number"
-                                  value={flat.salePrice || ''}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value) || 0;
-                                    const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, salePrice: val } : f));
-                                    onChangeParams({ ...params, flats: updatedFlats });
-                                  }}
-                                  placeholder="0"
-                                  className="w-full text-[11px] font-mono font-bold px-2 py-1 rounded-lg border border-slate-200 bg-white/70 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 outline-hidden transition-all"
-                                />
-                              </div>
-                              
-                              {/* Background Pattern for specific types */}
-                              {flat.flatType === 'shop' && (
-                                <div className="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12">
-                                  <Store className="w-12 h-12" />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                {/* Hızlı Aksiyon Butonları */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const totalCount = params.flats.length;
+                      const rate = (params.contractorShareRate ?? 50) / 100;
+                      const targetContractorCount = Math.round(totalCount * rate);
+                      // En üst katlardan başlayarak müteahhide ata
+                      const sortedFlatsByFloorDesc = [...params.flats].sort(
+                        (a, b) => (b.floorNumber ?? 0) - (a.floorNumber ?? 0) || b.id - a.id
+                      );
+                      const contractorFlats = sortedFlatsByFloorDesc.slice(0, targetContractorCount);
+                      const contractorIds = contractorFlats.map((f) => f.id);
+                      const updatedFlats = params.flats.map((f) => ({
+                        ...f,
+                        isContractorShare: contractorIds.includes(f.id),
+                      }));
+                      onChangeParams({ ...params, contractorFlatIds: contractorIds, flats: updatedFlats });
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-xs transition-transform active:scale-95 flex items-center gap-1"
+                  >
+                    <Wand2 className="w-3 h-3" />
+                    <span>Otomatik Dağıt (%{params.contractorShareRate ?? 50})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updatedFlats = params.flats.map((f) => ({ ...f, isContractorShare: false }));
+                      onChangeParams({ ...params, contractorFlatIds: [], flats: updatedFlats });
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-transform active:scale-95"
+                  >
+                    Tümü Hak Sahibi
+                  </button>
+                </div>
+              </div>
+
+              {/* ÖZET İSTATİSTİK ROZETLERİ */}
+              {(() => {
+                const totalFlats = params.flats.length;
+                const contractorFlats = params.flats.filter(
+                  (f) => (params.contractorFlatIds || []).includes(f.id) || !!f.isContractorShare
+                );
+                const ownerFlats = params.flats.filter(
+                  (f) => !(params.contractorFlatIds || []).includes(f.id) && !f.isContractorShare
+                );
+                const totalArea = params.flats.reduce((sum, f) => sum + (f.area || 0), 0);
+                const contractorArea = contractorFlats.reduce((sum, f) => sum + (f.area || 0), 0);
+                const ownerArea = ownerFlats.reduce((sum, f) => sum + (f.area || 0), 0);
+
+                return (
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-600">Toplam Bölüm:</span>
+                      <span className="font-mono font-black text-slate-900">{totalFlats} Adet ({totalArea.toFixed(0)} m²)</span>
                     </div>
-                  ))}
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-amber-800">Müteahhit Payı:</span>
+                      <span className="font-mono font-black text-amber-950">{contractorFlats.length} Adet ({contractorArea.toFixed(0)} m²)</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-emerald-800">Hak Sahipleri:</span>
+                      <span className="font-mono font-black text-emerald-950">{ownerFlats.length} Adet ({ownerArea.toFixed(0)} m²)</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="space-y-6">
+                {groupedFlats.map(([floor, floorFlats]) => {
+                  const sortedFloorFlats = [...floorFlats].sort((a, b) => a.id - b.id);
+                  const isMansardFloor = sortedFloorFlats.some(
+                    (f) => f.flatType === 'mansard' || (f.description || '').toLowerCase().includes('mansart')
+                  );
+                  return (
+                    <div key={floor} className="space-y-2.5 border-t-2 border-indigo-200/90 pt-3">
+                      <div className="flex items-center gap-3 px-1">
+                        <div className="flex items-center gap-2 bg-indigo-700 text-white px-3 py-1 rounded-lg shadow-xs">
+                          <Building2 className="w-3.5 h-3.5 text-indigo-200" />
+                          <span className="text-xs font-black uppercase tracking-wider">
+                            {Number(floor) === 0
+                              ? '🏢 ZEMİN KAT'
+                              : Number(floor) > 0
+                              ? isMansardFloor
+                                ? `🏢 ${floor}. KAT (ÇATIKATI MANSART)`
+                                : `🏢 ${floor}. KAT`
+                              : `🏢 ${Math.abs(Number(floor))}. BODRUM KAT`}
+                          </span>
+                        </div>
+                        <div className="h-0.5 flex-1 bg-gradient-to-r from-indigo-300 via-slate-200 to-transparent"></div>
+                        <span className="text-[10px] font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                          {sortedFloorFlats.length} Bağımsız Bölüm
+                        </span>
+                      </div>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                          {sortedFloorFlats.map((flat) => {
+                            const isContractor = (params.contractorFlatIds || []).includes(flat.id) || !!flat.isContractorShare;
+                            const styles = getFlatStyles(flat, isContractor);
+                            return (
+                              <div
+                                key={flat.id}
+                                className={`p-3 rounded-2xl border transition-all duration-300 space-y-2 text-xs relative overflow-hidden group ${styles}`}
+                              >
+                                <div className="flex items-center justify-between font-bold relative z-10">
+                                  <span className="truncate pr-1">{flat.name}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const currentIds = params.contractorFlatIds || [];
+                                      const nextIsContractor = !isContractor;
+                                      const newIds = nextIsContractor
+                                        ? [...new Set([...currentIds, flat.id])]
+                                        : currentIds.filter((id) => id !== flat.id);
+                                      const updatedFlats = params.flats.map((f) =>
+                                        f.id === flat.id ? { ...f, isContractorShare: nextIsContractor } : f
+                                      );
+                                      onChangeParams({ ...params, contractorFlatIds: newIds, flats: updatedFlats });
+                                    }}
+                                    className={`px-1.5 py-0.5 text-[9px] font-black rounded-lg cursor-pointer shadow-sm transition-transform active:scale-90 shrink-0 ${
+                                      isContractor
+                                        ? 'bg-amber-600 text-white hover:bg-amber-700'
+                                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                                    }`}
+                                  >
+                                    {isContractor ? 'MÜTEAHHİT' : 'SAHİBİ'}
+                                  </button>
+                                </div>
+                                
+                                <div className="text-[10px] opacity-70 flex items-center justify-between relative z-10">
+                                  <span className="flex items-center gap-1 font-medium truncate">
+                                    {flat.flatType === 'shop' || flat.flatType === 'basement_shop' ? <Store className="w-3 h-3 shrink-0" /> : <Home className="w-3 h-3 shrink-0" />}
+                                    <span className="truncate">{flat.description || flat.flatType || 'Daire'}</span>
+                                  </span>
+                                  <span className="font-bold shrink-0 ml-1">{flat.area} m²</span>
+                                </div>
+                                
+                                <div className="pt-2 border-t border-black/5 relative z-10">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <label className="text-[9px] font-bold opacity-60 uppercase tracking-tighter">Satış Değeri</label>
+                                    <span className="text-[9px] font-black text-indigo-600">TL</span>
+                                  </div>
+                                  <input
+                                    type="number"
+                                    value={flat.salePrice || ''}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, salePrice: val } : f));
+                                      onChangeParams({ ...params, flats: updatedFlats });
+                                    }}
+                                    placeholder="0"
+                                    className="w-full text-[11px] font-mono font-bold px-2 py-1 rounded-lg border border-slate-200 bg-white/70 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 outline-hidden transition-all"
+                                  />
+                                </div>
+                                
+                                {/* Background Pattern for specific types */}
+                                {(flat.flatType === 'shop' || flat.flatType === 'basement_shop') && (
+                                  <div className="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12">
+                                    <Store className="w-12 h-12" />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
-          )}
 
           {/* CANLI HESAPLAMA METRİK KARTLARI (Birim Satış Maliyeti, Net İnşaat, Genel Bedel, Teslim Süresi) */}
           <div className="pt-5 border-t border-slate-100 space-y-4 animate-fade-in">
@@ -2898,6 +3076,98 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   </div>
                   <div className="text-sm font-black text-slate-900 font-mono">
                     {params.hasTouchlessKitchenFaucet ? `${results.touchlessKitchenFaucetCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 8: Motorlu & Biyometrik Akıllı Daire Kapısı Kilitleri (DESİ / Kale / Smart) */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasSmartDoorLock ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasSmartDoorLock ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Akıllı Daire Kapısı Motorlu Kilit Sistemi</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">Parmak İzli + Şifreli + Mobil Uygulamalı (DESİ / Kale / Smart)</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasSmartDoorLock}
+                        onChange={(e) => onChangeParams({ ...params, hasSmartDoorLock: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-semibold">
+                    <span>🔑 Konut Daire Giriş Kapıları İçin</span>
+                    <span className="text-amber-600 font-normal">(Dükkanlar hariç tüm konut çelik kapılarına entegre edilir)</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Daire giriş çelik kapılarında mekanik anahtar taşıma derdini sona erdiren; <strong>parmak izi okuyucu, dokunmatik şifreli tuş takımı ve mobil uygulama (Bluetooth/Wi-Fi)</strong> erişimli orta segment motorlu akıllı kilit sistemidir (DESİ, Kale veya Smart markaları).
+                  </p>
+
+                  {params.hasSmartDoorLock ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] text-slate-600 bg-purple-50/60 p-2.5 rounded-lg border border-purple-100 space-y-1">
+                        <div className="flex items-center justify-between font-bold text-purple-950">
+                          <span>DESİ / Kale / Smart Akıllı Motorlu Kilit Entegrasyonu</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">Orta Segment Konfor</span>
+                        </div>
+                        <ul className="text-[10px] text-slate-600 space-y-0.5 list-disc pl-3.5 pt-0.5">
+                          <li><strong>3 Farklı Giriş Yöntemi:</strong> Biyometrik Parmak İzi, Şifreli Tuş Takımı ve Mobil Uygulama ile Uzaktan Açma.</li>
+                          <li>Çelik kapı milini motorlu olarak otomatik kilitler ve açar, kapı açık kaldığında uyarı verir.</li>
+                          {(results.shopUnitsCount || 0) > 0 && (
+                            <li className="text-amber-800 font-medium font-mono text-[9px]">
+                              {results.shopUnitsCount} adet dükkan muaf tutulmuştur ({results.residentialUnitsCount ?? (results.flatCount - (results.shopUnitsCount || 0))} konut çelik kapısına uygulanır).
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block">Konut Başı Akıllı Motorlu Kilit Seti Bedeli (TL)</label>
+                        <input
+                          type="number"
+                          value={params.smartDoorLockPricePerFlat ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                            onChangeParams({ ...params, smartDoorLockPricePerFlat: val });
+                          }}
+                          placeholder="8500"
+                          className="w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-700 block">Daire Kapısı Biyometrik Güvenlik Paketi:</span>
+                      <ul className="list-disc pl-3.5 space-y-0.5">
+                        <li>Konut başı paket maliyeti: <strong>8.500 TL</strong> (Motorlu Kilit + Parmak İzi Sensörü + Şifre Paneli + Mobil Bağlantı + Montaj).</li>
+                        <li>DESİ, Kale veya Smart markalı orta segment yerli/ithal üstün güvenlikli motor kilit seti.</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ekstra İmalat Bedeli</span>
+                    {params.hasSmartDoorLock && (
+                      <span className="text-[9px] text-purple-700 font-bold">
+                        {results.smartDoorLockUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.smartDoorLockPricePerFlat || 8500).toLocaleString('tr-TR')} TL
+                        {(results.shopUnitsCount || 0) > 0 && <span className="text-amber-700 block text-[8px] font-medium">({results.shopUnitsCount} dükkan hariç)</span>}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasSmartDoorLock ? `${results.smartDoorLockCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
                   </div>
                 </div>
               </div>

@@ -510,6 +510,23 @@ export function generateOfferHtml(
             <span style="font-weight:bold;color:#6b21a8;">${res.touchlessKitchenFaucetCost ? res.touchlessKitchenFaucetCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
+
+        <!-- Akıllı Daire Giriş Kapısı Kilidi -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🔑 Motorlu & Biyometrik Akıllı Daire Kapısı Kilidi</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasSmartDoorLock ? '#ecfdf5' : '#f1f5f9'};color:${params.hasSmartDoorLock ? '#065f46' : '#475569'};border:1px solid ${params.hasSmartDoorLock ? '#a7f3d0' : '#cbd5e1'}">${params.hasSmartDoorLock ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
+              DESİ / Kale / Smart marka parmak izli okuyucu, dokunmatik şifreli tuş takımı ve mobil uygulama (Bluetooth/Wi-Fi) entegreli motorlu çelik kapı kilidi.
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.smartDoorLockCost ? res.smartDoorLockCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
       </div>
     </div>
     `;

@@ -2646,25 +2646,21 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 </div>
               </button>
 
-              {!collapsedSections.contractorShare && (
+               {!collapsedSections.contractorShare && (
                 <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
                   <div className="space-y-1.5 pt-3">
-                    <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={modelParams.projectModel === 'contractorShare'}
-                        onChange={(e) => {
-                          const isContractorModel = e.target.checked;
-                          updateParams({
-                            projectModel: isContractorModel ? 'contractorShare' : 'cash',
-                          });
-                        }}
-                        className="rounded-sm text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className={`font-semibold ${textTitle}`}>Kat Karşılığı Yapım Modeli</span>
-                    </label>
-                    <p className={`text-[10px] ${textMuted} leading-relaxed`}>
-                      Arsa sahipleri ile müteahhit arasında daire paylaşımı yapılan modeldir.
+                    <label className={`block text-xs font-bold ${textTitle}`}>İş / Yapım Sözleşme Modeli:</label>
+                    <select
+                      value={modelParams.projectModel || 'contractorService'}
+                      onChange={(e) => updateParams({ projectModel: e.target.value as any })}
+                      className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 shadow-2xs"
+                    >
+                      <option value="contractorService">1. Müteahhitlik Hizmeti (% Komisyon)</option>
+                      <option value="contractorShare">2. Kat Karşılığı İnşaat Yapımı</option>
+                      <option value="urbanTransformation">3. Kentsel Dönüşüm / İmar Artışlı</option>
+                    </select>
+                    <p className={`text-[10px] ${textMuted} leading-relaxed mt-1`}>
+                      Sözleşme tipi fizibilite ve finansal borç dağılımını belirler.
                     </p>
                   </div>
 

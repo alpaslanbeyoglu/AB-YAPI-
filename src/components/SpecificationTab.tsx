@@ -444,6 +444,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
           params.hasAcOption ? `<strong>İklimlendirme:</strong> A++ Inverter klima sistemi (${results.acBtuInfo || '18.000 BTU/h'}) ${params.acScope === 'residential_only' ? '(Yalnızca Konutlar)' : '(Tüm Birimler)'}.` : null,
           params.hasThermostaticShowerMixer ? '<strong>Banyo Duş Bataryası:</strong> 38°C emniyet kilitli, haşlanma korumalı ve %30 su tasarruflu termostatik duş bataryası seti (Yalnızca Konutlar — Dükkanlar Hariç).' : '<strong>Banyo Duş Bataryası:</strong> 1. sınıf TSE belgeli aç-kapa pirinç duş bataryası (Konutlar).',
           params.hasLinearShowerDrain ? '<strong>Duş Drenajı:</strong> Duş kabinlerinde 304 kalite paslanmaz çelik ızgaralı, koku önleyici çekvalfli hemzemin lineer duş süzgeci (Yalnızca Konutlar — Dükkanlar Hariç).' : '<strong>Duş Drenajı:</strong> Standart koku perdeli banyo süzgeci (Konutlar).',
+          params.hasTouchlessKitchenFaucet ? '<strong>Mutfak & Banyo Bataryası:</strong> Mutfak eviyesi ve banyo lavabosunda temassız kızılötesi sensörlü, hijyenik ve %40 su tasarruflu fotoselli akıllı batarya seti.' : null,
+          params.hasSmartDoorLock ? '<strong>Akıllı Daire Kapısı Kilidi:</strong> Daire çelik giriş kapılarında parmak izli okuyucu, dokunmatik şifre tuş takımı ve mobil uygulama (Bluetooth/Wi-Fi) kontrollü DESİ / Kale / Smart marka motorlu kilit sistemi.' : '<strong>Daire Giriş Kapısı Kilidi:</strong> Monoblok emniyetli 1. sınıf mekanik göbekli çelik daire giriş kapısı kilidi.',
         ].filter(Boolean).join('<br>')}
       </td>
     </tr>
@@ -1074,11 +1076,11 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                     </div>
 
                     <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
-                      <span className="font-bold text-slate-800 block text-[11px]">✨ Duş Kabini Drenajı</span>
+                      <span className="font-bold text-slate-800 block text-[11px]">🔑 Daire Giriş Kapısı Kilidi</span>
                       <p className="text-slate-600 text-[11px]">
-                        {params.hasLinearShowerDrain
-                          ? '304 kalite paslanmaz çelik ızgaralı, çift hazneli koku önleyici mekanik çekvalfli, su yalıtım etekli hemzemin lineer duş kanalı.'
-                          : 'Standart noktasal koku perdeli banyo yer süzgeci.'}
+                        {params.hasSmartDoorLock
+                          ? 'DESİ / Kale / Smart marka parmak izli okuyucu, şifreli tuş takımı ve mobil uygulama (Bluetooth/Wi-Fi) entegreli motorlu akıllı kilit sistemi.'
+                          : 'Monoblok emniyetli 1. sınıf mekanik kilitli çelik daire giriş kapısı.'}
                       </p>
                     </div>
                   </div>
@@ -1118,7 +1120,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {results.flatResults.map((flat) => {
                       const floorText = flat.floorNumber !== undefined 
-                        ? (flat.floorNumber === 0 ? 'Zemin Kat' : `${flat.floorNumber}. Kat`)
+                        ? (flat.floorNumber === 0 ? 'Zemin Kat' : flat.floorNumber < 0 ? `${Math.abs(flat.floorNumber)}. Bodrum Kat` : `${flat.floorNumber}. Kat`)
                         : (flat.flatType === 'shop' ? 'Zemin Kat' : `${Math.ceil(flat.id / (params.flatsPerFloor || 2))}. Kat`);
                       const unitTitle = flat.flatType === 'shop' 
                         ? `🏪 Dükkan ${flat.id}` 

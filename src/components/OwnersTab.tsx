@@ -13,6 +13,7 @@ import {
   FileText,
   UserCheck,
   Building,
+  Building2,
   CheckCircle2,
   Trash2,
   Calendar,
@@ -93,11 +94,15 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const [sortBy, setSortBy] = useState<SortType>('id_asc');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
 
-  // States to toggle sections (defaults to closed / collapsed)
-  const [isPolicyOpen, setIsPolicyOpen] = useState(false);
-  const [isStagesOpen, setIsStagesOpen] = useState(false);
-  const [isSerefiyeOpen, setIsSerefiyeOpen] = useState(false);
-  const [isOwnersGridOpen, setIsOwnersGridOpen] = useState(false);
+  // Sub-tab navigation state ('list' | 'settings')
+  const [activeSubTab, setActiveSubTab] = useState<'list' | 'settings'>('list');
+
+  // States to toggle sections
+  const [isPolicyOpen, setIsPolicyOpen] = useState(true);
+  const [isStagesOpen, setIsStagesOpen] = useState(true);
+  const [isSerefiyeOpen, setIsSerefiyeOpen] = useState(true);
+  const [isOwnersGridOpen, setIsOwnersGridOpen] = useState(true);
+  const [isBulkControlOpen, setIsBulkControlOpen] = useState(false);
 
   const updateParam = <K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) => {
     onChangeParams({
@@ -573,7 +578,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         case 'debt_asc':
           return (a.calc?.netRemainingDebt || 0) - (b.calc?.netRemainingDebt || 0);
         default:
-          return a.flat.id - b.flat.id;
+          return (a.flat.floorNumber ?? 0) - (b.flat.floorNumber ?? 0) || a.flat.id - b.flat.id;
       }
     });
 
@@ -737,8 +742,46 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         </div>
       </div>
 
-      {/* 2. PAY ORANLARI VE MALİK ÖDEME POLİTİKASI */}
-      <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
+      {/* SUB-NAVBAR: Kat Malikleri Listesi vs. Ödeme & Şerefiye Ayarları */}
+      <div className="flex items-center justify-between bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('list')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeSubTab === 'list'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>📋 Kat Malikleri & Daire Listesi ({params.flats.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('settings')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeSubTab === 'settings'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <Sliders className="w-4 h-4" />
+            <span>⚙️ Ödeme Planı Şablonu & Şerefiye Ayarları</span>
+          </button>
+        </div>
+
+        <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline-block pr-2">
+          {activeSubTab === 'list' ? 'Daire ve malik listesini hızlıca yönetin' : 'Hakediş oranları, taksit şablonu ve şerefiye çarpanları'}
+        </span>
+      </div>
+
+      {/* AYARLAR SEKMESİ (Sadece Settings seçiliyken görünür) */}
+      {activeSubTab === 'settings' && (
+        <div className="space-y-6">
+          {/* 1. PAY ORANLARI VE MALİK ÖDEME POLİTİKASI */}
+          <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
         <button
           type="button"
           onClick={() => setIsPolicyOpen(!isPolicyOpen)}
@@ -756,28 +799,86 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         {isPolicyOpen && (
           <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
             <div>
-              <label className={`block text-xs ${labelColor} mb-1.5`}>Proje Yapım Modeli:</label>
+              <label className={`block text-xs ${labelColor} mb-1.5 font-bold`}>Proje / İş Modeli:</label>
               <select
-                value={params.projectModel}
+                value={params.projectModel || 'contractorService'}
                 onChange={(e) => updateParam('projectModel', e.target.value as any)}
-                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border ${inputBg}`}
+                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-bold ${inputBg}`}
               >
-                <option value="contractorShare">Kat Karşılığı (Müteahhit Paylaşımı var)</option>
-                <option value="cash">Nakit Paylaşımlı (Tüm maliyet maliklere dağıtılır)</option>
+                <option value="contractorService">1. Müteahhitlik Hizmeti (% Komisyon)</option>
+                <option value="contractorShare">2. Kat Karşılığı İnşaat Yapımı</option>
+                <option value="urbanTransformation">3. Kentsel Dönüşüm / İmar Artışlı</option>
               </select>
             </div>
 
+            {(params.projectModel === 'contractorService' || params.projectModel === 'cash') && (
+              <div>
+                <label className={`block text-xs ${labelColor} mb-1.5 font-bold`}>Müteahhitlik Hizmet Bedeli (%):</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={params.contractorFeeRate ?? 15}
+                  onChange={(e) => updateParam('contractorFeeRate', parseFloat(e.target.value) || 0)}
+                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold ${inputBg}`}
+                />
+              </div>
+            )}
+
             {params.projectModel === 'contractorShare' && (
               <div>
-                <label className={`block text-xs ${labelColor} mb-1.5`}>Müteahhit Pay Oranı (%):</label>
+                <label className={`block text-xs ${labelColor} mb-1.5 font-bold`}>Müteahhit Pay Oranı (%):</label>
                 <input
                   type="number"
                   min="0"
                   max="100"
-                  value={params.contractorShareRate}
+                  value={params.contractorShareRate ?? 50}
                   onChange={(e) => updateParam('contractorShareRate', parseFloat(e.target.value) || 0)}
                   className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold ${inputBg}`}
                 />
+              </div>
+            )}
+
+            {params.projectModel === 'urbanTransformation' && (
+              <div className="col-span-2 grid grid-cols-2 gap-3 p-2.5 bg-indigo-50/70 rounded-xl border border-indigo-200">
+                <div>
+                  <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5 mb-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!params.hasZoningIncrease}
+                      onChange={(e) => updateParam('hasZoningIncrease', e.target.checked)}
+                      className="w-4 h-4 rounded text-indigo-600"
+                    />
+                    <span>İmar / Kat Artışı Var</span>
+                  </label>
+                  {params.hasZoningIncrease && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-[10px] text-indigo-900 font-bold">Artış Oranı (%):</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={params.zoningIncreaseRate ?? 20}
+                        onChange={(e) => updateParam('zoningIncreaseRate', parseFloat(e.target.value) || 0)}
+                        className="w-16 text-xs px-2 py-1 rounded border border-indigo-300 font-mono font-bold bg-white"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {params.hasZoningIncrease && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-indigo-950 mb-1">Ekstra Daire Kullanımı:</label>
+                    <select
+                      value={params.zoningExtraFlatsAction || 'sellForOwners'}
+                      onChange={(e) => updateParam('zoningExtraFlatsAction', e.target.value as any)}
+                      className="w-full text-xs px-2 py-1 rounded border border-indigo-300 font-bold bg-white text-indigo-950"
+                    >
+                      <option value="sellForOwners">Satılıp Malik Borcundan Düşülsün</option>
+                      <option value="contractor">Müteahhit Payına Aktarılsın</option>
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1504,9 +1605,14 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
           </div>
         )}
       </div>
+        </div>
+      )}
 
-      {/* 4. KAT MALİKLERİ BİLGİ GİRİŞLERİ, ARAMA & TABLO / KART YÖNETİMİ */}
-      <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
+      {/* MALİKLER LİSTESİ SEKMESİ (Kat Malikleri Listesi & Pay Dağılımı) */}
+      {activeSubTab === 'list' && (
+        <div className="space-y-6">
+          {/* 4. KAT MALİKLERİ BİLGİ GİRİŞLERİ, ARAMA & TABLO / KART YÖNETİMİ */}
+          <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
         <div className="w-full px-6 py-4 bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/60">
           <div className="flex items-center gap-3">
             <button
@@ -1609,27 +1715,6 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
         {isOwnersGridOpen && (
           <div className="p-6 space-y-5">
-            {/* Kat & Mansart & Eşit Alan Kuralı Bilgilendirme Kartı */}
-            <div className="p-3.5 bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-slate-50 border border-blue-200/80 rounded-2xl flex items-start gap-3 text-xs text-blue-950 shadow-2xs">
-              <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-[11px] leading-relaxed space-y-1">
-                <div className="font-bold text-blue-900 flex items-center gap-2">
-                  <span>Mimari & Hukuki Kat Malikleri Kuralları</span>
-                  <span className="text-[10px] bg-blue-100/80 text-blue-800 font-semibold px-2 py-0.5 rounded-full border border-blue-200">
-                    Otomatik Senkronize
-                  </span>
-                </div>
-                <div className="text-blue-800/90">
-                  <strong>• Mansart Kuralı:</strong> Mansart bağımsız bölüm <u>yalnızca en üst katta (çatı katında)</u> yer alır. Mansart seçilen daireler otomatik olarak binanın en üst katına atanır.
-                </div>
-                <div className="text-blue-800/90">
-                  <strong>• Daire Numaralandırma:</strong> Daire numarası en alt katlardan (Daire 1, 2...) başlar ve yukarıya doğru artar.
-                </div>
-                <div className="text-blue-800/90">
-                  <strong>• Eşit Kat Alanı Kuralı:</strong> 1 katta {params.flatsPerFloor || 2} daire olduğunda, aksi belirtilmedikçe o katın brüt alanı kattaki daire sayısına eşit bölünerek bulunur. Daire alanlarını tablodan tek tek özelleştirebilir veya yukarıdaki <em>"Kat Alanını Eşit Paylaştır"</em> butonuyla standart eşit dağılıma döndürebilirsiniz.
-                </div>
-              </div>
-            </div>
             {/* 1. KONTROL & ARAMA & FİLTRELEME ÇUBUĞU */}
             <div className="space-y-3">
               <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
@@ -1761,11 +1846,26 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                   >
                     Dönüşüm Destekli ({ownerFlats.filter((f) => (f.usedCredit || 0) > 0 || (f.usedGrant || 0) > 0).length})
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkControlOpen(!isBulkControlOpen)}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ml-auto border ${
+                      isBulkControlOpen
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                        : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                    }`}
+                  >
+                    <Coins className="w-3.5 h-3.5" />
+                    <span>Toplu Hibe / Kredi Ayarları</span>
+                    {isBulkControlOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
                 </div>
               </div>
 
-              {/* HİBE, KREDİ VE PEŞİNAT MERKEZİ PARAMETRE KONTROL PANELİ (KONUT VE DÜKKAN AYRI) */}
-              <div className="p-4 bg-gradient-to-r from-slate-50 via-indigo-50/20 to-emerald-50/20 rounded-2xl border border-slate-200 shadow-2xs space-y-3.5">
+              {/* HİBE, KREDİ VE PEŞİNAT MERKEZİ PARAMETRE KONTROL PANELİ */}
+              {isBulkControlOpen && (
+                <div className="p-4 bg-gradient-to-r from-slate-50 via-indigo-50/20 to-emerald-50/20 rounded-2xl border border-slate-200 shadow-2xs space-y-3.5">
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -2016,6 +2116,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                   </div>
                 </div>
               </div>
+              )}
 
               {/* HAK SAHİPLERİ BRÜT M² CANLI DENETİM & UYARI PANELI */}
               <div
@@ -2190,9 +2291,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           </span>
                         </div>
                       </th>
-                      {params.projectModel === 'contractorShare' && (
-                        <th className="p-3 w-20 text-center">Müteahhit</th>
-                      )}
+                      <th className="p-3 w-20 text-center">Müteahhit</th>
                       <th className="p-3 w-28 text-right text-slate-800">İmalat Bedeli</th>
                       {params.enableLandShareBalancing && (
                         <th className="p-3 w-28 text-right text-emerald-800">Arsa Mahsubu</th>
@@ -2217,26 +2316,54 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         </td>
                       </tr>
                     ) : (
-                      filteredFlats.map(({ flat, originalIndex, calc, isContractor }) => {
+                      filteredFlats.map(({ flat, originalIndex, calc, isContractor }, flatIdx) => {
                         const isSelected = selectedFlatId === flat.id;
                         const netDebt = calc?.netRemainingDebt || 0;
                         const isPaid = !isContractor && netDebt <= 0;
                         const serefiyePct = Math.round(((flat.serefiyeMultiplier || 1.0) - 1.0) * 100);
                         const landShareDiff = calc?.landShareDifference || 0;
 
+                        const prevFlat = flatIdx > 0 ? filteredFlats[flatIdx - 1].flat : null;
+                        const showFloorHeader = !prevFlat || prevFlat.floorNumber !== flat.floorNumber;
+
                         return (
-                          <tr
-                            key={flat.id}
-                            className={`transition-colors ${
-                              isSelected
-                                ? 'bg-indigo-50/80 ring-1 ring-indigo-400/40'
-                                : isContractor
-                                ? 'bg-amber-50/20 hover:bg-amber-50/40 text-slate-600'
-                                : isPaid
-                                ? 'bg-emerald-50/20 hover:bg-emerald-50/30'
-                                : 'hover:bg-slate-50'
-                            }`}
-                          >
+                          <React.Fragment key={`flat-fragment-${flat.id}`}>
+                            {showFloorHeader && (
+                              <tr key={`floor-header-${flat.floorNumber}-${flat.id}`} className="bg-slate-900 text-white font-bold text-xs">
+                                <td colSpan={18} className="py-2 px-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-y border-indigo-900/80 shadow-xs">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1.5 bg-indigo-600 text-white px-2.5 py-0.5 rounded-md text-[11px] font-black tracking-wider uppercase shadow-2xs">
+                                      <Building2 className="w-3.5 h-3.5 text-indigo-200" />
+                                      <span>
+                                        {flat.floorNumber === 0
+                                          ? '🏢 ZEMİN KAT'
+                                          : flat.floorNumber && flat.floorNumber < 0
+                                          ? `🏢 ${Math.abs(flat.floorNumber)}. BODRUM KAT`
+                                          : flat.flatType === 'mansard' || (flat.description || '').toLowerCase().includes('mansart')
+                                          ? `🏢 ${flat.floorNumber}. KAT (ÇATIKATI MANSART)`
+                                          : `🏢 ${flat.floorNumber}. KAT`}
+                                      </span>
+                                    </div>
+                                    <div className="h-0.5 flex-1 bg-gradient-to-r from-indigo-500/50 via-slate-700/40 to-transparent"></div>
+                                    <span className="text-[10px] text-indigo-200 font-mono">
+                                      Kat Bağımsız Bölümleri
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            <tr
+                              key={flat.id}
+                              className={`transition-colors ${
+                                isSelected
+                                  ? 'bg-indigo-50/80 ring-1 ring-indigo-400/40'
+                                  : isContractor
+                                  ? 'bg-amber-50/20 hover:bg-amber-50/40 text-slate-600'
+                                  : isPaid
+                                  ? 'bg-emerald-50/20 hover:bg-emerald-50/30'
+                                  : 'hover:bg-slate-50'
+                              }`}
+                            >
                             {/* Daire No & Rol & Kat */}
                             <td className="p-2 text-center">
                               <div className="flex flex-col items-center">
@@ -2246,11 +2373,11 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                 <span className="text-[10px] text-slate-500 font-semibold mt-0.5">
                                   {flat.floorNumber === 0
                                     ? 'Zemin Kat'
-                                    : flat.floorNumber === -1
-                                    ? 'Bodrum Kat'
+                                    : flat.floorNumber && flat.floorNumber < 0
+                                    ? `${Math.abs(flat.floorNumber)}. Bodrum Kat`
                                     : flat.flatType === 'mansard'
                                     ? `${flat.floorNumber || params.floorCount}. Kat (Mansart)`
-                                    : `${flat.floorNumber !== undefined ? flat.floorNumber : (params.hasGroundFloorShop ? (originalIndex < (params.shopCount || 1) ? 'Zemin' : `${1 + Math.floor((originalIndex - (params.shopCount || 1)) / (params.flatsPerFloor || 2))}. Kat`) : `${1 + Math.floor(originalIndex / (params.flatsPerFloor || 2))}. Kat`)}`}
+                                    : `${flat.floorNumber !== undefined ? `${flat.floorNumber}. Kat` : (params.hasGroundFloorShop ? (originalIndex < (params.shopCount || 1) ? 'Zemin' : `${1 + Math.floor((originalIndex - (params.shopCount || 1)) / (params.flatsPerFloor || 2))}. Kat`) : `${1 + Math.floor(originalIndex / (params.flatsPerFloor || 2))}. Kat`)}`}
                                 </span>
                                 <span
                                   className={`text-[9px] px-1.5 py-0.5 rounded font-bold mt-0.5 ${
@@ -2282,6 +2409,12 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                       floorNumber: -1,
                                       description: '1. Bodrum Kat Ticari İşyeri',
                                     });
+                                  } else if (val === 'basement_flat') {
+                                    handleFlatChange(originalIndex, {
+                                      flatType: 'basement_flat',
+                                      floorNumber: -1,
+                                      description: '1. Bodrum Kat Konut Daire',
+                                    });
                                   } else if (val === 'shop') {
                                     handleFlatChange(originalIndex, {
                                       flatType: 'shop',
@@ -2299,6 +2432,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                 <option value="standard">🏠 Konut</option>
                                 <option value="shop">🏪 Zemin Dükkan</option>
                                 <option value="basement_shop">🏬 Bodrum İşyeri</option>
+                                <option value="basement_flat">🏠 Bodrum Daire</option>
                                 <option value="mansard">🏚️ Mansart (En Üst)</option>
                                 <option value="duplex">🏘️ Dubleks</option>
                               </select>
@@ -2498,38 +2632,36 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                             </td>
 
                             {/* Müteahhit Payı Toggle */}
-                            {params.projectModel === 'contractorShare' && (
-                              <td className="p-2 text-center">
-                                <label className="inline-flex items-center justify-center cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    checked={isContractor}
-                                    onChange={(e) => {
-                                      const isChecked = e.target.checked;
-                                      const currentIds = params.contractorFlatIds
-                                        ? [...params.contractorFlatIds]
-                                        : [];
-                                      let nextIds: number[];
-                                      if (isChecked) {
-                                        nextIds = currentIds.includes(flat.id)
-                                          ? currentIds
-                                          : [...currentIds, flat.id];
-                                      } else {
-                                        nextIds = currentIds.filter((id) => id !== flat.id);
-                                      }
-                                      onChangeParams({
-                                        ...params,
-                                        contractorFlatIds: nextIds,
-                                        flats: params.flats.map((f, i) =>
-                                          i === originalIndex ? { ...f, isContractorShare: isChecked } : f
-                                        ),
-                                      });
-                                    }}
-                                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
-                                  />
-                                </label>
-                              </td>
-                            )}
+                            <td className="p-2 text-center">
+                              <label className="inline-flex items-center justify-center cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={isContractor}
+                                  onChange={(e) => {
+                                    const isChecked = e.target.checked;
+                                    const currentIds = params.contractorFlatIds
+                                      ? [...params.contractorFlatIds]
+                                      : [];
+                                    let nextIds: number[];
+                                    if (isChecked) {
+                                      nextIds = currentIds.includes(flat.id)
+                                        ? currentIds
+                                        : [...currentIds, flat.id];
+                                    } else {
+                                      nextIds = currentIds.filter((id) => id !== flat.id);
+                                    }
+                                    onChangeParams({
+                                      ...params,
+                                      contractorFlatIds: nextIds,
+                                      flats: params.flats.map((f, i) =>
+                                        i === originalIndex ? { ...f, isContractorShare: isChecked } : f
+                                      ),
+                                    });
+                                  }}
+                                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
+                                />
+                              </label>
+                            </td>
 
                             {/* İmalat Bedeli */}
                             <td className="p-2 text-right font-mono text-slate-800 font-semibold">
@@ -2608,7 +2740,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                               </div>
                             </td>
                           </tr>
-                        );
+                        </React.Fragment>
+                      );
                       })
                     )}
                   </tbody>
@@ -2645,11 +2778,11 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           <span className="text-[10px] text-slate-600 font-semibold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                             {flat.floorNumber === 0
                               ? 'Zemin Kat'
-                              : flat.floorNumber === -1
-                              ? 'Bodrum Kat'
+                              : flat.floorNumber && flat.floorNumber < 0
+                              ? `${Math.abs(flat.floorNumber)}. Bodrum Kat`
                               : flat.flatType === 'mansard'
                               ? `${flat.floorNumber || params.floorCount}. Kat (Mansart)`
-                              : `${flat.floorNumber !== undefined ? flat.floorNumber : (params.hasGroundFloorShop ? (originalIndex < (params.shopCount || 1) ? 'Zemin' : `${1 + Math.floor((originalIndex - (params.shopCount || 1)) / (params.flatsPerFloor || 2))}. Kat`) : `${1 + Math.floor(originalIndex / (params.flatsPerFloor || 2))}. Kat`)}`}
+                              : `${flat.floorNumber !== undefined ? `${flat.floorNumber}. Kat` : (params.hasGroundFloorShop ? (originalIndex < (params.shopCount || 1) ? 'Zemin' : `${1 + Math.floor((originalIndex - (params.shopCount || 1)) / (params.flatsPerFloor || 2))}. Kat`) : `${1 + Math.floor(originalIndex / (params.flatsPerFloor || 2))}. Kat`)}`}
                           </span>
                           <span
                             className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
@@ -3138,6 +3271,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
           </table>
         </div>
       </div>
+        </div>
+      )}
 
       {/* UÇAN PANEL (MALİK DETAY VE ÖDEME TAKVİMİ SLIDE-OVER DRAWER) */}
       {selectedFlatId !== null && selectedFlatResult && (

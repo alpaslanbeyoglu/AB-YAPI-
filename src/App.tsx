@@ -399,7 +399,10 @@ export default function App() {
       roofAtticArea,
       newParams.hasGroundFloorShop,
       newParams.shopCount || 1,
-      upperFloorArea
+      upperFloorArea,
+      newParams.basementPurpose,
+      newParams.basementShopCount || 1,
+      newParams.basementCount !== undefined ? newParams.basementCount : 1
     );
 
     const sanitizedContractorIds = (newParams.contractorFlatIds || []).filter(
@@ -562,7 +565,11 @@ export default function App() {
         updates.mansardFlatCount || prev.mansardFlatCount,
         roofAtticArea,
         nextHasShop,
-        updates.shopCount || prev.shopCount || 1
+        updates.shopCount || prev.shopCount || 1,
+        activeBaseArea,
+        updates.basementPurpose !== undefined ? updates.basementPurpose : prev.basementPurpose,
+        updates.basementShopCount !== undefined ? updates.basementShopCount : (prev.basementShopCount || 1),
+        updates.basementCount !== undefined ? updates.basementCount : (prev.basementCount !== undefined ? prev.basementCount : 1)
       );
 
       const sanitizedContractorIds = (updates.contractorFlatIds ?? prev.contractorFlatIds ?? []).filter(
@@ -617,7 +624,10 @@ export default function App() {
           roofAtticArea,
           next.hasGroundFloorShop,
           next.shopCount || 1,
-          upperFloorArea
+          upperFloorArea,
+          next.basementPurpose,
+          next.basementShopCount || 1,
+          next.basementCount !== undefined ? next.basementCount : 1
         );
         // Keep contractor IDs valid
         next.contractorFlatIds = (next.contractorFlatIds || prev.contractorFlatIds || []).filter(
@@ -705,7 +715,10 @@ export default function App() {
       roofAtticArea,
       newParams.hasGroundFloorShop,
       newParams.shopCount || 1,
-      upperFloorArea
+      upperFloorArea,
+      newParams.basementPurpose,
+      newParams.basementShopCount || 1,
+      newParams.basementCount !== undefined ? newParams.basementCount : 1
     );
 
     const sanitizedContractorIds = (newParams.contractorFlatIds || []).filter(

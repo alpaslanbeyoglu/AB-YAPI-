@@ -74,6 +74,7 @@ export function getBaseParams(params: ProjectParams): ProjectParams {
     hasLinearShowerDrain: false,
     hasBathroomHumidityFan: false,
     hasTouchlessKitchenFaucet: false,
+    hasSmartDoorLock: false,
     priceSmartHome: 0, // Baz pakette akıllı ev yerine standart diafon/otomasyon
   };
 }
@@ -91,6 +92,7 @@ export function getPlusParams(params: ProjectParams): ProjectParams {
     hasLinearShowerDrain: plusFeatures.linearShowerDrain !== false,       // Varsayılan açık
     hasBathroomHumidityFan: plusFeatures.bathroomHumidityFan !== false, // Varsayılan açık
     hasTouchlessKitchenFaucet: plusFeatures.touchlessKitchenFaucet !== false, // Varsayılan açık
+    hasSmartDoorLock: plusFeatures.smartDoorLock !== false,                 // Varsayılan açık
     priceSmartHome: plusFeatures.smartHome !== false ? (params.priceSmartHome || 15000) : 0,
   };
 }
@@ -466,6 +468,24 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
           : plusResult.touchlessKitchenFaucetCost
           ? plusResult.touchlessKitchenFaucetCost / plusFlatCount
           : (params.touchlessKitchenFaucetPricePerFlat || 8500)
+      ),
+    },
+    {
+      id: 'smart_door_lock',
+      category: 'smart',
+      name: 'Motorlu Akıllı Daire Kapısı Kilidi',
+      icon: '🔑',
+      baseIncluded: false,
+      plusIncluded: true,
+      baseSpec: 'Standart mekanik anahtarlı göbekli çelik kapı kilidi',
+      plusSpec: 'DESİ / Kale / Smart Parmak İzli, Şifreli & Mobil Uygulamalı Motorlu Akıllı Kilit',
+      homeownerBenefit: 'Cebinizde ağır anahtar destesi taşıma derdi biter. Parmak izinizle, şifrenizle veya telefonunuzla kapıyı anında açabilir, misafirlerinize tek tıkla geçici şifre gönderebilirsiniz.',
+      costDeltaPerFlat: Math.round(
+        plusResult.smartDoorLockCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
+          ? plusResult.smartDoorLockCost / plusResult.residentialUnitsCount
+          : plusResult.smartDoorLockCost
+          ? plusResult.smartDoorLockCost / plusFlatCount
+          : (params.smartDoorLockPricePerFlat || 8500)
       ),
     },
     {

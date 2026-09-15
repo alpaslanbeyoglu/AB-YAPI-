@@ -509,6 +509,30 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
           laborShare: 25,
         }
       ] : []),
+      ...(params.hasTouchlessKitchenFaucet && results.touchlessKitchenFaucetCost ? [
+        {
+          id: 't10',
+          category: 'tesisat' as const,
+          name: 'Fotoselli Mutfak & Banyo Batarya Seti (Temassız Kızılötesi Sensörlü, Hijyenik & Su Tasarruflu)',
+          unit: 'Daire/Set',
+          quantity: results.touchlessKitchenFaucetUnits || flatCount,
+          unitPrice: results.touchlessKitchenFaucetPricePerFlat || 8500,
+          total: results.touchlessKitchenFaucetCost,
+          laborShare: 15,
+        }
+      ] : []),
+      ...(params.hasSmartDoorLock && results.smartDoorLockCost ? [
+        {
+          id: 't11',
+          category: 'tesisat' as const,
+          name: 'Motorlu & Biyometrik Akıllı Daire Kapısı Kilit Sistemi (Parmak İzli + Dokunmatik Şifreli + Mobil Uygulamalı DESİ/Kale/Smart)',
+          unit: 'Daire Kapısı',
+          quantity: results.smartDoorLockUnits || flatCount,
+          unitPrice: results.smartDoorLockPricePerFlat || 8500,
+          total: results.smartDoorLockCost,
+          laborShare: 15,
+        }
+      ] : []),
 
       // RESMİ & İDARİ GİDERLER
       {

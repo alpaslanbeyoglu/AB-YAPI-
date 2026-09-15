@@ -141,7 +141,7 @@ export interface FlatItem {
   useCredit?: boolean; // Kentsel Dönüşüm Faiz Destekli Kredisi kullanımı
   isContractorShare?: boolean; // true = Müteahhit Dairesi, false = Hak Sahibi Dairesi
   salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
-  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop' | 'basement_shop'; // Daire tipi
+  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop' | 'basement_shop' | 'basement_flat'; // Daire tipi
   description?: string; // Ek açıklama (örn: "Çatı Katı Mansart - Ayrı Bağımsız Bölüm", "Çatı Dubleksi - Tek Bağımsız Bölüm")
   floorNumber?: number; // Bulunduğu Kat No (örn: 0 Zemin, 1, 2, 3...)
   facade?: 'guney' | 'kuzey' | 'dogu' | 'bati' | 'guney_bati' | 'guney_dogu' | 'kuzey_bati' | 'kuzey_dogu' | 'kose' | 'on' | 'arka'; // Cephe / Yön
@@ -213,7 +213,11 @@ export interface ProjectParams {
   durationOption: 'auto' | 'manual' | 'hide';
   manualMonths: number;
   transformationStatus: 'currentSupport' | 'futureSupport2027' | 'none';
-  projectModel: 'cash' | 'contractorShare';
+  projectModel: 'cash' | 'contractorShare' | 'contractorService' | 'urbanTransformation';
+  contractorFeeRate?: number;       // Müteahhitlik hizmeti % kâr/komisyon oranı (örn. %15)
+  hasZoningIncrease?: boolean;      // İmar / Kat Artışı var mı?
+  zoningIncreaseRate?: number;     // İmar artış oranı (%)
+  zoningExtraFlatsAction?: 'contractor' | 'sellForOwners'; // Ekstra dairelerin kullanımı ('contractor': Müteahhide kalsın, 'sellForOwners': Satılıp malik borcundan düşülsün)
   baseBuildArea: number;
   floorCount: number;
   flatCount: number;
@@ -367,6 +371,8 @@ export interface ProjectParams {
   bathroomHumidityFanPricePerFlat?: number; // Konut başı nem sensörlü fan birim fiyatı
   hasTouchlessKitchenFaucet?: boolean; // Mutfakta fotoselli / temassız akıllı eviye bataryası (Konutlar)
   touchlessKitchenFaucetPricePerFlat?: number; // Konut başı fotoselli mutfak bataryası birim fiyatı
+  hasSmartDoorLock?: boolean; // Motorlu & Biyometrik Akıllı Daire Giriş Kapısı Kilit Sistemi (Parmak İzli + Şifreli + Mobil Uygulamalı DESİ/Kale/Smart markaları)
+  smartDoorLockPricePerFlat?: number; // Daire başı motorlu akıllı kilit birim fiyatı (TL)
 
   // Çift Teklif (Dual Offer) & Paket Seçenekleri
   offerPresentationMode?: 'single' | 'dual'; // 'single' = Tek Seçenekli Sunum, 'dual' = 2 Seçenekli (Baz & Plus) Karşılaştırmalı Teklif
@@ -383,6 +389,7 @@ export interface ProjectParams {
     linearShowerDrain?: boolean;
     bathroomHumidityFan?: boolean;
     touchlessKitchenFaucet?: boolean;
+    smartDoorLock?: boolean;
     smartHome?: boolean;
     highEndElevator?: boolean;
   };
@@ -430,7 +437,7 @@ export interface FlatCalcResult {
   netRemainingDebt: number;
   isContractorShare?: boolean;
   salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
-  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop' | 'basement_shop';
+  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop' | 'basement_shop' | 'basement_flat';
   description?: string;
   floorNumber?: number;
   facade?: string;
@@ -544,6 +551,9 @@ export interface CalculationResult {
   touchlessKitchenFaucetCost?: number;
   touchlessKitchenFaucetPricePerFlat?: number;
   touchlessKitchenFaucetUnits?: number;
+  smartDoorLockCost?: number;
+  smartDoorLockPricePerFlat?: number;
+  smartDoorLockUnits?: number;
 }
 
 export interface SavedProjectData {
@@ -649,6 +659,8 @@ export interface BuildingModelParams {
   // Dükkan / Ticari Seçeneği (Normal kat harici dükkan)
   hasGroundFloorShop?: boolean;
   hasBasementShop?: boolean;
+  basementPurpose?: string;
+  basementShopCount?: number;
   shopLocation?: ShopLocation; // 'ground' | 'basement' | 'both'
   shopCount?: number;
   shopHeight?: number;
@@ -661,7 +673,7 @@ export interface BuildingModelParams {
   // Müteahhit Payı / Daire Paylaşımı
   contractorFlatIds?: number[];          // Müteahhite kalacak dairelerin ID listesi
   showContractorShare3D?: boolean;       // 3D model üzerinde müteahhit ve hak sahibi dairelerini görselleştirme seçeneği
-  projectModel?: 'cash' | 'contractorShare';
+  projectModel?: 'cash' | 'contractorShare' | 'contractorService' | 'urbanTransformation';
   contractorShareRate?: number;
   flatCount?: number;
   flats?: FlatItem[];

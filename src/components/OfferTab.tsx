@@ -41,6 +41,7 @@ import {
   Sliders,
   Fan,
   ChefHat,
+  Lock,
   Calculator,
   DollarSign,
   ArrowRight,
@@ -2445,6 +2446,69 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     {params.hasTouchlessKitchenFaucet 
                       ? `${results.touchlessKitchenFaucetCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
                       : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.touchlessKitchenFaucetPricePerFlat || 8500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 8: Motorlu & Biyometrik Akıllı Daire Kapısı Kilitleri (DESİ / Kale / Smart) */}
+              <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-indigo-600" />
+                      Motorlu & Biyometrik Akıllı Daire Kapısı Kilit Sistemi
+                    </span>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasSmartDoorLock ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                      {params.hasSmartDoorLock ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    </span>
+                  </div>
+                  
+                  <div className="p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/80 space-y-1 text-[10px]">
+                    <div className="flex items-center justify-between font-bold text-indigo-950">
+                      <span>Parmak İzi + Şifre + Mobil Uygulama</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-200/70 text-indigo-900 font-bold">DESİ / Kale / Smart</span>
+                    </div>
+                    <div className="text-slate-600">
+                      <strong>Standart:</strong> Motorlu Çelik Kapı Kilidi, Dokunmatik Şifre Paneli & Biyometrik Sensör
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
+                    <strong>Neden Akıllı Motorlu Daire Kapı Kilidi? (Güvenlik & Yaşam Konforu):</strong>
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] text-slate-600">
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🗝️ Anahtar Taşıma ve Unutma Derdine Son:</span>
+                      <p>Mekanik anahtar kaybetme, kapıda kalma, çilingir çağırma veya yedek anahtar yaptırma sorunlarını tamamen bitirir.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">👆 3 Farklı Güvenli Giriş Yöntemi:</span>
+                      <p>Yüksek hassasiyetli parmak izi okuyucu, dokunmatik şifre tuş takımı ve mobil uygulama (Bluetooth / Wi-Fi) ile anında geçiş sağlar.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🔒 Otomatik Motorlu Kilitleme:</span>
+                      <p>Kapı kapandığında çelik milleri motor gücüyle otomatik sürer. Kapı tam kapanmadığında sesli ikaz vererek üst düzey güvenlik sağlar.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">📱 Mobil Uygulamalı Geçiş Yönetimi:</span>
+                      <p>DESİ, Kale veya Smart mobil uygulaması üzerinden misafirlere geçici şifre tanımlama ve giriş loglarını takip etme imkanı sunar.</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                  <div>
+                    <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
+                    {params.hasSmartDoorLock && (
+                      <span className="text-[9px] text-purple-700 font-semibold">
+                        {results.smartDoorLockUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.smartDoorLockPricePerFlat || 8500).toLocaleString('tr-TR')} ₺
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-black text-purple-700 font-mono">
+                    {params.hasSmartDoorLock 
+                      ? `${results.smartDoorLockCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                      : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.smartDoorLockPricePerFlat || 8500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
                   </span>
                 </div>
               </div>

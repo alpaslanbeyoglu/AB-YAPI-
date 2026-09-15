@@ -498,8 +498,8 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                       : `1/${results.flatResults.length}`;
 
                     const floorText = f.floorNumber !== undefined 
-                      ? (f.floorNumber === 0 ? 'Zemin Kat' : `${f.floorNumber}. Kat`)
-                      : (f.flatType === 'shop' ? 'Zemin Kat' : f.flatType === 'basement_shop' ? 'Bodrum Kat' : `${Math.ceil(f.id / (params.flatsPerFloor || 2))}. Kat`);
+                      ? (f.floorNumber === 0 ? 'Zemin Kat' : f.floorNumber < 0 ? `${Math.abs(f.floorNumber)}. Bodrum Kat` : `${f.floorNumber}. Kat`)
+                      : (f.flatType === 'shop' ? 'Zemin Kat' : f.flatType === 'basement_shop' || f.flatType === 'basement_flat' ? 'Bodrum Kat' : `${Math.ceil(f.id / (params.flatsPerFloor || 2))}. Kat`);
 
                     const unitTitle = f.flatType === 'basement_shop'
                       ? `🏬 Bodrum İşyeri ${f.id}`

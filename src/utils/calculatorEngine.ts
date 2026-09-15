@@ -198,6 +198,8 @@ export const DEFAULT_PARAMS: ProjectParams = {
   thermostaticMixerPricePerFlat: 6500,
   hasLinearShowerDrain: false,
   linearDrainPricePerFlat: 2800,
+  hasSmartDoorLock: false,
+  smartDoorLockPricePerFlat: 8500,
 
   // Cost items
   costNotaryContract: 40000,
@@ -292,10 +294,9 @@ export function synchronizeFlats(
   basementShopCount: number = 1,
   basementCount: number = 1
 ): FlatItem[] {
-  const hasBasementCommercial = basementPurpose === 'commercial_shop' && (basementCount || 0) > 0;
+  const hasBasementCommercial = (basementPurpose === 'commercial_shop' || basementPurpose === 'residential' || basementPurpose === 'shop') && (basementCount || 0) > 0;
   const activeBasementShopCount = hasBasementCommercial ? Math.max(1, basementShopCount || 1) : 0;
   const activeShopCount = hasGroundFloorShop ? Math.max(1, shopCount || 1) : 0;
-  const resFloors = hasGroundFloorShop ? Math.max(1, floorCount - 1) : floorCount;
   const isMansard = roofType === 'mansard';
   const isDuplex = roofType === 'duplex';
   
@@ -305,21 +306,26 @@ export function synchronizeFlats(
     ? (mansardFlatCount && mansardFlatCount > 0 ? mansardFlatCount : Math.max(1, flatsPerFloor))
     : 0;
 
+  // Konut katı sayısı hesabı:
+  // Zemin dükkan varsa 1. kattan başlar (floorCount - 1 kat konut), zemin dükkan yoksa Zemin Kat (0) dahil floorCount kat konuttur.
+  // Mansart çatı en üst kata (floorCount) yerleştiği için normal konut katlarının altına ek çatı katı olarak eklenir.
+  const resFloors = hasGroundFloorShop ? Math.max(1, floorCount - 1) : floorCount;
+
   const standardResidentialUnits = resFloors * flatsPerFloor;
   const calculatedTotalUnits = activeBasementShopCount + standardResidentialUnits + activeShopCount + extraMansardFlats;
   const newCount = Math.max(1, flatCount || calculatedTotalUnits);
 
   const effectiveUpperFloorArea = (upperFloorArea && upperFloorArea > 0) ? upperFloorArea : baseBuildArea;
 
-  // Dükkan başına alanlar
+  // Dükkan / Bodrum başına alanlar
   const basementShopAvg = activeBasementShopCount > 0 ? parseFloat((baseBuildArea / activeBasementShopCount).toFixed(2)) : 0;
   const shopAvg = activeShopCount > 0 ? parseFloat((baseBuildArea / activeShopCount).toFixed(2)) : 0;
 
-  // Kural: 1 katta N daire varsa (örn. 4 daire), aksi belirtilmemişse o katın alanı eşit olarak kattaki daire sayısına bölünerek bulunur
+  // Kural: 1 katta N daire varsa (örn. 2 daire), o katın alanı eşit olarak kattaki daire sayısına bölünür
   const normalFloorFlatAvg = parseFloat((effectiveUpperFloorArea / Math.max(1, flatsPerFloor)).toFixed(2));
   const groundFloorResFlatAvg = parseFloat((baseBuildArea / Math.max(1, flatsPerFloor)).toFixed(2));
 
-  // Mansart bağımsız bölüm alanı: Sadece en üst kattaki çatı piyesi inşaat alanının mansart daire sayısına eşit bölünmesiyle bulunur
+  // Mansart bağımsız bölüm alanı
   const mansardAvg = extraMansardFlats > 0
     ? (roofAtticArea > 0
         ? parseFloat((roofAtticArea / extraMansardFlats).toFixed(2))
@@ -334,7 +340,6 @@ export function synchronizeFlats(
 
   return Array.from({ length: newCount }, (_, i) => {
     const existing = flats[i];
-    // Daire numaralandırması en alt kattan (No 1) başlar, en üst kata ve mansarta doğru artar
     const isBasementShopFlat = activeBasementShopCount > 0 && i < activeBasementShopCount;
     const groundShopIndex = i - activeBasementShopCount;
     const isShopFlat = activeShopCount > 0 && groundShopIndex >= 0 && groundShopIndex < activeShopCount;
@@ -350,66 +355,74 @@ export function synchronizeFlats(
     let defaultArea = normalFloorFlatAvg;
 
     if (isBasementShopFlat) {
-      flatType = 'basement_shop';
+      flatType = basementPurpose === 'residential' ? 'basement_flat' : 'basement_shop';
       defaultArea = basementShopAvg;
-      calculatedFloor = -1; // Bodrum Kat
+      calculatedFloor = -1; // 1. Bodrum Kat
       defaultSerefiye = 1.15;
-      defaultName = activeBasementShopCount === 1 ? 'Bodrum Kat İşyeri' : `Bodrum İşyeri ${i + 1}`;
-      description = '1. Bodrum Kat Ticari Bağımsız Bölüm (İşyeri/Dükkan)';
+      defaultName = activeBasementShopCount === 1 
+        ? (basementPurpose === 'residential' ? '1. Bodrum Kat Daire' : '1. Bodrum Kat İşyeri')
+        : (basementPurpose === 'residential' ? `Bodrum Daire ${i + 1}` : `Bodrum İşyeri ${i + 1}`);
+      description = basementPurpose === 'residential'
+        ? '1. Bodrum Kat Konut Bağımsız Bölüm (Daire)'
+        : '1. Bodrum Kat Ticari Bağımsız Bölüm (İşyeri/Dükkan)';
     } else if (isShopFlat) {
       flatType = 'shop';
       defaultArea = shopAvg;
-      calculatedFloor = 0; // Zemin Kat
+      calculatedFloor = 0; // Zemin Kat Dükkan
       defaultSerefiye = 1.25;
       defaultName = activeShopCount === 1 ? 'Zemin Dükkan' : `Dükkan ${groundShopIndex + 1} (Zemin Kat)`;
       description = 'Zemin Kat Ticari Bağımsız Bölüm (Dükkan/İşyeri)';
     } else if (isMansardFlat) {
       flatType = 'mansard';
       defaultArea = mansardAvg;
-      calculatedFloor = floorCount; // KURAL: Mansart sadece en üst katta olur
+      calculatedFloor = floorCount; // KURAL: Mansart en üst katta (örn. 7. Kat) yer alır
       defaultSerefiye = 1.08;
       defaultName = `Kat Maliki ${i + 1} (Çatı Mansart)`;
       description = `En Üst Kat (${floorCount}. Kat) Mansart - Ayrı Bağımsız Bölüm`;
     } else if (isDuplexFlat) {
       flatType = 'duplex';
       defaultArea = parseFloat((normalFloorFlatAvg + duplexAddArea).toFixed(2));
-      calculatedFloor = floorCount; // Son kat dubleksi
+      calculatedFloor = Math.max(1, floorCount - 1);
       defaultSerefiye = 1.18;
       defaultName = `Kat Maliki ${i + 1} (Çatı Dubleksi)`;
-      description = `Son Kat (${floorCount}. Kat) Çatı Dubleksi - Tek Bağımsız Bölüm`;
+      description = `Son Kat (${floorCount - 1}. Kat) Çatı Dubleksi - Tek Bağımsız Bölüm`;
     } else {
       flatType = 'standard';
-      // Katta daire sayısına göre kat indeksi (en alt kattan en üst kata doğru)
       const resFloorOffset = Math.floor(Math.max(0, residentialIdx) / Math.max(1, flatsPerFloor));
-      calculatedFloor = 1 + resFloorOffset;
       
-      // 1. Kat (zemin üstü veya zemin konut) ve üst kat alan hesabı:
-      defaultArea = (!hasGroundFloorShop && calculatedFloor === 1) ? groundFloorResFlatAvg : normalFloorFlatAvg;
+      let rawFloor = 0;
+      if (hasGroundFloorShop) {
+        // Zemin kat dükkan var, konutlar 1. kattan başlar (1, 2, ..., floorCount - 1)
+        rawFloor = 1 + resFloorOffset;
+      } else {
+        // Zemin kat dükkan yok, konutlar Zemin kattan (0) başlar (0, 1, ..., resFloors - 1)
+        rawFloor = resFloorOffset;
+      }
+
+      // Mansart çatı varsa, konut daireleri en üst kata (floorCount) Taşamaz. En fazla floorCount - 1 olabilir.
+      if (isMansard) {
+        calculatedFloor = Math.min(rawFloor, Math.max(hasGroundFloorShop ? 1 : 0, floorCount - 1));
+      } else {
+        calculatedFloor = rawFloor;
+      }
+
+      defaultArea = (!hasGroundFloorShop && calculatedFloor === 0) ? groundFloorResFlatAvg : normalFloorFlatAvg;
       defaultName = (activeShopCount > 0 || activeBasementShopCount > 0)
         ? `Kat Maliki ${i + 1} (Daire ${residentialIdx + 1})`
         : `Kat Maliki ${i + 1}`;
-      description = `${calculatedFloor}. Kat Konut (Daire)`;
+      
+      const floorLabelStr = calculatedFloor === 0 ? 'Zemin Kat' : `${calculatedFloor}. Kat`;
+      description = `${floorLabelStr} Konut (Daire)`;
 
-      if (calculatedFloor === 1) defaultSerefiye = 0.98;
+      if (calculatedFloor === 0 || calculatedFloor === 1) defaultSerefiye = 0.98;
       else if (calculatedFloor >= floorCount - 1) defaultSerefiye = 1.10;
       else defaultSerefiye = 1.02;
     }
 
     if (existing) {
-      const mergedFlatType = (isBasementShopFlat || isShopFlat) 
-        ? (isBasementShopFlat ? 'basement_shop' : 'shop') 
-        : (existing.flatType === 'shop' || existing.flatType === 'basement_shop' ? 'standard' : (existing.flatType || flatType));
-      
-      let mergedFloor = calculatedFloor;
-      if (mergedFlatType === 'mansard') {
-        mergedFloor = floorCount;
-      } else if (mergedFlatType === 'shop') {
-        mergedFloor = 0;
-      } else if (mergedFlatType === 'basement_shop') {
-        mergedFloor = -1;
-      } else if (existing.floorNumber !== undefined) {
-        mergedFloor = existing.floorNumber;
-      }
+      const mergedFlatType = flatType;
+      const mergedFloor = calculatedFloor;
+      const mergedDescription = description;
 
       const mergedArea = existing.area !== undefined && existing.area > 0 && !((isBasementShopFlat || isShopFlat) && existing.flatType !== 'shop' && existing.flatType !== 'basement_shop') 
         ? existing.area 
@@ -425,7 +438,7 @@ export function synchronizeFlats(
         id: i + 1,
         area: mergedArea,
         flatType: mergedFlatType,
-        description: existing.description !== undefined ? existing.description : description,
+        description: mergedDescription,
         floorNumber: mergedFloor,
         facade: existing.facade || (i % 2 === 0 ? 'guney' : 'kuzey'),
         serefiyeMultiplier: existing.serefiyeMultiplier !== undefined ? existing.serefiyeMultiplier : defaultSerefiye,
@@ -462,11 +475,12 @@ export function calculateFlatCount(params: ProjectParams): number {
   const shopCount = hasShop ? Math.max(1, params.shopCount || 1) : 0;
 
   const basementFloorsCount = Math.max(0, params.basementCount !== undefined && !isNaN(params.basementCount) ? params.basementCount : 1);
-  const hasBasementCommercial = params.basementPurpose === 'commercial_shop' && basementFloorsCount > 0;
-  const basementShopCount = hasBasementCommercial ? Math.max(1, params.basementShopCount || 1) : 0;
+  const hasBasementUnit = (params.basementPurpose === 'commercial_shop' || params.basementPurpose === 'residential' || params.basementPurpose === 'shop') && basementFloorsCount > 0;
+  const basementShopCount = hasBasementUnit ? Math.max(1, params.basementShopCount || 1) : 0;
 
   const isMansard = params.roofType === 'mansard';
-  const resFloors = hasShop ? Math.max(0, floorCount - 1) : floorCount;
+  const takenFloors = hasShop ? 1 : 0;
+  const resFloors = Math.max(1, floorCount - takenFloors);
   const normalFloorFlats = resFloors * flatsPerFloor;
   const extraMansardFlats = isMansard
     ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : Math.max(1, flatsPerFloor))
@@ -805,9 +819,17 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const touchlessKitchenFaucetCost = params.hasTouchlessKitchenFaucet ? Math.round(touchlessKitchenFaucetUnits * touchlessKitchenFaucetPricePerFlat) : 0;
   const touchlessKitchenFaucetLabor = Math.round(touchlessKitchenFaucetCost * 0.15);
 
+  // Daire Kapısı Konforu: Parmak İzli + Şifreli + Mobil Uygulamalı (DESİ / Kale / Smart Marka Orta Segment) Motorlu Akıllı Kilit Sistemi
+  const smartDoorLockUnits = residentialUnitsCount;
+  const smartDoorLockPricePerFlat = params.smartDoorLockPricePerFlat !== undefined && params.smartDoorLockPricePerFlat > 0
+    ? params.smartDoorLockPricePerFlat
+    : 8500;
+  const smartDoorLockCost = params.hasSmartDoorLock ? Math.round(smartDoorLockUnits * smartDoorLockPricePerFlat) : 0;
+  const smartDoorLockLabor = Math.round(smartDoorLockCost * 0.15);
+
   const systemsRawTotal = costElevatorTotal + costSmartHomeTotal + costIntercomTotal + costGasTotal;
   const systemsCostNormal = Math.round(systemsRawTotal * costMultiplier * 100) / 100;
-  const systemsCost = Math.round((systemsCostNormal + underfloorHeatingCost + waterFiltrationCost + acCostTotal + thermostaticMixerCost + linearDrainCost + bathroomHumidityFanCost + touchlessKitchenFaucetCost) * 100) / 100;
+  const systemsCost = Math.round((systemsCostNormal + underfloorHeatingCost + waterFiltrationCost + acCostTotal + thermostaticMixerCost + linearDrainCost + bathroomHumidityFanCost + touchlessKitchenFaucetCost + smartDoorLockCost) * 100) / 100;
 
   const systemsLaborCostNormal = Math.round(
     (costElevatorTotal * 0.20 + costSmartHomeTotal * 0.15 + costIntercomTotal * 0.20 + costGasTotal * 0.30) *
@@ -815,10 +837,10 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       100
   ) / 100;
 
-  // Yerden ısıtmada işçilik payı %30, su arıtmada %10 işçilik, klimada %15-%40 montaj/işçilik, bataryada %15, süzgeçte %25, banyo fanında %20, mutfak bataryasında %15
+  // Yerden ısıtmada işçilik payı %30, su arıtmada %10 işçilik, klimada %15-%40 montaj/işçilik, bataryada %15, süzgeçte %25, banyo fanında %20, mutfak bataryasında %15, akıllı kapı kilidinde %15
   const underfloorLabor = Math.round(underfloorHeatingCost * 0.30);
   const waterLabor = Math.round(waterFiltrationCost * 0.10);
-  const systemsLaborCost = Math.round((systemsLaborCostNormal + underfloorLabor + waterLabor + acLaborCost + thermostaticLabor + linearDrainLabor + bathroomHumidityFanLabor + touchlessKitchenFaucetLabor) * 100) / 100;
+  const systemsLaborCost = Math.round((systemsLaborCostNormal + underfloorLabor + waterLabor + acLaborCost + thermostaticLabor + linearDrainLabor + bathroomHumidityFanLabor + touchlessKitchenFaucetLabor + smartDoorLockLabor) * 100) / 100;
 
   const systemsMaterialCost = Math.round((systemsCost - systemsLaborCost) * 100) / 100;
 
@@ -1295,5 +1317,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     touchlessKitchenFaucetCost,
     touchlessKitchenFaucetPricePerFlat,
     touchlessKitchenFaucetUnits,
+    smartDoorLockCost,
+    smartDoorLockPricePerFlat,
+    smartDoorLockUnits,
   };
 }
