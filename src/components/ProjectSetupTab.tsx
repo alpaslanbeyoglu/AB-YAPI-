@@ -2810,7 +2810,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 </div>
               </div>
 
-              {/* Option 7: Kadınların Hayatını Kolaylaştıran Fotoselli Mutfak Bataryası */}
+              {/* Option 7: Günlük Hayatı Kolaylaştıran Fotoselli Mutfak ve Banyo Bataryaları */}
               <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasTouchlessKitchenFaucet ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -2819,8 +2819,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         <ChefHat className="w-4 h-4" />
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-slate-800 block">Fotoselli Mutfak Bataryası</span>
-                        <span className="text-[10px] text-purple-700 font-semibold">Kadınların Hayatını Kolaylaştıran Dokunuş</span>
+                        <span className="text-xs font-bold text-slate-800 block">Fotoselli Mutfak & Banyo Bataryaları</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">Mutfak ve Banyo Lavabosunda Temassız Konfor</span>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -2836,23 +2836,23 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
                   <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-semibold">
                     <span>🏠 Yalnızca Konut Daireleri İçindir</span>
-                    <span className="text-amber-600 font-normal">(Dükkanlarda konut tipi mutfak olmadığından hariç tutulur)</span>
+                    <span className="text-amber-600 font-normal">(Dükkanlarda konut tipi ıslak hacimler olmadığından hariç tutulur)</span>
                   </div>
 
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Mutfakta yemek hazırlarken hamurlu, yağlı veya çiğ etli ellerle bataryaya dokunmadan <strong>temassız kızılötesi sensörle</strong> su akışı sağlayan hijyenik eviye bataryasıdır. Tezgahın su içinde kalmasını ve kirlenmesini tamamen önler.
+                    Mutfak eviyesi ve banyo lavabosunda, el yaklaştırıldığında dokunmadan çalışan <strong>temassız kızılötesi sensörlü</strong> akıllı batarya setidir. Üstün hijyen sağlar, sabun/su lekelerini önler ve %40 su tasarrufu sunar.
                   </p>
 
                   {params.hasTouchlessKitchenFaucet ? (
                     <div className="space-y-2 pt-1">
                       <div className="text-[11px] text-slate-600 bg-purple-50/60 p-2.5 rounded-lg border border-purple-100 space-y-1">
                         <div className="flex items-center justify-between font-bold text-purple-950">
-                          <span>Temassız Kızılötesi Sensör</span>
+                          <span>Temassız Kızılötesi Sensör Paketi (2 Adet)</span>
                           <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">%40 Su Tasarrufu</span>
                         </div>
                         <ul className="text-[10px] text-slate-600 space-y-0.5 list-disc pl-3.5 pt-0.5">
-                          <li>El yaklaştırıldığında anında akar, çekildiğinde otomatik durur; tezgaha damlamaz.</li>
-                          <li>Çapraz bulaşmayı önler, gıda hazırlığında en üst düzey bakteri hijyeni sağlar.</li>
+                          <li>Hem mutfak eviyesinde hem banyo lavabosunda hijyenik ve tam otomatik su kontrolü sağlar.</li>
+                          <li>Islak/kirli ellerle bataryaya dokunmayı önler, kireç ve su lekesi birikimini sıfırlar.</li>
                           {(results.shopUnitsCount || 0) > 0 && (
                             <li className="text-amber-800 font-medium font-mono text-[9px]">
                               {results.shopUnitsCount} adet dükkan muaf tutulmuştur ({results.residentialUnitsCount ?? (results.flatCount - (results.shopUnitsCount || 0))} konuta uygulanır).
@@ -2862,7 +2862,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       </div>
 
                       <div className="space-y-0.5">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase block">Konut Başı Fotoselli Mutfak Bataryası Bedeli (TL)</label>
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block">Konut Başı Mutfak & Banyo Batarya Seti Bedeli (TL)</label>
                         <input
                           type="number"
                           value={params.touchlessKitchenFaucetPricePerFlat ?? ''}
@@ -2870,17 +2870,17 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                             const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
                             onChangeParams({ ...params, touchlessKitchenFaucetPricePerFlat: val });
                           }}
-                          placeholder="4500"
+                          placeholder="8500"
                           className="w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900"
                         />
                       </div>
                     </div>
                   ) : (
                     <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
-                      <span className="font-bold text-slate-700 block">Mutfak Hijyeni & Pratiklik:</span>
+                      <span className="font-bold text-slate-700 block">Mutfak & Banyo Hijyeni ve Pratiklik:</span>
                       <ul className="list-disc pl-3.5 space-y-0.5">
-                        <li>Konut başı ortalama maliyet: <strong>4.500 TL</strong> (Sensörlü Batarya + Çiftli Güç Ünitesi + Montaj).</li>
-                        <li>Özellikle kadınların günlük temizlik ve mutfak yükünü hafifleterek yüksek memnuniyet oluşturur.</li>
+                        <li>Konut başı paket maliyeti (2 Adet): <strong>8.500 TL</strong> (Mutfak Eviye + Banyo Lavabo Sensörlü Bataryaları + Kurulum).</li>
+                        <li>Mutfakta yemek hazırlığı, banyoda günlük temizlik süreçlerini pratikleştirerek yüksek hijyen sağlar.</li>
                       </ul>
                     </div>
                   )}
@@ -2891,7 +2891,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     <span className="text-[10px] font-bold text-slate-400 uppercase block">Ekstra İmalat Bedeli</span>
                     {params.hasTouchlessKitchenFaucet && (
                       <span className="text-[9px] text-purple-700 font-bold">
-                        {results.touchlessKitchenFaucetUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.touchlessKitchenFaucetPricePerFlat || 4500).toLocaleString('tr-TR')} TL
+                        {results.touchlessKitchenFaucetUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.touchlessKitchenFaucetPricePerFlat || 8500).toLocaleString('tr-TR')} TL
                         {(results.shopUnitsCount || 0) > 0 && <span className="text-amber-700 block text-[8px] font-medium">({results.shopUnitsCount} dükkan hariç)</span>}
                       </span>
                     )}

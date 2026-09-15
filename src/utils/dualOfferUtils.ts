@@ -365,9 +365,9 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       icon: '🔥',
       baseIncluded: true,
       plusIncluded: true,
-      baseSpec: 'Standart Panel Radyatör & Kombi Tesisatı',
-      plusSpec: 'Homojen Sulu Yerden Isıtma Sistemi (Oda Bazlı Termostatik Kontrol)',
-      homeownerBenefit: 'Mobilya yerleşiminde %100 duvar serbestliği, %18-22 doğalgaz faturası tasarrufu ve konforlu ayak ısınması.',
+      baseSpec: 'Standart Panel Radyatör ve Kombi Altyapısı',
+      plusSpec: 'E.C.A. / Demirdöküm Sulu Yerden Isıtma Sistemi',
+      homeownerBenefit: 'Dairenizdeki tüm petekler kalkar, eşyalarınızı dilediğiniz gibi yerleştirirsiniz. Ayaklarınız üşümez ve doğalgaz faturanızdan %20 tasarruf edersiniz.',
       costDeltaPerFlat: Math.round(plusResult.underfloorHeatingCost ? plusResult.underfloorHeatingCost / plusFlatCount : 0),
     },
     {
@@ -377,9 +377,9 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       icon: '❄️',
       baseIncluded: false,
       plusIncluded: true,
-      baseSpec: 'Klimasız (Standart Daire)',
-      plusSpec: `${acInfo.shortTitle} (${acInfo.btu}) A++ Inverter Salon Kliması`,
-      homeownerBenefit: 'Yaz sıcaklarında yüksek enerji verimliliğiyle serinlik, cephe estetiğini bozmayan gizli montaj.',
+      baseSpec: 'Klimasız (Sadece boru altyapısı)',
+      plusSpec: 'Salona 1 Adet Sessiz A++ Inverter Klima (E.C.A. / Mitsubishi / Daikin)',
+      homeownerBenefit: 'Sıcak yaz günlerinde salonunuz anında serinler. Altyapısı gizli çekildiği için evinizde kablo veya boru görüntüsü olmaz.',
       costDeltaPerFlat: Math.round(plusResult.acCostTotal ? plusResult.acCostTotal / plusFlatCount : 0),
     },
     {
@@ -389,22 +389,22 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       icon: '💧',
       baseIncluded: false,
       plusIncluded: true,
-      baseSpec: 'Standart Şebeke Bağlantısı (Filtresiz)',
-      plusSpec: 'Bina Girişi Merkezi Klor, Kireç ve Tortu Filtrasyon Sistemi',
-      homeownerBenefit: 'Kombiyi, bataryaları, çamaşır/bulaşık makinelerini kireçten korur; cihaz ömrünü 3 katına çıkarır, içilebilir temiz su sağlar.',
+      baseSpec: 'Şebekeden doğrudan gelen filtresiz su',
+      plusSpec: 'Bina girişine merkezi arıtma sistemi (Kireç, tortu ve klor filtresi)',
+      homeownerBenefit: 'Çeşmenizden tertemiz ve yumuşak su akar. Kombiniz, çamaşır ve bulaşık makineniz kireçten bozulmaz, ömürleri uzar.',
       costDeltaPerFlat: Math.round(plusResult.waterFiltrationCost ? plusResult.waterFiltrationCost / plusFlatCount : 0),
     },
     // EVİN BANYOSUNDAKİ YAŞAM KALİTESİNE DEĞER KATAN KONFOR DOKUNUŞLARI
     {
       id: 'thermostatic_mixer',
       category: 'bathroom',
-      name: '38°C Emniyetli Termostatik Duş Bataryası',
+      name: 'Emniyetli Termostatik Duş Bataryası',
       icon: '🚿',
       baseIncluded: true,
       plusIncluded: true,
-      baseSpec: 'Standart Aç-Kapa Pirinç Batarya',
-      plusSpec: '38°C Emniyet Kilitli Termostatik Duş Bataryası Seti (Yalnızca Konutlar — Dükkanlar Hariç)',
-      homeownerBenefit: 'Banyoda ani sıcak su yanmalarını ve basınç şoklarını sıfırlar; çocuk ve yaşlı güvenliği sağlar, %30 su tasarrufu sunar. Dükkanlarda duş olmadığından yalnızca konut dairelerine uygulanır.',
+      baseSpec: 'Standart musluk ve aç-kapa duş bataryası',
+      plusSpec: 'E.C.A. / Artema 38°C Sıcaklık Sabitleyicili Emniyetli Duş Bataryası',
+      homeownerBenefit: 'Mutfakta biri su açınca duşta sıcaklık değişmez. Su 38 dereceye sabitlenir, çocukların veya yaşlıların ani sıcak suyla yanmasını engeller.',
       costDeltaPerFlat: Math.round(
         plusResult.thermostaticMixerCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
           ? plusResult.thermostaticMixerCost / plusResult.residentialUnitsCount
@@ -420,9 +420,9 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       icon: '✨',
       baseIncluded: true,
       plusIncluded: true,
-      baseSpec: 'Standart Plastik Noktasal Yer Süzgeci',
-      plusSpec: '304 Paslanmaz Çelik Etekli Lineer Duş Kanalı & Koku Çekvalfi (Yalnızca Konutlar — Dükkanlar Hariç)',
-      homeownerBenefit: 'Hemzemin engelsiz modern banyo estetiği, %100 kötü koku ve böcek bariyeri, saç tutucu kolay temizlik. Dükkanlarda duş olmadığından yalnızca konut dairelerine uygulanır.',
+      baseSpec: 'Standart plastik yuvarlak süzgeç',
+      plusSpec: 'Hüppe / Geberit Uyumlu Çelik Uzun Duş Süzgeci ve Özel Koku Engelleyici',
+      homeownerBenefit: 'Banyonuzda eşiksiz, düz ve şık bir duş alanı olur. Özel çekvalf sayesinde giderden banyonuza kesinlikle kötü koku veya böcek gelemez.',
       costDeltaPerFlat: Math.round(
         plusResult.linearDrainCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
           ? plusResult.linearDrainCost / plusResult.residentialUnitsCount
@@ -438,9 +438,9 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       icon: '🌀',
       baseIncluded: false,
       plusIncluded: true,
-      baseSpec: 'Standart Pasif Menfez / Fansız Şaft',
-      plusSpec: 'Akıllı Nem Sensörlü, Geri Tepme Klapeli Sessiz Banyo Fanı (Yalnızca Konutlar — Dükkanlar Hariç)',
-      homeownerBenefit: 'Banyoda oluşan buğu ve nemi otomatik algılayıp sessizce tahliye eder; küf, mantar ve rutubet kokusunu tamamen önler. Geri tepme klapesi şafttan geri hava ve koku girişini engeller.',
+      baseSpec: 'Sadece pasif havalandırma deliği (Fansız)',
+      plusSpec: 'Banyoya nemi algılayıp otomatik çalışan sessiz elektrikli fan',
+      homeownerBenefit: 'Duş sonrası banyoda buğu ve ıslaklık kalmaz. Rutubet, küf ve kötü kokular otomatik olarak sessizce tahliye edilir.',
       costDeltaPerFlat: Math.round(
         plusResult.bathroomHumidityFanCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
           ? plusResult.bathroomHumidityFanCost / plusResult.residentialUnitsCount
@@ -449,23 +449,23 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
           : (params.bathroomHumidityFanPricePerFlat || 3200)
       ),
     },
-    // KADINLARIN HAYATINI KOLAYLAŞTIRAN MUTFAK KONFORU
+    // HAYATI KOLAYLAŞTIRAN MUTFAK VE BANYO KONFORU
     {
       id: 'touchless_kitchen',
       category: 'kitchen',
-      name: 'Fotoselli / Temassız Mutfak Bataryası',
+      name: 'Fotoselli Mutfak ve Banyo Bataryaları',
       icon: '🫧',
       baseIncluded: false,
       plusIncluded: true,
-      baseSpec: 'Standart Manuel Aç-Kapa Eviye Bataryası',
-      plusSpec: 'Kadınların Hayatını Kolaylaştıran Temassız Fotoselli Akıllı Mutfak Bataryası (Yalnızca Konutlar)',
-      homeownerBenefit: 'Hamurlu, yağlı veya etli ellerle bataryaya temas etmeden suyu açıp kapatma kolaylığı; tezgaha su damlatmaz, mutfak temizliğini hafifletir ve %40 su tasarrufu sağlar.',
+      baseSpec: 'Standart elle açılan mutfak ve banyo muslukları',
+      plusSpec: 'E.C.A. / Artema Dokunmadan Çalışan Temassız Fotoselli Musluklar',
+      homeownerBenefit: 'Mutfakta köfteli, hamurlu ellerle musluğa dokunmazsınız. Altına elinizi tutunca su akar, çekince durur. Hem musluk tertemiz kalır hem de su faturanız %40 düşer.',
       costDeltaPerFlat: Math.round(
         plusResult.touchlessKitchenFaucetCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
           ? plusResult.touchlessKitchenFaucetCost / plusResult.residentialUnitsCount
           : plusResult.touchlessKitchenFaucetCost
           ? plusResult.touchlessKitchenFaucetCost / plusFlatCount
-          : (params.touchlessKitchenFaucetPricePerFlat || 4500)
+          : (params.touchlessKitchenFaucetPricePerFlat || 8500)
       ),
     },
     {
@@ -475,9 +475,9 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       icon: '🏡',
       baseIncluded: false,
       plusIncluded: true,
-      baseSpec: 'Standart Görüntülü Diafon Sistemi',
-      plusSpec: 'Mobil Entegre Akıllı Ev Paketi (Aydınlatma, Ana Su/Gaz Vanası & Güvenlik)',
-      homeownerBenefit: 'Evden uzaktayken cep telefonundan su ve gazı kapatabilme, senaryolu aydınlatma ile yüksek konfor ve güvenlik.',
+      baseSpec: 'Standart diafon sistemi (Sadece kapı zili)',
+      plusSpec: 'Somfy / Audio Mobil Entegre Akıllı Ev Sistemi (Uzak Vanalı Kontrol)',
+      homeownerBenefit: 'Evden çıktıktan sonra "Suyu açık mı bıraktım?" tasası biter. Telefondan tek tıkla evin ana suyunu ve gazını kapatabilirsiniz.',
       costDeltaPerFlat: Math.round(plusParams.priceSmartHome || 15000),
     },
   ];

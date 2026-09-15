@@ -387,6 +387,15 @@ export interface ProjectParams {
     highEndElevator?: boolean;
   };
 
+  // Sunum Sayfası & Firma Geçmişi Seçenekleri
+  showIntroPresentation?: boolean; // Teklif öncesi giriş sunum sayfasını göster
+  introExplanation?: string; // "Neleri Neden Yaptık?" sunum metni
+  showCompanyHistory?: boolean; // Firma geçmişi seçeneği
+  companyHistoryText?: string; // Firma geçmişi metni
+  companyCompletedProjects?: string; // Tamamlanan projeler metni
+  companyMission?: string; // Misyon metni
+  companyVision?: string; // Vizyon metni
+
   // Flats
   flats: FlatItem[];
 }

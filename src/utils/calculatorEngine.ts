@@ -657,13 +657,13 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const kabaDaysTotal = floorCount * kabaDaysPerFloor + 15;
   const inceDaysTotal = floorCount * inceDaysPerFloor + 30;
   const totalDaysAuto = permitDays + kabaDaysTotal + inceDaysTotal + iskanDays;
-  const autoDurationMonths = Math.round((totalDaysAuto / 30) * 10) / 10;
+  const autoDurationMonths = Math.round(totalDaysAuto / 30);
 
   let finalMonths = autoDurationMonths;
   let totalDays = totalDaysAuto;
 
   if (durationOption === 'manual') {
-    finalMonths = Math.round((manualMonths || 0) * 10) / 10;
+    finalMonths = Math.round(manualMonths || 0);
     totalDays = finalMonths * 30;
   } else if (durationOption === 'hide') {
     finalMonths = 0;
@@ -796,12 +796,12 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const bathroomHumidityFanCost = params.hasBathroomHumidityFan ? Math.round(bathroomHumidityFanUnits * bathroomHumidityFanPricePerFlat) : 0;
   const bathroomHumidityFanLabor = Math.round(bathroomHumidityFanCost * 0.20);
 
-  // Mutfak Konforu: Kadınların Hayatını Kolaylaştıran Fotoselli / Temassız Akıllı Eviye Bataryası (%40 Su Tasarrufu & Hijyen)
-  // DÜKKANLARDA KONUT MUTFAĞI OLMADIĞINDAN SADECE KONUT/DAİRELER HESABA KATILIR
+  // Mutfak & Banyo: Mutfak Eviyesi ve Banyo Lavabosunda Fotoselli / Temassız Akıllı Batarya Paketi (Hijyen & %40 Su Tasarrufu)
+  // DÜKKANLARDA STANDART KONUT MUTFAK/BANYOSU OLMADIĞINDAN SADECE KONUT/DAİRELER HESABA KATILIR
   const touchlessKitchenFaucetUnits = residentialUnitsCount;
   const touchlessKitchenFaucetPricePerFlat = params.touchlessKitchenFaucetPricePerFlat !== undefined && params.touchlessKitchenFaucetPricePerFlat > 0
     ? params.touchlessKitchenFaucetPricePerFlat
-    : 4500;
+    : 8500;
   const touchlessKitchenFaucetCost = params.hasTouchlessKitchenFaucet ? Math.round(touchlessKitchenFaucetUnits * touchlessKitchenFaucetPricePerFlat) : 0;
   const touchlessKitchenFaucetLabor = Math.round(touchlessKitchenFaucetCost * 0.15);
 

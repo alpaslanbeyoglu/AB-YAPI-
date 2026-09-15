@@ -54,6 +54,7 @@ import {
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { getAcOptionById } from '../utils/acOptions';
 import { generateOfferHtml } from '../utils/offerReportExport';
+import { getCompletedProjectsText } from '../utils/completedProjectsData';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
@@ -786,6 +787,122 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       </div>
 
       {/* ========================================================
+          TEKLİF ÖNCESİ SUNUM VE FİRMA GEÇMİŞİ PANELİ (PRE-OFFER PRESENTATION EDITOR)
+         ======================================================== */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5 print:hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 bg-purple-50 text-purple-700 rounded-lg">
+                <Award className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-black text-slate-900">Teklif Öncesi Sunum & Firma Geçmişi Paneli</h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Teklif belgenizin başına; neleri neden yaptığınızı anlatan bir önsöz sunumu ve firma geçmişi, tamamlanan projeler ile misyon/vizyon sayfaları ekleyebilirsiniz.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Sol Kolon: Sunum Önsöz Ayarları */}
+          <div className="space-y-4">
+            <label className="flex items-start gap-3 p-3.5 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/60 rounded-2xl cursor-pointer transition-all select-none">
+              <input
+                type="checkbox"
+                checked={!!params.showIntroPresentation}
+                onChange={(e) => onUpdateParam && onUpdateParam('showIntroPresentation', e.target.checked)}
+                className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 mt-0.5 cursor-pointer"
+              />
+              <div>
+                <span className="font-bold text-slate-800 text-xs block">📖 Giriş Sunum (Önsöz) Sayfası Ekle</span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">Teklifin en başına "Neleri, Neden ve Nasıl Yaptığımızı" anlatan profesyonel bir giriş/önsöz sayfası ekler.</span>
+              </div>
+            </label>
+
+            {params.showIntroPresentation && (
+              <div className="space-y-2 animate-fade-in pl-1">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">SUNUM VE ÖNSÖZ METNİ (KULLANICI TANIMLI):</label>
+                <textarea
+                  value={params.introExplanation ?? "1960'lardan bugüne uzanan köklü inşaat tecrübemiz ve üçüncü nesil dinamizmimizle, kentsel dönüşüm projelerimizde hem güvenliği hem de modern konfor standartlarını en üst düzeyde buluşturuyoruz. Sektördeki yarım asrı aşan birikimimizle tasarladığımız bu projede, bütçe dostu akılcı maliyet çözümleri sunarken, en güncel deprem yönetmeliklerine ve güvenlik standartlarına tavizsiz şekilde uyuyoruz. Depreme tam dayanıklı mühendislik anlayışımızı, yaşamı kolaylaştıran modern mimari detaylarla harmanlayarak sizler için uzun ömürlü, değerli ve huzurlu yaşam alanları inşa ediyoruz."}
+                  onChange={(e) => onUpdateParam && onUpdateParam('introExplanation', e.target.value)}
+                  rows={4}
+                  className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-purple-500 focus:outline-none bg-white text-slate-800"
+                  placeholder="Neleri neden yaptığımızı anlatan detaylı açıklama..."
+                />
+                <span className="text-[9px] text-slate-400">Not: Bu metin teklif belgenizin ilk sayfasındaki önsöz bölümünü oluşturur.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Sağ Kolon: Firma Geçmişi Ayarları */}
+          <div className="space-y-4">
+            <label className="flex items-start gap-3 p-3.5 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/60 rounded-2xl cursor-pointer transition-all select-none">
+              <input
+                type="checkbox"
+                checked={!!params.showCompanyHistory}
+                onChange={(e) => onUpdateParam && onUpdateParam('showCompanyHistory', e.target.checked)}
+                className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 mt-0.5 cursor-pointer"
+              />
+              <div>
+                <span className="font-bold text-slate-800 text-xs block">🏢 Firma Geçmişi & Kurumsal Profil Ekle</span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">Teklif belgesine firma kuruluşu, tamamlanan referans projeler, misyon ve vizyon alanlarını ekler.</span>
+              </div>
+            </label>
+
+            {params.showCompanyHistory && (
+              <div className="space-y-3 animate-fade-in pl-1">
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">FİRMA GEÇMİŞİ VE HİKAYESİ:</label>
+                  <textarea
+                    value={params.companyHistoryText ?? "1960’lı yıllarda kurucumuz Emin Ahmetbeyoğlu’nun vizyonuyla temelleri atılan inşaat serüvenimiz, yarım asrı aşan tecrübesiyle sektördeki köklü yürüyüşünü sürdürmektedir. İkinci kuşak temsilcilerimiz Faruk Ahmetbeyoğlu ve aile büyüklerimizin öncülüğünde; Laleli, Fatih, Kocamustafapaşa, Silivrikapı, Samatya ve Yedikule gibi İstanbul’un tarihi suriçi bölgelerinde onlarca nitelikli projeye imza atarak şehrin dokusuna kalıcı değerler kattık.\n\n2010’lu yıllarda piyasa dinamiklerindeki değişimleri doğru okuyarak kurumsal yatırımlarımızı sağlık ve tarım gibi stratejik sektörlere de yönlendirdik ve vizyonumuzu daha da genişlettik. Bugün ise edindiğimiz bu çok yönlü kurumsal tecrübe ve artan sektörel talepler doğrultusunda, üçüncü nesil olarak inşaat markamızı çağın gereksinimlerine uygun, dinamik ve yenilikçi bir altyapıyla yeniden yapılandırıyoruz.\n\nGeçmişten aldığımız güven mirasını, geleceğin teknolojileriyle harmanlayarak kaldığımız yerden, daha güçlü bir şekilde üretmeye devam ediyoruz."}
+                    onChange={(e) => onUpdateParam && onUpdateParam('companyHistoryText', e.target.value)}
+                    rows={3}
+                    className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-purple-500 focus:outline-none bg-white text-slate-800"
+                    placeholder="Firma geçmişi ve hikayesi..."
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">TAMAMLANAN ÖNCÜ PROJELER (HER SATIRA BİR PROJE):</label>
+                  <textarea
+                    value={params.companyCompletedProjects ?? getCompletedProjectsText()}
+                    onChange={(e) => onUpdateParam && onUpdateParam('companyCompletedProjects', e.target.value)}
+                    rows={3}
+                    className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-purple-500 focus:outline-none bg-white text-slate-800 font-mono"
+                    placeholder="1. Proje Adı - Detay\n2. Proje Adı - Detay"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">MİSYON:</label>
+                    <textarea
+                      value={params.companyMission ?? "Köklerimizden aldığımız tecrübeyi modern mühendislik çözümlermiyle birleştirerek; insan odaklı, yapısal güvenliği merkeze alan ve yaşam standartlarını daima yukarı taşıyan projeler üretmektir."}
+                      onChange={(e) => onUpdateParam && onUpdateParam('companyMission', e.target.value)}
+                      rows={3}
+                      className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-purple-500 focus:outline-none bg-white text-slate-800"
+                      placeholder="Misyonumuz..."
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">VİZYON:</label>
+                    <textarea
+                      value={params.companyVision ?? "Geleneksel inşaat kültürümüzü modern mimari trendlerle zenginleştirerek, müşterilerimiz için hem yüksek kaliteli hem de bütçe dostu, ulaşılabilir ve akılcı yaşam alanları inşa eden öncü bir marka olmaktır."}
+                      onChange={(e) => onUpdateParam && onUpdateParam('companyVision', e.target.value)}
+                      rows={3}
+                      className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-purple-500 focus:outline-none bg-white text-slate-800"
+                      placeholder="Vizyonumuz..."
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================
           DUAL OFFER PRESENTATION MODE & CUSTOMIZATION PANEL
          ======================================================== */}
       <div className="bg-white border-2 border-indigo-100 rounded-3xl p-6 shadow-sm space-y-5 print:hidden">
@@ -1011,8 +1128,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
                   />
                   <div>
-                    <span className="font-bold text-slate-800 block text-[11px]">🫧 Fotoselli Mutfak Bataryası</span>
-                    <span className="text-[10px] text-slate-500">Kadınların hayatını kolaylaştıran</span>
+                    <span className="font-bold text-slate-800 block text-[11px]">🫧 Fotoselli Mutfak & Banyo Bataryaları</span>
+                    <span className="text-[10px] text-slate-500">Mutfak ve banyoda hayatı kolaylaştıran</span>
                   </div>
                 </label>
 
@@ -1579,6 +1696,151 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         </div>
 
         {/* ========================================================
+            0.1. PRE-OFFER INTRO PRESENTATION PAGE (REACT PREVIEW)
+           ======================================================== */}
+        {params.showIntroPresentation && (
+          <div className="relative z-10 border-b border-purple-100 pb-10 mb-12 print:break-after-page break-after-page">
+            {/* Page Header */}
+            <div className="flex items-center justify-between border-b-2 border-purple-600 pb-4 mb-8">
+              <div className="flex items-center gap-3">
+                <Logo size="md" variant="full" theme={theme} />
+                <div>
+                  <span className="font-extrabold text-sm text-purple-950 block">{compName}</span>
+                  <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider block">Proje Önsözü & Değer Sunumu</span>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold px-3 py-1 bg-purple-50 border border-purple-200 text-purple-700 rounded-full">Özel Sunum</span>
+            </div>
+
+            {/* Main Visual Banner */}
+            <div className="text-center py-10 px-6 mb-8 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl text-white shadow-xs">
+              <h2 className="text-xl font-black mb-2">Geleceği Güvenle İnşa Ediyoruz</h2>
+              <p className="text-xs opacity-95 max-w-xl mx-auto font-medium">
+                {params.projectAddress || 'Belirtilen Adres'} Kentsel Dönüşüm ve Yaşam Projesi Değer Teklifi
+              </p>
+            </div>
+
+            {/* Intro Text Card */}
+            <div className="bg-purple-50/40 border border-purple-100 p-6 rounded-2xl">
+              <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider mb-3 pb-2 border-b border-purple-100">
+                Neleri, Neden ve Nasıl Yapıyoruz?
+              </h3>
+              <p className="text-xs text-slate-700 leading-relaxed text-justify whitespace-pre-wrap font-medium">
+                {params.introExplanation || "1960'lardan bugüne uzanan köklü inşaat tecrübemiz ve üçüncü nesil dinamizmimizle, kentsel dönüşüm projelerimizde hem güvenliği hem de modern konfor standartlarını en üst düzeyde buluşturuyoruz. Sektördeki yarım asrı aşan birikimimizle tasarladığımız bu projede, bütçe dostu akılcı maliyet çözümleri sunarken, en güncel deprem yönetmeliklerine ve güvenlik standartlarına tavizsiz şekilde uyuyoruz. Depreme tam dayanıklı mühendislik anlayışımızı, yaşamı kolaylaştıran modern mimari detaylarla harmanlayarak sizler için uzun ömürlü, değerli ve huzurlu yaşam alanları inşa ediyoruz."}
+              </p>
+            </div>
+
+            {/* Value Proposition Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+              <div className="bg-white border border-slate-150 p-4 rounded-xl">
+                <strong className="text-purple-900 font-extrabold text-xs block mb-1">🛡️ Deprem Güvenliği Odaklılık</strong>
+                <span className="text-[11px] text-slate-500 leading-normal block">
+                  Tüm taşıyıcı sistemlerimizi güncel deprem yönetmeliklerinin de ötesinde, en yüksek sınıf hazır beton ve sismik çelik donatı standartlarıyla tasarlıyoruz.
+                </span>
+              </div>
+              <div className="bg-white border border-slate-150 p-4 rounded-xl">
+                <strong className="text-purple-900 font-extrabold text-xs block mb-1">🌱 Sürdürülebilirlik & Enerji Verimliliği</strong>
+                <span className="text-[11px] text-slate-500 leading-normal block">
+                  Yerden ısıtma, yüksek yalıtımlı cephe sistemleri ve akıllı su tasarrufu çözümleriyle çevre dostu, işletme maliyeti düşük binalar üretiyoruz.
+                </span>
+              </div>
+            </div>
+
+            {/* Page Footer */}
+            <div className="mt-12 pt-4 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-medium font-mono">
+              <span>{compLegal}</span>
+              <span>Sayfa I</span>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            0.2. COMPANY HISTORY & PROFILE PAGE (REACT PREVIEW)
+           ======================================================== */}
+        {params.showCompanyHistory && (
+          <div className="relative z-10 border-b border-purple-100 pb-10 mb-12 print:break-after-page break-after-page">
+            {/* Page Header */}
+            <div className="flex items-center justify-between border-b-2 border-purple-600 pb-4 mb-8">
+              <div className="flex items-center gap-3">
+                <Logo size="md" variant="full" theme={theme} />
+                <div>
+                  <span className="font-extrabold text-sm text-purple-950 block">{compName}</span>
+                  <span className="text-[10px] text-purple-600 font-bold uppercase tracking-wider block">Kurumsal Profil & Firma Geçmişi</span>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold px-3 py-1 bg-purple-50 border border-purple-200 text-purple-700 rounded-full">Kurumsal Profil</span>
+            </div>
+
+            {/* Main Grid Content */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: History & Projects */}
+              <div className="space-y-6">
+                <div className="bg-purple-50/40 border border-purple-100 p-5 rounded-2xl">
+                  <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider mb-2.5 pb-2 border-b border-purple-100">
+                    🏢 Biz Kimiz? Şirket Tarihçemiz
+                  </h3>
+                  <p className="text-[11px] text-slate-700 leading-relaxed text-justify whitespace-pre-wrap font-medium">
+                    {params.companyHistoryText || "1960’lı yıllarda kurucumuz Emin Ahmetbeyoğlu’nun vizyonuyla temelleri atılan inşaat serüvenimiz, yarım asrı aşan tecrübesiyle sektördeki köklü yürüyüşünü sürdürmektedir. İkinci kuşak temsilcilerimiz Faruk Ahmetbeyoğlu ve aile büyüklerimizin öncülüğünde; Laleli, Fatih, Kocamustafapaşa, Silivrikapı, Samatya ve Yedikule gibi İstanbul’un tarihi suriçi bölgelerinde onlarca nitelikli projeye imza atarak şehrin dokusuna kalıcı değerler kattık.\n\n2010’lu yıllarda piyasa dinamiklerindeki değişimleri doğru okuyarak kurumsal yatırımlarımızı sağlık ve tarım gibi stratejik sektörlere de yönlendirdik ve vizyonumuzu daha da genişlettik. Bugün ise edindiğimiz bu çok yönlü kurumsal tecrübe ve artan sektörel talepler doğrultusunda, üçüncü nesil olarak inşaat markamızı çağın gereksinimlerine uygun, dinamik ve yenilikçi bir altyapıyla yeniden yapılandırıyoruz.\n\nGeçmişten aldığımız güven mirasını, geleceğin teknolojileriyle harmanlayarak kaldığımız yerden, daha güçlü bir şekilde üretmeye devam ediyoruz."}
+                  </p>
+                </div>
+
+                <div className="bg-white border border-slate-150 p-5 rounded-2xl">
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-2.5 pb-2 border-b border-slate-100">
+                    🏆 Tamamlanan Referans Projeler
+                  </h3>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5 pl-1">
+                    {(params.companyCompletedProjects || getCompletedProjectsText())
+                      .split('\n')
+                      .filter(p => p.trim().length > 0)
+                      .map((p, idx) => (
+                        <li key={idx} className="text-[9.5px] text-slate-600 leading-normal flex items-start gap-1.5">
+                          <span className="text-purple-600 font-extrabold mt-0.5 shrink-0">•</span>
+                          <span>{p.replace(/^\d+[\.\)]\s*/, '')}</span>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Right Column: Mission, Vision & Assurance */}
+              <div className="space-y-6">
+                <div className="bg-white border-l-4 border-purple-600 p-4 rounded-r-xl border border-y-slate-150 border-r-slate-150">
+                  <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider mb-1">
+                    🎯 Misyonumuz
+                  </h3>
+                  <p className="text-[11px] text-slate-500 leading-relaxed text-justify whitespace-pre-wrap">
+                    {params.companyMission || "Köklerimizden aldığımız tecrübeyi modern mühendislik çözümlermiyle birleştirerek; insan odaklı, yapısal güvenliği merkeze alan ve yaşam standartlarını daima yukarı taşıyan projeler üretmektir."}
+                  </p>
+                </div>
+
+                <div className="bg-white border-l-4 border-indigo-600 p-4 rounded-r-xl border border-y-slate-150 border-r-slate-150">
+                  <h3 className="text-xs font-black text-indigo-950 uppercase tracking-wider mb-1">
+                    🚀 Vizyonumuz
+                  </h3>
+                  <p className="text-[11px] text-slate-500 leading-relaxed text-justify whitespace-pre-wrap">
+                    {params.companyVision || "Geleneksel inşaat kültürümüzü modern mimari trendlerle zenginleştirerek, müşterilerimiz için hem yüksek kaliteli hem de bütçe dostu, ulaşılabilir ve akılcı yaşam alanları inşa eden öncü bir marka olmaktır."}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-xl text-center border border-slate-200">
+                  <span className="text-lg block mb-1">⭐</span>
+                  <strong className="text-slate-800 text-xs block mb-1">Yüksek Mühendislik Güvencesi</strong>
+                  <span className="text-[10px] text-slate-500 leading-normal block">
+                    Projelerimiz, İMO üyesi yetkin statikerler ve uzman mimarlar gözetiminde, 1. Sınıf malzemelerle hayata geçirilir.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Page Footer */}
+            <div className="mt-12 pt-4 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-medium font-mono">
+              <span>{compLegal}</span>
+              <span>Sayfa II</span>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
             1. CORPORATE HEADER & PROPOSAL METADATA
            ======================================================== */}
         <div className="relative z-10 border-b-2 border-slate-900 pb-6 mb-8">
@@ -2099,12 +2361,12 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               </div>
             </div>
 
-            {/* 3. GRUP: KADINLARIN VE EV ŞEFLERİNİN HAYATINI KOLAYLAŞTIRAN MUTFAK KONFORU */}
+            {/* 3. GRUP: GÜNLÜK KULLANIMI KOLAYLAŞTIRAN MUTFAK VE BANYO KONFORU */}
             <div className="space-y-3 pt-3 border-t border-purple-100">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                 <span className="text-[11px] font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
                   <ChefHat className="w-3.5 h-3.5 text-purple-600" />
-                  3. Kadınların ve Ev Şeflerinin Hayatını Kolaylaştıran Mutfak Konforu
+                  3. Pratik ve Hijyenik Mutfak & Banyo Çözümleri
                 </span>
                 <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-medium">
                   🏠 Yalnızca Konut Daireleri İçindir (Dükkanlar muaftır)
@@ -2117,20 +2379,20 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   <Heart className="w-4 h-4" />
                 </div>
                 <div className="text-xs">
-                  <strong className="block text-purple-900 font-bold">Kadınların Hayatını Kolaylaştıran Mühendislik Anlayışı:</strong>
+                  <strong className="block text-purple-900 font-bold">Hayatı Kolaylaştıran Mühendislik Anlayışı:</strong>
                   <p className="text-[11px] text-purple-800/90 mt-0.5">
-                    "Mutfak için fotoselli batarya ile kadınların hayatını kolaylaştıran, mutfakta hijyeni, pratikliği ve konforu en ince detayına kadar düşünen öncü bir firmayız."
+                    "Mutfak eviyesi ve banyo lavabosu için fotoselli bataryalar ile günlük kullanımı kolaylaştıran, hijyeni ve su tasarrufunu en ince detayına kadar düşünen öncü bir firmayız."
                   </p>
                 </div>
               </div>
 
-              {/* Card 7: Fotoselli Mutfak Bataryası */}
+              {/* Card 7: Fotoselli Mutfak ve Banyo Bataryaları */}
               <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                      Fotoselli / Temassız Akıllı Mutfak Eviye Bataryası
+                      Mutfak Eviyesi & Banyo Lavabosu Fotoselli Batarya Paketi
                     </span>
                     <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasTouchlessKitchenFaucet ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
                       {params.hasTouchlessKitchenFaucet ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
@@ -2148,16 +2410,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   </div>
 
                   <p className="text-[10px] text-slate-600 leading-relaxed">
-                    <strong>Neden Mutfakta Fotoselli Batarya? (Kadınların ve Ailelerin Hayatını Nasıl Kolaylaştırır?):</strong>
+                    <strong>Neden Mutfak ve Banyo Lavabosunda Fotoselli Batarya? (Günlük Hayatı Nasıl Kolaylaştırır?):</strong>
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] text-slate-600">
                     <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
-                      <span className="font-bold text-slate-800 block">✋ Temassız ve Lekesiz Kullanım:</span>
-                      <p>Hamur yoğururken, köfte veya tavuk hazırlarken kirli ve yağlı ellerle batarya koluna dokunmadan su açıp kapama kolaylığı sağlar.</p>
+                      <span className="font-bold text-slate-800 block">✋ Temassız ve Hijyenik Kullanım:</span>
+                      <p>Mutfakta yemek hazırlarken veya banyoda sabunlu/kirli ellerle batarya kollarına dokunmadan su akışını temassız kontrol etme imkanı sunar.</p>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
-                      <span className="font-bold text-slate-800 block">🧽 Tezgah Üstü Su Damlamalarına Son:</span>
-                      <p>Islak ellerle bataryaya uzanırken tezgah arkasına ve mermere su damlamasını, kireç lekelerini ve sürekli bezle silme derdini tamamen yok eder.</p>
+                      <span className="font-bold text-slate-800 block">🧽 Tezgah ve Lavabo Su Damlamalarına Son:</span>
+                      <p>Islak ellerle bataryaya uzanırken tezgah arkasına veya mermer üstüne su damlamasını, kireç lekelerini ve sürekli mermer silme derdini tamamen yok eder.</p>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
                       <span className="font-bold text-slate-800 block">🦠 Çapraz Bulaşmayı Sıfırlar:</span>
@@ -2175,14 +2437,14 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
                     {params.hasTouchlessKitchenFaucet && (
                       <span className="text-[9px] text-purple-700 font-semibold">
-                        {results.touchlessKitchenFaucetUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.touchlessKitchenFaucetPricePerFlat || 4500).toLocaleString('tr-TR')} ₺
+                        {results.touchlessKitchenFaucetUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.touchlessKitchenFaucetPricePerFlat || 8500).toLocaleString('tr-TR')} ₺
                       </span>
                     )}
                   </div>
                   <span className="font-black text-purple-700 font-mono">
                     {params.hasTouchlessKitchenFaucet 
                       ? `${results.touchlessKitchenFaucetCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                      : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.touchlessKitchenFaucetPricePerFlat || 4500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                      : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.touchlessKitchenFaucetPricePerFlat || 8500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
                   </span>
                 </div>
               </div>
@@ -2285,7 +2547,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     </div>
 
                     <p className="text-xs text-purple-900/80 leading-relaxed">
-                      Temel standartlara ilave olarak; peteksiz sulu yerden ısıtma, merkezi su arıtma, salon A++ inverter klima, termostatik duş bataryası, hemzemin lineer süzgeç, sessiz nem sensörlü banyo fanı ve kadınların mutfaktaki hayatını kolaylaştıran fotoselli batarya içeren yüksek katma değerli yaşam paketi.
+                      Temel standartlara ilave olarak; peteksiz sulu yerden ısıtma, merkezi su arıtma, salon A++ inverter klima, termostatik duş bataryası, hemzemin lineer süzgeç, sessiz nem sensörlü banyo fanı ile mutfak eviyesi ve banyo lavabosunda temassız fotoselli bataryalar içeren yüksek katma değerli yaşam paketi.
                     </p>
 
                     <div className="p-3.5 bg-purple-100/60 rounded-xl space-y-2 border border-purple-200 text-xs">
@@ -2763,7 +3025,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   Uygulama Süreci
                 </h4>
                 <p className="text-[11px] text-emerald-800 leading-relaxed mb-4">
-                  Sözleşme tarihinden itibaren <strong>{results.finalMonths} ay</strong> içerisinde tüm imalatlar tamamlanarak anahtar teslim yapılacaktır.
+                  Belediyeden inşaat ruhsatı alındığı tarihten itibaren <strong>{results.finalMonths} ay</strong> içerisinde tüm imalatlar tamamlanarak anahtar teslim yapılacaktır.
                 </p>
               </div>
               <div className="flex items-center gap-4 pt-4 border-t border-emerald-100 text-[10px] text-emerald-900 font-bold">
@@ -2783,6 +3045,18 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   ? "Arsa payı karşılığı modelde maliklerin herhangi bir nakit ödeme yükümlülüğü yoktur. Finansman tamamen yüklenici tarafından karşılanır."
                   : `Hakediş usulü modelde, ödemeler inşaatın fiziki ilerlemesine paralel olarak veya ${params.installmentCount || 12} aya yayılan vadelerle gerçekleştirilir.`}
               </p>
+            </div>
+
+            <div className="md:col-span-2 p-5 bg-purple-50/70 rounded-3xl border border-purple-100 flex items-start gap-3 mt-1 shadow-2xs">
+              <ShieldCheck className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+              <div>
+                <h5 className="text-xs font-extrabold text-purple-950 uppercase tracking-wide">
+                  🛡️ Enflasyon ve Vade Farkı Güvencesi (TEFE/TÜFE Farkı Yoktur)
+                </h5>
+                <p className="text-[10px] text-purple-800 leading-relaxed mt-1">
+                  Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -2820,34 +3094,55 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         <div className="relative z-10 mb-8 border border-slate-200 rounded-2xl p-5 bg-slate-50/50">
           <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2 mb-3">
             <Award className="w-4 h-4 text-indigo-600" />
-            <span>6. KURUMSAL TAAHHÜTLER VE YASAL GARANTİ PROTOKOLÜ</span>
+            <span>6. KURUMSAL TAAHHÜTLER VE HUKUKİ KORUMA PROTOKOLÜ</span>
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
             <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
               <span className="font-bold text-slate-900 block">🏛️ Yasal Garanti (TBK m. 478)</span>
-              <p className="text-[11px] text-slate-600">
+              <p className="text-[11px] text-slate-600 leading-normal">
                 Taşıyıcı betonarme karkas sistemde <strong>20 Yıl</strong>, ince işçilik ve cephe imalatlarında <strong>5 Yıl</strong>, mekanik/asansör donatılarında <strong>2 Yıl</strong> resmi yüklenici garantisi.
               </p>
             </div>
 
             <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
               <span className="font-bold text-slate-900 block">⏱️ Kesin Teslim & Kira Desteği</span>
-              <p className="text-[11px] text-slate-600">
+              <p className="text-[11px] text-slate-600 leading-normal">
                 İnşaat süresinin aşılması durumunda, gecikilen her ay için kat maliklerine emsal kira bedeli üzerinden <strong>gecikme tazminatı</strong> nakden ve defaten ödenir.
               </p>
             </div>
 
             <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
               <span className="font-bold text-slate-900 block">📑 Noter Onaylı Sözleşme</span>
-              <p className="text-[11px] text-slate-600">
+              <p className="text-[11px] text-slate-600 leading-normal">
                 Bu teklifname kabul edildiğinde, taraflar arasında ilgili Noterlik nezdinde resmî <strong>Düzenleme Şeklinde İnşaat Yapım Sözleşmesi</strong> akdedilecektir.
+              </p>
+            </div>
+
+            <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+              <span className="font-bold text-slate-900 block">👥 Mirasçı Bağlayıcılığı (Halefiyet)</span>
+              <p className="text-[11px] text-slate-600 leading-normal">
+                Kat maliklerinden birinin vefatı, iflası, hisse devri veya kısıtlanması durumunda; yasal mirasçılar veya yeni malikler sözleşmeye aynen tabidir. Miras uyuşmazlıkları inşaat sürecini durduramaz.
+              </p>
+            </div>
+
+            <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+              <span className="font-bold text-slate-900 block">⚖️ Yasal Salt Çoğunluk Kararı</span>
+              <p className="text-[11px] text-slate-600 leading-normal">
+                Teklifin ve yapım sözleşmesinin geçerliliği, güncel kentsel dönüşüm mevzuatına göre arsa payı oranında yasal salt çoğunluğun (%50+1) kararına ve gerekli muvafakatlerin verilmesine bağlıdır.
+              </p>
+            </div>
+
+            <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+              <span className="font-bold text-slate-900 block">📈 Enflasyon & Fiyat Sabitleme</span>
+              <p className="text-[11px] text-slate-600 leading-normal">
+                Belirlenen ödeme takvimi dâhilinde hareket edildiği sürece piyasa maliyet artışları kat maliklerine yansıtılamaz. Kat maliklerinin kendi kusurlarından kaynaklı gecikmelerde ise güncel maliyetler revize edilir.
               </p>
             </div>
           </div>
 
           <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
-            <strong>📌 Mücbir Sebep & Resmi Süreç Bilgilendirmesi:</strong> Belirtilen teslim süresi, belediye yapı ruhsatının kesinleştiği tarihten itibaren başlar. Doğal afetler, resmî kurum izinlerindeki gecikmeler veya altyapı sağlayıcı kurumların (İSKİ, İGDAŞ vb.) süreçleri yasal olarak süreye ilave edilir.
+            <strong>📌 Mücbir Sebep & Resmi Süreç Bilgilendirmesi:</strong> Belirtilen teslim süresi, belediye yapı ruhsatının kesinleştiği tarihten itibaren başlar. Doğal afetler, resmî kurum (Belediye, Bakanlık vb.) imar onay veya askı süreçleri ve altyapı sağlayıcı kurumların (İSKİ, İGDAŞ, BEDAŞ vb.) resmî onay süreçlerindeki gecikmeler yasal olarak süreye ilave edilir.
           </div>
         </div>
 
