@@ -470,10 +470,10 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     <tbody>
       ${results.flatResults.map(f => {
         const floorText = f.floorNumber !== undefined 
-          ? (f.floorNumber === 0 ? 'Zemin Kat' : `${f.floorNumber}. Kat`)
-          : (f.flatType === 'shop' ? 'Zemin Kat' : `${Math.ceil(f.id / (params.flatsPerFloor || 2))}. Kat`);
-        const title = f.flatType === 'shop' ? `🏪 Dükkan ${f.id}` : (f.flatType === 'mansard' ? `🏚️ Daire ${f.id}` : `🏠 Daire ${f.id}`);
-        const typeLabel = f.flatType === 'shop' ? 'Ticari Dükkan' : (f.flatType === 'mansard' ? 'Mansart Katı' : f.flatType === 'duplex' ? 'Çatı Dubleksi' : 'Konut');
+          ? (f.floorNumber === 0 ? 'Zemin Kat' : f.floorNumber === -1 ? 'Bodrum Kat' : `${f.floorNumber}. Kat`)
+          : (f.flatType === 'shop' ? 'Zemin Kat' : f.flatType === 'basement_shop' ? 'Bodrum Kat' : `${Math.ceil(f.id / (params.flatsPerFloor || 2))}. Kat`);
+        const title = f.flatType === 'basement_shop' ? `🏬 Bodrum İşyeri ${f.id}` : f.flatType === 'shop' ? `🏪 Dükkan ${f.id}` : (f.flatType === 'mansard' ? `🏚️ Daire ${f.id}` : `🏠 Daire ${f.id}`);
+        const typeLabel = f.flatType === 'basement_shop' ? 'Bodrum İşyeri' : f.flatType === 'shop' ? 'Ticari Dükkan' : (f.flatType === 'mansard' ? 'Mansart Katı' : f.flatType === 'duplex' ? 'Çatı Dubleksi' : 'Konut');
         return `
       <tr>
         <td><strong>${title}</strong> (${floorText})</td>

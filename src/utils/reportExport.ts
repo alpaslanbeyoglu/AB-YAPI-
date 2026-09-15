@@ -103,22 +103,24 @@ export function generateOfferHtml(
       const floorNo = f.floorNumber !== undefined 
         ? f.floorNumber 
         : (params.hasGroundFloorShop ? (f.id <= (params.shopCount || 1) ? 0 : 1 + Math.floor((f.id - 1 - (params.shopCount || 1)) / flatsPerFloor)) : 1 + Math.floor((f.id - 1) / flatsPerFloor));
-      const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
+      const floorText = floorNo === 0 ? 'Zemin Kat' : floorNo === -1 ? 'Bodrum Kat' : `${floorNo}. Kat`;
       const facadeText = f.facade ? (f.facade.charAt(0).toUpperCase() + f.facade.slice(1)) : 'Güney';
       const floorFacadeHtml = showFloorFacade ? `<div style="color:#4f46e5;font-weight:normal;font-size:9.5px;margin-top:1px;">${floorText} • ${facadeText}</div>` : '';
-      const roomCountText = f.flatType === 'shop' 
-        ? 'Ticari / Dükkan' 
+      const roomCountText = (f.flatType === 'shop' || f.flatType === 'basement_shop')
+        ? (f.flatType === 'basement_shop' ? 'Ticari / Bodrum İşyeri' : 'Ticari / Dükkan')
         : params.roomType ? `${params.roomType} Oda` : (f.area < 65 ? '1+1' : f.area < 95 ? '2+1' : f.area < 135 ? '3+1' : '4+1');
       
       const flatBadge = f.flatType === 'mansard'
         ? `<span style="background:#e0e7ff;color:#3730a3;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Mansart Çatı (En Üst Kat)</span>`
         : f.flatType === 'duplex'
         ? `<span style="background:#d1fae5;color:#065f46;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Çatı Dubleksi</span>`
+        : f.flatType === 'basement_shop'
+        ? `<span style="background:#fef3c7;color:#92400e;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Bodrum İşyeri</span>`
         : f.flatType === 'shop'
         ? `<span style="background:#fef3c7;color:#92400e;padding:2px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block;">Zemin Dükkan</span>`
         : '';
 
-      const unitTitle = f.flatType === 'shop' ? `🏪 Dükkan ${f.id}` : `🏠 Daire ${f.id}`;
+      const unitTitle = f.flatType === 'basement_shop' ? `🏬 Bodrum İşyeri ${f.id}` : f.flatType === 'shop' ? `🏪 Dükkan ${f.id}` : `🏠 Daire ${f.id}`;
       const fGross = f.area || physicalGrossArea_rep;
       const fNet = f.netArea || Math.round(fGross * 0.8 * 10) / 10;
 
@@ -655,13 +657,17 @@ export function generateContractHtml(
         const floorNo = f.floorNumber !== undefined 
           ? f.floorNumber 
           : (params.hasGroundFloorShop ? (f.id <= (params.shopCount || 1) ? 0 : 1 + Math.floor((f.id - 1 - (params.shopCount || 1)) / (params.flatsPerFloor || 2))) : 1 + Math.floor((f.id - 1) / (params.flatsPerFloor || 2)));
-        const floorText = floorNo === 0 ? 'Zemin Kat' : `${floorNo}. Kat`;
+        const floorText = floorNo === 0 ? 'Zemin Kat' : floorNo === -1 ? 'Bodrum Kat' : `${floorNo}. Kat`;
 
-        const unitTitle = f.flatType === 'shop' 
+        const unitTitle = f.flatType === 'basement_shop'
+          ? `🏬 Bodrum İşyeri ${f.id}`
+          : f.flatType === 'shop' 
           ? `🏪 Dükkan ${f.id}` 
           : (f.flatType === 'mansard' ? `🏚️ Daire ${f.id} (Mansart)` : `🏠 Daire ${f.id}`);
 
-        const unitTypeBadge = f.flatType === 'shop' 
+        const unitTypeBadge = f.flatType === 'basement_shop'
+          ? 'Bodrum İşyeri'
+          : f.flatType === 'shop' 
           ? 'Ticari Dükkan' 
           : (f.flatType === 'mansard' ? 'Mansart Katı' : f.flatType === 'duplex' ? 'Çatı Dubleksi' : 'Konut');
 

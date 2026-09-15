@@ -315,8 +315,8 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
   const customerPlusNetDebtPerFlat = customerBaseNetDebtPerFlat + customerFlatDelta;
 
   // DÜKKAN VE KONUT AYRIMI (Unit Price & Cost Breakdown)
-  const baseShops = baseResult.flatResults?.filter(f => f.flatType === 'shop') || [];
-  const baseFlats = baseResult.flatResults?.filter(f => f.flatType !== 'shop') || [];
+  const baseShops = baseResult.flatResults?.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop') || [];
+  const baseFlats = baseResult.flatResults?.filter(f => f.flatType !== 'shop' && f.flatType !== 'basement_shop') || [];
 
   const hasShops = baseShops.length > 0;
   const shopCount = baseShops.length;

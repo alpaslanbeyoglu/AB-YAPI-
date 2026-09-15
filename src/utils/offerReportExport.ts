@@ -62,8 +62,8 @@ export function generateOfferHtml(
   const validityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   // Categorize unit metrics matching OfferTab
-  const shopUnits = res.flatResults.filter(f => f.flatType === 'shop');
-  const normalUnits = res.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'mansard');
+  const shopUnits = res.flatResults.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop');
+  const normalUnits = res.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'basement_shop' && f.flatType !== 'mansard');
   const mansardUnits = res.flatResults.filter(f => f.flatType === 'mansard');
 
   const avgShopArea = shopUnits.length > 0 ? Math.round(shopUnits.reduce((acc, f) => acc + f.area, 0) / shopUnits.length) : 0;

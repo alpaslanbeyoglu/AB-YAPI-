@@ -264,15 +264,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const flatsPerFloor = params.flatsPerFloor || Math.max(1, Math.round((results.flatCount || 10) / residentialFloors));
   
   const upperFloorArea = results.upperFloorArea || params.baseBuildArea || 120;
-  const residentialFlats = results.flatResults.filter(f => f.flatType !== 'shop');
-  const shopCount = results.flatResults.filter(f => f.flatType === 'shop').length;
+  const residentialFlats = results.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'basement_shop');
+  const shopCount = results.flatResults.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop').length;
   const residentialCount = residentialFlats.length;
   const totalUnits = results.flatResults.length;
   const contractorCount = results.flatResults.filter(f => f.isContractorShare).length;
   const ownerCount = totalUnits - contractorCount;
   const contractorFlats = results.flatResults.filter(f => f.isContractorShare);
   const contractorMansardCount = contractorFlats.filter(f => f.flatType === 'mansard' || f.flatType === 'duplex').length;
-  const contractorNormalCount = contractorFlats.filter(f => f.flatType !== 'mansard' && f.flatType !== 'duplex' && f.flatType !== 'shop').length;
+  const contractorNormalCount = contractorFlats.filter(f => f.flatType !== 'mansard' && f.flatType !== 'duplex' && f.flatType !== 'shop' && f.flatType !== 'basement_shop').length;
 
   const physicalGrossArea = residentialFlats.length > 0
     ? Math.round((residentialFlats.reduce((s, f) => s + f.area, 0) / residentialFlats.length) * 10) / 10
@@ -284,8 +284,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
   const isContractorShareModel = params.projectModel === 'contractorShare';
 
-  const shopUnits = results.flatResults.filter(f => f.flatType === 'shop');
-  const normalUnits = results.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'mansard' && f.flatType !== 'duplex');
+  const shopUnits = results.flatResults.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop');
+  const normalUnits = results.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'basement_shop' && f.flatType !== 'mansard' && f.flatType !== 'duplex');
   const mansardUnits = results.flatResults.filter(f => f.flatType === 'mansard' || f.flatType === 'duplex');
 
   const avgShopArea = shopUnits.length > 0 ? Math.round(shopUnits.reduce((s, f) => s + f.area, 0) / shopUnits.length) : 0;

@@ -258,12 +258,12 @@ export const ContractTab: React.FC<ContractTabProps> = ({
             <h4 className="font-semibold text-slate-900 text-xs mb-1.5">{highlightText('MADDE 2: SÖZLEŞME KONUSU VE GAYRİMENKUL BİLGİLERİ')}</h4>
             <p className="text-slate-700">
               {(() => {
-                const sCount = results.flatResults.filter(f => f.flatType === 'shop').length;
-                const rCount = results.flatResults.filter(f => f.flatType !== 'shop').length;
+                const sCount = results.flatResults.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop').length;
+                const rCount = results.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'basement_shop').length;
                 const tCount = results.flatResults.length;
                 return (
                   <>
-                    {highlightText('İşbu sözleşmenin konusu; Tapuda')} <strong className="text-indigo-700">{highlightText(params.projectAddress)}</strong> {highlightText('adresinde kayıtlı bulunan taşınmaz üzerindeki mevcut yapının yıkılması, yerine yürürlükteki imar mevzuatına ve onaylı mimari/statik projesine uygun olarak; taban oturumu')} <strong className="text-slate-900 font-mono">{results.baseArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong>, {highlightText('toplam brüt inşaat alanı')} <strong className="text-slate-900 font-mono">{results.totalArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong> {highlightText('olan,')} <strong className="text-slate-900 font-mono">Z+{(params.floorCount || 5) - 1} katlı</strong> {highlightText(`(1 Zemin + ${(params.floorCount || 5) - 1} Normal Kat; ${sCount > 0 ? `${sCount} adet zemin kat ticari dükkan + ` : ''}${rCount} adet konut olmak üzere toplam ${tCount} bağımsız bölümden oluşan${params.roofType === 'mansard' ? ', en üst katta mansart çatı bağımsız bölümleri dahil' : ''}${params.roofType === 'duplex' ? ', çatı dubleksleri dahil' : ''}; kat alanı kattaki bağımsız bölüm sayısına [katta ${params.flatsPerFloor || 2} daire] eşit bölünerek projelendirilen)`)} {highlightText('yeni binanın Yüklenici tarafından anahtar teslim imal edilmesi ve taahhüt esaslarının düzenlenmesidir.')}
+                    {highlightText('İşbu sözleşmenin konusu; Tapuda')} <strong className="text-indigo-700">{highlightText(params.projectAddress)}</strong> {highlightText('adresinde kayıtlı bulunan taşınmaz üzerindeki mevcut yapının yıkılması, yerine yürürlükteki imar mevzuatına ve onaylı mimari/statik projesine uygun olarak; taban oturumu')} <strong className="text-slate-900 font-mono">{results.baseArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong>, {highlightText('toplam brüt inşaat alanı')} <strong className="text-slate-900 font-mono">{results.totalArea.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} m²</strong> {highlightText('olan,')} <strong className="text-slate-900 font-mono">Z+{(params.floorCount || 5) - 1} katlı</strong> {highlightText(`(1 Zemin + ${(params.floorCount || 5) - 1} Normal Kat; ${sCount > 0 ? `${sCount} adet ticari dükkan/işyeri + ` : ''}${rCount} adet konut olmak üzere toplam ${tCount} bağımsız bölümden oluşan${params.roofType === 'mansard' ? ', en üst katta mansart çatı bağımsız bölümleri dahil' : ''}${params.roofType === 'duplex' ? ', çatı dubleksleri dahil' : ''}; kat alanı kattaki bağımsız bölüm sayısına [katta ${params.flatsPerFloor || 2} daire] eşit bölünerek projelendirilen)`)} {highlightText('yeni binanın Yüklenici tarafından anahtar teslim imal edilmesi ve taahhüt esaslarının düzenlenmesidir.')}
                   </>
                 );
               })()}
@@ -499,15 +499,19 @@ export const ContractTab: React.FC<ContractTabProps> = ({
 
                     const floorText = f.floorNumber !== undefined 
                       ? (f.floorNumber === 0 ? 'Zemin Kat' : `${f.floorNumber}. Kat`)
-                      : (f.flatType === 'shop' ? 'Zemin Kat' : `${Math.ceil(f.id / (params.flatsPerFloor || 2))}. Kat`);
+                      : (f.flatType === 'shop' ? 'Zemin Kat' : f.flatType === 'basement_shop' ? 'Bodrum Kat' : `${Math.ceil(f.id / (params.flatsPerFloor || 2))}. Kat`);
 
-                    const unitTitle = f.flatType === 'shop'
+                    const unitTitle = f.flatType === 'basement_shop'
+                      ? `🏬 Bodrum İşyeri ${f.id}`
+                      : f.flatType === 'shop'
                       ? `🏪 Dükkan ${f.id}`
                       : f.flatType === 'mansard'
                       ? `🏚️ Daire ${f.id} (Mansart)`
                       : `🏠 Daire ${f.id}`;
 
-                    const unitTypeBadge = f.flatType === 'shop'
+                    const unitTypeBadge = f.flatType === 'basement_shop'
+                      ? 'Bodrum İşyeri'
+                      : f.flatType === 'shop'
                       ? 'Ticari Dükkan'
                       : f.flatType === 'mansard'
                       ? 'Mansart Katı'

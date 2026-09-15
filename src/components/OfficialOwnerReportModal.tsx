@@ -204,7 +204,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                     <span className="text-slate-500 block text-[10px] uppercase font-bold">Bağımsız Bölüm (Daire):</span>
                     <strong className="text-indigo-900 font-bold">Daire No {selectedFlat?.id}</strong>
                     <span className="text-slate-500 ml-2">
-                      ({selectedFlat?.flatType === 'duplex' ? 'Çatı Dubleksi' : selectedFlat?.flatType === 'mansard' ? 'Mansart' : selectedFlat?.flatType === 'shop' ? 'Dükkan / Ticari' : 'Standart Daire'})
+                      ({selectedFlat?.flatType === 'duplex' ? 'Çatı Dubleksi' : selectedFlat?.flatType === 'mansard' ? 'Mansart' : selectedFlat?.flatType === 'basement_shop' ? 'Bodrum İşyeri / Ticari' : selectedFlat?.flatType === 'shop' ? 'Dükkan / Ticari' : 'Standart Daire'})
                     </span>
                   </div>
                   <div>
@@ -330,7 +330,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
                     Bu bağımsız bölüm yüklenici müteahhide aittir. İnşaat maliyeti müteahhit satış payı kapsamında karşılanacaktır.
                   </div>
-                ) : selectedFlat?.flatType === 'shop' ? (
+                ) : (selectedFlat?.flatType === 'shop' || selectedFlat?.flatType === 'basement_shop') ? (
                   <div className="p-3 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-900 font-medium">
                     Bu bağımsız bölüm ticari / dükkan statüsündedir. Ödeme, hakediş aşamalarından bağımsız olarak tek seferde veya özel protokolle tahsil edilecektir.
                   </div>

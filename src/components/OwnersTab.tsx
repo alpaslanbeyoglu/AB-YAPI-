@@ -176,13 +176,15 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         targetFloor = floorCount; // Kural: Mansart sadece en üst katta olur
       } else if (flat.flatType === 'shop') {
         targetFloor = 0;
+      } else if (flat.flatType === 'basement_shop') {
+        targetFloor = -1;
       } else if (targetFloor === undefined) {
         const resIdx = hasShop ? Math.max(0, idx - shopCount) : idx;
         targetFloor = 1 + Math.floor(resIdx / flatsPerFloor);
       }
 
       let equalArea = upperFlatAvg;
-      if (flat.flatType === 'shop') {
+      if (flat.flatType === 'shop' || flat.flatType === 'basement_shop') {
         equalArea = shopAvg;
       } else if (flat.flatType === 'mansard') {
         equalArea = mansardAreaShare;
@@ -386,7 +388,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const handleToggleFlatsGrant = (enable: boolean) => {
     const updatedFlats = params.flats.map((flat) => {
       const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
-      if (flat.flatType === 'shop' || isContractor) return flat;
+      if (flat.flatType === 'shop' || flat.flatType === 'basement_shop' || isContractor) return flat;
       return {
         ...flat,
         useGrant: enable,
@@ -400,7 +402,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const handleToggleFlatsCredit = (enable: boolean) => {
     const updatedFlats = params.flats.map((flat) => {
       const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
-      if (flat.flatType === 'shop' || isContractor) return flat;
+      if (flat.flatType === 'shop' || flat.flatType === 'basement_shop' || isContractor) return flat;
       const currentGrant = flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit;
       return {
         ...flat,
@@ -416,7 +418,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const handleToggleShopsGrant = (enable: boolean) => {
     const updatedFlats = params.flats.map((flat) => {
       const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
-      if (flat.flatType !== 'shop' || isContractor) return flat;
+      if ((flat.flatType !== 'shop' && flat.flatType !== 'basement_shop') || isContractor) return flat;
       return {
         ...flat,
         useGrant: enable,
@@ -430,7 +432,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const handleToggleShopsCredit = (enable: boolean) => {
     const updatedFlats = params.flats.map((flat) => {
       const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
-      if (flat.flatType !== 'shop' || isContractor) return flat;
+      if ((flat.flatType !== 'shop' && flat.flatType !== 'basement_shop') || isContractor) return flat;
       const currentGrant = flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit;
       return {
         ...flat,
@@ -477,7 +479,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
       const currentArea = Number(flat.area) || 0;
       return {
         ...flat,
-        area: currentArea > 0 ? currentArea : (flat.flatType === 'shop' ? Math.round(avgArea * 0.8) : avgArea),
+        area: currentArea > 0 ? currentArea : ((flat.flatType === 'shop' || flat.flatType === 'basement_shop') ? Math.round(avgArea * 0.8) : avgArea),
       };
     });
 
@@ -544,7 +546,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
     } else if (activeFilter === 'contractor') {
       list = list.filter((item) => item.isContractor);
     } else if (activeFilter === 'shops') {
-      list = list.filter((item) => item.flat.flatType === 'shop');
+      list = list.filter((item) => item.flat.flatType === 'shop' || item.flat.flatType === 'basement_shop');
     } else if (activeFilter === 'withDebt') {
       list = list.filter((item) => !item.isContractor && (item.calc?.netRemainingDebt || 0) > 0);
     } else if (activeFilter === 'paid') {
@@ -1184,9 +1186,9 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           <td className="p-3 font-semibold text-slate-900">
                             <div className="flex items-center gap-2">
                               <span>Daire {flat.id} ({flat.name})</span>
-                              {flat.flatType === 'shop' && (
+                              {(flat.flatType === 'shop' || flat.flatType === 'basement_shop') && (
                                 <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md border border-amber-200">
-                                  DÜKKAN
+                                  {flat.flatType === 'basement_shop' ? 'BODRUM İŞYERİ' : 'DÜKKAN'}
                                 </span>
                               )}
                             </div>
@@ -1258,9 +1260,9 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                             <td className="p-3 font-semibold text-slate-900">
                               <div className="flex items-center gap-2">
                                 <span>Daire {flat.id} ({flat.name})</span>
-                                {flat.flatType === 'shop' && (
+                                {(flat.flatType === 'shop' || flat.flatType === 'basement_shop') && (
                                   <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md border border-amber-200">
-                                    DÜKKAN
+                                    {flat.flatType === 'basement_shop' ? 'BODRUM İŞYERİ' : 'DÜKKAN'}
                                   </span>
                                 )}
                               </div>
@@ -1724,7 +1726,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         : 'bg-orange-50 hover:bg-orange-100 text-orange-700'
                     }`}
                   >
-                    Dükkanlar ({params.flats.filter(f => f.flatType === 'shop').length})
+                    Dükkanlar ({params.flats.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop').length})
                   </button>
                   <button
                     type="button"
@@ -3269,7 +3271,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                 const roofType = params.roofType || 'gable';
                                 const roofAtticArea = roofType === 'mansard' ? Math.round(upperFloorArea * 0.70 * 100) / 100 : 0;
                                 let equalVal = parseFloat((upperFloorArea / flatsPerFloor).toFixed(2));
-                                if (currentFlat.flatType === 'shop') {
+                                if (currentFlat.flatType === 'shop' || currentFlat.flatType === 'basement_shop') {
                                   const shopCount = Math.max(1, params.shopCount || 1);
                                   equalVal = parseFloat((baseArea / shopCount).toFixed(2));
                                 } else if (currentFlat.flatType === 'mansard') {
