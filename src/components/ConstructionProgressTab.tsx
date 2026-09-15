@@ -396,12 +396,17 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       const stDate = new Date(startDate.getTime() + startDayOffset * 24 * 60 * 60 * 1000);
       const enDate = new Date(stDate.getTime() + stageDuration * 24 * 60 * 60 * 1000);
 
+      const cleanSubTasks = def.subTasks ? def.subTasks.map(sub => ({ ...sub, completed: false })) : undefined;
+
       return {
         ...def,
+        status: 'not_started',
+        progressPercent: 0,
+        subTasks: cleanSubTasks,
         startDatePlanned: stDate.toISOString().slice(0, 10),
         endDatePlanned: enDate.toISOString().slice(0, 10),
-        startDateActual: def.status !== 'not_started' ? stDate.toISOString().slice(0, 10) : undefined,
-        endDateActual: def.status === 'completed' ? enDate.toISOString().slice(0, 10) : undefined,
+        startDateActual: undefined,
+        endDateActual: undefined,
       };
     });
   });
@@ -413,34 +418,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       if (saved) return JSON.parse(saved);
     } catch (e) {}
 
-    return [
-      {
-        id: 'log_1',
-        date: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-        periodType: 'weekly',
-        periodLabel: 'Hafta 1 (Yıkım & Güvenlik)',
-        title: 'Mevcut Yapı Yıkımı Tamamlandı ve Molozlar Taşındı',
-        overallProgress: 14,
-        completedWork: 'Bina çevre perdesi çekildi, İSKİ/BEDAŞ/İGDAŞ kesimleri yapıldı ve kontrollü yıkım tamamlanarak hafriyat kotuna inildi.',
-        plannedNextWork: 'Zemin drenajı, geoteknik kontroller ve temel altı grobeton dökümü gerçekleştirilecektir.',
-        workDaysCount: 6,
-        weatherStatus: 'Açık / Şantiye şartları uygun',
-        isSharedWithClients: true,
-      },
-      {
-        id: 'log_2',
-        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-        periodType: 'weekly',
-        periodLabel: 'Hafta 3 (Radye Temel)',
-        title: 'Radye Temel Betonu Döküldü ve Su Yalıtımı Tamamlandı',
-        overallProgress: 32,
-        completedWork: 'Çift kat mebran bohçalama üzerine C35/40 hazır beton dökümü gerçekleştirildi. Laboratuvar numuneleri alındı.',
-        plannedNextWork: 'Bodrum kat betonarme perdeleri ve zemin kat döşeme kalıpları kurulmaya başlanacaktır.',
-        workDaysCount: 6,
-        weatherStatus: 'Parçalı bulutlu / Beton kürü sağlandı',
-        isSharedWithClients: true,
-      }
-    ];
+    return [];
   });
 
   // Project Info State
@@ -457,7 +435,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       const saved = localStorage.getItem(safeProjectKey + '_contract_date');
       if (saved) return saved;
     } catch (e) {}
-    return new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return new Date().toISOString().slice(0, 10);
   });
 
   const [plannedCompletionDate, setPlannedCompletionDate] = useState<string>(() => {
@@ -480,7 +458,13 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       const saved = localStorage.getItem(safeProjectKey + '_subcontractors');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return DEFAULT_SUBCONTRACTORS;
+    return DEFAULT_SUBCONTRACTORS.map(sub => ({
+      ...sub,
+      progressPercent: 0,
+      status: 'not_started',
+      payments: [],
+      notes: ''
+    }));
   });
 
   // Selected subcontractor for viewing/editing details

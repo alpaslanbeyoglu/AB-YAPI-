@@ -1301,6 +1301,11 @@ export default function App() {
           {activeTab === 'tamamlanan' && (
             <CompletedProjectsTab
               theme={theme}
+              onTrackProgress={(title, address) => {
+                updateCalculatorParams({ projectAddress: address || title });
+                showNotification('success', `"${title}" şantiye ve süreç takip paneli yüklendi.`);
+                setActiveTab('surec');
+              }}
             />
           )}
 

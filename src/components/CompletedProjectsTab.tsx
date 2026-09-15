@@ -7,9 +7,13 @@ import { ProjectItem, INITIAL_PROJECTS } from '../utils/completedProjectsData';
 
 interface CompletedProjectsTabProps {
   theme?: AppTheme;
+  onTrackProgress?: (title: string, address: string, status: 'completed' | 'ongoing') => void;
 }
 
-export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ theme = 'light' }) => {
+export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({
+  theme = 'light',
+  onTrackProgress,
+}) => {
   const isGray = theme === 'gray';
   const cardBg = isGray ? 'bg-slate-200/50' : 'bg-white';
   const inputBg = isGray
@@ -347,6 +351,19 @@ export const CompletedProjectsTab: React.FC<CompletedProjectsTabProps> = ({ them
                   >
                     Haritada Aç ↗
                   </a>
+                  {onTrackProgress && !isOffice && (
+                    <button
+                      type="button"
+                      onClick={() => onTrackProgress(p.title, p.address || p.title, status)}
+                      className={`flex-1 text-center py-2 font-bold text-[11px] rounded-xl transition border shadow-2xs cursor-pointer ${
+                        status === 'ongoing'
+                          ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                          : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                      }`}
+                    >
+                      {status === 'ongoing' ? 'Şantiye Süreci 🏗️' : 'Süreç Takip 📊'}
+                    </button>
+                  )}
                   {!isOffice && (
                     <button
                       type="button"
