@@ -305,6 +305,8 @@ export interface ProjectParams {
   priceConcrete: number;
   priceSteel: number;
   costKabaWork: number; // Toplam kaba işçilik / kalıp-demir-duvar referansı
+  useTotalLaborPrice?: boolean; // Kalıp, demir, beton ve duvar işçiliği tek fiyat
+  totalLaborUnitPrice?: number; // Toplam işçilik birim m2 fiyatı (TL/m²)
   priceSteelLabor?: number; // Demir bağlama ve montaj işçiliği (₺/Ton)
   priceBrickMaterial?: number; // Tuğla / Bims / Gazbeton duvar malzemesi (₺/m²)
   priceBrickLabor?: number; // Tuğla / Duvar örme işçiliği (₺/m²)
@@ -402,6 +404,7 @@ export interface ProjectParams {
   companyCompletedProjects?: string; // Tamamlanan projeler metni
   companyMission?: string; // Misyon metni
   companyVision?: string; // Vizyon metni
+  isOfferAccepted?: boolean; // Teklif kabul edilip edilmediği (Süreç takibi ile ilişkilendirilmiş)
 
   // Flats
   flats: FlatItem[];

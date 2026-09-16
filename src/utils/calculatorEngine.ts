@@ -147,6 +147,7 @@ export const DEFAULT_PARAMS: ProjectParams = {
   usdRate: 48.24,
   costMultiplier: 1.0,
   profitRate: 0,
+  isOfferAccepted: false,
 
   // Taban Oturumu ve Çoklu Cephe Seçenekleri
   footprintInputMode: 'directArea',
@@ -219,6 +220,8 @@ export const DEFAULT_PARAMS: ProjectParams = {
   priceConcrete: 3850,
   priceSteel: 36200,
   priceSteelLabor: 4800,
+  useTotalLaborPrice: false,
+  totalLaborUnitPrice: 1100,
   priceBrickMaterial: 240,
   priceBrickLabor: 420,
   priceFormworkLabor: 1100,
@@ -734,8 +737,13 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
   const kabaMaterialCost =
     Math.round((costConcreteMat + costSteelMat + costBrickMat + costExcavationMat) * kabaTypeMult * costMultiplier * 100) / 100;
-  const kabaLaborCost =
-    Math.round((costSteelLab + costBrickLab + costFormworkLab + costExcavationLab) * kabaTypeMult * costMultiplier * 100) / 100;
+  
+  let kabaLaborCost = 0;
+  if (params.useTotalLaborPrice) {
+    kabaLaborCost = Math.round((totalArea * (params.totalLaborUnitPrice || 0) + costExcavationLab) * kabaTypeMult * costMultiplier * 100) / 100;
+  } else {
+    kabaLaborCost = Math.round((costSteelLab + costBrickLab + costFormworkLab + costExcavationLab) * kabaTypeMult * costMultiplier * 100) / 100;
+  }
   const kabaTotalCost = Math.round((kabaMaterialCost + kabaLaborCost) * 100) / 100;
 
   // --- SİSTEMLER & MEKANİK ---

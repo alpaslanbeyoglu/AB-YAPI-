@@ -67,6 +67,7 @@ interface ConstructionProgressTabProps {
   theme?: AppTheme;
   onNavigateToOffer?: () => void;
   onNavigateToContract?: () => void;
+  onUpdateParam?: (key: keyof ProjectParams, value: any) => void;
 }
 
 // 12 Standard Turkish Urban Transformation & Construction Stages
@@ -351,6 +352,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   theme = 'light',
   onNavigateToOffer,
   onNavigateToContract,
+  onUpdateParam,
 }) => {
   const { profile } = useCompanyProfile();
   const { user, saveProjectToCloud } = useFirebaseSync();
@@ -421,14 +423,17 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     return [];
   });
 
-  // Project Info State
-  const [isOfferAccepted, setIsOfferAccepted] = useState<boolean>(() => {
+  // Project Info State - Syncs with params.isOfferAccepted
+  const isOfferAccepted = params.isOfferAccepted ?? false;
+
+  const setIsOfferAccepted = (val: boolean) => {
+    if (onUpdateParam) {
+      onUpdateParam('isOfferAccepted', val);
+    }
     try {
-      const saved = localStorage.getItem(safeProjectKey + '_offer_accepted');
-      if (saved) return JSON.parse(saved);
+      localStorage.setItem(safeProjectKey + '_offer_accepted', JSON.stringify(val));
     } catch (e) {}
-    return true; // Default to accepted in tracking tab
-  });
+  };
 
   const [contractDate, setContractDate] = useState<string>(() => {
     try {
@@ -1139,15 +1144,31 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
               İnşaat Süreç & İlerleme Portalı
             </span>
             {isOfferAccepted ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <button
+                type="button"
+                disabled={isClientMode}
+                onClick={() => setIsOfferAccepted(false)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 transition-all ${
+                  !isClientMode ? 'hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 cursor-pointer' : ''
+                }`}
+                title={!isClientMode ? "Teklif durumunu 'Değerlendirmede' olarak değiştirmek için tıklayın" : undefined}
+              >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Teklif Kabul Edildi (İnşaat Fazı)
-              </span>
+              </button>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+              <button
+                type="button"
+                disabled={isClientMode}
+                onClick={() => setIsOfferAccepted(true)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 transition-all ${
+                  !isClientMode ? 'hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 cursor-pointer' : ''
+                }`}
+                title={!isClientMode ? "Teklif durumunu 'Kabul Edildi' olarak değiştirmek için tıklayın" : undefined}
+              >
                 <Clock className="w-3.5 h-3.5" />
                 Teklif Değerlendirme Aşamasında
-              </span>
+              </button>
             )}
             <span className="text-xs text-slate-400 font-medium">
               Sözleşme Süresi: {totalMonths} Ay ({totalMonths * 30} Gün)

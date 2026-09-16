@@ -1193,6 +1193,30 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
           <div className="bg-white p-4 rounded-xl border border-indigo-100 shadow-xs">
             {activeSettingsTab === 'kaba' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={!!params.useTotalLaborPrice}
+                    onChange={(e) => updateParam('useTotalLaborPrice', e.target.checked)}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label className="text-xs font-bold text-slate-700">
+                    Kalıp, Demir, Beton ve Duvar İşçiliğini "Toplam Birim Fiyat" olarak gir
+                  </label>
+                </div>
+                {params.useTotalLaborPrice && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                      Toplam İşçilik Fiyatı (₺/m²)
+                    </label>
+                    <input
+                      type="number"
+                      value={params.totalLaborUnitPrice ?? 1100}
+                      onChange={(e) => updateParam('totalLaborUnitPrice', Math.max(0, Number(e.target.value) || 0))}
+                      className="w-full px-3 py-2 border border-indigo-500 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
                     Hazır Beton C30/37 (₺/m³)
@@ -1219,31 +1243,35 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                   <span className="text-[9px] text-slate-400 mt-0.5 block">2026 Piyasa: 35.000 - 37.500 ₺</span>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                    Demir İşçiliği & Montaj (₺/Ton)
-                  </label>
-                  <input
-                    type="number"
-                    value={params.priceSteelLabor ?? 4800}
-                    onChange={(e) => updateParam('priceSteelLabor', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
-                  />
-                  <span className="text-[9px] text-slate-400 mt-0.5 block">Usta Ekibi: 4.500 - 5.500 ₺/Ton</span>
-                </div>
+                {!params.useTotalLaborPrice && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                      Demir İşçiliği & Montaj (₺/Ton)
+                    </label>
+                    <input
+                      type="number"
+                      value={params.priceSteelLabor ?? 4800}
+                      onChange={(e) => updateParam('priceSteelLabor', Math.max(0, Number(e.target.value) || 0))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                    />
+                    <span className="text-[9px] text-slate-400 mt-0.5 block">Usta Ekibi: 4.500 - 5.500 ₺/Ton</span>
+                  </div>
+                )}
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                    Kalıp & Döküm İşçiliği (₺/m²)
-                  </label>
-                  <input
-                    type="number"
-                    value={params.priceFormworkLabor ?? 1100}
-                    onChange={(e) => updateParam('priceFormworkLabor', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
-                  />
-                  <span className="text-[9px] text-slate-400 mt-0.5 block">Kalıp & İskele: 950 - 1.300 ₺/m²</span>
-                </div>
+                {!params.useTotalLaborPrice && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                      Kalıp & Döküm İşçiliği (₺/m²)
+                    </label>
+                    <input
+                      type="number"
+                      value={params.priceFormworkLabor ?? 1100}
+                      onChange={(e) => updateParam('priceFormworkLabor', Math.max(0, Number(e.target.value) || 0))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                    />
+                    <span className="text-[9px] text-slate-400 mt-0.5 block">Kalıp & İskele: 950 - 1.300 ₺/m²</span>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
@@ -1258,18 +1286,20 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                   <span className="text-[9px] text-slate-400 mt-0.5 block">13.5'luk Tuğla & Harç: 220 - 280 ₺</span>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                    Tuğla Duvar Örme İşçiliği (₺/m²)
-                  </label>
-                  <input
-                    type="number"
-                    value={params.priceBrickLabor ?? 420}
-                    onChange={(e) => updateParam('priceBrickLabor', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
-                  />
-                  <span className="text-[9px] text-slate-400 mt-0.5 block">Duvarcı Ustası: 380 - 480 ₺/m²</span>
-                </div>
+                {!params.useTotalLaborPrice && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                      Tuğla Duvar Örme İşçiliği (₺/m²)
+                    </label>
+                    <input
+                      type="number"
+                      value={params.priceBrickLabor ?? 420}
+                      onChange={(e) => updateParam('priceBrickLabor', Math.max(0, Number(e.target.value) || 0))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                    />
+                    <span className="text-[9px] text-slate-400 mt-0.5 block">Duvarcı Ustası: 380 - 480 ₺/m²</span>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">

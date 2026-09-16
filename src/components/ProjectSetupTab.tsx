@@ -418,6 +418,20 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const newBaseArea = calcResult.baseArea || params.baseBuildArea || 140;
   const newTotalConstructionArea = Math.round(calcResult.totalArea);
 
+  const plannedKonutCount = useMemo(() => {
+    return (params.flats || []).filter(
+      (f) => f.flatType === 'standard' || f.flatType === 'mansard' || f.flatType === 'duplex' || f.flatType === 'basement_flat'
+    ).length;
+  }, [params.flats]);
+
+  const plannedShopCount = useMemo(() => {
+    return (params.flats || []).filter((f) => f.flatType === 'shop').length;
+  }, [params.flats]);
+
+  const plannedBasementShopCount = useMemo(() => {
+    return (params.flats || []).filter((f) => f.flatType === 'basement_shop').length;
+  }, [params.flats]);
+
   // Konsol Çıkma Alan Etkisi Hesabı (N-Cephe, L-Tipi ve Bitişik Nizam Uyumlu)
   const footprintCalc = calculateFootprint(params.footprintInputMode, params);
   const activeBaseArea = calcResult.baseArea || footprintCalc.area || 100;
@@ -1304,7 +1318,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   <div className="flex items-center gap-2">
                     <Scale className="w-4 h-4 text-indigo-600 shrink-0" />
                     <span className="font-semibold text-slate-700">
-                      Mevcut ({totalExistingFlats} Konut + {totalExistingShops} Ticari) ➡️ Yeni Planlanan ({newFlatCount} Konut + {newHasShop ? newShopCount : 0} Ticari)
+                      Mevcut ({totalExistingFlats} Konut + {totalExistingShops} Ticari) ➡️ Yeni Planlanan ({plannedKonutCount} Konut + {plannedShopCount} Dükkan{plannedBasementShopCount > 0 ? ` + ${plannedBasementShopCount} Bodrum İş yeri` : ''})
                     </span>
                   </div>
                   <div className="flex items-center gap-2 font-mono font-bold">

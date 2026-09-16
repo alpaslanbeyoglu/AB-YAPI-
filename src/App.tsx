@@ -1275,6 +1275,7 @@ export default function App() {
               params={params}
               results={results}
               theme={theme}
+              onUpdateParam={(key, val) => updateCalculatorParams({ [key]: val })}
               onNavigateToOffer={() => setActiveTab('teklif')}
               onNavigateToContract={() => setActiveTab('sozlesme')}
             />

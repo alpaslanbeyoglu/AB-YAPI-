@@ -530,6 +530,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             <button
               type="button"
               onClick={() => {
+                if (onUpdateParam) {
+                  onUpdateParam('isOfferAccepted', true);
+                }
                 const safeAddr = (params.projectAddress || 'default_project').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
                 try {
                   localStorage.setItem('ab_yapi_progress_' + safeAddr + '_offer_accepted', 'true');
