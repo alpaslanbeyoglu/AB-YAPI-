@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, FlatItem, AppTheme, FlatCalcResult } from '../types';
 import { OfficialOwnerReportModal } from './OfficialOwnerReportModal';
+import { ReconciliationDiagnosticModal } from './ReconciliationDiagnosticModal';
 import { calculateFootprint } from '../utils/footprintUtils';
 import { calculateCantileverDetails } from '../utils/calculatorEngine';
 
@@ -86,6 +87,9 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   // Official Report Modal State
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [reportModalFlatId, setReportModalFlatId] = useState<number | null>(null);
+
+  // Reconciliation Diagnostic Modal State
+  const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState<boolean>(false);
 
   const handleOpenReport = (flatId?: number) => {
     setReportModalFlatId(flatId || selectedFlatId || params.flats[0]?.id || 1);
@@ -1857,6 +1861,17 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
             >
               <Download className="w-3.5 h-3.5 text-emerald-600" />
               <span>Excel / CSV</span>
+            </button>
+
+            {/* Real-time Financial Reconciliation Diagnostic Button */}
+            <button
+              type="button"
+              onClick={() => setIsDiagnosticModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+              title="Teklif Proje Maliyeti ile Malik Dağılımları Arasındaki Anlık Mutabakat Denetimi"
+            >
+              <Scale className="w-3.5 h-3.5 text-purple-200" />
+              <span>🔍 Mali Mutabakat Teşhisi</span>
             </button>
 
             {/* Resmi A4 Raporu / Taahhütname */}
@@ -4271,6 +4286,16 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         params={params}
         results={results}
         initialFlatId={reportModalFlatId}
+      />
+
+      {/* Anlık Mali Mutabakat Teşhis Paneli Modalı */}
+      <ReconciliationDiagnosticModal
+        isOpen={isDiagnosticModalOpen}
+        onClose={() => setIsDiagnosticModalOpen(false)}
+        params={params}
+        results={results}
+        onSyncParams={onChangeParams}
+        theme={theme === 'gray' ? 'gray' : 'light'}
       />
     </div>
   );

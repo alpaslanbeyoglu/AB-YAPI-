@@ -58,6 +58,7 @@ import { getAcOptionById } from '../utils/acOptions';
 import { generateOfferHtml } from '../utils/offerReportExport';
 import { getCompletedProjectsText } from '../utils/completedProjectsData';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
+import { ReconciliationDiagnosticModal } from './ReconciliationDiagnosticModal';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
@@ -95,6 +96,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     features: string[];
     months: number;
   } | null>(null);
+
+  // Diagnostic Reconciliation Modal State
+  const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState<boolean>(false);
 
   // Unit & Floor Configurator Modal State
   const [isUnitConfigOpen, setIsUnitConfigOpen] = useState(false);
@@ -3104,6 +3108,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     <div className="text-3xl font-black text-emerald-400 font-mono">
                       {results.grandTotal.toLocaleString('tr-TR')} ₺
                     </div>
+
+                    {/* Mali Mutabakat Teşhis Butonu */}
+                    <button
+                      type="button"
+                      onClick={() => setIsDiagnosticModalOpen(true)}
+                      className="mt-3 w-full py-2.5 px-3 bg-indigo-600/40 hover:bg-indigo-600/60 border border-indigo-400/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    >
+                      <Scale className="w-4 h-4 text-indigo-300" />
+                      <span>🔍 Malik Dağılım Mutabakat Teşhisini Aç</span>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 pt-4 border-t border-white/10">
@@ -3819,6 +3833,20 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Mali Mutabakat Teşhis Modalı */}
+      <ReconciliationDiagnosticModal
+        isOpen={isDiagnosticModalOpen}
+        onClose={() => setIsDiagnosticModalOpen(false)}
+        params={params}
+        results={results}
+        onSyncParams={(updatedParams) => {
+          if (onUpdateAllParams) {
+            onUpdateAllParams(updatedParams);
+          }
+        }}
+        theme={theme === 'gray' ? 'gray' : 'light'}
+      />
     </div>
   );
 };
