@@ -104,6 +104,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   // Istanbul Real Estate Valuation Modal State
   const [isValuationModalOpen, setIsValuationModalOpen] = useState<boolean>(false);
 
+  // Live Control Panel State
+  const [activeControlTab, setActiveControlTab] = useState<'inflation' | 'pricing' | 'payment' | 'features'>('inflation');
+  const [isLiveControlPanelExpanded, setIsLiveControlPanelExpanded] = useState<boolean>(true);
+
   // Unit & Floor Configurator Modal State
   const [isUnitConfigOpen, setIsUnitConfigOpen] = useState(false);
   const [tempFloorCount, setTempFloorCount] = useState<number>(params.floorCount || 5);
@@ -623,6 +627,530 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             theme={theme}
           />
         </div>
+      </div>
+
+      {/* ========================================================
+          ÇIKTI ÖNCESİ CANLI TEKLİF & RİSK KONTROL PANELİ
+         ======================================================== */}
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-amber-500/30 rounded-3xl p-6 shadow-xl space-y-5 print:hidden text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-indigo-800/60">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-md text-slate-950 font-black shrink-0">
+              <Sliders className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-black text-white">
+                  Çıktı Öncesi Canlı Fiyatlandırma, TEFE/TÜFE Risk ve Ödeme Paneli
+                </h3>
+                <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-[10px] font-extrabold uppercase tracking-wide">
+                  ● Anında Canlı Güncelleme
+                </span>
+              </div>
+              <p className="text-xs text-indigo-200 mt-1">
+                Çıktı almadan veya PDF indirmeden önce TEFE/TÜFE enflasyon risk oranlarını, müteahhit kâr marjını, m² birim fiyatlarını ve vade takvimini canlı güncelleyin.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsLiveControlPanelExpanded(!isLiveControlPanelExpanded)}
+            className="px-3 py-1.5 bg-indigo-900/80 hover:bg-indigo-800 text-amber-300 border border-indigo-700/60 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 self-start sm:self-auto"
+          >
+            {isLiveControlPanelExpanded ? '▲ Paneli Daralt' : '▼ Paneli Genişlet'}
+          </button>
+        </div>
+
+        {isLiveControlPanelExpanded && (
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {/* Control Panel Tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-indigo-800/50">
+              <button
+                type="button"
+                onClick={() => setActiveControlTab('inflation')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeControlTab === 'inflation'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>1. Enflasyon & TEFE/TÜFE Risk Payı</span>
+                {params.hasInflationBuffer && (
+                  <span className="px-1.5 py-0.2 bg-slate-950/20 text-slate-950 rounded text-[9px] font-black">
+                    %{params.inflationBufferRate ?? 15}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveControlTab('pricing')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeControlTab === 'pricing'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
+                }`}
+              >
+                <BadgePercent className="w-3.5 h-3.5" />
+                <span>2. Birim Fiyatlar & Müteahhit Kârı</span>
+                {params.profitRate ? (
+                  <span className="px-1.5 py-0.2 bg-slate-950/20 text-slate-950 rounded text-[9px] font-black">
+                    %{params.profitRate}
+                  </span>
+                ) : null}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveControlTab('payment')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeControlTab === 'payment'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
+                }`}
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>3. Ödeme Modeli & Vade Takvimi</span>
+                <span className="px-1.5 py-0.2 bg-slate-950/20 text-slate-950 rounded text-[9px] font-black">
+                  {params.installmentCount || 12} Ay
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveControlTab('features')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeControlTab === 'features'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>4. Sunum Modu & Paket Seçenekleri</span>
+                <span className="px-1.5 py-0.2 bg-slate-950/20 text-slate-950 rounded text-[9px] font-black">
+                  {params.offerPresentationMode === 'dual' ? 'Çift Paket' : 'Tek Paket'}
+                </span>
+              </button>
+            </div>
+
+            {/* TAB 1: ENFLASYON & TEFE/TÜFE RISK PAYI */}
+            {activeControlTab === 'inflation' && (
+              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-indigo-800/60">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-amber-300 uppercase tracking-wide">
+                        🛡️ TEFE/TÜFE & Yİ-ÜFE Enflasyon Risk Sigortası
+                      </span>
+                    </div>
+                    <p className="text-xs text-indigo-200">
+                      Teklif hazırlama ile şantiye başlangıcı/tamamlanması arasında oluşabilecek TEFE/TÜFE malzeme ve işçilik artış riskini teklife yansıtın.
+                    </p>
+                  </div>
+
+                  {/* Toggle Button */}
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={!!params.hasInflationBuffer}
+                      onChange={(e) => onUpdateParam && onUpdateParam('hasInflationBuffer', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-indigo-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    <span className="ml-2.5 text-xs font-bold text-white">
+                      {params.hasInflationBuffer ? '✅ Risk Payı Aktif' : '❌ Risk Payı Kapalı'}
+                    </span>
+                  </label>
+                </div>
+
+                {params.hasInflationBuffer ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Slider and Input */}
+                      <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
+                        <div className="flex items-center justify-between text-xs">
+                          <label className="font-bold text-amber-200">Enflasyon & Risk Oranı (%):</label>
+                          <span className="font-mono font-black text-amber-400 text-sm">
+                            %{params.inflationBufferRate ?? 15}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="40"
+                          step="1"
+                          value={params.inflationBufferRate ?? 15}
+                          onChange={(e) => onUpdateParam && onUpdateParam('inflationBufferRate', Number(e.target.value))}
+                          className="w-full accent-amber-400 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-indigo-300 font-mono">
+                          <span>%0 (Risksiz)</span>
+                          <span>%15 (Varsayılan)</span>
+                          <span>%40 (Maks Risk)</span>
+                        </div>
+                      </div>
+
+                      {/* Fast Presets */}
+                      <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
+                        <label className="block text-xs font-bold text-amber-200">Hızlı Oran Seçenekleri:</label>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { rate: 5, label: '%5 Düşük' },
+                            { rate: 10, label: '%10 Makul' },
+                            { rate: 15, label: '%15 Standart TEFE' },
+                            { rate: 20, label: '%20 Yüksek TÜFE' },
+                            { rate: 25, label: '%25 Maksimum Risk' },
+                          ].map((item) => (
+                            <button
+                              key={item.rate}
+                              type="button"
+                              onClick={() => onUpdateParam && onUpdateParam('inflationBufferRate', item.rate)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                (params.inflationBufferRate ?? 15) === item.rate
+                                  ? 'bg-amber-400 text-slate-950 font-black shadow-md'
+                                  : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Calculated Effect Badge */}
+                    <div className="p-3 bg-indigo-900/90 border border-emerald-500/50 rounded-xl text-xs flex flex-wrap items-center justify-between gap-3 text-emerald-200">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>
+                          <strong>Proje Risk Teminat Hacmi:</strong>{' '}
+                          {(results.inflationBufferAmount || Math.round((results.totalGrossCost || 0) * ((params.inflationBufferRate || 15) / 100))).toLocaleString('tr-TR')} ₺
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-indigo-200 font-mono">
+                        (Daire Başı Ort.: ~{Math.round((results.inflationBufferAmount || Math.round((results.totalGrossCost || 0) * ((params.inflationBufferRate || 15) / 100))) / (results.flatCount || 1)).toLocaleString('tr-TR')} ₺)
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Enflasyon risk payı kapalıdır. Teklif fiyatlarında herhangi bir TEFE/TÜFE veya fiyat artış risk payı eklenmemektedir.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: BİRİM FİYATLAR & MÜTEAHHİT KÂRI */}
+            {activeControlTab === 'pricing' && (
+              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Profit Rate Control */}
+                  <div className="space-y-3 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="font-bold text-amber-200">Müteahhit Kâr Oranı (%):</label>
+                      <span className="font-mono font-black text-amber-400 text-sm">
+                        %{params.profitRate || 0}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="35"
+                      step="1"
+                      value={params.profitRate || 0}
+                      onChange={(e) => onUpdateParam && onUpdateParam('profitRate', Number(e.target.value))}
+                      className="w-full accent-amber-400 cursor-pointer"
+                    />
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {[0, 10, 15, 20, 25].map((pr) => (
+                        <button
+                          key={pr}
+                          type="button"
+                          onClick={() => onUpdateParam && onUpdateParam('profitRate', pr)}
+                          className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            (params.profitRate || 0) === pr
+                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
+                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
+                          }`}
+                        >
+                          %{pr} {pr === 0 ? '(Maliyetine)' : ''}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Include profit in owner share toggle */}
+                    <div className="pt-2 border-t border-indigo-800/60 space-y-1.5">
+                      <label className="block text-[11px] font-bold text-indigo-200">
+                        Kâr Oranı Kat Malikleri Borçlanmasına Yansısın mı?
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onUpdateParam && onUpdateParam('includeProfitOwner', 'yes')}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            params.includeProfitOwner !== 'no'
+                              ? 'bg-emerald-500 text-slate-950 font-black'
+                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-300 border border-indigo-700/50'
+                          }`}
+                        >
+                          ✓ Evet (Malik Borcuna Ekle)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onUpdateParam && onUpdateParam('includeProfitOwner', 'no')}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            params.includeProfitOwner === 'no'
+                              ? 'bg-amber-500 text-slate-950 font-black'
+                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-300 border border-indigo-700/50'
+                          }`}
+                        >
+                          ✕ Hayır (Sırf İmalat Maliyeti)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Manual Unit Price Overrides */}
+                  <div className="space-y-3 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
+                    <div className="flex items-center justify-between border-b border-indigo-800/60 pb-2">
+                      <label className="text-xs font-bold text-amber-200">Konut m² Birim Fiyatı (TL/m²):</label>
+                      {params.manualFlatUnitPrice && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateParam && onUpdateParam('manualFlatUnitPrice', undefined)}
+                          className="text-[10px] text-amber-300 hover:text-white underline cursor-pointer"
+                        >
+                          Sistem Hesabına Dön
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={params.manualFlatUnitPrice ?? ''}
+                        onChange={(e) => onUpdateParam && onUpdateParam('manualFlatUnitPrice', e.target.value ? Number(e.target.value) : undefined)}
+                        placeholder={`Sistem Hesabı: ${results.grossCostPerSqM?.toLocaleString('tr-TR')} ₺/m²`}
+                        className="w-full text-xs font-bold px-3 py-2.5 rounded-xl bg-indigo-950 text-white placeholder-indigo-300/50 border border-indigo-700 focus:outline-none focus:border-amber-400"
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-indigo-300 font-bold">TL/m²</span>
+                    </div>
+
+                    <div className="flex items-center justify-between border-b border-indigo-800/60 pb-2 pt-2">
+                      <label className="text-xs font-bold text-amber-200">Dükkan m² Birim Fiyatı (TL/m²):</label>
+                      {params.manualShopUnitPrice && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateParam && onUpdateParam('manualShopUnitPrice', undefined)}
+                          className="text-[10px] text-amber-300 hover:text-white underline cursor-pointer"
+                        >
+                          Sistem Hesabına Dön
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={params.manualShopUnitPrice ?? ''}
+                        onChange={(e) => onUpdateParam && onUpdateParam('manualShopUnitPrice', e.target.value ? Number(e.target.value) : undefined)}
+                        placeholder={`Sistem Hesabı: ${(params.manualFlatUnitPrice || results.grossCostPerSqM)?.toLocaleString('tr-TR')} ₺/m²`}
+                        className="w-full text-xs font-bold px-3 py-2.5 rounded-xl bg-indigo-950 text-white placeholder-indigo-300/50 border border-indigo-700 focus:outline-none focus:border-amber-400"
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-indigo-300 font-bold">TL/m²</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: ÖDEME MODELİ & VADE TAKVİMİ */}
+            {activeControlTab === 'payment' && (
+              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Payment Plan Type */}
+                  <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
+                    <label className="block text-xs font-bold text-amber-200">Ödeme Planı Tipi:</label>
+                    <div className="space-y-1.5">
+                      {[
+                        { id: 'installments', label: '1. Aylık Eşit Taksitli Ödeme' },
+                        { id: 'hybrid', label: '2. Karma (Peşinat + Ara Ödeme + Taksit)' },
+                        { id: 'stages', label: '3. 5 Aşamalı İlerleme Hakedişi' },
+                      ].map((plan) => (
+                        <button
+                          key={plan.id}
+                          type="button"
+                          onClick={() => onUpdateParam && onUpdateParam('paymentPlanType', plan.id)}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            (params.paymentPlanType || 'installments') === plan.id
+                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
+                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
+                          }`}
+                        >
+                          {plan.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Installment Count */}
+                  <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
+                    <label className="block text-xs font-bold text-amber-200">Vade / Taksit Sayısı (Ay):</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[6, 12, 18, 24, 36, 48].map((count) => (
+                        <button
+                          key={count}
+                          type="button"
+                          onClick={() => onUpdateParam && onUpdateParam('installmentCount', count)}
+                          className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            (params.installmentCount || 12) === count
+                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
+                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
+                          }`}
+                        >
+                          {count} Ay
+                        </button>
+                      ))}
+                    </div>
+                    <div className="pt-1">
+                      <input
+                        type="number"
+                        value={params.installmentCount || 12}
+                        onChange={(e) => onUpdateParam && onUpdateParam('installmentCount', Math.max(1, Number(e.target.value)))}
+                        className="w-full text-xs font-bold px-3 py-1.5 rounded-xl bg-indigo-950 text-white border border-indigo-700 focus:outline-none focus:border-amber-400"
+                        placeholder="Özel Ay Sayısı..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Transformation Support Model */}
+                  <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
+                    <label className="block text-xs font-bold text-amber-200">Kentsel Dönüşüm Destek Modeli:</label>
+                    <div className="space-y-1.5">
+                      {[
+                        { id: 'currentSupport', label: 'Yarısı Bizden (875k Hibe + 875k Kredi)' },
+                        { id: 'futureSupport2027', label: '2027 Kredi Modeli (3 Milyon TL)' },
+                        { id: 'custom', label: 'Öz Kaynaklı / Desteksiz Model' },
+                      ].map((sup) => (
+                        <button
+                          key={sup.id}
+                          type="button"
+                          onClick={() => onUpdateParam && onUpdateParam('transformationStatus', sup.id)}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            params.transformationStatus === sup.id
+                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
+                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
+                          }`}
+                        >
+                          {sup.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: SUNUM MODU & PAKET SEÇENEKLERİ */}
+            {activeControlTab === 'features' && (
+              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Presentation Mode & Presets */}
+                  <div className="space-y-3 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
+                    <label className="block text-xs font-bold text-amber-200">Teklif Sunum Modu:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onUpdateParam && onUpdateParam('offerPresentationMode', 'dual')}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          params.offerPresentationMode === 'dual'
+                            ? 'bg-amber-400 text-slate-950 font-black shadow-md'
+                            : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
+                        }`}
+                      >
+                        ⚡ İkili Karşılaştırmalı (Çift Paket)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onUpdateParam && onUpdateParam('offerPresentationMode', 'single')}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          params.offerPresentationMode !== 'dual'
+                            ? 'bg-amber-400 text-slate-950 font-black shadow-md'
+                            : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
+                        }`}
+                      >
+                        📄 Tek Paket Standart
+                      </button>
+                    </div>
+
+                    {params.offerPresentationMode === 'dual' && (
+                      <div className="pt-2 border-t border-indigo-800/60 space-y-2">
+                        <label className="block text-xs font-bold text-amber-200">Çift Paket İsim Şablonu:</label>
+                        <select
+                          value={params.offerNamingPreset || 'standard_plus'}
+                          onChange={(e) => handleSelectPreset(e.target.value)}
+                          className="w-full text-xs font-bold px-3 py-2 rounded-xl bg-indigo-950 text-white border border-indigo-700 focus:outline-none focus:border-amber-400"
+                        >
+                          {DUAL_OFFER_NAMING_PRESETS.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.label} ({p.baseTitle} / {p.plusTitle})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Plus Package Equipment Toggles */}
+                  <div className="space-y-3 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
+                    <label className="block text-xs font-bold text-amber-200">
+                      Plus Paket Konfor Donanımları (Tıkla-Aç/Kapat):
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {[
+                        { key: 'underfloorHeating', label: '♨️ Yerden Isıtma' },
+                        { key: 'acOption', label: '❄️ Klima Altyapısı' },
+                        { key: 'smartHome', label: '🔑 Akıllı Kilit/Sistem' },
+                        { key: 'waterFiltration', label: '💧 Su Arıtma Cihazı' },
+                        { key: 'thermostaticShowerMixer', label: '🚿 Termostatik Batarya' },
+                        { key: 'linearShowerDrain', label: '📐 Lineer Süzgeç' },
+                        { key: 'bathroomHumidityFan', label: '🌀 Nem Sensörlü Fan' },
+                        { key: 'touchlessKitchenFaucet', label: '🍳 Dokunmatik Mutfak' },
+                      ].map((item) => {
+                        const feats = params.plusOfferFeatures || {
+                          underfloorHeating: true,
+                          waterFiltration: true,
+                          acOption: true,
+                          thermostaticShowerMixer: true,
+                          linearShowerDrain: true,
+                          bathroomHumidityFan: true,
+                          touchlessKitchenFaucet: true,
+                          smartHome: true,
+                        };
+                        const isActive = feats[item.key as keyof typeof feats] !== false;
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => handleTogglePlusFeature(item.key as any)}
+                            className={`p-2 rounded-xl text-[11px] font-bold text-left transition-all cursor-pointer border ${
+                              isActive
+                                ? 'bg-emerald-950/80 text-emerald-200 border-emerald-500/50'
+                                : 'bg-indigo-950/50 text-indigo-400 border-indigo-800/40 line-through opacity-60'
+                            }`}
+                          >
+                            {isActive ? '✓ ' : '✕ '} {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ========================================================
