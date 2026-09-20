@@ -3048,6 +3048,27 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                   <div className="text-[9px] text-slate-400 font-normal">
                                     {(calc.unitPrice || results.grossCostPerSqM).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL/m²
                                   </div>
+                                  {!isContractor && (
+                                    <div className="mt-1 flex items-center justify-end gap-1">
+                                      <input
+                                        type="number"
+                                        step="500"
+                                        value={flat.manualUnitPrice || ''}
+                                        onChange={(e) => {
+                                          const val = parseFloat(e.target.value) || 0;
+                                          handleFlatChange(originalIndex, 'manualUnitPrice', val > 0 ? val : undefined);
+                                        }}
+                                        placeholder={`${Math.round(calc.unitPrice || results.grossCostPerSqM)}`}
+                                        title="Daireye özel m² birim maliyeti (TL). Boş bırakılırsa standart proje birim fiyatı uygulanır."
+                                        className={`w-20 text-[10px] font-mono px-1 py-0.5 rounded border text-right font-bold transition-colors ${
+                                          flat.manualUnitPrice
+                                            ? 'bg-amber-50 border-amber-400 text-amber-900 ring-1 ring-amber-300'
+                                            : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-400'
+                                        }`}
+                                      />
+                                      <span className="text-[8px] text-slate-400 font-sans">₺/m²</span>
+                                    </div>
+                                  )}
                                 </div>
                               ) : '-'}
                             </td>

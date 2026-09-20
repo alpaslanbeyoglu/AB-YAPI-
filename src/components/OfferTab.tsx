@@ -2156,10 +2156,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 </span>
               </div>
               <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                Z+{(params.floorCount || 5) - 1} Katlı Yapı
+                {results.floorStructure?.shortLabel || `Z+${(params.floorCount || 5) - 1} Kat`}
               </div>
               <span className="text-[10px] text-slate-500">
-                1 Zemin + {(params.floorCount || 5) - 1} Normal Kat
+                {results.floorStructure?.detailedLabel || `${params.floorCount || 5} Katlı Yapı`}
               </span>
             </div>
 
@@ -2169,16 +2169,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               title="Daire ve dükkan dağılımını düzenlemek için tıklayın"
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Toplam Birim</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Bağımsız Bölüm</span>
                 <span className="text-[9px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-indigo-50 px-1.5 py-0.5 rounded">
                   <Sliders className="w-2.5 h-2.5" /> Düzenle
                 </span>
               </div>
               <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                {residentialCount} Daire {shopCount > 0 ? `+ ${shopCount} Dükkan` : ''}
+                {results.unitBreakdown?.shortLabel || `${residentialCount} Daire ${shopCount > 0 ? `+ ${shopCount} Dükkan` : ''}`}
               </div>
               <span className="text-[10px] text-slate-500 font-medium">
-                {residentialCount + shopCount} Bağımsız Bölüm
+                {results.unitBreakdown?.detailedLabel || `${residentialCount + shopCount} Bağımsız Bölüm`}
               </span>
             </div>
 

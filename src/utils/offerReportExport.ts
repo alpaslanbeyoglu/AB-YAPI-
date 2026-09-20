@@ -351,16 +351,16 @@ export function generateOfferHtml(
       <div class="card-muted">
         <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Kat Yapısı</div>
         <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">
-          ${params.floorCount || 5} Katlı Yapı
+          ${res.floorStructure?.shortLabel || `Z+${(params.floorCount || 5) - 1} Kat`}
         </div>
         <div class="text-muted" style="font-size:9px;margin-top:2px;">
-          ${params.hasGroundFloorShop ? 'Zemin Ticari + Konut' : 'Tamamı Konut'}
+          ${res.floorStructure?.detailedLabel || `${params.floorCount || 5} Katlı Yapı`}
         </div>
       </div>
       <div class="card-muted">
-        <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Toplam Birim</div>
+        <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Bağımsız Bölüm</div>
         <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">
-          ${res.flatCount} Daire ${params.hasGroundFloorShop ? `+ ${params.shopCount || 1} Dükkan` : ''}
+          ${res.unitBreakdown?.shortLabel || `${res.flatCount} Bağımsız Bölüm`}
         </div>
         <div class="text-muted" style="font-size:9px;margin-top:2px;">
           ${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m² Toplam İnşaat Alanı
@@ -685,7 +685,9 @@ export function generateOfferHtml(
           <div style="margin-top:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-left:3px solid #16a34a;border-radius:8px;padding:8px 10px;">
             <div style="font-size:10px;font-weight:bold;color:#166534;margin-bottom:2px;">💎 İmar Teşvik Avantajı ve Finansman Modeli</div>
             <p style="font-size:9px;color:#14532d;margin:0;line-height:1.4;">
-              Mevcut imar planındaki teşviklerden yararlanılarak kazanılan 4 adet mansart daire ve 2 adet normal kat dairenin mülkiyeti finansman karşılığı olarak yükleniciye devredilmiştir. Bu model sayesinde hak sahiplerinin imalat maliyetleri piyasa rayiçlerinin önemli ölçüde altında (subvanse edilmiş şekilde) belirlenmiştir.
+              ${(res.contractorUnitsCount || 0) > 0 
+                ? `Mevcut imar planındaki teşviklerden yararlanılarak kazanılan ${res.contractorUnitsCount} adet bağımsız bölümün mülkiyeti finansman karşılığı olarak yükleniciye devredilmiştir. Bu model sayesinde hak sahiplerinin imalat maliyetleri piyasa rayiçlerinin önemli ölçüde altında belirlenmiştir.`
+                : 'Projede tüm bağımsız bölümler hak sahiplerine tahsis edilmiş olup inşaat maliyeti hakedişli finansman modeliyle karşılanacaktır.'}
             </p>
           </div>
         </div>

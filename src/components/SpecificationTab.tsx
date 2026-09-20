@@ -54,9 +54,9 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
   const currentRoof = getRoofInfo(params.roofType);
   const currentRoom = getRoomTypeDescription(params.roomType);
-  const totalUnitsDisplay = params.hasGroundFloorShop 
+  const totalUnitsDisplay = results.unitBreakdown?.detailedLabel || (params.hasGroundFloorShop 
     ? `${safeFlatCount + (safeShopCount || 1)} Adet, ${safeFlatCount} Daire, ${safeShopCount || 1} Dükkan`
-    : `${safeFlatCount} Adet, ${safeFlatCount} Daire, 0 Dükkan`;
+    : `${safeFlatCount} Adet, ${safeFlatCount} Daire, 0 Dükkan`);
 
   const handleExportPdf = async () => {
     if (!specContainerRef.current) return;
@@ -366,7 +366,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Kat Yapısı</th>
-      <td>${safeFloorCount} Normal Kat + ${safeBasementCount} Bodrum Kat ${params.hasGroundFloorShop ? `(Zemin Kat Ticari Dükkan + ${Math.max(0, safeFloorCount - 1)} Normal Kat)` : '(Tamamı Konut)'}</td>
+      <td>${results.floorStructure?.detailedLabel || `${safeFloorCount} Katlı Yapı`}</td>
     </tr>
     <tr>
       <th>Kat Dağılımı ve Daire Sayısı</th>
@@ -378,7 +378,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Bağımsız Bölüm Dağılımı</th>
-      <td>${totalUnits}</td>
+      <td>${results.unitBreakdown?.detailedLabel || totalUnits}</td>
     </tr>
     <tr>
       <th>Daire Tipi (Oda + Salon Sayısı)</th>
@@ -948,7 +948,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Kat Yapısı & Dağılımı</span>
                   <p className="text-xs font-semibold text-slate-800">
-                    {safeFloorCount} Normal Kat + {safeBasementCount} Bodrum Kat {params.hasGroundFloorShop ? `(Zemin Kat: ${safeShopCount} Ticari Dükkan - Eşit Paylaşımlı)` : "(Tamamı Konut)"}
+                    {results.floorStructure?.detailedLabel || `${safeFloorCount} Katlı Yapı`}
                   </p>
                   <p className="text-[10px] text-slate-500 font-medium">
                     Katta {params.flatsPerFloor || 2} Bağımsız Bölüm (Kat alanı eşit paylaşımlı){params.roofType === 'mansard' ? ' • En üst katta mansart çatı bağımsız bölümleri' : ''}

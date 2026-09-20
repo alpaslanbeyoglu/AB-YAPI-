@@ -443,8 +443,8 @@ export function generateOfferHtml(
       </div>
       <div class="meta-card">
         <div style="color:#64748b;font-size:9.5px;font-weight:600;">Kat ve Bağımsız Bölüm</div>
-        <div style="font-size:12px;font-weight:bold;color:#0f172a;">${params.floorCount || 5} Kat / ${params.hasGroundFloorShop ? `${res.flatCount} Daire + ${params.shopCount || 1} Dükkan` : `${res.flatCount} Daire`}</div>
-        <div style="font-size:9px;color:#64748b;">(Katta ${flatsPerFloor} Bölüm - Eşit Dağılım)</div>
+        <div style="font-size:12px;font-weight:bold;color:#0f172a;">${res.floorStructure?.shortLabel || `Z+${(params.floorCount || 5) - 1} Kat`} / ${res.unitBreakdown?.shortLabel || `${res.flatCount} Bağımsız Bölüm`}</div>
+        <div style="font-size:9px;color:#64748b;">(${res.floorStructure?.detailedLabel || `${params.floorCount || 5} Katlı Yapı`} - Katta ${flatsPerFloor} Bölüm)</div>
       </div>
       <div class="meta-card">
         <div style="color:#64748b;font-size:9.5px;font-weight:600;">Tipik Daire Alanı</div>
@@ -757,7 +757,7 @@ export function generateContractHtml(
     <strong>2. İŞ SAHİBİ / KAT MALİKLERİ:</strong> Ek-1 Hak Sahipleri Listesinde isim, TC kimlik ve arsa payı bilgileri bulunan taşınmaz malikleri.</p>
     
     <h4>MADDE 2: SÖZLEŞME KONUSU VE GAYRİMENKUL</h4>
-    <p>Tapuda <strong>${params.projectAddress || 'Belirtilen Adres'}</strong> adresinde kayıtlı taşınmazın yıkılarak yerine taban oturumu <strong>${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</strong>, toplam brüt inşaat alanı <strong>${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</strong> olan, <strong>${params.floorCount || 5} katlı</strong> (${params.hasGroundFloorShop ? `${params.shopCount || 1} adet zemin kat dükkan + ` : ''}${res.flatCount} adet konut olmak üzere toplam ${res.flatCount + (params.hasGroundFloorShop ? (params.shopCount || 1) : 0)} bağımsız bölümden oluşan${params.roofType === 'mansard' ? ', en üst katta mansart çatı bağımsız bölümleri dahil' : ''}; kat alanı kattaki bağımsız bölüm sayısına [katta ${params.flatsPerFloor || 2} daire] eşit bölünerek projelendirilen) yeni binanın anahtar teslim yapılmasıdır.</p>
+    <p>Tapuda <strong>${params.projectAddress || 'Belirtilen Adres'}</strong> adresinde kayıtlı taşınmazın yıkılarak yerine taban oturumu <strong>${res.baseArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</strong>, toplam brüt inşaat alanı <strong>${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</strong> olan, <strong>${res.floorStructure?.shortLabel || `Z+${(params.floorCount || 5) - 1} Katlı`} (${res.floorStructure?.detailedLabel || `${params.floorCount || 5} Katlı Yapı`})</strong>, <strong>${res.unitBreakdown?.detailedLabel || `${res.flatCount} Bağımsız Bölüm`}</strong> (${res.unitBreakdown?.ownershipBreakdownLabel || ''}; kat alanı kattaki bağımsız bölüm sayısına [katta ${params.flatsPerFloor || 2} daire] eşit bölünerek projelendirilen) yeni depreme dayanıklı binanın anahtar teslim yapılmasıdır.</p>
   </div>
 
   <div class="avoid-break">

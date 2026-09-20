@@ -1,4 +1,4 @@
-import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem } from '../types';
+import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem, FloorStructureSummary, UnitBreakdownSummary } from '../types';
 import { calculateNetDebt } from './debtUtils';
 import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint, FootprintCalculationResult } from './footprintUtils';
 import { getAcOptionById } from './acOptions';
@@ -407,7 +407,7 @@ export function synchronizeFlats(
     : 0;
 
   return Array.from({ length: newCount }, (_, i) => {
-    const existing = flats[i];
+    const existing = flats.find((f) => f.id === i + 1) || flats[i];
     const isBasementShopFlat = activeBasementShopCount > 0 && i < activeBasementShopCount;
     const groundShopIndex = i - activeBasementShopCount;
     const isShopFlat = activeShopCount > 0 && groundShopIndex >= 0 && groundShopIndex < activeShopCount;
@@ -510,6 +510,7 @@ export function synchronizeFlats(
         landShareNumerator: existing.landShareNumerator !== undefined ? existing.landShareNumerator : Math.round(mergedArea * 10),
         landShareDenominator: existing.landShareDenominator !== undefined ? existing.landShareDenominator : 1000,
         name: mergedName,
+        manualUnitPrice: existing.manualUnitPrice,
         useTransformationCredit: existing.useTransformationCredit !== undefined ? existing.useTransformationCredit : (transStatus !== 'none'),
         useGrant: existing.useGrant !== undefined ? existing.useGrant : (transStatus !== 'none'),
         useCredit: existing.useCredit !== undefined ? existing.useCredit : (transStatus !== 'none'),
@@ -564,6 +565,109 @@ export function calculateFlatCount(params: ProjectParams): number {
 
   const totalCalculatedUnits = normalFloorFlats + shopCount + basementShopCount + extraMansardFlats;
   return totalCalculatedUnits;
+}
+
+export function getFloorStructureSummary(params: ProjectParams): FloorStructureSummary {
+  const aboveGround = Math.max(1, params.floorCount || 5);
+  const normalFloors = Math.max(0, aboveGround - 1);
+  const basementFloors = Math.max(0, params.basementCount !== undefined ? params.basementCount : 1);
+  const hasBasement = basementFloors > 0;
+  const hasShop = !!params.hasGroundFloorShop;
+  const totalStoreys = aboveGround + (hasBasement ? basementFloors : 0);
+
+  const shortLabel = hasBasement 
+    ? `${basementFloors}B + Z+${normalFloors} Kat (${totalStoreys} Kat)`
+    : `Z+${normalFloors} Kat (${aboveGround} Kat)`;
+
+  const detailedLabel = hasBasement
+    ? `${basementFloors} Bodrum Kat + Zemin Kat + ${normalFloors} Normal Kat (Toplam ${totalStoreys} Kat)`
+    : `Zemin Kat + ${normalFloors} Normal Kat (Toplam ${aboveGround} Kat)`;
+
+  const aboveGroundLabel = `Zemin + ${normalFloors} Normal Kat (Z+${normalFloors} Kat)`;
+
+  return {
+    totalBuildingStoreys: totalStoreys,
+    aboveGroundFloors: aboveGround,
+    normalFloorsCount: normalFloors,
+    basementFloorsCount: basementFloors,
+    hasBasement,
+    hasGroundFloorShop: hasShop,
+    shortLabel,
+    detailedLabel,
+    aboveGroundLabel,
+  };
+}
+
+export function getUnitBreakdownSummary(params: ProjectParams, flatResults?: FlatCalcResult[]): UnitBreakdownSummary {
+  const flats = flatResults || params.flats || [];
+  const totalUnits = flats.length > 0 ? flats.length : calculateFlatCount(params);
+  
+  let residential = 0;
+  let commercial = 0;
+  let mansard = 0;
+  let basement = 0;
+  let contractor = 0;
+  let owner = 0;
+
+  if (flats.length > 0) {
+    flats.forEach(f => {
+      const isShop = f.flatType === 'shop' || f.flatType === 'basement_shop';
+      const isMans = f.flatType === 'mansard';
+      const isBase = f.flatType === 'basement_flat' || (f.floorNumber !== undefined && f.floorNumber < 0);
+      const isCont = !!f.isContractorShare || (params.contractorFlatIds || []).includes(f.id);
+
+      if (isShop) commercial++;
+      else if (isMans) { mansard++; residential++; }
+      else if (isBase) { basement++; residential++; }
+      else residential++;
+
+      if (isCont) contractor++;
+      else owner++;
+    });
+  } else {
+    const hasShop = !!params.hasGroundFloorShop;
+    const shopCount = hasShop ? Math.max(1, params.shopCount || 1) : 0;
+    const floorCount = Math.max(1, params.floorCount || 5);
+    const flatsPerFloor = Math.max(1, params.flatsPerFloor || 2);
+    const resFloors = Math.max(1, floorCount - (hasShop ? 1 : 0));
+    residential = resFloors * flatsPerFloor;
+    commercial = shopCount;
+    if (params.roofType === 'mansard') {
+      mansard = params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : flatsPerFloor;
+      residential += mansard;
+    }
+  }
+
+  const parts: string[] = [];
+  if (residential > 0) parts.push(`${residential} Konut`);
+  if (commercial > 0) parts.push(`${commercial} Dükkan`);
+
+  const shortLabel = parts.length > 0
+    ? `${totalUnits} Bağımsız Bölüm (${parts.join(', ')})`
+    : `${totalUnits} Bağımsız Bölüm`;
+
+  const detailedParts: string[] = [];
+  if (residential > 0) detailedParts.push(`${residential} Adet Konut / Daire`);
+  if (commercial > 0) detailedParts.push(`${commercial} Adet Ticari Dükkan`);
+
+  const detailedLabel = detailedParts.length > 0
+    ? `${totalUnits} Bağımsız Bölüm (${detailedParts.join(' + ')})`
+    : `${totalUnits} Bağımsız Bölüm`;
+
+  const ownershipBreakdownLabel = `${owner} Kat Maliki Payı + ${contractor} Müteahhit Payı`;
+
+  return {
+    totalUnits,
+    residentialCount: residential,
+    commercialCount: commercial,
+    contractorUnitsCount: contractor,
+    ownerUnitsCount: owner,
+    mansardUnitsCount: mansard,
+    basementUnitsCount: basement,
+    shortLabel,
+    detailedLabel,
+    ownershipBreakdownLabel,
+  };
 }
 
 export function calculateProject(params: ProjectParams): CalculationResult {
@@ -641,24 +745,27 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const effectiveFlatCount = calculateFlatCount(params);
 
   // Synchronize flats early to perform parking and other architectural calculations on them
-  const synchronizedFlats = synchronizeFlats(
-    flats,
-    effectiveFlatCount,
-    activeBaseArea,
-    floorCount,
-    transformationStatus,
-    roofType,
-    flatsPerFloor,
-    params.mansardFlatCount,
-    roofAtticArea,
-    params.hasGroundFloorShop,
-    params.shopCount || 1,
-    upperFloorArea,
-    params.basementPurpose,
-    params.basementShopCount || 1,
-    basementFloorsCount,
-    params.basementConfig
-  );
+  // If flats already contains the synchronized list matching effectiveFlatCount, preserve it directly to keep IDs aligned with the UI
+  const synchronizedFlats = (flats && flats.length > 0 && flats.length === effectiveFlatCount)
+    ? flats
+    : synchronizeFlats(
+        flats,
+        effectiveFlatCount,
+        activeBaseArea,
+        floorCount,
+        transformationStatus,
+        roofType,
+        flatsPerFloor,
+        params.mansardFlatCount,
+        roofAtticArea,
+        params.hasGroundFloorShop,
+        params.shopCount || 1,
+        upperFloorArea,
+        params.basementPurpose,
+        params.basementShopCount || 1,
+        basementFloorsCount,
+        params.basementConfig
+      );
 
   // --- OTOPARK HARCI HESAPLAMA MODÜLÜ (Otopark Yönetmeliği 2021 ve Güncel Mevzuat) ---
   const parkingFeeMode = params.parkingFeeMode || 'excluded';
@@ -1130,7 +1237,9 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     // Senaryo 1 & 2: Kullanıcı müteahhit teklif birim fiyatını genel olarak (örn: 42.000 TL) 
     // veya müteahhite kalan daireler/özelleştirme nedeniyle (örn: daireler için 32.000 TL, dükkanlar için 30.000 TL) belirleyebilir
     let unitBaseCost = baseCostPerSqM;
-    if (hasManualPrice) {
+    if (flat.manualUnitPrice !== undefined && flat.manualUnitPrice > 0) {
+      unitBaseCost = flat.manualUnitPrice;
+    } else if (hasManualPrice) {
       unitBaseCost = (flat.flatType === 'shop' || flat.flatType === 'basement_shop') ? finalShopPrice : finalFlatPrice;
     } else if (params.manualFlatUnitPrice && params.manualFlatUnitPrice > 0 && flat.flatType !== 'shop' && flat.flatType !== 'basement_shop') {
       unitBaseCost = params.manualFlatUnitPrice;
@@ -1455,5 +1564,21 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     smartDoorLockCost,
     smartDoorLockPricePerFlat,
     smartDoorLockUnits,
+
+    // Standart Kat ve Bağımsız Bölüm Tanımları
+    floorStructure: getFloorStructureSummary(params),
+    unitBreakdown: getUnitBreakdownSummary(params, flatResults),
+    floorStructureLabel: getFloorStructureSummary(params).shortLabel,
+    detailedFloorLabel: getFloorStructureSummary(params).detailedLabel,
+    totalFloorsCount: getFloorStructureSummary(params).totalBuildingStoreys,
+    aboveGroundFloorsCount: getFloorStructureSummary(params).aboveGroundFloors,
+    basementFloorsCount: getFloorStructureSummary(params).basementFloorsCount,
+    normalFloorsCount: getFloorStructureSummary(params).normalFloorsCount,
+    totalUnitsCount: getUnitBreakdownSummary(params, flatResults).totalUnits,
+    commercialUnitsCount: getUnitBreakdownSummary(params, flatResults).commercialCount,
+    contractorUnitsCount: getUnitBreakdownSummary(params, flatResults).contractorUnitsCount,
+    ownerUnitsCount: getUnitBreakdownSummary(params, flatResults).ownerUnitsCount,
+    unitBreakdownLabel: getUnitBreakdownSummary(params, flatResults).shortLabel,
+    ownershipBreakdownLabel: getUnitBreakdownSummary(params, flatResults).ownershipBreakdownLabel,
   };
 }

@@ -1342,8 +1342,8 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
             </p>
           </div>
           <div className="text-[10px] text-slate-500 flex items-center justify-between">
-            <span>Bağımsız Bölüm: {params.flatCount} Adet</span>
-            <span>Kat: {params.floorCount}</span>
+            <span>Bölüm: {results.unitBreakdown?.shortLabel || `${params.flatCount} Adet`}</span>
+            <span>Kat: {results.floorStructure?.shortLabel || `${params.floorCount} Kat`}</span>
           </div>
         </div>
       </div>

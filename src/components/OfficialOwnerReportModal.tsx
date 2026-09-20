@@ -468,7 +468,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                     BİNA HAKEDİŞ, PEŞİNAT VE NET MALİK PAYLARI CETVELİ
                   </h1>
                   <p className="text-xs text-slate-600">
-                    {params.projectName || 'Kentsel Dönüşüm Projesi'} ({params.flats.length} Bağımsız Bölüm)
+                    {params.projectName || 'Kentsel Dönüşüm Projesi'} ({results.unitBreakdown?.detailedLabel || `${params.flats.length} Bağımsız Bölüm`})
                   </p>
                 </div>
                 <div className="text-right text-xs font-mono">

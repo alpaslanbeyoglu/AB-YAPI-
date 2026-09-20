@@ -141,6 +141,7 @@ export interface FlatItem {
   useCredit?: boolean; // Kentsel Dönüşüm Faiz Destekli Kredisi kullanımı
   isContractorShare?: boolean; // true = Müteahhit Dairesi, false = Hak Sahibi Dairesi
   salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
+  manualUnitPrice?: number; // Daireye/bağımsız bölüme özel m² birim maliyeti (TL/m²)
   flatType?: 'standard' | 'mansard' | 'duplex' | 'shop' | 'basement_shop' | 'basement_flat' | 'shelter' | 'parking' | 'storage'; // Daire tipi
   description?: string; // Ek açıklama (örn: "Çatı Katı Mansart - Ayrı Bağımsız Bölüm", "Çatı Dubleksi - Tek Bağımsız Bölüm")
   floorNumber?: number; // Bulunduğu Kat No (örn: 0 Zemin, 1, 2, 3...)
@@ -594,6 +595,47 @@ export interface CalculationResult {
   smartDoorLockCost?: number;
   smartDoorLockPricePerFlat?: number;
   smartDoorLockUnits?: number;
+
+  // Standart Kat ve Bağımsız Bölüm Tanımları (Tüm sayfalarda yeknesaklık)
+  floorStructure?: FloorStructureSummary;
+  unitBreakdown?: UnitBreakdownSummary;
+  floorStructureLabel?: string;
+  detailedFloorLabel?: string;
+  totalFloorsCount?: number;
+  aboveGroundFloorsCount?: number;
+  basementFloorsCount?: number;
+  normalFloorsCount?: number;
+  totalUnitsCount?: number;
+  commercialUnitsCount?: number;
+  contractorUnitsCount?: number;
+  ownerUnitsCount?: number;
+  unitBreakdownLabel?: string;
+  ownershipBreakdownLabel?: string;
+}
+
+export interface FloorStructureSummary {
+  totalBuildingStoreys: number;
+  aboveGroundFloors: number;
+  normalFloorsCount: number;
+  basementFloorsCount: number;
+  hasBasement: boolean;
+  hasGroundFloorShop: boolean;
+  shortLabel: string;
+  detailedLabel: string;
+  aboveGroundLabel: string;
+}
+
+export interface UnitBreakdownSummary {
+  totalUnits: number;
+  residentialCount: number;
+  commercialCount: number;
+  contractorUnitsCount: number;
+  ownerUnitsCount: number;
+  mansardUnitsCount: number;
+  basementUnitsCount: number;
+  shortLabel: string;
+  detailedLabel: string;
+  ownershipBreakdownLabel: string;
 }
 
 export interface SavedProjectData {
