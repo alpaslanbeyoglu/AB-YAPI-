@@ -59,6 +59,7 @@ import { generateOfferHtml } from '../utils/offerReportExport';
 import { getCompletedProjectsText } from '../utils/completedProjectsData';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { ReconciliationDiagnosticModal } from './ReconciliationDiagnosticModal';
+import { IstanbulRealEstateValuationModal } from './IstanbulRealEstateValuationModal';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
@@ -99,6 +100,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
   // Diagnostic Reconciliation Modal State
   const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState<boolean>(false);
+
+  // Istanbul Real Estate Valuation Modal State
+  const [isValuationModalOpen, setIsValuationModalOpen] = useState<boolean>(false);
 
   // Unit & Floor Configurator Modal State
   const [isUnitConfigOpen, setIsUnitConfigOpen] = useState(false);
@@ -601,6 +605,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               <span>Teklif Kabul Edildi ➔ Süreç Takibini Başlat</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setIsValuationModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+            title="İstanbul Emlak Piyasası İlçe, Kat, Cadde ve Cepheye Göre Satış Fiyatlama Uzmanı"
+          >
+            <Building2 className="w-3.5 h-3.5 text-amber-200" />
+            <span>🏢 İstanbul Emlak Değerleme</span>
+          </button>
+
           <PrintAndPdfButtons
             onExportPdf={handleExportPdf}
             onPrint={handlePrint}
@@ -3118,6 +3132,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       <Scale className="w-4 h-4 text-indigo-300" />
                       <span>🔍 Malik Dağılım Mutabakat Teşhisini Aç</span>
                     </button>
+
+                    {/* Istanbul Real Estate Valuation Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsValuationModalOpen(true)}
+                      className="mt-2 w-full py-2.5 px-3 bg-amber-600/40 hover:bg-amber-600/60 border border-amber-400/30 text-amber-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    >
+                      <Building2 className="w-4 h-4 text-amber-300" />
+                      <span>🏢 İstanbul Emlak Piyasa Değerlemesi</span>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 pt-4 border-t border-white/10">
@@ -3846,6 +3870,32 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           }
         }}
         theme={theme === 'gray' ? 'gray' : 'light'}
+      />
+
+      {/* İstanbul Emlak Değerleme Modalı */}
+      <IstanbulRealEstateValuationModal
+        isOpen={isValuationModalOpen}
+        onClose={() => setIsValuationModalOpen(false)}
+        params={params}
+        flats={params.flats || []}
+        totalConstructionCost={results.grandTotal || 0}
+        onUpdateFlats={(updatedFlats) => {
+          if (onUpdateAllParams) {
+            onUpdateAllParams({
+              ...params,
+              flats: updatedFlats,
+            });
+          }
+        }}
+        onUpdateParams={(updatedParams) => {
+          if (onUpdateAllParams) {
+            onUpdateAllParams({
+              ...params,
+              ...updatedParams,
+            });
+          }
+        }}
+        theme={theme}
       />
     </div>
   );

@@ -214,6 +214,10 @@ export function generateOfferHtml(
       </tr>`;
 
   let paymentScheduleBlock = '';
+  const ownerFlatsForPlan = res.flatResults.filter(f => !f.isContractorShare);
+  const targetFlatsForPlan = ownerFlatsForPlan.length > 0 ? ownerFlatsForPlan : res.flatResults;
+  const targetLen = targetFlatsForPlan.length;
+
   if (isContractorShareModel) {
     paymentScheduleBlock = `
     <div class="avoid-break" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:11px;color:#065f46;line-height:1.5;">
@@ -240,13 +244,13 @@ export function generateOfferHtml(
         </thead>
         <tbody>
           <tr>
-            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${res.flatResults.length} Adet Konut - Ortak Plan)</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.grossPay,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#4f46e5;font-family:monospace;">-${Math.round(res.flatResults.reduce((s,f)=>s+f.downPayment,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">-${Math.round(res.flatResults.reduce((s,f)=>s+f.usedCredit,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.netRemainingDebt,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${targetLen} Adet Konut - Ortak Plan)</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.grossPay,0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#4f46e5;font-family:monospace;">-${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.downPayment,0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">-${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.usedCredit,0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.netRemainingDebt,0)/targetLen).toLocaleString('tr-TR')} TL</td>
             <td style="padding:8px;border:1px solid #e2e8f0;text-align:center;">${params.installmentCount || 12} Ay</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.monthlyInstallment,0)/res.flatResults.length).toLocaleString('tr-TR')} TL / Ay</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.monthlyInstallment,0)/targetLen).toLocaleString('tr-TR')} TL / Ay</td>
           </tr>
         </tbody>
         <tfoot>
@@ -278,12 +282,12 @@ export function generateOfferHtml(
         </thead>
         <tbody>
           <tr>
-            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${res.flatResults.length} Adet Konut - Karma Plan)</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.netRemainingDebt,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#4338ca;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+(f.netRemainingDebt*0.25),0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#7e22ce;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+(f.netRemainingDebt*0.15),0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+(f.netRemainingDebt*0.60),0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+(f.netRemainingDebt*0.60/Math.max(1, params.installmentCount || 12)),0)/res.flatResults.length).toLocaleString('tr-TR')} TL / Ay</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${targetLen} Adet Konut - Karma Plan)</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.netRemainingDebt,0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#4338ca;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+(f.netRemainingDebt*0.25),0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#7e22ce;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+(f.netRemainingDebt*0.15),0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+(f.netRemainingDebt*0.60),0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+(f.netRemainingDebt*0.60/Math.max(1, params.installmentCount || 12)),0)/targetLen).toLocaleString('tr-TR')} TL / Ay</td>
           </tr>
         </tbody>
         <tfoot>
@@ -314,13 +318,13 @@ export function generateOfferHtml(
         </thead>
         <tbody>
           <tr>
-            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${res.flatResults.length} Adet Konut - Aşama Planı)</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[0],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[1],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[2],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#4f46e5;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[3],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.stagePayments[4],0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;text-align:right;font-family:monospace;">${Math.round(res.flatResults.reduce((s,f)=>s+f.netRemainingDebt,0)/res.flatResults.length).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${targetLen} Adet Konut - Aşama Planı)</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.stagePayments[0],0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.stagePayments[1],0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.stagePayments[2],0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#4f46e5;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.stagePayments[3],0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.stagePayments[4],0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;text-align:right;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.netRemainingDebt,0)/targetLen).toLocaleString('tr-TR')} TL</td>
           </tr>
         </tbody>
         <tfoot>

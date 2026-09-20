@@ -46,6 +46,7 @@ import {
 import { ProjectParams, CalculationResult, FlatItem, AppTheme, FlatCalcResult } from '../types';
 import { OfficialOwnerReportModal } from './OfficialOwnerReportModal';
 import { ReconciliationDiagnosticModal } from './ReconciliationDiagnosticModal';
+import { IstanbulRealEstateValuationModal } from './IstanbulRealEstateValuationModal';
 import { calculateFootprint } from '../utils/footprintUtils';
 import { calculateCantileverDetails } from '../utils/calculatorEngine';
 
@@ -90,6 +91,9 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
   // Reconciliation Diagnostic Modal State
   const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState<boolean>(false);
+
+  // Istanbul Real Estate Valuation Modal State
+  const [isValuationModalOpen, setIsValuationModalOpen] = useState<boolean>(false);
 
   const handleOpenReport = (flatId?: number) => {
     setReportModalFlatId(flatId || selectedFlatId || params.flats[0]?.id || 1);
@@ -1872,6 +1876,17 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
             >
               <Scale className="w-3.5 h-3.5 text-purple-200" />
               <span>🔍 Mali Mutabakat Teşhisi</span>
+            </button>
+
+            {/* Istanbul Real Estate Valuation Button */}
+            <button
+              type="button"
+              onClick={() => setIsValuationModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+              title="İstanbul Emlak Piyasası İlçe, Kat, Cadde ve Cepheye Göre Satış Fiyatlama ve Değerleme Uzmanı"
+            >
+              <Building2 className="w-3.5 h-3.5 text-amber-200" />
+              <span>🏢 İstanbul Emlak Değerleme</span>
             </button>
 
             {/* Resmi A4 Raporu / Taahhütname */}
@@ -4296,6 +4311,29 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         results={results}
         onSyncParams={onChangeParams}
         theme={theme === 'gray' ? 'gray' : 'light'}
+      />
+
+      {/* İstanbul Emlak Değerleme Modalı */}
+      <IstanbulRealEstateValuationModal
+        isOpen={isValuationModalOpen}
+        onClose={() => setIsValuationModalOpen(false)}
+        params={params}
+        flats={params.flats || []}
+        totalConstructionCost={results.grandTotal || 0}
+        onUpdateFlats={(updatedFlats) => {
+          onChangeParams({
+            ...params,
+            flats: updatedFlats,
+          });
+          if (onCalculate) onCalculate();
+        }}
+        onUpdateParams={(updatedParams) => {
+          onChangeParams({
+            ...params,
+            ...updatedParams,
+          });
+        }}
+        theme={theme}
       />
     </div>
   );

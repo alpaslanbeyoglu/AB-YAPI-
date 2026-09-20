@@ -147,6 +147,9 @@ export interface FlatItem {
   floorNumber?: number; // Bulunduğu Kat No (örn: 0 Zemin, 1, 2, 3...)
   facade?: 'guney' | 'kuzey' | 'dogu' | 'bati' | 'guney_bati' | 'guney_dogu' | 'kuzey_bati' | 'kuzey_dogu' | 'kose' | 'on' | 'arka'; // Cephe / Yön
   serefiyeMultiplier?: number; // Şerefiye Değerleme Çarpanı (Varsayılan 1.00; Örn: 1.15 = %15 daha değerli/üst kat, 0.90 = %10 zemin/arka)
+  customMarketPrice?: number; // Kullanıcının belirlediği serbest satış rayiç fiyatı (TL)
+  marketUnitPrice?: number; // AI / Emlak piyasası m² birim satış fiyatı (TL/m²)
+  marketValuationNotes?: string; // Emlak değerleme notu/özeti
   landShareNumerator?: number; // Mevcut Arsa Payı Payı (Örn: 10)
   landShareDenominator?: number; // Mevcut Arsa Payı Paydası (Örn: 240)
 }
@@ -249,6 +252,10 @@ export interface ProjectParams {
   costMultiplier: number;
   profitRate?: number;
   basementFloors?: number;
+
+  // İstanbul Emlak Değerleme Parametreleri
+  valuationDistrict?: string; // Örn: 'kadikoy', 'besiktas', 'umraniye'
+  valuationStreetTier?: 'prime_avenue' | 'wide_street' | 'standard_street' | 'side_alley';
 
   // Taban Oturumu ve Cephe Ölçü Giriş Seçenekleri
   footprintInputMode?: FootprintInputMode; // 'directArea': Doğrudan m², 'dimensions': Ön x Yan Cephe, 'customFacades': Çoklu Cepheler, 'lShape': L-Tipi Kademeli, 'polygonDraw': Serbest Çizim

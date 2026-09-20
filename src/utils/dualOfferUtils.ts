@@ -309,16 +309,24 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
     : 0;
 
   // Müşteriye sunulan teklif tutarları (Teklifte ve resmi belgede görünecek rakamlar)
+  const ownerBaseFlatCount = baseResult.flatResults?.filter(f => !f.isContractorShare).length || baseFlatCount;
   const customerBaseGrandTotal = baseCost;
   const customerPlusGrandTotal = baseCost + customerTotalCostDiff;
   const customerBaseFlatShare = baseAvgCostPerFlat;
   const customerPlusFlatShare = baseAvgCostPerFlat + customerFlatDelta;
-  const customerBaseNetDebtPerFlat = Math.round(baseNetRemainingDebt / baseFlatCount);
+  const customerBaseNetDebtPerFlat = ownerBaseFlatCount > 0 ? Math.round(baseNetRemainingDebt / ownerBaseFlatCount) : Math.round(baseNetRemainingDebt / baseFlatCount);
   const customerPlusNetDebtPerFlat = customerBaseNetDebtPerFlat + customerFlatDelta;
 
   // DÜKKAN VE KONUT AYRIMI (Unit Price & Cost Breakdown)
   const baseShops = baseResult.flatResults?.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop') || [];
   const baseFlats = baseResult.flatResults?.filter(f => f.flatType !== 'shop' && f.flatType !== 'basement_shop') || [];
+
+  // Kat Maliki dairelerini ve dükkanlarını filtrele (Müteahhit payı olan sıfır borçlu bağımsız bölümler Kat Malikleri ortalamasını saptırmasın)
+  const ownerBaseFlats = baseFlats.filter(f => !f.isContractorShare);
+  const ownerBaseShops = baseShops.filter(f => !f.isContractorShare);
+
+  const targetBaseFlats = ownerBaseFlats.length > 0 ? ownerBaseFlats : baseFlats;
+  const targetBaseShops = ownerBaseShops.length > 0 ? ownerBaseShops : baseShops;
 
   const hasShops = baseShops.length > 0;
   const shopCount = baseShops.length;
@@ -331,22 +339,22 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
     ? params.manualShopUnitPrice
     : (params.manualFlatUnitPrice && params.manualFlatUnitPrice > 0 ? params.manualFlatUnitPrice : baseResult.grossCostPerSqM);
 
-  const baseFlatShare = baseFlats.length > 0
-    ? Math.round(baseFlats.reduce((s, f) => s + f.grossPay, 0) / baseFlats.length)
+  const baseFlatShare = targetBaseFlats.length > 0
+    ? Math.round(targetBaseFlats.reduce((s, f) => s + f.grossPay, 0) / targetBaseFlats.length)
     : baseAvgCostPerFlat;
-  const baseShopShare = baseShops.length > 0
-    ? Math.round(baseShops.reduce((s, f) => s + f.grossPay, 0) / baseShops.length)
+  const baseShopShare = targetBaseShops.length > 0
+    ? Math.round(targetBaseShops.reduce((s, f) => s + f.grossPay, 0) / targetBaseShops.length)
     : 0;
 
   const plusFlatShare = baseFlatShare + customerFlatDelta;
   // Dükkanlar konutlara özel donanımlardan (banyo fanı, duş süzgeci, termostatik batarya, mutfak bataryası vb.) muaf olduğundan kendi ticari standart baz payındadır
   const plusShopShare = baseShopShare;
 
-  const baseFlatNetDebt = baseFlats.length > 0
-    ? Math.round(baseFlats.reduce((s, f) => s + (f.netRemainingDebt || 0), 0) / baseFlats.length)
+  const baseFlatNetDebt = targetBaseFlats.length > 0
+    ? Math.round(targetBaseFlats.reduce((s, f) => s + (f.netRemainingDebt || 0), 0) / targetBaseFlats.length)
     : customerBaseNetDebtPerFlat;
-  const baseShopNetDebt = baseShops.length > 0
-    ? Math.round(baseShops.reduce((s, f) => s + (f.netRemainingDebt || 0), 0) / baseShops.length)
+  const baseShopNetDebt = targetBaseShops.length > 0
+    ? Math.round(targetBaseShops.reduce((s, f) => s + (f.netRemainingDebt || 0), 0) / targetBaseShops.length)
     : 0;
 
   const plusFlatNetDebt = baseFlatNetDebt + customerFlatDelta;
