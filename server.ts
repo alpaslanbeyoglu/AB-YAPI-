@@ -31,6 +31,203 @@ function getGenAI(): GoogleGenAI {
   return aiInstance;
 }
 
+// Robust wrapper to handle high demand (503), rate limits (429) with retry and fallback models
+async function generateTextWithFallbackAndRetry(
+  params: {
+    contents: any;
+    config?: any;
+  },
+  modelsToTry: string[] = ['gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-1.5-flash', 'gemini-3.8-flash']
+): Promise<any> {
+  let lastError: any = null;
+
+  for (const modelName of modelsToTry) {
+    const maxRetries = 2;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await getGenAI().models.generateContent({
+          model: modelName,
+          contents: params.contents,
+          config: params.config,
+        });
+        return response;
+      } catch (err: any) {
+        lastError = err;
+
+        // If it is an invalid request (400 Client Error), fail fast immediately without retry or fallback
+        const isClientError = err?.status === 400 || err?.error?.code === 400 || err?.message?.includes("400");
+        if (isClientError) {
+          throw err;
+        }
+
+        // Wait before retrying (exponential backoff)
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 400;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+// Regex-based robust parser to extract structured information when all Gemini models are offline/unavailable
+function parseOfferTextFallback(text: string): any {
+  const normalized = text.toLowerCase().trim();
+  
+  // Default values
+  const result: any = {
+    projectName: "Yeni Proje Kentsel Dönüşüm ve İnşaat Teklifi",
+    projectAddress: "İstanbul",
+    landArea: 500,
+    baseBuildArea: 150,
+    floorCount: 5,
+    flatsPerFloor: 2,
+    hasGroundFloorShop: false,
+    shopCount: 0,
+    basementCount: 1,
+    basementPurpose: "shelter_depot",
+    basementShopCount: 0,
+    buildingType: "standard",
+    quality: "standard",
+    projectModel: "cash",
+    contractorShareRate: 50,
+    transformationStatus: "none",
+    manualMonths: 15,
+    hasUnderfloorHeating: false,
+    hasWaterFiltration: false,
+    hasLinearShowerDrain: true,
+    hasSmartDoorLock: false,
+    hasAcOption: false,
+    soilType: "solid",
+    introExplanation: "",
+    customContractNotes: "",
+    additionalOfferClauses: []
+  };
+
+  // Extract address info
+  if (normalized.includes("kadıköy") || normalized.includes("kadikoy")) result.projectAddress = "Kadıköy, İstanbul";
+  else if (normalized.includes("beşiktaş") || normalized.includes("besiktas")) result.projectAddress = "Beşiktaş, İstanbul";
+  else if (normalized.includes("şişli") || normalized.includes("sisli")) result.projectAddress = "Şişli, İstanbul";
+  else if (normalized.includes("kartal")) result.projectAddress = "Kartal, İstanbul";
+  else if (normalized.includes("maltepe")) result.projectAddress = "Maltepe, İstanbul";
+  else if (normalized.includes("üsküdar") || normalized.includes("uskudar")) result.projectAddress = "Üsküdar, İstanbul";
+  else if (normalized.includes("ümraniye") || normalized.includes("umraniye")) result.projectAddress = "Ümraniye, İstanbul";
+  else if (normalized.includes("ataşehir") || normalized.includes("atasehir")) result.projectAddress = "Ataşehir, İstanbul";
+  else if (normalized.includes("bostancı") || normalized.includes("bostanci")) result.projectAddress = "Bostancı, İstanbul";
+  else if (normalized.includes("bağdat caddesi") || normalized.includes("bagdat caddesi")) result.projectAddress = "Bağdat Caddesi, İstanbul";
+
+  // Try to parse Project Name
+  const nameMatch = text.match(/(?:proje\s*adı|müşteri\s*adı|adına)\s*:\s*([^\n\r]+)/i);
+  if (nameMatch) {
+    result.projectName = nameMatch[1].trim();
+  } else if (result.projectAddress !== "İstanbul") {
+    result.projectName = `${result.projectAddress.split(",")[0]} Çağdaş Kentsel Dönüşüm Projesi`;
+  }
+
+  // Match land area (e.g., "500 m2", "500m2", "500 metrekare")
+  const landAreaMatch = normalized.match(/(\d+)\s*(?:m2|m²|metrekare)\s*(?:arsa|arazi)/i) || normalized.match(/(?:arsa|arazi|parsel)\s*(?:alanı|boyutu)?\s*(?:olan)?\s*(\d+)\s*(?:m2|m²|metrekare)/i) || normalized.match(/(\d+)\s*(?:m2|m²|metrekare)/i);
+  if (landAreaMatch) {
+    result.landArea = Math.max(100, parseInt(landAreaMatch[1], 10));
+  }
+
+  // Match base build area
+  const baseAreaMatch = normalized.match(/(?:taban|oturum)\s*(?:alanı|oturumu)?\s*(?:olan)?\s*(\d+)\s*(?:m2|m²|metrekare)/i) || normalized.match(/(\d+)\s*(?:m2|m²|metrekare)\s*(?:taban|oturum)/i);
+  if (baseAreaMatch) {
+    result.baseBuildArea = Math.max(40, parseInt(baseAreaMatch[1], 10));
+  } else {
+    result.baseBuildArea = Math.round(result.landArea * 0.35);
+  }
+
+  // Match floor count
+  const floorMatch = normalized.match(/(\d+)\s*kat/i) || normalized.match(/zemin\s*üstü\s*(\d+)/i);
+  if (floorMatch) {
+    result.floorCount = Math.max(1, parseInt(floorMatch[1], 10));
+  }
+
+  // Match flats per floor
+  const flatsMatch = normalized.match(/(?:her\s*katta|katta)\s*(\d+)\s*daire/i) || normalized.match(/(?:her\s*katta|katta)\s*(\d+)/i);
+  if (flatsMatch) {
+    result.flatsPerFloor = Math.max(1, parseInt(flatsMatch[1], 10));
+  }
+
+  // Ground floor shop
+  if (normalized.includes("dükkan") || normalized.includes("dukkan") || normalized.includes("mağaza") || normalized.includes("magaza") || normalized.includes("ticari")) {
+    result.hasGroundFloorShop = true;
+    const shopMatch = normalized.match(/(\d+)\s*(?:adet)?\s*(?:dükkan|dukkan|mağaza|magaza|ticari)/i) || normalized.match(/(?:dükkan|dukkan|mağaza|magaza)\s*(?:sayısı)?\s*(\d+)/i);
+    if (shopMatch) {
+      result.shopCount = Math.max(1, parseInt(shopMatch[1], 10));
+    } else {
+      result.shopCount = 2;
+    }
+  }
+
+  // Basement count & purpose
+  const basementMatch = normalized.match(/(\d+)\s*bodrum/i) || normalized.match(/bodrum\s*kat/i);
+  if (basementMatch) {
+    result.basementCount = basementMatch[1] ? Math.max(1, parseInt(basementMatch[1], 10)) : 1;
+    if (normalized.includes("sığınak") || normalized.includes("siginak") || normalized.includes("depo")) {
+      result.basementPurpose = "shelter_depot";
+    } else if (normalized.includes("otopark") || normalized.includes("park")) {
+      result.basementPurpose = "parking";
+    }
+  }
+
+  // Building Type & Quality
+  if (normalized.includes("lüks") || normalized.includes("luks") || normalized.includes("luxury")) {
+    result.buildingType = "luxury";
+    result.quality = "luxury";
+  } else if (normalized.includes("ultra lüks") || normalized.includes("premium") || normalized.includes("rezidans")) {
+    result.buildingType = "luxury";
+    result.quality = "premium";
+  } else if (normalized.includes("ticari") || normalized.includes("ofis") || normalized.includes("plaza")) {
+    result.buildingType = "commercial";
+    result.quality = "standard";
+  }
+
+  // Project Model
+  if (normalized.includes("kat karşılığı") || normalized.includes("kat karsiligi") || normalized.includes("oran") || normalized.includes("%")) {
+    result.projectModel = "contractorShare";
+    const rateMatch = normalized.match(/%\s*(\d+)/) || normalized.match(/yüzde\s*(\d+)/i) || normalized.match(/(\d+)\s*%/);
+    if (rateMatch) {
+      result.contractorShareRate = Math.min(100, Math.max(1, parseInt(rateMatch[1], 10)));
+    }
+  }
+
+  // Transformation Status
+  if (normalized.includes("kentsel dönüşüm") || normalized.includes("kentsel donusum") || normalized.includes("deprem")) {
+    result.transformationStatus = "currentSupport";
+  }
+
+  // Smart options inference
+  result.hasUnderfloorHeating = normalized.includes("yerden") || result.quality !== "standard";
+  result.hasWaterFiltration = result.quality === "premium" || normalized.includes("arıtma") || normalized.includes("aritma");
+  result.hasLinearShowerDrain = true;
+  result.hasSmartDoorLock = result.quality !== "standard" || normalized.includes("akıllı kilit") || normalized.includes("parmak iz");
+  result.hasAcOption = normalized.includes("klima") || result.quality === "premium";
+  result.manualMonths = Math.min(24, Math.max(12, 10 + Math.round(result.floorCount * 1.2)));
+
+  // Executive presentation summary (introExplanation)
+  result.introExplanation = `Sayın Kat Malikleri ve Arsa Sahipleri;\n\n${result.projectAddress} mevkiinde bulunan taşınmazınız için hazırlanan bu resmi inşaat ve kentsel dönüşüm teklifi; bölgenin imar planları, zemin yapısı ve modern şehircilik standartları esas alınarak titizlikle oluşturulmuştur. Zemin üstü ${result.floorCount} kat ve katta ${result.flatsPerFloor} bağımsız bölüm olarak kurgulanan mimari projemiz, maksimum net kullanım alanı ve yüksek deprem mukavemeti hedeflenerek tasarlanmıştır.${result.hasGroundFloorShop ? ` Zemin katta yer alan ${result.shopCount} adet ticari dükkan birimi ise cadde cephesine prestij ve yüksek yatırım değeri katacaktır.` : ''}\n\nYüklenici firma olarak taahhüdümüz; yürürlükteki en güncel 2018 Türkiye Bina Deprem Yönetmeliği standartlarına tavizsiz uymak, 1. sınıf malzeme kalitesini garanti altına almak ve projenizi ruhsat tarihinden itibaren ${result.manualMonths} ay içinde eksiksiz anahtar teslim etmektir.`;
+
+  // Custom contract notes
+  result.customContractNotes = `İnşaat süresince şantiye all-risk sigortası, yapı denetim ve iş güvenliği maliyetleri yüklenici firma sorumluluğundadır. İmar ve ruhsat onay sürecinden itibaren ${result.manualMonths} ay içinde anahtar teslimi yapılacaktır.`;
+
+  // Professional 7-Clause Construction & Legal Specification
+  result.additionalOfferClauses = [
+    `1. Statik Taşıyıcı Sistem ve Deprem Güvenliği: Proje, 2018 Türkiye Bina Deprem Yönetmeliği (TBDY-2018) ve TS 500 standartlarına tam uygun olarak radye jeneral temel üzerinde C35/45 sınıfı hazır beton ve B420C nervürlü donatı çeliği ile inşa edilecektir. Zemin etüt raporunun gerektirdiği tüm statik güvenlik katsayıları eksiksiz uygulanacaktır.`,
+    `2. Mimari Yerleşim ve Bağımsız Bölüm Hakları: Zemin üstü ${result.floorCount} kat ve katta ${result.flatsPerFloor} bağımsız bölüm olarak onaylı mimari projeye göre inşa edilecek; her bağımsız bölümün net ve brüt alan dengesi ile doğal ışık alımı maksimize edilecektir.${result.hasGroundFloorShop ? ` Zemin kattaki ${result.shopCount} adet dükkanın giriş ve vitrin aksları konut girişlerinden tamamen bağımsız olacaktır.` : ''}`,
+    `3. Isı, Ses Yalıtımı ve Mekanik Donanım: Binanın tüm dış cephesinde minimum 8 cm kalınlığında 150 kg/m³ yoğunluklu taş yünü mantolama ile TS 825 standartlarında A/B sınıfı Enerji Kimlik Belgesi hedeflenecektir.${result.hasUnderfloorHeating ? ' Bağımsız bölümlerde homojen ısı dağılımı sağlayan oksijen bariyerli borularla sulu yerden ısıtma sistemi tesis edilecektir.' : ' Isıtma tesisatı tam yoğuşmalı kombi ve panel radyatör altyapısına uygun olarak döşenecektir.'} Ayrıca su kesintilerine karşı ortak su deposu ve frekans kontrollü hidrofor sistemi devreye alınacaktır.`,
+    `4. 1. Sınıf İç Mimari ve İnce İşçilik: Islak hacimlerde 1. sınıf TSE belgeli porselen/seramik, salon ve odalarda 32. sınıf derzli laminant parke; mutfaklarda frenli mekanizmalı MDF gövde üzeri lake/akrilik kapaklı dolaplar ve Çimstone/granit tezgahlar; banyolarda gömme rezervuarlı asma klozetler ve paslanmaz çelik lineer duş süzgeçleri uygulanacaktır.`,
+    `5. Dikey Ulaşım ve Asansör Konforu: Binada TSE ve EN 81-20/50 normlarında, frekans kontrollü (VVVF), sessiz çalışan, elektrik kesintisinde en yakın kata getiren kurtaran sistemli ve sedye/engelli taşınmasına elverişli lüks kabinli asansör kurulacaktır.${result.basementCount > 0 ? ` Bodrum katta ${result.basementPurpose === 'parking' ? 'kapalı otopark' : 'sığınak ve ortak depo alanı'} teşkil edilecektir.` : ''}`,
+    `6. İş Teslim Süresi ve Gecikme Tazminatı: İlgili belediyeden inşaat ruhsatının alındığı tarihten itibaren en geç ${result.manualMonths} ay içinde yapı kullanma izin belgesi (iskan) aşamasına getirilerek bağımsız bölümler maliklere teslim edilecektir. Mücbir sebepler haricindeki gecikmelerde yüklenici firma, geciken her ay için güncel emsal kira bedeli üzerinden gecikme tazminatı ödemeyi peşinen kabul ve taahhüt eder.`,
+    `7. Garanti ve Satış Sonrası Teknik Destek: Taşıyıcı betonarme karkas sistemde 10 (on) yıl; çatı, dış cephe su/ısı yalıtımı ve mekanik tesisatlarda 5 (beş) yıl; ince işçilik ve montaj imalatlarında ise 2 (iki) yıl süreyle yüklenici firma tarafından bilabedel teknik servis ve garanti sağlanacaktır.`
+  ];
+
+  return result;
+}
+
 // Quota tracking to prevent unnecessary 429 exceptions when image model quota is exhausted
 let geminiImageQuotaExceededUntil = 0;
 
@@ -41,32 +238,39 @@ app.get("/api/health", (req, res) => {
 
 // AI Offer Generator from Text
 app.post("/api/ai-generate-offer", async (req, res) => {
+  const { text } = req.body;
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ error: "Geçerli bir metin girişi gereklidir." });
+  }
+
   try {
-    const { text } = req.body;
-    if (!text || typeof text !== 'string') {
-      return res.status(400).json({ error: "Geçerli bir metin girişi gereklidir." });
-    }
-
     if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "GEMINI_API_KEY tanımlanmamış." });
+      throw new Error("GEMINI_API_KEY tanımlanmamış.");
     }
 
-    const prompt = `Sen profesyonel bir inşaat mühendisi, mimar ve kentsel dönüşüm uzmanısın.
-Aşağıda kullanıcının serbest metin olarak girdiği inşaat/proje teklif talebi bulunmaktadır. Bu metni analiz ederek, inşaat hesaplama ve resmi teklif parametrelerine uygun bir JSON objesi üret.
+    const prompt = `Sen Türkiye'nin en deneyimli baş inşaat mühendisi, mimarı ve kentsel dönüşüm hukuk danışmanısın.
+Aşağıda kullanıcının serbest metin olarak girdiği inşaat/proje teklif talebi bulunmaktadır.
 
 Kullanıcı Metni:
 """
 ${text}
 """
 
-Lütfen şu anahtarları içeren geçerli bir JSON objesi döndür (Markdown blokları olmadan, sadece ham JSON):
+KRİTİK TALİMATLAR VE YASAKLAR:
+1. KULLANICININ YAZDIĞI METNİ ASLA AYNEN KOPYALAYIP MADDE OLARAK KOYMA! Kullanıcı yüzeysel bir özet değil; resmi, kurumsal ve mühendislik derinliği olan bir şartname beklemektedir.
+2. "additionalOfferClauses" dizisi için kullanıcının verdiği bilgilere göre 6 ile 8 adet profesyonel, hukuki ve teknik bağlayıcılığı olan resmi Türk inşaat ve teklif maddesi oluştur. Her madde başlığıyla ve detaylı teknik açıklamasıyla yazılmalıdır (Örnek: "1. Statik Taşıyıcı Sistem ve Deprem Güvenliği: ...", "2. Mimari ve Bağımsız Bölüm Fonksiyonelliği: ...", "3. Mekanik Tesisat ve Isı Yalıtımı: ...", "4. İç Mimari ve 1. Sınıf İnce İşçilik: ...", "5. Dikey Ulaşım ve Asansör Konforu: ...", "6. Anahtar Teslim Süresi ve Gecikme Tazminatı Taahhüdü: ...", "7. Garanti ve Satış Sonrası Hizmet: ...").
+3. "introExplanation" alanında kat maliklerine hitap eden, projenin mimari değerini, deprem güvenliğini, imar ve kentsel dönüşüm avantajlarını açıklayan 2-3 paragraflık prestijli bir Yönetici Özeti (Sunum Metni) hazırla.
+4. "customContractNotes" alanında resmi noter sözleşmesi, şantiye sigortası ve belediye harçlarına dair yüklenici taahhütlerini özetle.
+5. Kullanıcı metnindeki ipuçlarına göre "hasUnderfloorHeating", "hasWaterFiltration", "hasLinearShowerDrain", "hasSmartDoorLock", "hasAcOption" gibi donanımları akıllıca belirle.
+
+Lütfen aşağıdaki anahtarlara sahip geçerli bir JSON objesi döndür (Markdown blokları veya açıklama olmadan, sadece saf JSON):
 {
-  "projectName": "Proje veya Müşteri Adı",
-  "projectAddress": "Proje Adresi / Konumu",
+  "projectName": "Prestijli Proje Adı",
+  "projectAddress": "Resmi Konum / İlçe, İl",
   "landArea": sayı (m2),
   "baseBuildArea": sayı (m2 taban),
   "floorCount": sayı (zemin üstü kat),
-  "flatsPerFloor": sayı (daire/kat),
+  "flatsPerFloor": sayı (katta daire sayısı),
   "hasGroundFloorShop": boolean,
   "shopCount": sayı,
   "basementCount": sayı,
@@ -75,16 +279,29 @@ Lütfen şu anahtarları içeren geçerli bir JSON objesi döndür (Markdown blo
   "buildingType": "standard" | "luxury" | "commercial",
   "quality": "standard" | "luxury" | "premium",
   "projectModel": "cash" | "contractorShare",
-  "contractorShareRate": sayı,
+  "contractorShareRate": sayı (örneğin 50),
   "transformationStatus": "currentSupport" | "futureSupport2027" | "none",
+  "manualMonths": sayı (tahmini teslim süresi, örn: 14 veya 16),
+  "hasUnderfloorHeating": boolean,
+  "hasWaterFiltration": boolean,
+  "hasLinearShowerDrain": boolean,
+  "hasSmartDoorLock": boolean,
+  "hasAcOption": boolean,
+  "introExplanation": "Maliklere ve arsa sahiplerine yönelik 2-3 paragraflık detaylı mimari/mühendislik yönetici özeti",
+  "customContractNotes": "Resmi sözleşme ve güvence taahhüt özeti",
   "additionalOfferClauses": [
-    "özel maddeler veya talepler"
+    "1. Statik Taşıyıcı Sistem ve Deprem Güvenliği: ...",
+    "2. Mimari Yerleşim ve Bağımsız Bölüm Dağılımı: ...",
+    "3. Isı Yalıtımı ve Mekanik Tesisat Standartları: ...",
+    "4. İç Mekan ve 1. Sınıf İnce İşçilik Şartnamesi: ...",
+    "5. Asansör ve Ortak Mahaller Konforu: ...",
+    "6. İş Teslim Süresi ve Emsal Kira Tazminatı Güvencesi: ...",
+    "7. Yüklenici Garanti ve Satış Sonrası Servis Taahhüdü: ..."
   ]
 }
 `;
 
-    const response = await getGenAI().models.generateContent({
-      model: 'gemini-3.8-flash',
+    const response = await generateTextWithFallbackAndRetry({
       contents: prompt,
     });
 
@@ -97,10 +314,14 @@ Lütfen şu anahtarları içeren geçerli bir JSON objesi döndür (Markdown blo
     }
 
     const parsedData = JSON.parse(jsonStr);
-    res.json({ success: true, data: parsedData });
+    res.json({ success: true, data: parsedData, isFallback: false });
   } catch (error: any) {
-    console.error("AI Offer Generation Error:", error);
-    res.status(500).json({ error: error.message || "Yapay zeka teklif oluşturma sırasında hata oluştu." });
+    try {
+      const parsedData = parseOfferTextFallback(text);
+      res.json({ success: true, data: parsedData, isFallback: true });
+    } catch (fallbackError: any) {
+      res.status(500).json({ error: "Teklif ayrıştırma sırasında bir hata oluştu." });
+    }
   }
 });
 
@@ -207,6 +428,16 @@ app.post("/api/generate-blueprint-drawing", async (req, res) => {
         `Flat ${i + 1}: ${fl.name || `${i + 1}. Daire`} (${fl.isContractorShare ? 'Contractor Share' : 'Landowner Share'}, Net: ~${fl.area || Math.round(computedArea * 0.4)} m²)`
       ).join('; ');
       flatsDescription += ` Exact apartment distribution: ${flatList}.`;
+    }
+
+    if (hasBasement) {
+      const basementCount = projectData.basementCount || 1;
+      let basementDetails = `Building includes ${basementCount} basement floor(s).`;
+      if (projectData.basementConfig && Array.isArray(projectData.basementConfig) && projectData.basementConfig.length > 0) {
+        const configText = projectData.basementConfig.map((u: any) => `${u.count} unit(s) of type ${u.type} (${u.description || 'General'})`).join(', ');
+        basementDetails += ` Specific basement unit configuration: ${configText}.`;
+      }
+      edgesDescription += ` ${basementDetails}`;
     }
 
     if (hasCantilever) {
