@@ -33,7 +33,8 @@ import {
   LayoutGrid,
   AlertTriangle,
   DoorOpen,
-  Paintbrush
+  Paintbrush,
+  Users
 } from 'lucide-react';
 import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig, RoadConfig, RoadType } from '../types';
 import {
@@ -80,6 +81,9 @@ interface BuildingModelTabProps {
   onUpdateParams?: (updates: Partial<BuildingModelParams>) => void;
   onSyncWithCalculator?: (newParams: Partial<ProjectParams>) => void;
   onNavigateToFloorPlan?: () => void;
+  onNavigateToSetup?: () => void;
+  onNavigateToCost?: () => void;
+  onNavigateToOwners?: () => void;
   theme?: AppTheme;
 }
 
@@ -95,6 +99,9 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   onUpdateParams,
   onSyncWithCalculator,
   onNavigateToFloorPlan,
+  onNavigateToSetup,
+  onNavigateToCost,
+  onNavigateToOwners,
   theme = 'light',
 }) => {
   const isGray = theme === 'gray';
@@ -168,6 +175,34 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
       ...prev,
       [sectionKey]: !prev[sectionKey],
     }));
+  };
+
+  const handleCollapseAll = () => {
+    setCollapsedSections({
+      viewCut: true,
+      dimensions: true,
+      generalStructure: true,
+      typology: true,
+      roof: true,
+      roads: true,
+      shafts: true,
+      entranceCore: true,
+      contractorShare: true,
+    });
+  };
+
+  const handleExpandAll = () => {
+    setCollapsedSections({
+      viewCut: false,
+      dimensions: false,
+      generalStructure: false,
+      typology: false,
+      roof: false,
+      roads: false,
+      shafts: false,
+      entranceCore: false,
+      contractorShare: false,
+    });
   };
 
   // Save to local storage on change
@@ -984,6 +1019,31 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         </div>
 
         {/* BOTTOM SECTION: Dimension & Structural Parameter Input Cards */}
+        <div className="flex items-center justify-between px-1 py-1">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-indigo-600" />
+            <span className={`text-xs font-black uppercase tracking-wider ${textTitle}`}>
+              Yapı & Mimari Parametre Panelleri
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExpandAll}
+              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer"
+            >
+              Tümünü Genişlet
+            </button>
+            <button
+              type="button"
+              onClick={handleCollapseAll}
+              className="text-[11px] font-bold text-slate-600 hover:text-slate-800 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+            >
+              Tümünü Daralt
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             {/* Card 1: Facade & Building Dimensions (Expanded Horizontally - Full Width) */}
             <div className={`col-span-full border rounded-3xl overflow-hidden ${cardBg}`}>
@@ -2785,6 +2845,41 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               ), Türk İmar Yönetmeliği ve Mimarlar Odası standartlarına göre merdiven, asansör, balkon ve iç oda bölmelerini anlık simüle eder.{' '}
               <strong>"Maliyete Aktar"</strong> butonuyla tek tıkla resmi teklif ve hakediş tablolarına bağlanır.
             </p>
+          </div>
+        </div>
+
+        {/* Workflow Adım Geçiş Butonları */}
+        <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          {onNavigateToSetup && (
+            <button
+              type="button"
+              onClick={onNavigateToSetup}
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <span>← Proje Kurulumu</span>
+            </button>
+          )}
+          <div className="flex items-center gap-3 ml-auto">
+            {onNavigateToOwners && (
+              <button
+                type="button"
+                onClick={onNavigateToOwners}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5 text-indigo-300" />
+                <span>Hak Sahipleri Tablosu</span>
+              </button>
+            )}
+            {onNavigateToCost && (
+              <button
+                type="button"
+                onClick={onNavigateToCost}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
+              >
+                <span>Maliyet & Metraj Analizine Geç</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>

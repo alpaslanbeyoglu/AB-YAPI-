@@ -40,7 +40,10 @@ import {
   Globe,
   HelpCircle,
   Edit3,
-  Share
+  Share,
+  Search,
+  X,
+  Filter
 } from 'lucide-react';
 import {
   ProjectParams,
@@ -474,6 +477,25 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
 
   // Selected subcontractor for viewing/editing details
   const [selectedSubcontractorId, setSelectedSubcontractorId] = useState<string | null>(null);
+
+  // Stage Search & Filter states for Timeline
+  const [stageSearchQuery, setStageSearchQuery] = useState<string>('');
+  const [stageStatusFilter, setStageStatusFilter] = useState<'all' | 'in_progress' | 'completed' | 'delayed' | 'not_started'>('all');
+
+  const filteredStages = useMemo(() => {
+    return stages.filter((stage) => {
+      const q = stageSearchQuery.toLowerCase().trim();
+      const matchesSearch = !q ||
+        stage.name.toLowerCase().includes(q) ||
+        stage.categoryLabel.toLowerCase().includes(q) ||
+        stage.responsible.toLowerCase().includes(q) ||
+        stage.subTasks.some(st => st.title.toLowerCase().includes(q));
+
+      const matchesStatus = stageStatusFilter === 'all' || stage.status === stageStatusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [stages, stageSearchQuery, stageStatusFilter]);
 
   // Subcontractor Modal/Form states
   const [isAddSubOpen, setIsAddSubOpen] = useState<boolean>(false);
@@ -1427,8 +1449,71 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {stages.map((stage) => {
+          {/* Arama & Durum Filtre Çubuğu */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={stageSearchQuery}
+                onChange={(e) => setStageSearchQuery(e.target.value)}
+                placeholder="Aşama, görev veya sorumlu ara..."
+                className="w-full pl-9 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 placeholder:text-slate-400"
+              />
+              {stageSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setStageSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Durum Filtre Butonları */}
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
+              {[
+                { id: 'all', label: `Tümü (${stages.length})` },
+                { id: 'in_progress', label: `Devam Eden (${stages.filter(s => s.status === 'in_progress').length})` },
+                { id: 'delayed', label: `Geciken (${stages.filter(s => s.status === 'delayed').length})` },
+                { id: 'completed', label: `Tamamlanan (${stages.filter(s => s.status === 'completed').length})` },
+                { id: 'not_started', label: `Planlanan (${stages.filter(s => s.status === 'not_started').length})` },
+              ].map((filter) => {
+                const isActive = stageStatusFilter === filter.id;
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setStageStatusFilter(filter.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {filteredStages.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-xs space-y-2 bg-white text-slate-500">
+              <Search className="w-7 h-7 text-slate-400 mx-auto" />
+              <p className="font-bold text-slate-800">Filtre kriterlerine uygun inşaat aşaması bulunamadı.</p>
+              <button
+                type="button"
+                onClick={() => { setStageSearchQuery(''); setStageStatusFilter('all'); }}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+              >
+                Filtreleri Temizle
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredStages.map((stage) => {
               const isCompleted = stage.status === 'completed';
               const isInProgress = stage.status === 'in_progress';
               const isDelayed = stage.status === 'delayed';
@@ -1592,6 +1677,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
               );
             })}
           </div>
+          )}
         </div>
       )}
 

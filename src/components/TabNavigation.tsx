@@ -9,6 +9,7 @@ interface TabNavigationProps {
   theme: 'light' | 'gray';
   internalStep?: number;
   totalInternalSteps?: number;
+  stepLabels?: string[];
   onInternalStepChange?: (step: number) => void;
 }
 
@@ -19,6 +20,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
   theme,
   internalStep,
   totalInternalSteps,
+  stepLabels,
   onInternalStepChange,
 }) => {
   const visibleTabs = tabs.filter(t => t.visible).sort((a, b) => a.order - b.order);
@@ -56,11 +58,11 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
   const showNext = (isInternal && internalStep < totalInternalSteps) || nextTab;
 
   const prevLabel = (isInternal && internalStep > 1) 
-    ? `Adım ${internalStep - 1}` 
+    ? (stepLabels?.[internalStep - 2] ? `${stepLabels[internalStep - 2]}` : `Adım ${internalStep - 1}`)
     : (prevTab ? prevTab.shortLabel : '');
     
   const nextLabel = (isInternal && internalStep < totalInternalSteps)
-    ? `Adım ${internalStep + 1}`
+    ? (stepLabels?.[internalStep] ? `${stepLabels[internalStep]}` : `Adım ${internalStep + 1}`)
     : (nextTab ? nextTab.shortLabel : '');
 
   return (
@@ -96,9 +98,39 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
             {isInternal ? 'Kurulum Aşaması' : 'Genel Süreç'}
           </span>
         </div>
-        <div className="text-sm font-black text-slate-700 font-mono">
-          {isInternal ? `${internalStep} / ${totalInternalSteps}` : `${currentIndex + 1} / ${visibleTabs.length}`}
-        </div>
+        {isInternal && totalInternalSteps ? (
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: totalInternalSteps }).map((_, idx) => {
+                const stepNum = idx + 1;
+                const isPast = stepNum < internalStep;
+                const isCurr = stepNum === internalStep;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => onInternalStepChange && onInternalStepChange(stepNum)}
+                    className={`h-2 rounded-full transition-all cursor-pointer ${
+                      isCurr
+                        ? 'w-6 bg-indigo-600'
+                        : isPast
+                        ? 'w-2 bg-indigo-300 hover:bg-indigo-400'
+                        : 'w-2 bg-slate-200 hover:bg-slate-300'
+                    }`}
+                    title={`Adım ${stepNum}: ${stepLabels?.[idx] || ''}`}
+                  />
+                );
+              })}
+            </div>
+            <span className="text-[11px] font-bold text-slate-700">
+              {stepLabels?.[internalStep - 1] ? `${internalStep}. ${stepLabels[internalStep - 1]}` : `${internalStep} / ${totalInternalSteps}`}
+            </span>
+          </div>
+        ) : (
+          <div className="text-sm font-black text-slate-700 font-mono">
+            {currentIndex + 1} / {visibleTabs.length}
+          </div>
+        )}
       </div>
 
       <div className="shrink min-w-0">

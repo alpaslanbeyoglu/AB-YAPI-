@@ -1220,6 +1220,7 @@ export default function App() {
               theme={theme}
               internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
               totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
+              stepLabels={['Mevcut Durum', 'Yeni Tasarım', 'Daire Matrisi']}
               onInternalStepChange={setRequestedSetupStep}
             />
 
@@ -1279,6 +1280,9 @@ export default function App() {
               params={buildingModelParams}
               onUpdateParams={updateBuildingModelParams}
               onSyncWithCalculator={handleSyncModelToCalculator}
+              onNavigateToSetup={() => setActiveTab('kurulum')}
+              onNavigateToCost={() => setActiveTab('maliyet')}
+              onNavigateToOwners={() => setActiveTab('malikler')}
               theme={theme}
             />
           )}
@@ -1387,6 +1391,7 @@ export default function App() {
           theme={theme}
           internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
           totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
+          stepLabels={['Mevcut Durum', 'Yeni Tasarım', 'Daire Matrisi']}
           onInternalStepChange={setRequestedSetupStep}
         />
       </div>

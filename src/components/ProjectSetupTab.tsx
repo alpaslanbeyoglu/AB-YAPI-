@@ -63,8 +63,8 @@ import {
   Image as ImageIcon,
   FileText
 } from 'lucide-react';
-import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { renderElementToCanvas } from '../utils/pdfExport';
 import { AC_PRESET_OPTIONS, getAcOptionById } from '../utils/acOptions';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
 import { calculateCantileverDetails, calculateFlatCount, calculateProject } from '../utils/calculatorEngine';
@@ -164,12 +164,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const exportSchematic = async (format: 'png' | 'pdf') => {
     if (!schematicRef.current) return;
     
-    try {
-      // Temporarily hide buttons for clean export
-      const buttons = schematicRef.current.querySelector('.export-buttons') as HTMLElement;
-      if (buttons) buttons.style.display = 'none';
+    // Temporarily hide buttons for clean export
+    const buttons = schematicRef.current.querySelector('.export-buttons') as HTMLElement;
+    if (buttons) buttons.style.display = 'none';
 
-      const canvas = await html2canvas(schematicRef.current, {
+    try {
+      const canvas = await renderElementToCanvas(schematicRef.current, {
         scale: 2,
         backgroundColor: '#f8fafc', // slate-50
         useCORS: true,
@@ -177,8 +177,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
         windowWidth: schematicRef.current.scrollWidth,
         windowHeight: schematicRef.current.scrollHeight
       });
-      
-      if (buttons) buttons.style.display = 'flex';
 
       const imgData = canvas.toDataURL('image/png');
       
@@ -198,6 +196,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       }
     } catch (error) {
       console.error('Export error:', error);
+    } finally {
+      if (buttons) buttons.style.display = 'flex';
     }
   };
   const [backupParams, setBackupParams] = useState<ProjectParams | null>(null);
@@ -945,6 +945,18 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   );
                 })}
               </div>
+            </div>
+
+            {/* 1. Adım Devam Butonu */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setActiveStep(2)}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
+              >
+                <span>2. Adıma Devam Et (Yeni Bina Tasarımı)</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -2018,6 +2030,25 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
             </div>
           )}
+
+          {/* 2. Adım Navigasyon Butonları */}
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveStep(1)}
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <span>← 1. Adıma Dön (Mevcut Durum)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveStep(3)}
+              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
+            >
+              <span>3. Adıma Devam Et (Daire Matrisi & Kat Dağılımı)</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
       )}
@@ -3505,6 +3536,38 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           {/* MEVZUAT VE İMAR DENETİMİ PANELİ */}
           <div className="pt-4 border-t border-slate-100">
             <ZoningAuditPanel params={params} theme={theme} />
+          </div>
+
+          {/* 3. Adım Navigasyon Butonları */}
+          <div className="pt-6 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveStep(2)}
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <span>← 2. Adıma Dön (Ölçüleri Düzenle)</span>
+            </button>
+            <div className="flex items-center gap-3">
+              {onNavigateToModel && (
+                <button
+                  type="button"
+                  onClick={onNavigateToModel}
+                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                >
+                  <Building className="w-3.5 h-3.5 text-indigo-300" />
+                  <span>3D Bina Modeli</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onNavigateToOwners || onNext}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
+              >
+                <span>Hak Sahipleri ve Maliyet Dağılımına Geç</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

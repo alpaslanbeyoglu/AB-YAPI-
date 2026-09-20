@@ -131,6 +131,203 @@ export function printHtmlContent(htmlContent: string, documentTitle: string): vo
 }
 
 /**
+ * Converts a modern CSS color function (such as oklch, oklab, color()) to an sRGB format (hex/rgb)
+ * using a temporary canvas context, falling back to a safe neutral slate hex color (#475569) if unparseable.
+ */
+function convertSingleColor(fullColorCall: string): string {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#00000000';
+      ctx.fillStyle = fullColorCall;
+      const res = ctx.fillStyle;
+      if (res && res !== '#00000000' && res !== 'rgba(0, 0, 0, 0)') {
+        return res;
+      }
+    }
+  } catch {}
+  return '#475569';
+}
+
+/**
+ * Parses CSS text and replaces all occurrences of unsupported color functions (oklch, oklab, lch, lab, color)
+ * with supported sRGB values using a parenthesis-depth-aware scanner.
+ */
+export function sanitizeCssColors(cssText: string): string {
+  if (!cssText) return '';
+  const prefixes = ['oklch', 'oklab', 'lch', 'lab', 'color'];
+  let result = '';
+  let i = 0;
+  const len = cssText.length;
+
+  while (i < len) {
+    let matchedPrefix: string | null = null;
+    for (const prefix of prefixes) {
+      if (cssText.startsWith(prefix + '(', i) || cssText.startsWith(prefix + ' (', i)) {
+        matchedPrefix = prefix;
+        break;
+      }
+    }
+
+    if (matchedPrefix) {
+      const parenStart = cssText.indexOf('(', i);
+      let depth = 1;
+      let j = parenStart + 1;
+      while (j < len && depth > 0) {
+        if (cssText[j] === '(') depth++;
+        else if (cssText[j] === ')') depth--;
+        j++;
+      }
+      const fullCall = cssText.substring(i, j);
+      result += convertSingleColor(fullCall);
+      i = j;
+    } else {
+      result += cssText[i];
+      i++;
+    }
+  }
+
+  return result;
+}
+
+function hasUnsupportedColor(text: string): boolean {
+  if (!text) return false;
+  return (
+    text.includes('oklch') ||
+    text.includes('oklab') ||
+    text.includes('color(') ||
+    text.includes('lch(') ||
+    text.includes('lab(')
+  );
+}
+
+/**
+ * Sanitizes all stylesheets and DOM elements in clonedDoc to prevent html2canvas
+ * from throwing "Attempting to parse an unsupported color function 'oklch'".
+ */
+export function sanitizeClonedDocColors(clonedDoc: Document, clonedElement?: HTMLElement): void {
+  // 1. Process <link rel="stylesheet"> tags: inline them as <style> so oklch can be scrubbed
+  const linkTags = Array.from(clonedDoc.querySelectorAll('link[rel="stylesheet"]')) as HTMLLinkElement[];
+  for (const link of linkTags) {
+    try {
+      if (link.sheet) {
+        let combinedCss = '';
+        const rules = link.sheet.cssRules;
+        for (let r = 0; r < rules.length; r++) {
+          combinedCss += rules[r].cssText + '\n';
+        }
+        if (combinedCss) {
+          const styleEl = clonedDoc.createElement('style');
+          styleEl.textContent = sanitizeCssColors(combinedCss);
+          link.parentNode?.replaceChild(styleEl, link);
+        }
+      }
+    } catch {
+      // Cross-origin or restricted stylesheet: remove to prevent html2canvas from crashing when parsing
+      try {
+        link.disabled = true;
+        link.remove();
+      } catch {}
+    }
+  }
+
+  // 2. Process all <style> tags in the cloned document
+  const styleTags = Array.from(clonedDoc.querySelectorAll('style'));
+  for (const style of styleTags) {
+    if (style.textContent && hasUnsupportedColor(style.textContent)) {
+      style.textContent = sanitizeCssColors(style.textContent);
+    }
+  }
+
+  // 3. Process clonedElement and all descendants for inline & computed styles
+  const targetElement = clonedElement || (clonedDoc.body as HTMLElement);
+  if (targetElement) {
+    const allElements = [targetElement, ...Array.from(targetElement.querySelectorAll('*'))] as HTMLElement[];
+    const win = clonedDoc.defaultView || window;
+
+    for (const el of allElements) {
+      // Check inline style attribute
+      const inlineStyle = el.getAttribute('style');
+      if (inlineStyle && hasUnsupportedColor(inlineStyle)) {
+        el.setAttribute('style', sanitizeCssColors(inlineStyle));
+      }
+
+      // Check SVG presentation attributes
+      if (el.hasAttribute('fill')) {
+        const fill = el.getAttribute('fill') || '';
+        if (hasUnsupportedColor(fill)) {
+          el.setAttribute('fill', sanitizeCssColors(fill));
+        }
+      }
+      if (el.hasAttribute('stroke')) {
+        const stroke = el.getAttribute('stroke') || '';
+        if (hasUnsupportedColor(stroke)) {
+          el.setAttribute('stroke', sanitizeCssColors(stroke));
+        }
+      }
+
+      // Check computed styles on element
+      if (win && win.getComputedStyle) {
+        try {
+          const computed = win.getComputedStyle(el);
+          const colorProps = [
+            'color',
+            'backgroundColor',
+            'borderColor',
+            'borderTopColor',
+            'borderRightColor',
+            'borderBottomColor',
+            'borderLeftColor',
+            'outlineColor',
+            'fill',
+            'stroke'
+          ];
+          for (const prop of colorProps) {
+            const val = (computed as any)[prop];
+            if (typeof val === 'string' && hasUnsupportedColor(val)) {
+              (el.style as any)[prop] = convertSingleColor(val);
+            }
+          }
+        } catch {}
+      }
+    }
+  }
+}
+
+/**
+ * Safely renders a DOM element to an HTML5 canvas using html2canvas.
+ * Guarantees that modern CSS color formats (oklch, oklab, color) are converted
+ * or sanitized before html2canvas parses the DOM or stylesheets.
+ */
+export async function renderElementToCanvas(
+  element: HTMLElement,
+  customOptions: any = {}
+): Promise<HTMLCanvasElement> {
+  const { onclone: userOnClone, ...restOptions } = customOptions;
+
+  return await html2canvas(element, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    backgroundColor: '#ffffff',
+    ...restOptions,
+    onclone: (clonedDoc, clonedElement) => {
+      // Run universal oklch/oklab/color sanitizer first
+      sanitizeClonedDocColors(clonedDoc, clonedElement);
+
+      // Run any caller-specified custom clone logic
+      if (typeof userOnClone === 'function') {
+        userOnClone(clonedDoc, clonedElement);
+      }
+    },
+  });
+}
+
+/**
  * Converts a DOM element to an actual downloadable .pdf file using html2canvas & jsPDF.
  * Uses high-resolution rendering and accurate A4 pagination.
  */
@@ -145,49 +342,21 @@ export async function exportElementToPdf(
     options.onProgress('Görsel hazırlanıyor...');
   }
 
-  // Render DOM element to canvas with high resolution
-  const canvas = await html2canvas(element, {
+  // Render DOM element to canvas with high resolution and oklch protection
+  const canvas = await renderElementToCanvas(element, {
     scale: 2, // High resolution retina rendering
     useCORS: true,
     allowTaint: true,
     logging: false,
     backgroundColor: '#ffffff',
     windowWidth: element.scrollWidth || 1200,
-    onclone: (clonedDoc, clonedElement) => {
-      // 1. Ensure element in clone is visible with clean white background for print
+    onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+      // Ensure element in clone is visible with clean white background for print
       clonedElement.style.overflow = 'visible';
       clonedElement.style.maxHeight = 'none';
       clonedElement.style.height = 'auto';
       clonedElement.style.backgroundColor = '#ffffff';
       clonedElement.style.color = '#000000';
-
-      // 2. Fix for html2canvas oklch/oklab crash (Tailwind v4 uses these by default)
-      // This is a critical fix for PDF exports failing in modern browsers
-      const styles = clonedDoc.querySelectorAll('style');
-      styles.forEach(styleTag => {
-        if (styleTag.textContent?.includes('oklch') || styleTag.textContent?.includes('oklab')) {
-          // Replace oklch(...) and oklab(...) with a standard color if parsing fails
-          // html2canvas fails specifically on these function calls
-          styleTag.textContent = styleTag.textContent
-            .replace(/oklch\([^)]+\)/g, '#475569')
-            .replace(/oklab\([^)]+\)/g, '#475569');
-        }
-      });
-
-      // Also handle inline styles if any
-      const oklchElements = clonedElement.querySelectorAll('*');
-      oklchElements.forEach(el => {
-        const htmlEl = el as HTMLElement;
-        const colorStyles = ['color', 'backgroundColor', 'borderColor'];
-        colorStyles.forEach(prop => {
-          const val = (htmlEl.style as any)[prop];
-          if (val && (val.includes('oklch') || val.includes('oklab'))) {
-            if (prop === 'color') htmlEl.style.color = '#000000';
-            else if (prop === 'backgroundColor') htmlEl.style.backgroundColor = '#ffffff';
-            else if (prop === 'borderColor') htmlEl.style.borderColor = '#cbd5e1';
-          }
-        });
-      });
     },
   });
 

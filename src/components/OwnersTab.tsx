@@ -79,6 +79,10 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const [bulkDownPayment, setBulkDownPayment] = useState<number>(0);
   const [selectedFlatId, setSelectedFlatId] = useState<number | null>(null);
 
+  // Multi-select state for bulk actions on specific flats
+  const [selectedFlatIds, setSelectedFlatIds] = useState<Set<number>>(new Set());
+  const [customBulkAmount, setCustomBulkAmount] = useState<number>(0);
+
   // Official Report Modal State
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [reportModalFlatId, setReportModalFlatId] = useState<number | null>(null);
@@ -336,6 +340,152 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
     onChangeParams({
       ...params,
       enableLandShareBalancing: true,
+      flats: updatedFlats,
+    });
+    if (onCalculate) onCalculate();
+  };
+
+  const toggleSelectFlat = (flatId: number) => {
+    setSelectedFlatIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(flatId)) {
+        next.delete(flatId);
+      } else {
+        next.add(flatId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    if (selectedFlatIds.size === filteredFlats.length && filteredFlats.length > 0) {
+      setSelectedFlatIds(new Set());
+    } else {
+      setSelectedFlatIds(new Set(filteredFlats.map((f) => f.flat.id)));
+    }
+  };
+
+  const toggleSelectFloor = (floorNumber?: number) => {
+    const floorFlats = filteredFlats.filter((f) => f.flat.floorNumber === floorNumber);
+    const floorFlatIds = floorFlats.map((f) => f.flat.id);
+    const allSelected = floorFlatIds.length > 0 && floorFlatIds.every((id) => selectedFlatIds.has(id));
+
+    setSelectedFlatIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        floorFlatIds.forEach((id) => next.delete(id));
+      } else {
+        floorFlatIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleApplyDownPaymentToTargets = (amount: number, targetIds?: Set<number>) => {
+    const ids = targetIds || selectedFlatIds;
+    const isTargetAll = !targetIds && selectedFlatIds.size === 0;
+
+    const updatedFlats = params.flats.map((flat) => {
+      const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
+      if (isContractor) return flat;
+      if (isTargetAll || ids.has(flat.id)) {
+        return {
+          ...flat,
+          downPayment: Math.max(0, amount),
+        };
+      }
+      return flat;
+    });
+
+    onChangeParams({ ...params, flats: updatedFlats });
+    if (onCalculate) onCalculate();
+  };
+
+  const handleApplyPercentageDownPaymentToTargets = (percentage: number, targetIds?: Set<number>) => {
+    const ids = targetIds || selectedFlatIds;
+    const isTargetAll = !targetIds && selectedFlatIds.size === 0;
+
+    const updatedFlats = params.flats.map((flat) => {
+      const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
+      if (isContractor) return flat;
+      if (isTargetAll || ids.has(flat.id)) {
+        const found = mergedFlats.find((m) => m.flat.id === flat.id);
+        const costBase = found?.calc?.grossPay || (flat.area * (results.grossCostPerSqM || 35000));
+        const downPaymentVal = Math.round(costBase * (percentage / 100));
+        return {
+          ...flat,
+          downPayment: Math.max(0, downPaymentVal),
+        };
+      }
+      return flat;
+    });
+
+    onChangeParams({ ...params, flats: updatedFlats });
+    if (onCalculate) onCalculate();
+  };
+
+  const handleToggleGrantTargets = (enable: boolean, targetIds?: Set<number>) => {
+    const ids = targetIds || selectedFlatIds;
+    const isTargetAll = !targetIds && selectedFlatIds.size === 0;
+
+    const updatedFlats = params.flats.map((flat) => {
+      const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
+      if (isContractor) return flat;
+      if (isTargetAll || ids.has(flat.id)) {
+        return {
+          ...flat,
+          useGrant: enable,
+          useTransformationCredit: enable || !!flat.useCredit,
+        };
+      }
+      return flat;
+    });
+
+    onChangeParams({ ...params, flats: updatedFlats });
+    if (onCalculate) onCalculate();
+  };
+
+  const handleToggleCreditTargets = (enable: boolean, targetIds?: Set<number>) => {
+    const ids = targetIds || selectedFlatIds;
+    const isTargetAll = !targetIds && selectedFlatIds.size === 0;
+
+    const updatedFlats = params.flats.map((flat) => {
+      const isContractor = params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare;
+      if (isContractor) return flat;
+      if (isTargetAll || ids.has(flat.id)) {
+        const currentGrant = flat.useGrant !== undefined ? flat.useGrant : !!flat.useTransformationCredit;
+        return {
+          ...flat,
+          useCredit: enable,
+          useTransformationCredit: currentGrant || enable,
+        };
+      }
+      return flat;
+    });
+
+    onChangeParams({ ...params, flats: updatedFlats });
+    if (onCalculate) onCalculate();
+  };
+
+  const handleAdjustSerefiyeTargets = (deltaOrVal: number, isAbsolute = false, targetIds?: Set<number>) => {
+    const ids = targetIds || selectedFlatIds;
+    const isTargetAll = !targetIds && selectedFlatIds.size === 0;
+
+    const updatedFlats = params.flats.map((flat) => {
+      if (isTargetAll || ids.has(flat.id)) {
+        const current = flat.serefiyeMultiplier || 1.0;
+        const newVal = isAbsolute ? deltaOrVal : Math.max(0.5, Math.min(2.0, current + deltaOrVal));
+        return {
+          ...flat,
+          serefiyeMultiplier: parseFloat(newVal.toFixed(2)),
+        };
+      }
+      return flat;
+    });
+
+    onChangeParams({
+      ...params,
+      enableSerefiye: true,
       flats: updatedFlats,
     });
     if (onCalculate) onCalculate();
@@ -1913,7 +2063,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                   </div>
 
                   {/* Toplu Peşinat Belirleme */}
-                  <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-indigo-300 shadow-2xs">
+                  <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-indigo-300 shadow-2xs flex-wrap">
                     <span className="text-[11px] font-bold text-indigo-900">Toplu Peşinat:</span>
                     <input
                       type="number"
@@ -1932,6 +2082,41 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     >
                       Uygula
                     </button>
+                    <span className="text-slate-300">|</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPercentageDownPaymentToTargets(10)}
+                        className="px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded text-[9px] border border-indigo-200 cursor-pointer"
+                        title="Tüm hak sahiplerine %10 peşinat ata"
+                      >
+                        %10
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPercentageDownPaymentToTargets(20)}
+                        className="px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded text-[9px] border border-indigo-200 cursor-pointer"
+                        title="Tüm hak sahiplerine %20 peşinat ata"
+                      >
+                        %20
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPercentageDownPaymentToTargets(30)}
+                        className="px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded text-[9px] border border-indigo-200 cursor-pointer"
+                        title="Tüm hak sahiplerine %30 peşinat ata"
+                      >
+                        %30
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDownPaymentToTargets(0)}
+                        className="px-1.5 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded text-[9px] border border-rose-200 cursor-pointer"
+                        title="Tüm peşinatları sıfırla (0 TL)"
+                      >
+                        0 TL
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2287,12 +2472,154 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
               )}
             </div>
 
+            {/* BAĞLAMSAL HIZLI EYLEM ÇUBUĞU (SEÇİLEN DAİRELER İÇİN TOPLU İŞLEM) */}
+            {selectedFlatIds.size > 0 && (
+              <div className="sticky top-0 z-20 mb-3 p-3 bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white rounded-2xl shadow-lg border border-indigo-700 flex flex-wrap items-center justify-between gap-3 animate-fade-in">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-black text-white shadow-xs">
+                    {selectedFlatIds.size}
+                  </span>
+                  <div>
+                    <div className="font-extrabold text-xs text-white flex items-center gap-1.5">
+                      <span>Bağımsız Bölüm Seçildi</span>
+                      <span className="text-[10px] text-indigo-300 font-normal">({filteredFlats.length} filtrelenen içinden)</span>
+                    </div>
+                    <span className="text-[10px] text-indigo-200 block">Aşağıdaki eylemleri seçilenlere anında uygulayın</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  {/* Peşinat Hızlı Kısayolları */}
+                  <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl border border-white/15">
+                    <span className="text-[10px] font-bold text-indigo-200">Peşinat:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPercentageDownPaymentToTargets(10)}
+                      className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold transition-all cursor-pointer"
+                      title="Seçilenlere imalat maliyetinin %10'u kadar peşinat ata"
+                    >
+                      %10
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPercentageDownPaymentToTargets(20)}
+                      className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold transition-all cursor-pointer"
+                      title="Seçilenlere imalat maliyetinin %20'si kadar peşinat ata"
+                    >
+                      %20
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPercentageDownPaymentToTargets(30)}
+                      className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold transition-all cursor-pointer"
+                      title="Seçilenlere imalat maliyetinin %30'u kadar peşinat ata"
+                    >
+                      %30
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyDownPaymentToTargets(0)}
+                      className="px-2 py-0.5 rounded bg-rose-600/90 hover:bg-rose-600 text-white text-[10px] font-bold transition-all cursor-pointer"
+                      title="Seçilenlerin peşinatını 0 TL yap"
+                    >
+                      0 ₺
+                    </button>
+                  </div>
+
+                  {/* Hibe Aç/Kapat */}
+                  <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl border border-white/15">
+                    <span className="text-[10px] font-bold text-emerald-300">Hibe:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleGrantTargets(true)}
+                      className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer transition-all"
+                    >
+                      ✓ Aç
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleGrantTargets(false)}
+                      className="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] font-bold cursor-pointer transition-all"
+                    >
+                      ✕ Kapat
+                    </button>
+                  </div>
+
+                  {/* Kredi Aç/Kapat */}
+                  <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl border border-white/15">
+                    <span className="text-[10px] font-bold text-sky-300">Kredi:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCreditTargets(true)}
+                      className="px-2 py-0.5 rounded bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold cursor-pointer transition-all"
+                    >
+                      ✓ Aç
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCreditTargets(false)}
+                      className="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] font-bold cursor-pointer transition-all"
+                    >
+                      ✕ Kapat
+                    </button>
+                  </div>
+
+                  {/* Şerefiye */}
+                  <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl border border-white/15">
+                    <span className="text-[10px] font-bold text-purple-200">Şerefiye:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleAdjustSerefiyeTargets(0.05)}
+                      className="px-1.5 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold cursor-pointer"
+                      title="Seçilenlerin şerefiyesini %5 artır"
+                    >
+                      +%5
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdjustSerefiyeTargets(-0.05)}
+                      className="px-1.5 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold cursor-pointer"
+                      title="Seçilenlerin şerefiyesini %5 azalt"
+                    >
+                      -%5
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdjustSerefiyeTargets(1.0, true)}
+                      className="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-[10px] font-bold cursor-pointer"
+                      title="Seçilenleri 1.00 standart şerefiyeye getir"
+                    >
+                      1.00
+                    </button>
+                  </div>
+
+                  {/* Seçimi Kaldır */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFlatIds(new Set())}
+                    className="px-2.5 py-1 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold transition-all cursor-pointer"
+                  >
+                    Seçimi Temizle
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* 3. KOMPAKT EXCEL TABLO GÖRÜNÜMÜ */}
             {viewMode === 'table' ? (
               <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs max-h-[650px] overflow-y-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="sticky top-0 bg-slate-100 text-slate-700 font-bold uppercase tracking-wider z-10 border-b border-slate-200 text-[11px]">
                     <tr>
+                      <th className="p-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedFlatIds.size === filteredFlats.length && filteredFlats.length > 0}
+                          onChange={toggleSelectAllFiltered}
+                          title="Tümünü Seç / Kaldır"
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </th>
                       <th className="p-3 w-16 text-center">Daire</th>
                       <th className="p-3 w-24 text-center">Bölüm Tipi</th>
                       <th className="p-3 min-w-[150px]">Hak Sahibi Adı Soyadı</th>
@@ -2335,7 +2662,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                       <tr>
                         <td
                           colSpan={
-                            8 +
+                            9 +
                             (params.enableSerefiye ? 1 : 0) +
                             (params.enableLandShareBalancing ? 2 : 0) +
                             (params.projectModel === 'contractorShare' ? 1 : 0)
@@ -2360,24 +2687,33 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           <React.Fragment key={`flat-fragment-${flat.id}`}>
                             {showFloorHeader && (
                               <tr key={`floor-header-${flat.floorNumber}-${flat.id}`} className="bg-slate-900 text-white font-bold text-xs">
-                                <td colSpan={18} className="py-2 px-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-y border-indigo-900/80 shadow-xs">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1.5 bg-indigo-600 text-white px-2.5 py-0.5 rounded-md text-[11px] font-black tracking-wider uppercase shadow-2xs">
-                                      <Building2 className="w-3.5 h-3.5 text-indigo-200" />
-                                      <span>
-                                        {flat.floorNumber === 0
-                                          ? '🏢 ZEMİN KAT'
-                                          : flat.floorNumber && flat.floorNumber < 0
-                                          ? `🏢 ${Math.abs(flat.floorNumber)}. BODRUM KAT`
-                                          : flat.flatType === 'mansard' || (flat.description || '').toLowerCase().includes('mansart')
-                                          ? `🏢 ${flat.floorNumber}. KAT (ÇATIKATI MANSART)`
-                                          : `🏢 ${flat.floorNumber}. KAT`}
+                                <td colSpan={19} className="py-2 px-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-y border-indigo-900/80 shadow-xs">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex items-center gap-1.5 bg-indigo-600 text-white px-2.5 py-0.5 rounded-md text-[11px] font-black tracking-wider uppercase shadow-2xs">
+                                        <Building2 className="w-3.5 h-3.5 text-indigo-200" />
+                                        <span>
+                                          {flat.floorNumber === 0
+                                            ? '🏢 ZEMİN KAT'
+                                            : flat.floorNumber && flat.floorNumber < 0
+                                            ? `🏢 ${Math.abs(flat.floorNumber)}. BODRUM KAT`
+                                            : flat.flatType === 'mansard' || (flat.description || '').toLowerCase().includes('mansart')
+                                            ? `🏢 ${flat.floorNumber}. KAT (ÇATIKATI MANSART)`
+                                            : `🏢 ${flat.floorNumber}. KAT`}
+                                        </span>
+                                      </div>
+                                      <div className="h-0.5 w-24 bg-gradient-to-r from-indigo-500/50 via-slate-700/40 to-transparent"></div>
+                                      <span className="text-[10px] text-indigo-200 font-mono">
+                                        Kat Bağımsız Bölümleri
                                       </span>
                                     </div>
-                                    <div className="h-0.5 flex-1 bg-gradient-to-r from-indigo-500/50 via-slate-700/40 to-transparent"></div>
-                                    <span className="text-[10px] text-indigo-200 font-mono">
-                                      Kat Bağımsız Bölümleri
-                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleSelectFloor(flat.floorNumber)}
+                                      className="text-[10px] bg-indigo-800/80 hover:bg-indigo-700 text-indigo-100 font-bold px-2.5 py-0.5 rounded-md border border-indigo-600/60 cursor-pointer transition-colors"
+                                    >
+                                      Bu Katı Seç / Kaldır
+                                    </button>
                                   </div>
                                 </td>
                               </tr>
@@ -2394,6 +2730,15 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                   : 'hover:bg-slate-50'
                               }`}
                             >
+                            {/* Çoklu Seçim Checkbox */}
+                            <td className="p-2 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedFlatIds.has(flat.id)}
+                                onChange={() => toggleSelectFlat(flat.id)}
+                                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                              />
+                            </td>
                             {/* Daire No & Rol & Kat */}
                             <td className="p-2 text-center">
                               <div className="flex flex-col items-center">
@@ -2797,6 +3142,13 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     >
                       <div className="font-bold text-xs text-slate-800 flex items-center justify-between pb-2 border-b border-slate-200">
                         <span className="flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedFlatIds.has(flat.id)}
+                            onChange={() => toggleSelectFlat(flat.id)}
+                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                            title="Bu daireyi seç"
+                          />
                           <span
                             className={`w-2.5 h-2.5 rounded-full ${
                               isContractor ? 'bg-amber-500' : (flat.flatType === 'shop' || flat.flatType === 'basement_shop') ? 'bg-amber-600' : 'bg-indigo-500'
