@@ -58,7 +58,7 @@ export const ReconciliationDiagnosticModal: React.FC<ReconciliationDiagnosticMod
   // 3. Financial Deductions & Net Debts
   const totalGrantUsed = ownerFlats.reduce((acc, f) => acc + (f.usedGrant || 0), 0);
   const totalCreditUsed = ownerFlats.reduce((acc, f) => acc + (f.usedCredit || 0), 0);
-  const totalDownPayment = ownerFlats.reduce((acc, f) => acc + (f.usedDownPayment || 0), 0);
+  const totalDownPayment = ownerFlats.reduce((acc, f) => acc + (f.downPayment || 0), 0);
   const totalNetRemainingDebt = ownerFlats.reduce((acc, f) => acc + (f.netRemainingDebt || 0), 0);
 
   // 4. Variance / Reconciliation Math
@@ -455,7 +455,7 @@ export const ReconciliationDiagnosticModal: React.FC<ReconciliationDiagnosticMod
                       ↳ (-) Malikler Tarafından Ödenen Peşinatlar
                     </td>
                     <td className="p-3 text-right font-mono text-amber-700 dark:text-amber-400">
-                      {ownerFlats.filter((f) => (f.usedDownPayment || 0) > 0).length} Birim
+                      {ownerFlats.filter((f) => (f.downPayment || 0) > 0).length} Birim
                     </td>
                     <td className="p-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400">
                       -{totalDownPayment.toLocaleString('tr-TR')} ₺

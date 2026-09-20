@@ -4,6 +4,7 @@ import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
+import { CfoFinancialStrategyModule } from './CfoFinancialStrategyModule';
 
 interface AdminReportTabProps {
   params: ProjectParams;
@@ -121,6 +122,31 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
     <tr><td>Hibe/Kredi Gecikme Garantisi</td><td>Kamu ödemelerindeki gecikmelerde malikler öz kaynak ikamesi sağlamakla yükümlüdür (Sözleşme m. 6.1).</td></tr>
     <tr><td>Hakediş Odaklı Yapım</td><td>İmalat bedelleri yapı denetim vizelerine göre serbest bırakılarak finansal risk minimize edilmiştir.</td></tr>
     <tr><td>Maliyet Artış Koruması</td><td>Olağanüstü maliyet artışlarında (%20+) taraflar revizyon için bir araya gelme taahhüdü verir (Sözleşme m. 6.3).</td></tr>
+  </table>
+
+  <h3>4. CFO FİNANSAL STRATEJİ VE NAKİT DENGESİ TAVSİYELERİ</h3>
+  <table>
+    <tr><th>Finansal Konu</th><th>Zamanlama & Vade Koşulu</th><th>Finans Sorumlusu (CFO) Stratejik Aksiyon Önerisi</th></tr>
+    <tr>
+      <td><strong>Kamu Hibe/Kredi Hakedişleri</strong></td>
+      <td>Vize onayından 21-35 gün sonra hesaba geçer</td>
+      <td>Hakediş onaylandığında bürokratik ödeme süresi 3-5 hafta sürer. Bu süreçte beton/demir tedarikçilerine 30-60 günlük vadeli çek/akreditif verilmeli veya banka hakediş temliği ile köprü kredisi kullanılmalıdır.</td>
+    </tr>
+    <tr>
+      <td><strong>Malik Ödemeleri & Taksitler</strong></td>
+      <td>Sözleşme (%20), Subasman (%25), Kaba Yapı (%25), İnce (%20), İskân (%10)</td>
+      <td>Malik ödemeleri takvim tarihine değil, şantiye Yapı Denetim vizelerine endekslenmelidir. Geciken ödemelere aylık %3 gecikme faizi uygulanacağı sözleşmeye eklenmelidir.</td>
+    </tr>
+    <tr>
+      <td><strong>Şantiye İlerleyişi & Tedarik Çıkışları</strong></td>
+      <td>Ay 1-2 (Harçlar), Ay 3-6 (Beton/Demir), Ay 7-12 (Tesisat/Asansör), Ay 13-18 (İnce Yapı)</td>
+      <td>Şantiye başında toplu demir ve beton alımında peşin alım iskontosu (%15) kilitlenmeli; asansör ve PVC siparişleri avansı kaba inşaatın sonunda ödenmelidir.</td>
+    </tr>
+    <tr>
+      <td><strong>İskân Kapanış Rezervi</strong></td>
+      <td>Anahtar Teslim & Yapı Kullanma İzni Öncesi</td>
+      <td>Belediye iskân harçları ve SGK asgari işçilik primleri peşin ödenmeden ruhsat verilmez. Şantiye kasasında proje sonu için en az %5 iskân rezervi tutulmalıdır.</td>
+    </tr>
   </table>
 
   <br><br>
@@ -382,6 +408,15 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Section 5: CFO Financial Strategy & Cash Flow Balance Module */}
+          <div className="pt-2">
+            <CfoFinancialStrategyModule
+              params={params}
+              results={results}
+              theme={theme}
+            />
           </div>
 
           {/* Signatures */}
