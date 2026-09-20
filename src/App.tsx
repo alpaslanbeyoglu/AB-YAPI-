@@ -367,7 +367,7 @@ export default function App() {
     const upperFloorArea = cantileverInfo.upperFloorArea;
 
     const resFloors = newParams.hasGroundFloorShop
-      ? Math.max(1, newParams.floorCount - 1)
+      ? Math.max(0, newParams.floorCount - 1)
       : newParams.floorCount;
 
     const roofType = newParams.roofType || 'gable';
@@ -523,7 +523,7 @@ export default function App() {
       const nextFlatsPerFloor = updates.flatsPerFloor !== undefined ? updates.flatsPerFloor : (prev.flatsPerFloor || 2);
       const nextHasShop = updates.hasGroundFloorShop !== undefined ? updates.hasGroundFloorShop : (prev.hasGroundFloorShop || false);
 
-      const resFloors = nextHasShop ? Math.max(1, nextFloorCount - 1) : nextFloorCount;
+      const resFloors = nextHasShop ? Math.max(0, nextFloorCount - 1) : nextFloorCount;
 
       const roofType = updates.roofType !== undefined ? updates.roofType : (prev.roofType || 'gable');
       const isMansard = roofType === 'mansard';
@@ -690,7 +690,7 @@ export default function App() {
     const upperFloorArea = cantileverInfo.upperFloorArea;
 
     const resFloors = newParams.hasGroundFloorShop
-      ? Math.max(1, newParams.floorCount - 1)
+      ? Math.max(0, newParams.floorCount - 1)
       : newParams.floorCount;
 
     const roofType = newParams.roofType || 'gable';

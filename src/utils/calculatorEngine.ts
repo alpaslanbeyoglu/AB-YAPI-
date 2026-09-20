@@ -377,7 +377,7 @@ export function synchronizeFlats(
   // Konut katı sayısı hesabı:
   // Zemin dükkan varsa 1. kattan başlar (floorCount - 1 kat konut), zemin dükkan yoksa Zemin Kat (0) dahil floorCount kat konuttur.
   // Mansart çatı en üst kata (floorCount) yerleştiği için normal konut katlarının altına ek çatı katı olarak eklenir.
-  const resFloors = hasGroundFloorShop ? Math.max(1, floorCount - 1) : floorCount;
+  const resFloors = hasGroundFloorShop ? Math.max(0, floorCount - 1) : floorCount;
 
   const standardResidentialUnits = resFloors * flatsPerFloor;
   const calculatedTotalUnits = activeBasementShopCount + standardResidentialUnits + activeShopCount + extraMansardFlats;
@@ -557,7 +557,7 @@ export function calculateFlatCount(params: ProjectParams): number {
 
   const isMansard = params.roofType === 'mansard';
   const takenFloors = hasShop ? 1 : 0;
-  const resFloors = Math.max(1, floorCount - takenFloors);
+  const resFloors = Math.max(0, floorCount - takenFloors);
   const normalFloorFlats = resFloors * flatsPerFloor;
   const extraMansardFlats = isMansard
     ? (params.mansardFlatCount && params.mansardFlatCount > 0 ? params.mansardFlatCount : Math.max(1, flatsPerFloor))

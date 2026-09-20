@@ -465,7 +465,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const newShopCount = params.shopCount || (newHasShop ? 1 : 0);
   const newShopLocation = params.shopLocation || 'ground';
   const newShopArea = params.shopArea || 80;
-  const resFloors = newHasShop ? Math.max(1, newFloorCount - 1) : newFloorCount;
+  const resFloors = newHasShop ? Math.max(0, newFloorCount - 1) : newFloorCount;
   const newFlatCount = calcResult.normalFlats !== undefined ? calcResult.normalFlats : (params.flatCount || (resFloors * newFlatsPerFloor));
   const newTotalUnits = calcResult.flatCount;
   const newApartmentSize = params.apartmentSize || 90;
@@ -1528,21 +1528,28 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       <div className="p-3 rounded-xl bg-white border border-indigo-100 shadow-sm space-y-1.5">
                         <span className="block text-[10px] font-extrabold text-indigo-500 uppercase">Hesaplanan Toplam</span>
                         <div className="flex items-baseline justify-between">
-                          <span className="text-lg font-black text-slate-900 font-mono">{calculateFlatCount(params)}</span>
+                          <span className="text-lg font-black text-slate-900 font-mono">
+                            {results.unitBreakdown?.totalUnits || calculateFlatCount(params)}
+                          </span>
                           <span className="text-[10px] font-bold text-slate-400">BÖLÜM</span>
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1 pt-1.5 border-t border-slate-50">
                           <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-bold border border-emerald-100">
-                            {resFloors * newFlatsPerFloor} Konut
+                            {results.unitBreakdown ? results.unitBreakdown.residentialCount : (resFloors * newFlatsPerFloor)} Konut
                           </span>
-                          {newHasShop && (
+                          {(results.unitBreakdown ? results.unitBreakdown.commercialCount > 0 : newHasShop) && (
                             <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[9px] font-bold border border-amber-100">
-                              {newShopCount} Dükkan
+                              {results.unitBreakdown ? results.unitBreakdown.commercialCount : newShopCount} Dükkan
                             </span>
                           )}
-                          {plannedBasementShopCount > 0 && (
+                          {results.unitBreakdown?.mansardUnitsCount ? (
+                            <span className="px-1.5 py-0.5 rounded bg-fuchsia-50 text-fuchsia-700 text-[9px] font-bold border border-fuchsia-100">
+                              {results.unitBreakdown.mansardUnitsCount} Mansart
+                            </span>
+                          ) : null}
+                          {(results.unitBreakdown?.basementUnitsCount ?? 0) > 0 && (
                             <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[9px] font-bold border border-purple-100">
-                              {plannedBasementShopCount} Bodrum İşyeri
+                              {results.unitBreakdown.basementUnitsCount} Bodrum
                             </span>
                           )}
                         </div>
