@@ -827,20 +827,14 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
 
             {params.projectModel === 'contractorShare' && (
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className={`block text-xs ${labelColor} font-bold`}>Müteahhit Pay Oranı (%):</label>
-                  <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                    🔒 0. Kurulum Sekmesinden Düzenlenir
-                  </span>
-                </div>
+                <label className={`block text-xs ${labelColor} mb-1.5 font-bold`}>Müteahhit Pay Oranı (%):</label>
                 <input
                   type="number"
                   min="0"
                   max="100"
                   value={params.contractorShareRate ?? 50}
-                  readOnly
-                  disabled
-                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold bg-slate-100 text-slate-600 border-slate-300 cursor-not-allowed`}
+                  onChange={(e) => updateParam('contractorShareRate', parseFloat(e.target.value) || 0)}
+                  className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-mono font-bold ${inputBg}`}
                 />
               </div>
             )}

@@ -2667,20 +2667,14 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   {modelParams.projectModel === 'contractorShare' && (
                     <div className="space-y-3.5 pt-1.5 border-t border-slate-100">
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label className={`text-xs font-semibold block ${textTitle}`}>Müteahhit Daire Payı Oranı (%):</label>
-                          <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                            🔒 0. Kurulum Sekmesinden Düzenlenir
-                          </span>
-                        </div>
+                        <label className={`text-xs font-semibold block ${textTitle}`}>Müteahhit Daire Payı Oranı (%):</label>
                         <input
                           type="number"
                           min="1"
                           max="99"
                           value={modelParams.contractorShareRate || 50}
-                          readOnly
-                          disabled
-                          className="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold border bg-slate-100 text-slate-600 border-slate-300 cursor-not-allowed"
+                          onChange={(e) => updateParams({ contractorShareRate: parseFloat(e.target.value) || 50 })}
+                          className={`w-full px-3 py-2 rounded-xl text-xs font-mono font-bold border focus:outline-hidden ${inputBg}`}
                         />
                       </div>
 
