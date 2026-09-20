@@ -141,7 +141,7 @@ export interface FlatItem {
   useCredit?: boolean; // Kentsel Dönüşüm Faiz Destekli Kredisi kullanımı
   isContractorShare?: boolean; // true = Müteahhit Dairesi, false = Hak Sahibi Dairesi
   salePrice?: number; // Müteahhit dairesi için satış fiyatı (TL)
-  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop' | 'basement_shop' | 'basement_flat'; // Daire tipi
+  flatType?: 'standard' | 'mansard' | 'duplex' | 'shop' | 'basement_shop' | 'basement_flat' | 'shelter' | 'parking' | 'storage'; // Daire tipi
   description?: string; // Ek açıklama (örn: "Çatı Katı Mansart - Ayrı Bağımsız Bölüm", "Çatı Dubleksi - Tek Bağımsız Bölüm")
   floorNumber?: number; // Bulunduğu Kat No (örn: 0 Zemin, 1, 2, 3...)
   facade?: 'guney' | 'kuzey' | 'dogu' | 'bati' | 'guney_bati' | 'guney_dogu' | 'kuzey_bati' | 'kuzey_dogu' | 'kose' | 'on' | 'arka'; // Cephe / Yön
@@ -198,11 +198,19 @@ export interface ExistingBuilding {
 
 export type CantileverDirection = 'open_facades' | 'front_back' | 'front' | 'all' | 'custom';
 
+export interface BasementUnit {
+  id: string;
+  type: 'commercial_shop' | 'shelter' | 'parking' | 'residential' | 'storage';
+  count: number;
+  description?: string;
+}
+
 export interface ProjectParams {
   projectName?: string;        // Müşteri / Proje Adı
   projectType?: string;        // Proje Türü: 'kentsel' | 'kat_karsiligi' | 'muteahhitlik' vb.
   basementPurpose?: string;    // Bodrum kullanım amacı: 'shelter_depot' | 'parking' | 'shop' | 'commercial_shop'
   basementShopCount?: number;  // Bodrum kat işyeri/dükkan adedi
+  basementConfig?: BasementUnit[]; // Detaylı bodrum ünitesi konfigürasyonu
   roofAtticType?: 'independent' | 'duplex_unified'; // Çatı arası bağımsız mı yoksa dubleks mi
   projectAddress: string;
   landArea?: number;           // Arsa Alanı (m²)
@@ -218,6 +226,15 @@ export interface ProjectParams {
   hasZoningIncrease?: boolean;      // İmar / Kat Artışı var mı?
   zoningIncreaseRate?: number;     // İmar artış oranı (%)
   zoningExtraFlatsAction?: 'contractor' | 'sellForOwners'; // Ekstra dairelerin kullanımı ('contractor': Müteahhide kalsın, 'sellForOwners': Satılıp malik borcundan düşülsün)
+
+  // Zemin ve Enflasyon Parametreleri
+  soilType?: 'solid' | 'medium' | 'weak'; // Zemin Grubu / Sınıfı (Sağlam, Orta, Zayıf/Çürük)
+  hasSoilImprovement?: boolean; // Zemin İyileştirme/Güçlendirme Önlemi Var mı?
+  soilImprovementType?: 'jet_grouting' | 'bored_pile' | 'anchorage' | 'none'; // Kazık tipi vb.
+  soilImprovementCostPerBaseM2?: number; // Zemin iyileştirme m2 birim maliyeti (₺/m²)
+  soilImprovementFixedCost?: number; // Ekstra sabit zemin/hafriyat/kaya kırıcı maliyeti (₺)
+  hasInflationBuffer?: boolean; // Enflasyon / Risk Beklenmedik Artış Payı uygulansın mı?
+  inflationBufferRate?: number; // Enflasyon / Risk Payı Oranı (%)
   baseBuildArea: number;
   floorCount: number;
   flatCount: number;
@@ -406,6 +423,18 @@ export interface ProjectParams {
   companyVision?: string; // Vizyon metni
   isOfferAccepted?: boolean; // Teklif kabul edilip edilmediği (Süreç takibi ile ilişkilendirilmiş)
 
+  // Teklif Raporu Görünürlük Kontrolleri (Tüm Kartları Seçebilme)
+  showProposalHeader?: boolean;   // Teklif Başlığı & Künye (Her zaman açık önerilir)
+  showVisionCards?: boolean;     // Proje Vizyon ve Değer Kartları
+  showTechnicalSummary?: boolean; // I. Mimari ve Teknik Künye
+  showQualityStandards?: boolean; // III. Yapısal Kalite ve Teknik Standartlar
+  showInnovativeOptions?: boolean; // İnovatif Teknoloji Seçenekleri (Tek Teklifte)
+  showDualOfferMatrix?: boolean;   // İkili Teklif Karşılaştırma Matrisi (Çift Teklifte)
+  showFinancialSummary?: boolean;  // II. Proje Özeti ve Finansal Çerçeve
+  showPaymentTimeline?: boolean;   // IV. Ödeme ve Teslim Takvimi
+  showLegalTaahhut?: boolean;      // 6. Kurumsal Taahhütler ve Hukuki Protokol
+  showContractorSignature?: boolean; // Yetkili İmza ve Kaşe Alanı
+
   // Flats
   flats: FlatItem[];
 }
@@ -529,6 +558,14 @@ export interface CalculationResult {
   parkingFeeActual?: number;           // Teklife yansıyan veya hesaplanan yasal bedel (Toplam araç için)
   parkingFeePerFlat?: number;          // Daire / Bağımsız bölüm başına düşen otopark harcı tutarı
   parkingFeeIsKentselDiscount?: boolean; // Kentsel dönüşüm %75 indirim uygulandı mı?
+
+  // Zemin & Enflasyon Çıktıları
+  soilTypeMultiplier?: number;
+  soilImprovementCost?: number;
+  totalSoilExtraCost?: number;
+  inflationBufferAmount?: number;
+  constructionCostBeforeInflation?: number;
+  activeBaseArea?: number;
 
   // İnovatif Seçenekler Maliyet Çıktıları
   underfloorHeatingCost?: number;
@@ -668,6 +705,7 @@ export interface BuildingModelParams {
   shopCount?: number;
   shopHeight?: number;
   shopArea?: number;
+  basementConfig?: BasementUnit[];
   // Çıkma / Tabla Konsolu (1. kattan itibaren konsol çıkması)
   hasCantilever?: boolean;
   cantileverDepth?: number;

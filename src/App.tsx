@@ -196,13 +196,13 @@ export default function App() {
       const element = document.getElementById(targetId);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.classList.add('ring-4', 'ring-indigo-500/60', 'transition-all', 'duration-500');
+        element.classList.add('ring-4', 'ring-indigo-500/60', 'ring-offset-2', 'transition-all', 'duration-700');
         if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement) {
           element.focus();
         }
         setTimeout(() => {
-          element.classList.remove('ring-4', 'ring-indigo-500/60');
-        }, 2000);
+          element.classList.remove('ring-4', 'ring-indigo-500/60', 'ring-offset-2');
+        }, 2500);
       }
     }, 120);
   };
@@ -1013,48 +1013,81 @@ export default function App() {
           </div>
 
           {/* Sidebar Menu Items (Categorized with light hiyerarsi) */}
-          <div className="flex-1 overflow-y-auto py-5 px-3 space-y-5 no-scrollbar">
-            {categorizedTabs.map((cat) => (
-              <div key={cat.id} className="space-y-1">
+          <div className="flex-1 overflow-y-auto py-4 px-3 space-y-4 no-scrollbar">
+            {categorizedTabs.map((cat, idx) => (
+              <div key={cat.id} className="space-y-1.5">
                 {sidebarOpen && (
-                  <h4 className="text-[9px] uppercase tracking-widest font-black text-slate-400 px-2.5 mb-1.5">
-                    {cat.label}
-                  </h4>
+                  <div className="flex items-center justify-between px-2 pt-1 mb-1">
+                    <h4 className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400/90">
+                      {cat.label}
+                    </h4>
+                    {idx > 0 && <div className="h-[1px] flex-1 bg-slate-200/60 ml-2" />}
+                  </div>
                 )}
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   {cat.tabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
                     return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setActiveTab(tab.id)}
-                        title={tab.label}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap overflow-hidden group cursor-pointer ${
-                          isActive
-                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/15 font-black scale-[1.01]'
-                            : isGray
-                            ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        }`}
-                      >
-                        <Icon className={`w-4 h-4 shrink-0 transition-colors ${
-                          isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
-                        }`} />
-                        {sidebarOpen && (
-                          <span className="truncate flex-1 text-left animate-fade-in">
-                            {tab.shortLabel}
-                          </span>
+                      <React.Fragment key={tab.id}>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab(tab.id)}
+                          title={tab.label}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap overflow-hidden group cursor-pointer relative ${
+                            isActive
+                              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-black scale-[1.01]'
+                              : isGray
+                              ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/90'
+                          }`}
+                        >
+                          {isActive && (
+                            <span className="absolute left-0 top-2 bottom-2 w-1 bg-white rounded-r-full shadow-xs" />
+                          )}
+                          <Icon className={`w-4 h-4 shrink-0 transition-colors ${
+                            isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+                          }`} />
+                          {sidebarOpen && (
+                            <span className="truncate flex-1 text-left animate-fade-in font-semibold">
+                              {tab.shortLabel}
+                            </span>
+                          )}
+                          {sidebarOpen && tab.id === 'gecmis' && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-extrabold ${
+                              isActive ? 'bg-indigo-500 text-white' : 'bg-pink-100 text-pink-800'
+                            }`}>
+                              {historyList.length}
+                            </span>
+                          )}
+                        </button>
+                        
+                        {/* Render Sub-tabs if active and sidebar is open */}
+                        {sidebarOpen && isActive && tab.subTabs && (
+                          <div className="ml-7 mt-1.5 mb-2 space-y-1 border-l-2 border-indigo-100 pl-2.5 animate-fade-in-up">
+                            {tab.subTabs.map((sub) => {
+                              const isSubActive = requestedSetupStep === sub.step;
+                              return (
+                                <button
+                                  key={sub.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (sub.step) setRequestedSetupStep(sub.step);
+                                  }}
+                                  className={`w-full text-left py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 ${
+                                    isSubActive
+                                      ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/50'
+                                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/70'
+                                  }`}
+                                >
+                                  {isSubActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />}
+                                  <span className="truncate">{sub.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         )}
-                        {sidebarOpen && tab.id === 'gecmis' && (
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                            isActive ? 'bg-indigo-500 text-white' : 'bg-pink-100 text-pink-800'
-                          }`}>
-                            {historyList.length}
-                          </span>
-                        )}
-                      </button>
+                      </React.Fragment>
                     );
                   })}
                 </div>
@@ -1179,8 +1212,19 @@ export default function App() {
           </div>
 
           <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 w-full max-w-full overflow-x-hidden min-w-0">
-        {/* Tab Views */}
-        <div className="flex-1 w-full min-w-0 max-w-full overflow-x-hidden">
+            {/* Top Navigation */}
+            <TabNavigation
+              activeTab={activeTab}
+              tabs={tabsConfig}
+              onNavigate={setActiveTab}
+              theme={theme}
+              internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
+              totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
+              onInternalStepChange={setRequestedSetupStep}
+            />
+
+            {/* Tab Views */}
+            <div className="flex-1 w-full min-w-0 max-w-full overflow-x-hidden">
           {feedback && (
             <div
               className={`mb-5 p-4 rounded-2xl text-xs flex items-center justify-between border shadow-sm transition-all animate-fade-in print:hidden ${
@@ -1341,6 +1385,9 @@ export default function App() {
           tabs={tabsConfig}
           onNavigate={setActiveTab}
           theme={theme}
+          internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
+          totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
+          onInternalStepChange={setRequestedSetupStep}
         />
       </div>
     </main>

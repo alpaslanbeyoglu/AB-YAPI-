@@ -29,6 +29,7 @@ import {
   DollarSign,
   Briefcase,
   FileUp,
+  X
 } from 'lucide-react';
 import {
   ProjectParams,
@@ -542,26 +543,139 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
               {/* Quick Select: Çatı Tipi */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Çatı Tipi & İmar Durumu</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    { id: 'flat', label: 'Düz Çatı' },
-                    { id: 'gable', label: 'Beşik Çatı' },
-                    { id: 'duplex', label: 'Dubleks' },
-                    { id: 'mansard', label: 'Mansart' },
-                  ].map((roof) => (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                  <div>
+                    <span className="text-xs font-extrabold text-slate-800 block">Bodrum Kat Planlaması</span>
+                    <span className="text-[10px] text-slate-500">Bodrum kat sayısı</span>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <button
-                      key={roof.id}
                       type="button"
-                      onClick={() => handleUpdateRoofType(roof.id as any)}
-                      className={`py-2 px-1 rounded-xl text-[11px] font-bold border transition text-center cursor-pointer ${
-                        params.roofType === roof.id
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
+                      onClick={() => onChangeParams({ basementCount: Math.max(0, (params.basementCount || 0) - 1) })}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-300 font-bold text-slate-700 active:scale-95 shadow-xs flex items-center justify-center cursor-pointer"
                     >
-                      {roof.label}
+                      -
                     </button>
-                  ))}
+                    <span className="w-8 text-center font-black text-sm text-indigo-900">{params.basementCount || 0}</span>
+                    <button
+                      type="button"
+                      onClick={() => onChangeParams({ basementCount: (params.basementCount || 0) + 1 })}
+                      className="w-8 h-8 rounded-lg bg-white border border-slate-300 font-bold text-slate-700 active:scale-95 shadow-xs flex items-center justify-center cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {(params.basementCount || 0) > 0 && (
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-slate-900 uppercase">Bodrum Üniteleri</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newUnits = [...(params.basementConfig || [])];
+                          newUnits.push({ id: Date.now().toString(), type: 'commercial_shop', count: 1 });
+                          onChangeParams({ basementConfig: newUnits });
+                        }}
+                        className="text-[10px] font-black bg-indigo-600 text-white px-3 py-1 rounded-lg"
+                      >
+                        + EKLE
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(!params.basementConfig || params.basementConfig.length === 0) ? (
+                        <p className="text-[10px] text-slate-400 text-center italic py-2">Henüz detaylı ünite eklenmedi.</p>
+                      ) : (
+                        params.basementConfig.map((unit, idx) => (
+                          <div key={unit.id} className="bg-white border border-slate-200 rounded-xl p-2.5 space-y-2 shadow-xs">
+                            <div className="flex items-center justify-between">
+                              <select
+                                value={unit.type}
+                                onChange={(e) => {
+                                  const newUnits = [...(params.basementConfig || [])];
+                                  newUnits[idx] = { ...unit, type: e.target.value as any };
+                                  onChangeParams({ basementConfig: newUnits });
+                                }}
+                                className="text-[11px] font-bold bg-transparent outline-none border-b border-slate-100 flex-1"
+                              >
+                                <option value="commercial_shop">🏪 İşyeri (B.B.)</option>
+                                <option value="residential">🏠 Konut (B.B.)</option>
+                                <option value="shelter">🛡️ Sığınak</option>
+                                <option value="parking">🚗 Otopark</option>
+                                <option value="storage">📦 Depo</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newUnits = params.basementConfig?.filter(u => u.id !== unit.id);
+                                  onChangeParams({ basementConfig: newUnits });
+                                }}
+                                className="text-red-500 p-1"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <input
+                                  type="text"
+                                  placeholder="Açıklama..."
+                                  value={unit.description || ''}
+                                  onChange={(e) => {
+                                    const newUnits = [...(params.basementConfig || [])];
+                                    newUnits[idx] = { ...unit, description: e.target.value };
+                                    onChangeParams({ basementConfig: newUnits });
+                                  }}
+                                  className="w-full text-[10px] p-1.5 rounded bg-slate-50 border border-slate-100"
+                                />
+                              </div>
+                              <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={unit.count}
+                                  onChange={(e) => {
+                                    const newUnits = [...(params.basementConfig || [])];
+                                    newUnits[idx] = { ...unit, count: parseInt(e.target.value) || 1 };
+                                    onChangeParams({ basementConfig: newUnits });
+                                  }}
+                                  className="w-8 text-xs font-black text-center bg-transparent outline-none"
+                                />
+                                <span className="text-[10px] text-slate-500 font-bold">ADET</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Select: Çatı Tipi */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase block">Proje Görünümü & Detaylar</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onChangeParams({ roofType: 'flat' })}
+                    className={`p-3 rounded-xl border text-[11px] font-bold transition text-center ${
+                      params.roofType === 'flat' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    Teras Çatı
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChangeParams({ roofType: 'mansard' })}
+                    className={`p-3 rounded-xl border text-[11px] font-bold transition text-center ${
+                      params.roofType === 'mansard' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    Mansart Çatı
+                  </button>
                 </div>
               </div>
             </div>

@@ -79,45 +79,47 @@ export function generateOfferHtml(
     const introText = params.introExplanation || "1960'lardan bugüne uzanan köklü inşaat tecrübemiz ve üçüncü nesil dinamizmimizle, kentsel dönüşüm projelerimizde hem güvenliği hem de modern konfor standartlarını en üst düzeyde buluşturuyoruz. Sektördeki yarım asrı aşan birikimimizle tasarladığımız bu projede, bütçe dostu akılcı maliyet çözümleri sunarken, en güncel deprem yönetmeliklerine ve güvenli standartlarına tavizsiz şekilde uyuyoruz. Depreme tam dayanıklı mühendislik anlayışımızı, yaşamı kolaylaştıran modern mimari detaylarla harmanlayarak sizler için uzun ömürlü, değerli ve huzurlu yaşam alanları inşa ediyoruz.";
     introPageHtml = `
   <!-- SUNUM VE GİRİŞ SAYFASI -->
-  <div style="page-break-after: always; break-after: page; padding: 24px; border: 1px solid #e2e8f0; border-radius: 20px; margin-bottom: 30px; background: #faf5ff; position: relative; min-height: 260mm; box-sizing: border-box;">
-    <!-- Logo ve Başlık -->
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b21a8; padding-bottom:15px; margin-bottom:30px;">
-      <div style="display:flex; align-items:center; gap:12px;">
-        ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px; max-width:130px; object-fit:contain;" />` : ''}
-        <div>
-          <span style="font-size:16px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compName}</span>
-          <div style="font-size:9px; color:#5b21b6; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; font-family:sans-serif; margin-top:2px;">PROJE ÖNSÖZÜ VE DEĞER SUNUMU</div>
+  <div style="page-break-after: always; break-after: page; padding: 24px; border: 1px solid #e2e8f0; border-radius: 20px; margin-bottom: 30px; background: #faf5ff; display: flex; flex-direction: column; justify-content: space-between; min-height: 250mm; box-sizing: border-box;">
+    <div>
+      <!-- Logo ve Başlık -->
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b21a8; padding-bottom:15px; margin-bottom:25px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px; max-width:130px; object-fit:contain;" />` : ''}
+          <div>
+            <span style="font-size:16px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compName}</span>
+            <div style="font-size:9px; color:#5b21b6; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; font-family:sans-serif; margin-top:2px;">PROJE ÖNSÖZÜ VE DEĞER SUNUMU</div>
+          </div>
         </div>
+        <span style="font-size:9.5px; font-weight:bold; padding:4px 10px; background:#f3e8ff; border:1px solid #d8b4fe; color:#6b21a8; border-radius:20px; font-family:sans-serif;">Özel Sunum</span>
       </div>
-      <span style="font-size:9.5px; font-weight:bold; padding:4px 10px; background:#f3e8ff; border:1px solid #d8b4fe; color:#6b21a8; border-radius:20px; font-family:sans-serif;">Özel Sunum</span>
-    </div>
 
-    <!-- Büyük Görsel / Kapak Havası -->
-    <div style="text-align:center; padding:40px 20px; margin-bottom:35px; background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); border-radius:16px; color:#ffffff; box-shadow:0 4px 12px rgba(124, 58, 237, 0.15);">
-      <div style="font-size:24px; font-weight:bold; letter-spacing:-0.5px; margin-bottom:10px; font-family:sans-serif;">Geleceği Güvenle İnşa Ediyoruz</div>
-      <div style="font-size:12px; opacity:0.9; max-width:500px; margin:0 auto; line-height:1.5; font-family:sans-serif;">${params.projectAddress || 'Belirtilen Adres'} Kentsel Dönüşüm ve Yaşam Projesi Değer Teklifi</div>
-    </div>
-
-    <!-- Giriş Metni (Neleri Neden Yaptık?) -->
-    <div style="background:#ffffff; border:1px solid #ddd6fe; padding:24px; border-radius:16px; box-shadow:0 2px 8px rgba(0,0,0,0.02); margin-bottom:30px;">
-      <h2 style="font-size:14px; font-weight:bold; color:#4c1d95; margin-top:0; margin-bottom:12px; border-bottom:1px solid #f3e8ff; padding-bottom:8px; text-transform:uppercase; font-family:sans-serif;">Neleri, Neden ve Nasıl Yapıyoruz?</h2>
-      <p style="font-size:11px; color:#334155; line-height:1.7; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${introText}</p>
-    </div>
-
-    <!-- Temel Mühendislik Değerleri -->
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:30px;">
-      <div style="background:#ffffff; border:1px solid #e2e8f0; padding:15px; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-        <strong style="color:#6b21a8; font-size:11.5px; display:block; margin-bottom:5px; font-family:sans-serif;">🛡️ Deprem Güvenliği Odaklılık</strong>
-        <span style="font-size:10px; color:#475569; line-height:1.5; display:block; font-family:sans-serif;">Tüm taşıyıcı sistemlerimizi güncel deprem yönetmeliklerinin de ötesinde, en yüksek sınıf hazır beton ve sismik çelik donatı standartlarıyla tasarlıyoruz.</span>
+      <!-- Büyük Görsel / Kapak Havası -->
+      <div style="text-align:center; padding:30px 20px; margin-bottom:25px; background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); border-radius:16px; color:#ffffff; box-shadow:0 4px 12px rgba(124, 58, 237, 0.15);">
+        <div style="font-size:22px; font-weight:bold; letter-spacing:-0.5px; margin-bottom:8px; font-family:sans-serif;">Geleceği Güvenle İnşa Ediyoruz</div>
+        <div style="font-size:11.5px; opacity:0.9; max-width:500px; margin:0 auto; line-height:1.5; font-family:sans-serif;">${params.projectAddress || 'Belirtilen Adres'} Kentsel Dönüşüm ve Yaşam Projesi Değer Teklifi</div>
       </div>
-      <div style="background:#ffffff; border:1px solid #e2e8f0; padding:15px; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-        <strong style="color:#6b21a8; font-size:11.5px; display:block; margin-bottom:5px; font-family:sans-serif;">🌱 Sürdürülebilirlik & Enerji Verimliliği</strong>
-        <span style="font-size:10px; color:#475569; line-height:1.5; display:block; font-family:sans-serif;">Yerden ısıtma, yüksek yalıtımlı cephe sistemleri ve akıllı su tasarrufu çözümleriyle çevre dostu, işletme maliyeti düşük binalar üretiyoruz.</span>
+
+      <!-- Giriş Metni (Neleri Neden Yaptık?) -->
+      <div style="background:#ffffff; border:1px solid #ddd6fe; padding:20px; border-radius:16px; box-shadow:0 2px 8px rgba(0,0,0,0.02); margin-bottom:20px;">
+        <h2 style="font-size:13px; font-weight:bold; color:#4c1d95; margin-top:0; margin-bottom:10px; border-bottom:1px solid #f3e8ff; padding-bottom:6px; text-transform:uppercase; font-family:sans-serif;">Neleri, Neden ve Nasıl Yapıyoruz?</h2>
+        <p style="font-size:10.5px; color:#334155; line-height:1.6; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${introText}</p>
+      </div>
+
+      <!-- Temel Mühendislik Değerleri -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div style="background:#ffffff; border:1px solid #e2e8f0; padding:12px; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
+          <strong style="color:#6b21a8; font-size:11px; display:block; margin-bottom:4px; font-family:sans-serif;">🛡️ Deprem Güvenliği Odaklılık</strong>
+          <span style="font-size:9.5px; color:#475569; line-height:1.4; display:block; font-family:sans-serif;">Tüm taşıyıcı sistemlerimizi güncel deprem yönetmeliklerinin de ötesinde, en yüksek sınıf hazır beton ve sismik çelik donatı standartlarıyla tasarlıyoruz.</span>
+        </div>
+        <div style="background:#ffffff; border:1px solid #e2e8f0; padding:12px; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
+          <strong style="color:#6b21a8; font-size:11px; display:block; margin-bottom:4px; font-family:sans-serif;">🌱 Sürdürülebilirlik & Enerji Verimliliği</strong>
+          <span style="font-size:9.5px; color:#475569; line-height:1.4; display:block; font-family:sans-serif;">Yerden ısıtma, yüksek yalıtımlı cephe sistemleri ve akıllı su tasarrufu çözümleriyle çevre dostu, işletme maliyeti düşük binalar üretiyoruz.</span>
+        </div>
       </div>
     </div>
 
     <!-- Alt Bilgi -->
-    <div style="position:absolute; bottom:25px; left:24px; right:24px; display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:15px; font-family:sans-serif;">
+    <div style="display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:12px; margin-top:20px; font-family:sans-serif;">
       <span>${compLegal}</span>
       <span>Sayfa I</span>
     </div>
@@ -133,77 +135,90 @@ export function generateOfferHtml(
     const vision = params.companyVision || "Geleneksel inşaat kültürümüzü modern mimari trendlerle zenginleştirerek, müşterilerimiz için hem yüksek kaliteli hem de bütçe dostu, ulaşılabilir ve akılcı yaşam alanları inşa eden öncü bir marka olmaktır.";
 
     const projectList = completedProjects.split('\n').filter(p => p.trim().length > 0).map(p => `
-      <li style="font-size:8.5px; color:#334155; margin-bottom:0; line-height:1.35; list-style-type:none; padding-left:12px; position:relative; font-family:sans-serif; box-sizing:border-box;">
-        <span style="position:absolute; left:0; color:#6b21a8; font-weight:bold;">•</span>
-        ${p.replace(/^\d+[\.\)]\s*/, '')}
-      </li>
+      <div style="font-size:8.5px; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; padding:4px 8px; border-radius:8px; font-family:sans-serif; box-sizing:border-box; flex: 1 1 calc(50% - 6px); min-width: 140px;">
+        <span style="color:#6b21a8; font-weight:bold; margin-right:4px;">📍</span> ${p.replace(/^\d+[\.\)]\s*/, '')}
+      </div>
     `).join('');
 
     historyPageHtml = `
   <!-- FİRMA GEÇMİŞİ VE KURUMSAL PROFİL SAYFASI -->
-  <div style="page-break-after: always; break-after: page; padding: 24px; border: 1px solid #e2e8f0; border-radius: 20px; margin-bottom: 30px; background: #ffffff; position: relative; min-height: 260mm; box-sizing: border-box;">
-    <!-- Logo ve Başlık -->
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b21a8; padding-bottom:15px; margin-bottom:25px;">
-      <div style="display:flex; align-items:center; gap:12px;">
-        ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px; max-width:130px; object-fit:contain;" />` : ''}
-        <div>
-          <span style="font-size:16px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compName}</span>
-          <div style="font-size:9px; color:#5b21b6; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; font-family:sans-serif; margin-top:2px;">KURUMSAL ŞİRKET PROFİLİ & GEÇMİŞİ</div>
+  <div style="page-break-after: always; break-after: page; padding: 24px; border: 1px solid #e2e8f0; border-radius: 20px; margin-bottom: 30px; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; min-height: 250mm; box-sizing: border-box;">
+    <div>
+      <!-- Logo ve Başlık -->
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b21a8; padding-bottom:15px; margin-bottom:20px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px; max-width:130px; object-fit:contain;" />` : ''}
+          <div>
+            <span style="font-size:16px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compName}</span>
+            <div style="font-size:9px; color:#5b21b6; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; font-family:sans-serif; margin-top:2px;">KURUMSAL ŞİRKET PROFİLİ & GEÇMİŞİ</div>
+          </div>
         </div>
-      </div>
-      <span style="font-size:9.5px; font-weight:bold; padding:4px 10px; background:#f3e8ff; border:1px solid #d8b4fe; color:#6b21a8; border-radius:20px; font-family:sans-serif;">Kurumsal Profil</span>
-    </div>
-
-    <!-- İki Sütunlu Düzen -->
-    <div style="display:grid; grid-template-columns: 1.15fr 0.85fr; gap:24px; box-sizing: border-box;">
-      <!-- Sol Sütun: Şirket Tarihçesi ve Referans Projeler -->
-      <div style="display:flex; flex-direction:column; gap:20px;">
-        <!-- Şirket Geçmişi -->
-        <div style="background:#faf5ff; border:1px solid #e9d5ff; padding:20px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-          <h3 style="font-size:12px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:10px; text-transform:uppercase; border-bottom:1px solid #d8b4fe; padding-bottom:6px; font-family:sans-serif;">🏢 Biz Kimiz? Şirket Tarihçemiz</h3>
-          <p style="font-size:11px; color:#334155; line-height:1.65; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${historyText}</p>
-        </div>
-
-        <!-- Tamamlanan Referans Projeler -->
-        <div style="background:#ffffff; border:1px solid #e2e8f0; padding:20px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-          <h3 style="font-size:12px; font-weight:bold; color:#1e1b4b; margin-top:0; margin-bottom:10px; text-transform:uppercase; border-bottom:1px solid #e2e8f0; padding-bottom:6px; font-family:sans-serif;">🏆 Tamamlanan Referans Projeler</h3>
-          <ul style="margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; column-gap:15px; row-gap:4px; list-style-type:none;">
-            ${projectList || '<li style="font-size:9px; color:#94a3b8; font-family:sans-serif;">Henüz eklenmedi.</li>'}
-          </ul>
-        </div>
+        <span style="font-size:9.5px; font-weight:bold; padding:4px 10px; background:#f3e8ff; border:1px solid #d8b4fe; color:#6b21a8; border-radius:20px; font-family:sans-serif;">Kurumsal Profil</span>
       </div>
 
-      <!-- Sağ Sütun: Misyon & Vizyon -->
-      <div style="display:flex; flex-direction:column; gap:20px;">
-        <!-- Misyonumuz -->
-        <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #6b21a8; padding:20px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-          <h3 style="font-size:12px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:8px; text-transform:uppercase; font-family:sans-serif;">🎯 Misyonumuz</h3>
-          <p style="font-size:10px; color:#475569; line-height:1.6; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${mission}</p>
+      <!-- İki Sütunlu Düzen -->
+      <div style="display:grid; grid-template-columns: 1.15fr 0.85fr; gap:20px; box-sizing: border-box;">
+        <!-- Sol Sütun: Şirket Tarihçesi ve Referans Projeler -->
+        <div style="display:flex; flex-direction:column; gap:15px;">
+          <!-- Şirket Geçmişi -->
+          <div style="background:#faf5ff; border:1px solid #e9d5ff; padding:16px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
+            <h3 style="font-size:11.5px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:8px; text-transform:uppercase; border-bottom:1px solid #d8b4fe; padding-bottom:5px; font-family:sans-serif;">🏢 Biz Kimiz? Şirket Tarihçemiz</h3>
+            <p style="font-size:10px; color:#334155; line-height:1.55; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${historyText}</p>
+          </div>
+
+          <!-- Tamamlanan Referans Projeler -->
+          <div style="background:#ffffff; border:1px solid #e2e8f0; padding:16px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
+            <h3 style="font-size:11.5px; font-weight:bold; color:#1e1b4b; margin-top:0; margin-bottom:8px; text-transform:uppercase; border-bottom:1px solid #e2e8f0; padding-bottom:5px; font-family:sans-serif;">🏆 Tamamlanan Referans Projeler (Yatay Yerleşim)</h3>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; max-height:300px; overflow-y:auto; padding-top:2px;">
+              ${projectList || '<span style="font-size:9px; color:#94a3b8; font-family:sans-serif;">Henüz eklenmedi.</span>'}
+            </div>
+          </div>
         </div>
 
-        <!-- Vizyonumuz -->
-        <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #4f46e5; padding:20px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-          <h3 style="font-size:12px; font-weight:bold; color:#4f46e5; margin-top:0; margin-bottom:8px; text-transform:uppercase; font-family:sans-serif;">🚀 Vizyonumuz</h3>
-          <p style="font-size:10px; color:#475569; line-height:1.6; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${vision}</p>
-        </div>
+        <!-- Sağ Sütun: Misyon & Vizyon -->
+        <div style="display:flex; flex-direction:column; gap:15px;">
+          <!-- Misyonumuz -->
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #6b21a8; padding:16px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
+            <h3 style="font-size:11.5px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:6px; text-transform:uppercase; font-family:sans-serif;">🎯 Misyonumuz</h3>
+            <p style="font-size:9.5px; color:#475569; line-height:1.5; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${mission}</p>
+          </div>
 
-        <!-- Mühendislik Taahhüt -->
-        <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #cbd5e1; padding:15px; border-radius:12px; text-align:center;">
-          <span style="font-size:24px; display:block; margin-bottom:5px;">⭐</span>
-          <strong style="color:#0f172a; font-size:11px; display:block; margin-bottom:4px; font-family:sans-serif;">Yüksek Mühendislik Güvencesi</strong>
-          <span style="font-size:9px; color:#475569; line-height:1.4; display:block; font-family:sans-serif;">Projelerimiz, İMO üyesi yetkin statikerler ve uzman mimarlar gözetiminde, 1. Sınıf malzemelerle hayata geçirilir.</span>
+          <!-- Vizyonumuz -->
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #4f46e5; padding:16px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
+            <h3 style="font-size:11.5px; font-weight:bold; color:#4f46e5; margin-top:0; margin-bottom:6px; text-transform:uppercase; font-family:sans-serif;">🚀 Vizyonumuz</h3>
+            <p style="font-size:9.5px; color:#475569; line-height:1.5; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${vision}</p>
+          </div>
+
+          <!-- Mühendislik Taahhüt -->
+          <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #cbd5e1; padding:12px; border-radius:12px; text-align:center;">
+            <span style="font-size:20px; display:block; margin-bottom:3px;">⭐</span>
+            <strong style="color:#0f172a; font-size:10.5px; display:block; margin-bottom:2px; font-family:sans-serif;">Yüksek Mühendislik Güvencesi</strong>
+            <span style="font-size:8.5px; color:#475569; line-height:1.35; display:block; font-family:sans-serif;">Projelerimiz, İMO üyesi yetkin statikerler ve uzman mimarlar gözetiminde hayata geçirilir.</span>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Alt Bilgi -->
-    <div style="position:absolute; bottom:25px; left:24px; right:24px; display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:15px; font-family:sans-serif;">
+    <div style="display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:12px; margin-top:15px; font-family:sans-serif;">
       <span>${compLegal}</span>
       <span>Sayfa II</span>
     </div>
   </div>
     `;
   }
+
+  // 3. SECTIONS VISIBILITY CONTROL (DEFAULT TO TRUE IF UNDEFINED)
+  const showProposalHeader = params.showProposalHeader !== false;
+  const showVisionCards = params.showVisionCards !== false;
+  const showTechnicalSummary = params.showTechnicalSummary !== false;
+  const showQualityStandards = params.showQualityStandards !== false;
+  const showInnovativeOptions = params.showInnovativeOptions !== false;
+  const showDualOfferMatrix = params.showDualOfferMatrix !== false;
+  const showFinancialSummary = params.showFinancialSummary !== false;
+  const showPaymentTimeline = params.showPaymentTimeline !== false;
+  const showLegalTaahhut = params.showLegalTaahhut !== false;
+  const showContractorSignature = params.showContractorSignature !== false;
 
   return `<!DOCTYPE html>
 <html lang="tr">
@@ -213,7 +228,7 @@ export function generateOfferHtml(
   <style>
     @page {
       size: A4 portrait;
-      margin: 12mm 10mm 15mm 10mm;
+      margin: 20mm 12mm 20mm 12mm;
       @bottom-right {
         content: "Sayfa " counter(page) " / " counter(pages);
         font-size: 9px;
@@ -233,7 +248,8 @@ export function generateOfferHtml(
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       padding: 0;
       color: #0f172a;
-      max-width: 960px;
+      width: 100%;
+      max-width: 100%;
       margin: 0 auto;
       line-height: 1.5;
       font-size: 11px;
@@ -258,6 +274,7 @@ export function generateOfferHtml(
 <body>
   ${introPageHtml}
   ${historyPageHtml}
+  
   <!-- HEADER & CORPORATE BRANDING -->
   <div class="avoid-break" style="border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:14px;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;">
@@ -280,6 +297,7 @@ export function generateOfferHtml(
   </div>
 
   <!-- PROPOSAL TITLE & METADATA BAR -->
+  ${showProposalHeader ? `
   <div class="avoid-break" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <div>
@@ -298,9 +316,10 @@ export function generateOfferHtml(
         ${showFirstAuth ? `<div>Yetkili: <strong>${compAuth}</strong> (${compAuthTitle})</div>` : ''}
       </div>
     </div>
-  </div>
+  </div>` : ''}
 
   <!-- PROJE VİZYON VE YAŞAM DEĞERLERİ (3 CARDS) -->
+  ${showVisionCards ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="grid-3">
       <div class="card-muted" style="border-left:3px solid #4f46e5;">
@@ -322,9 +341,10 @@ export function generateOfferHtml(
         </p>
       </div>
     </div>
-  </div>
+  </div>` : ''}
 
   <!-- I. MİMARİ VE TEKNİK KÜNYE (4 SUMMARY CARDS - NO ARSA ALANI) -->
+  ${showTechnicalSummary ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">I. Mimari ve Teknik Künye</div>
     <div class="grid-4">
@@ -363,9 +383,10 @@ export function generateOfferHtml(
         <div class="text-muted" style="font-size:9px;margin-top:2px;">Anahtar Teslim Taahhüdü</div>
       </div>
     </div>
-  </div>
+  </div>` : ''}
 
   <!-- III. YAPISAL KALİTE VE TEKNİK STANDARTLAR -->
+  ${showQualityStandards ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">III. Yapısal Kalite ve Teknik Standartlar</div>
     <div class="grid-2">
@@ -381,10 +402,10 @@ export function generateOfferHtml(
           Yüksek dansiteli taşyünü mantolama, Isıcam Konfor serisi çift cam ve ısı yalıtımlı PVC doğramalar ile 4 mevsim yüksek ısı ve ses tasarrufu.
         </p>
       </div>
-    </div>
+    </div>` : ''}
 
     <!-- İNOVATİF TEKNOLOJİ VE KONFOR SEÇENEKLERİ (TEK TEKLİF İÇİN) -->
-    ${!isDualOffer ? (() => {
+    ${(!isDualOffer && showInnovativeOptions) ? (() => {
       const currentAc = getAcOptionById(params.acType || '18k_btu');
       return `
     <div style="margin-top:10px;background:linear-gradient(135deg, #fdf8ff 0%, #f4f5ff 100%);border:1px solid #e9d5ff;border-radius:12px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
@@ -533,7 +554,7 @@ export function generateOfferHtml(
     })() : ''}
 
     <!-- ÇİFT TEKLİF & SEÇENEK KARŞILAŞTIRMA MATRİSİ (DUAL OFFER İÇİN) -->
-    ${isDualOffer && dualData ? `
+    ${(isDualOffer && dualData && showDualOfferMatrix) ? `
     <div style="margin-top:14px;background:#ffffff;border:2px solid #818cf8;border-radius:12px;padding:12px;box-shadow:0 2px 6px rgba(99,102,241,0.08);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #e0e7ff;padding-bottom:6px;">
         <div style="font-weight:900;font-size:11.5px;color:#312e81;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
@@ -635,6 +656,7 @@ export function generateOfferHtml(
   </div>
 
   <!-- II. PROJE ÖZETİ VE FİNANSAL ÇERÇEVE -->
+  ${showFinancialSummary ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">II. Proje Özeti ve Finansal Çerçeve</div>
     <div class="grid-2" style="align-items:stretch;">
@@ -701,9 +723,10 @@ export function generateOfferHtml(
         </div>
       </div>
     </div>
-  </div>
+  </div>` : ''}
 
   <!-- IV. ÖDEME VE TESLİM TAKVİMİ -->
+  ${showPaymentTimeline ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">IV. Ödeme ve Teslim Takvimi</div>
     <div class="grid-2">
@@ -726,7 +749,7 @@ export function generateOfferHtml(
         Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.
       </p>
     </div>
-  </div>
+  </div>` : ''}
 
   <!-- 5. TEKLİF EKLERİ VE GÖRSELLERİ (IF ANY) -->
   ${uploadedImages && uploadedImages.length > 0 ? `
@@ -744,6 +767,7 @@ export function generateOfferHtml(
   ` : ''}
 
   <!-- 6. KURUMSAL TAAHHÜTLER VE HUKUKI KORUMA PROTOKOLÜ -->
+  ${showLegalTaahhut ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">6. Kurumsal Taahhütler ve Hukuki Koruma Protokolü</div>
     <div class="grid-3">
@@ -783,11 +807,17 @@ export function generateOfferHtml(
           Ödeme planına uyulduğu sürece artışlar maliklere yansıtılamaz. Malik kusurlu gecikmelerinde ise maliyetler revize edilir.
         </p>
       </div>
+      <div class="card-muted" style="border-left:3px solid #f59e0b; margin-bottom:8px;">
+        <div style="font-weight:bold;font-size:10px;color:#78350f;margin-bottom:2px;">🛡️ Ödeme Güvenliği & Darboğaz Koruması</div>
+        <p style="font-size:8.5px;color:#475569;margin:0;line-height:1.35;">
+          Devlet desteği/kredi gecikmelerinde inşaatın durmaması için malikler öz kaynakla finansman sağlamayı, gecikme durumunda müteahhitin işi durdurma yetkisini kabul ederler.
+        </p>
+      </div>
     </div>
     <div style="margin-top:4px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:8.5px;color:#64748b;line-height:1.4;">
       <strong>📌 Mücbir Sebep & Resmi Süreç Bilgilendirmesi:</strong> Belirtilen teslim süresi, belediye yapı ruhsatının kesinleştiği tarihten itibaren başlar. Doğal afetler, resmî kurum (Belediye, Bakanlık vb.) imar onay veya askı süreçleri ve altyapı sağlayıcı kurumların (İSKİ, İGDAŞ, BEDAŞ vb.) resmî onay süreçlerindeki gecikmeler yasal olarak süreye ilave edilir.
     </div>
-  </div>
+  </div>` : ''}
 
   <!-- TEKLİF EK MADDELERİ VE ÖZEL HÜKÜMLER -->
   ${params.additionalOfferClauses && params.additionalOfferClauses.length > 0 ? `
@@ -804,6 +834,7 @@ export function generateOfferHtml(
   ` : ''}
 
   <!-- 7. YETKİLİ İMZA VE KAŞE PROTOKOLÜ -->
+  ${showContractorSignature ? `
   <div class="avoid-break" style="margin-top:16px;border-top:2px solid #0f172a;padding-top:14px;">
     <div class="grid-2">
       <!-- CLIENTS SIGNATURE -->
@@ -859,7 +890,7 @@ export function generateOfferHtml(
         <div style="color:#64748b;font-size:9px;">Tarih: ${proposalDate}</div>
       </div>
     </div>
-  </div>
+  </div>` : ''}
 </body>
 </html>`;
 }

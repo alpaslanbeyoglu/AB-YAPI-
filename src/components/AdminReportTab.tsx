@@ -60,7 +60,7 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
   <meta charset="UTF-8">
   <title>${compName} - İç Maliyet ve Finans Raporu</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; color: #111; max-width: 1000px; margin: 0 auto; line-height: 1.7; font-size: 13px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; color: #111; width: 100%; max-width: 100%; margin: 0 auto; line-height: 1.7; font-size: 13px; }
     h2 { color: #d9534f; text-align: left; }
     h3 { color: #1f7a7a; border-bottom: 2px solid #1f7a7a; padding-bottom: 4px; margin-top: 25px; font-size: 14px; text-transform: uppercase; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
@@ -113,6 +113,14 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
       <th>Kümülatif Kasa Durumu</th>
     </tr>
     ${cashFlowRowsHtml}
+  </table>
+
+  <h3>3. ÖDEME VE FİNANSAL GÜVENLİK ÖNLEMLERİ</h3>
+  <table>
+    <tr><th>Önlem Kalemi</th><th>Detay ve Uygulama</th></tr>
+    <tr><td>Hibe/Kredi Gecikme Garantisi</td><td>Kamu ödemelerindeki gecikmelerde malikler öz kaynak ikamesi sağlamakla yükümlüdür (Sözleşme m. 6.1).</td></tr>
+    <tr><td>Hakediş Odaklı Yapım</td><td>İmalat bedelleri yapı denetim vizelerine göre serbest bırakılarak finansal risk minimize edilmiştir.</td></tr>
+    <tr><td>Maliyet Artış Koruması</td><td>Olağanüstü maliyet artışlarında (%20+) taraflar revizyon için bir araya gelme taahhüdü verir (Sözleşme m. 6.3).</td></tr>
   </table>
 
   <br><br>
@@ -296,10 +304,41 @@ export const AdminReportTab: React.FC<AdminReportTabProps> = ({
             </div>
           </div>
 
-          {/* Section 3 */}
+          {/* Section 3: Financial Security */}
+          <div>
+            <h3 className="font-semibold text-amber-700 border-b border-slate-200 pb-2 text-xs uppercase mb-3">
+              3. ÖDEME VE FİNANSAL GÜVENLİK ÖNLEMLERİ
+            </h3>
+            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-amber-50 text-amber-900">
+                  <tr>
+                    <th className="p-3 border-b border-slate-200 font-semibold">Önlem Kalemi</th>
+                    <th className="p-3 border-b border-slate-200 font-semibold">Detay ve Uygulama</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  <tr className="hover:bg-slate-50">
+                    <td className="p-3 font-semibold text-slate-900">Hibe/Kredi Gecikme Garantisi</td>
+                    <td className="p-3 text-slate-700">Kamu ödemelerindeki gecikmelerde malikler öz kaynak ikamesi sağlamakla yükümlüdür (Sözleşme m. 6.1).</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50">
+                    <td className="p-3 font-semibold text-slate-900">Hakediş Odaklı Yapım</td>
+                    <td className="p-3 text-slate-700">İmalat bedelleri yapı denetim vizelerine göre serbest bırakılarak finansal risk minimize edilmiştir.</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50">
+                    <td className="p-3 font-semibold text-slate-900">Maliyet Artış Koruması</td>
+                    <td className="p-3 text-slate-700">Olağanüstü maliyet artışlarında (%20+) taraflar revizyon için bir araya gelme taahhüdü verir (Sözleşme m. 6.3).</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 4 */}
           <div>
             <h3 className="font-semibold text-indigo-700 border-b border-slate-200 pb-2 text-xs uppercase mb-3">
-              3. AŞAMA BAZLI KASA VE NAKİT AKIŞ PERFORMANSI
+              4. AŞAMA BAZLI KASA VE NAKİT AKIŞ PERFORMANSI
             </h3>
             <div className="overflow-x-auto rounded-2xl border border-slate-200">
               <table className="w-full text-left text-xs border-collapse">

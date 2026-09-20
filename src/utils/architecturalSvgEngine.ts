@@ -46,6 +46,12 @@ export interface DrawingProjectData {
     description?: string;
   }>;
   roomType?: string;
+  basementConfig?: Array<{
+    id: string;
+    type: 'commercial_shop' | 'residential' | 'shelter' | 'parking' | 'storage';
+    count: number;
+    description?: string;
+  }>;
 }
 
 export type DrawingType = 'floor_plan' | 'facade_elevation' | 'ground_shop' | '3d_isometric';
@@ -1875,10 +1881,18 @@ function renderFacadeElevationSvg(
   if (hasBasement) {
     for (let b = 1; b <= basementCount; b++) {
       const bY = groundY + (b - 1) * floorHeightPx;
+      
+      // Detailed basement label if config exists
+      let basementLabel = `BODRUM KAT (${b})`;
+      if (projectData.basementConfig && projectData.basementConfig.length > 0) {
+        const units = projectData.basementConfig.map(u => `${u.count} ${u.type === 'commercial_shop' ? 'İşyeri' : u.type === 'residential' ? 'Konut' : u.type === 'shelter' ? 'Sığınak' : u.type === 'parking' ? 'Otopark' : 'Depo'}`).join(', ');
+        basementLabel = `${b}. BODRUM: ${units}`;
+      }
+
       content += `
         <!-- Basement Level -${b} -->
         <rect x="${startX}" y="${bY}" width="${bldgW}" height="${floorHeightPx}" fill="${colors.wallFill}" stroke="${colors.wallStroke}" stroke-width="1.5" />
-        <text x="${startX + 15}" y="${bY + floorHeightPx / 2}" class="dim-text" fill="${colors.textSecondary}">-${(b * 3).toFixed(2)}m BODRUM KAT (${b})</text>
+        <text x="${startX + 15}" y="${bY + floorHeightPx / 2 + 4}" class="dim-text" font-size="9" fill="${colors.textSecondary}">-${(b * 3).toFixed(2)}m ${basementLabel}</text>
       `;
     }
   }

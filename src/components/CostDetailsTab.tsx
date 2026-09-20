@@ -84,7 +84,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isCostSettingsOpen, setIsCostSettingsOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'kaba' | 'ince' | 'tesisat' | 'resmi' | 'ortak'>('kaba');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'kaba' | 'ince' | 'tesisat' | 'resmi' | 'ortak' | 'guvence'>('kaba');
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
 
   // Live Market Data States (2026 Verified Market Baseline)
@@ -631,6 +631,43 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         total: Math.max(0, params.manualEqualExtraCost || 0),
         laborShare: 0,
       },
+      // ZEMİN & ENFLASYON GÜVENCE GİDERLERİ
+      ...(params.hasSoilImprovement && results.soilImprovementCost ? [
+        {
+          id: 'k_soil_improvement',
+          category: 'kaba' as const,
+          name: `Zemin İyileştirme Uygulaması (${params.soilImprovementType === 'jet_grouting' ? 'Jet Grouting' : params.soilImprovementType === 'bored_pile' ? 'Fore Kazık' : 'Ankrajlı İksa'})`,
+          unit: 'm²',
+          quantity: results.baseArea || results.activeBaseArea || Math.round(totalArea * 0.3),
+          unitPrice: params.soilImprovementCostPerBaseM2 ?? 1800,
+          total: results.soilImprovementCost,
+          laborShare: 50,
+        } as MaterialTakeoffItem
+      ] : []),
+      ...(params.soilImprovementFixedCost ? [
+        {
+          id: 'k_soil_fixed',
+          category: 'kaba' as const,
+          name: 'Zor Kazı / Kaya Kırıcı / Ekstra Hafriyat Sabit Bedeli',
+          unit: 'Götürü',
+          quantity: 1,
+          unitPrice: params.soilImprovementFixedCost,
+          total: params.soilImprovementFixedCost,
+          laborShare: 50,
+        } as MaterialTakeoffItem
+      ] : []),
+      ...(params.hasInflationBuffer && results.inflationBufferAmount ? [
+        {
+          id: 'o_inflation_buffer',
+          category: 'ortak' as const,
+          name: `Fiyat İstikrar Sigortası / Enflasyon Risk Payı (%${params.inflationBufferRate || 15})`,
+          unit: 'Risk Payı',
+          quantity: 1,
+          unitPrice: results.inflationBufferAmount,
+          total: results.inflationBufferAmount,
+          laborShare: 50,
+        } as MaterialTakeoffItem
+      ] : []),
     ];
   }, [
     params,
@@ -1199,6 +1236,15 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
               >
                 Ortak Gider (Eşit Dağıtılan)
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveSettingsTab('guvence')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  activeSettingsTab === 'guvence' ? 'bg-rose-600 text-white shadow-xs' : 'text-rose-600 hover:text-rose-900 hover:bg-rose-50'
+                }`}
+              >
+                🛡️ Güvence & Risk (Zemin/Enflasyon)
+              </button>
             </div>
           </div>
 
@@ -1549,6 +1595,150 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
                   />
                   <span className="text-[9px] text-slate-400 mt-0.5 block">Tüm maliklere (müteahhit hariç arsa sahiplerine) eşit dağıtılır.</span>
+                </div>
+              </div>
+            )}
+
+            {activeSettingsTab === 'guvence' && (
+              <div className="space-y-6">
+                {/* 1. Zemin ve Temel Güvencesi */}
+                <div className="p-4 rounded-xl border border-rose-100 bg-rose-50/20 space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-rose-100">
+                    <span className="text-sm font-extrabold text-rose-950">🌍 Zemin Sınıfı & Ekstra Temel Güçlendirme Önlemleri</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                        Zemin Grubu / Sınıfı
+                      </label>
+                      <select
+                        value={params.soilType || 'solid'}
+                        onChange={(e) => updateParam('soilType', e.target.value as any)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold focus:outline-none focus:border-indigo-600 bg-white"
+                      >
+                        <option value="solid">Sağlam Zemin (Kaya, Sert Kil - İlave Maliyetsiz)</option>
+                        <option value="medium">Orta Sert Zemin (Demir & Beton %5 Artışlı)</option>
+                        <option value="weak">Zayıf Zemin (Alüvyon/Yumuşak Kil - Demir & Beton %15 Artışlı)</option>
+                      </select>
+                      <span className="text-[9px] text-slate-400 mt-1 block">Zemin taşıma gücüne göre betonarme kesitleri otomatik büyütülür.</span>
+                    </div>
+
+                    <div className="flex flex-col justify-center">
+                      <div className="flex items-center gap-2 py-2">
+                        <input
+                          type="checkbox"
+                          id="hasSoilImprovement"
+                          checked={!!params.hasSoilImprovement}
+                          disabled={params.soilType === 'solid'}
+                          onChange={(e) => updateParam('hasSoilImprovement', e.target.checked)}
+                          className="h-4 w-4 text-rose-600 focus:ring-rose-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="hasSoilImprovement" className="text-xs font-bold text-slate-700 cursor-pointer">
+                          Zemin İyileştirme Uygulansın
+                        </label>
+                      </div>
+                      <span className="text-[9px] text-slate-400 block">Zayıf/Orta zeminlerde kazık veya enjeksiyon zorunluluğu için emniyet payı.</span>
+                    </div>
+
+                    {params.hasSoilImprovement && params.soilType !== 'solid' && (
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                          İyileştirme / Kazık Yöntemi
+                        </label>
+                        <select
+                          value={params.soilImprovementType || 'none'}
+                          onChange={(e) => updateParam('soilImprovementType', e.target.value as any)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold focus:outline-none focus:border-indigo-600 bg-white"
+                        >
+                          <option value="none">Seçilmedi (0 ₺)</option>
+                          <option value="jet_grouting">Jet Grouting (Çimento Enjeksiyonu)</option>
+                          <option value="bored_pile">Fore Kazık Sistemi (Raft Öncesi)</option>
+                          <option value="anchorage">Ankrajlı İksa / İstinat Çeperi</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {params.hasSoilImprovement && params.soilType !== 'solid' && (
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                          Metrekare Birim Maliyeti (₺/Taban m²)
+                        </label>
+                        <input
+                          type="number"
+                          value={params.soilImprovementCostPerBaseM2 ?? 1800}
+                          onChange={(e) => updateParam('soilImprovementCostPerBaseM2', Math.max(0, Number(e.target.value) || 0))}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                        />
+                        <span className="text-[9px] text-slate-400 mt-1 block">Taban oturum alanına göre hesaplanır.</span>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                        Beklenmedik Zemin/Kazı Ek Gideri (₺ Sabit)
+                      </label>
+                      <input
+                        type="number"
+                        value={params.soilImprovementFixedCost ?? 0}
+                        onChange={(e) => updateParam('soilImprovementFixedCost', Math.max(0, Number(e.target.value) || 0))}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                      />
+                      <span className="text-[9px] text-slate-400 mt-1 block">Kaya kırıcı (hidrolik çekiç) kiralama, zor nakliye vb. ek giderler.</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Enflasyon ve Risk Rezervi */}
+                <div className="p-4 rounded-xl border border-amber-100 bg-amber-50/20 space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-amber-100">
+                    <span className="text-sm font-extrabold text-amber-950">📈 Enflasyon, Malzeme Artışı & Risk Güvence Havuzu</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 py-2">
+                        <input
+                          type="checkbox"
+                          id="hasInflationBuffer"
+                          checked={!!params.hasInflationBuffer}
+                          onChange={(e) => updateParam('hasInflationBuffer', e.target.checked)}
+                          className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="hasInflationBuffer" className="text-xs font-bold text-slate-700 cursor-pointer">
+                          Fiyat İstikrar Sigortası / Enflasyon Risk Payı Ekle
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Yapım süresi boyunca oluşabilecek beklenmedik demir, beton ve işçilik fiyat artışlarına karşı maliyeti sigortalayan emniyet payıdır. Projenin genel bütçesine eklenebilir veya devre dışı bırakılabilir.
+                      </p>
+                    </div>
+
+                    {params.hasInflationBuffer && (
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block text-[10px] font-bold text-slate-600 uppercase">
+                            Risk Payı Oranı (%)
+                          </label>
+                          <span className="text-xs font-extrabold text-amber-700 font-mono">%{params.inflationBufferRate ?? 15}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="5"
+                          max="50"
+                          step="5"
+                          value={params.inflationBufferRate ?? 15}
+                          onChange={(e) => updateParam('inflationBufferRate', Number(e.target.value))}
+                          className="w-full accent-amber-600"
+                        />
+                        <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                          <span>%5 (Minimum Risk)</span>
+                          <span>%15 (Dengeli Piyasa)</span>
+                          <span>%50 (Yüksek Enflasyon)</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

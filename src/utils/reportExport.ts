@@ -341,7 +341,7 @@ export function generateOfferHtml(
   <style>
     @page {
       size: A4 portrait;
-      margin: 12mm 10mm 15mm 10mm;
+      margin: 20mm 12mm 20mm 12mm;
       @bottom-right {
         content: "Sayfa " counter(page) " / " counter(pages);
         font-size: 9px;
@@ -362,7 +362,8 @@ export function generateOfferHtml(
       padding: 0;
       margin: 0 auto;
       color: #0f172a;
-      max-width: 960px;
+      width: 100%;
+      max-width: 100%;
       line-height: 1.45;
       font-size: 11px;
       background: #ffffff;
@@ -719,7 +720,8 @@ export function generateContractHtml(
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       padding: 0;
       color: #0f172a;
-      max-width: 960px;
+      width: 100%;
+      max-width: 100%;
       margin: 0 auto;
       line-height: 1.5;
       font-size: 11px;
@@ -785,26 +787,34 @@ export function generateContractHtml(
     `}
     <h4>MADDE 5: HAKEDİŞ VE YAPI DENETİM VİZELERİ</h4>
     <p>Hakediş ödemelerinin serbest bırakılmasında T.C. Çevre, Şehircilik ve İklim Değişikliği Bakanlığı onaylı Yapı Denetim Firması hakediş seviye raporları ile ilgili belediyenin betonarme ve donatı vize tutanakları esas alınır.</p>
+
+    <h4>MADDE 6: FİNANSAL GÜVENLİK VE ÖDEME DARBOĞAZI ÖNLEMLERİ</h4>
+    <ul>
+      <li><strong>6.1. Kamu Desteği Gecikmeleri:</strong> Devlet tarafından sağlanan hibe (Yarısı Bizden vb.) veya düşük faizli kentsel dönüşüm kredilerinin idari veya bürokratik sebeplerle gecikmesi durumunda, ödeme sorumluluğu Arsa Sahiplerine aittir. Gecikme 15 (on beş) günü aştığı takdirde Arsa Sahipleri finansmanı öz kaynaklarıyla sağlamakla yükümlüdür.</li>
+      <li><strong>6.2. İş Durdurma Yetkisi:</strong> Hakediş veya taksit ödemelerinin müteakip 2 (iki) dönem boyunca veya toplamda 30 (otuz) gün süreyle aksaması durumunda Yüklenici, inşaat faaliyetlerini tek taraflı olarak durdurma yetkisine sahiptir. Bu durumda geçen süreler teslim süresine ilave edilir.</li>
+      <li><strong>6.3. Beklenmedik Maliyet Artışları:</strong> Sözleşme tarihinden itibaren TÜİK İnşaat Maliyet Endeksi'nde %20'yi aşan olağanüstü artışlar meydana gelmesi durumunda, taraflar bir araya gelerek birim fiyat revizyonu veya malzeme kalitesi değişikliği konularını iyi niyet çerçevesinde müzakere ederler.</li>
+      <li><strong>6.4. Peşinat Kullanımı:</strong> Alınan peşinatlar, enflasyonist risklere karşı şantiye mobilizasyonu, demir-beton gibi ana kalemlerin ön alımı ve stoklanması için kullanılır.</li>
+    </ul>
   </div>
 
   <div class="avoid-break">
     <h3>BÖLÜM III: SÜRE, İŞ GÜVENLİĞİ, GECİKME TAZMİNATI VE GARANTİLER (TBK m. 478)</h3>
-    <h4>MADDE 6: TESLİM SÜRESİ VE GECİKME TAZMİNATI (CEZAİ ŞART)</h4>
+    <h4>MADDE 7: TESLİM SÜRESİ VE GECİKME TAZMİNATI (CEZAİ ŞART)</h4>
     <p>Proje ve inşaat teslim süresi, inşaat ruhsatının alındığı tarihten itibaren <strong>${res.finalMonths} Ay</strong> olarak kararlaştırılmıştır. İnşaatın taahhüt edilen sürede teslim edilmemesi halinde Yüklenici, gecikilen her ay için her bir bağımsız bölüm başına bölgedeki emsal rayiç kira bedeli tutarında gecikme tazminatını Arsa Sahiplerine ödemeyi kabul ve taahhüt eder.</p>
 
-    <h4>MADDE 7: MÜCBİR SEBEPLER VE SÜRE UZATIMI</h4>
+    <h4>MADDE 8: MÜCBİR SEBEPLER VE SÜRE UZATIMI</h4>
     <p>Deprem, sel, salgın gibi doğal afetler ile T.C. Belediyeleri ve resmî kurumlar nezdinde yürütülen ruhsat/imar planı askı ve itiraz süreçleri, imar planı değişiklikleri ve idari durdurmalar mücbir sebep kabul edilir. Mücbir sebep hallerinde geçen süreler inşaat teslim süresine ilave edilir.</p>
 
-    <h4>MADDE 8: YAPI GARANTİLERİ VE TEKNİK SORUMLULUK (TBK m. 478)</h4>
+    <h4>MADDE 9: YAPI GARANTİLERİ VE TEKNİK SORUMLULUK (TBK m. 478)</h4>
     <p>Taşıyıcı betonarme sistemde <strong>20 Yıl</strong>, ince işçilik ve su/ısı yalıtımında <strong>5 Yıl</strong>, mekanik/asansör ve elektronik donatılarda <strong>2 Yıl</strong> garanti geçerlidir.</p>
 
-    <h4>MADDE 9: KAT İRTİFAKI VE MÜLKİYET DEVRİ</h4>
+    <h4>MADDE 10: KAT İRTİFAKI VE MÜLKİYET DEVRİ</h4>
     <p>Kat irtifakı ve kat mülkiyeti kurulması işlemleri Yüklenici tarafından takip edilir, mevzuat harç ve masrafları taraflarca anlaşılan usulde karşılanır.</p>
 
-    <h4>MADDE 10: UYUŞMAZLIKLARIN ÇÖZÜMÜ</h4>
+    <h4>MADDE 11: UYUŞMAZLIKLARIN ÇÖZÜMÜ</h4>
     <p>İşbu sözleşmeden doğacak tüm uyuşmazlıklarda <strong>${params.projectAddress?.split('/')[0] || 'Yerel'} Mahkemeleri ve İcra Daireleri</strong> yetkilidir.</p>
     ${params.customContractNotes ? `
-    <h4>MADDE 11: İLAVE ÖZEL ŞARTLAR VE HÜKÜMLER</h4>
+    <h4>MADDE 12: İLAVE ÖZEL ŞARTLAR VE HÜKÜMLER</h4>
     <p style="white-space:pre-wrap;background:#f8fafc;padding:8px 10px;border-left:3px solid #0f172a;font-family:monospace;font-size:10px;color:#1e293b;">${params.customContractNotes}</p>
     ` : ''}
   </div>

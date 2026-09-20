@@ -39,6 +39,7 @@ import {
   Wind,
   Bath,
   Sliders,
+  Settings2,
   Fan,
   ChefHat,
   Lock,
@@ -87,6 +88,13 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const [aiPromptText, setAiPromptText] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiGeneratedSummary, setAiGeneratedSummary] = useState<{
+    projectName: string;
+    clauseCount: number;
+    intro: string;
+    features: string[];
+    months: number;
+  } | null>(null);
 
   // Unit & Floor Configurator Modal State
   const [isUnitConfigOpen, setIsUnitConfigOpen] = useState(false);
@@ -158,11 +166,35 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           ...(p.projectModel ? { projectModel: p.projectModel } : {}),
           ...(p.contractorShareRate ? { contractorShareRate: Number(p.contractorShareRate) } : {}),
           ...(p.transformationStatus ? { transformationStatus: p.transformationStatus } : {}),
+          ...(p.manualMonths ? { manualMonths: Number(p.manualMonths), durationOption: 'manual' } : {}),
+          ...(p.introExplanation ? { introExplanation: p.introExplanation, showIntroPresentation: true } : {}),
+          ...(p.customContractNotes ? { customContractNotes: p.customContractNotes } : {}),
+          ...(p.hasUnderfloorHeating !== undefined ? { hasUnderfloorHeating: !!p.hasUnderfloorHeating } : {}),
+          ...(p.hasWaterFiltration !== undefined ? { hasWaterFiltration: !!p.hasWaterFiltration } : {}),
+          ...(p.hasLinearShowerDrain !== undefined ? { hasLinearShowerDrain: !!p.hasLinearShowerDrain } : {}),
+          ...(p.hasSmartDoorLock !== undefined ? { hasSmartDoorLock: !!p.hasSmartDoorLock } : {}),
+          ...(p.hasAcOption !== undefined ? { hasAcOption: !!p.hasAcOption } : {}),
           ...(p.additionalOfferClauses && Array.isArray(p.additionalOfferClauses) ? { additionalOfferClauses: p.additionalOfferClauses } : {}),
         });
       }
+
+      const detectedFeatures: string[] = [];
+      if (p.hasUnderfloorHeating) detectedFeatures.push("Yerden Isıtma");
+      if (p.hasWaterFiltration) detectedFeatures.push("Su Arıtma");
+      if (p.hasLinearShowerDrain) detectedFeatures.push("Lineer Duş Süzgeci");
+      if (p.hasSmartDoorLock) detectedFeatures.push("Akıllı Kapı Kilidi");
+      if (p.hasAcOption) detectedFeatures.push("Klima Altyapısı");
+      if (p.hasGroundFloorShop) detectedFeatures.push(`${p.shopCount || 1} Adet Zemin Dükkan`);
+      if (p.basementPurpose === 'parking') detectedFeatures.push("Kapalı Otopark");
+
+      setAiGeneratedSummary({
+        projectName: p.projectName || 'Kentsel Dönüşüm ve İnşaat Teklifi',
+        clauseCount: p.additionalOfferClauses?.length || 0,
+        intro: p.introExplanation || '',
+        features: detectedFeatures,
+        months: p.manualMonths || 15
+      });
       setAiPromptText('');
-      alert('✨ Yapay zeka metni başarıyla analiz ederek teklif parametrelerini güncelledi. Mevcut resmi teklif şablonu yeni verilere göre yenilendi!');
     } catch (err: any) {
       setAiError(err.message || 'Bir hata oluştu.');
     } finally {
@@ -609,6 +641,13 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               >
                 2. Fatih Destekli Proje
               </button>
+              <button
+                type="button"
+                onClick={() => setAiPromptText("Bağdat Caddesi üzerinde 600 m2 arsa, 200 m2 tabanlı 6 katlı lüks rezidans, katta 2 daire, zemin 2 dükkan, yerden ısıtma, kapalı otopark ve akıllı kilit sistemi.")}
+                className="px-2 py-1 bg-indigo-800/60 hover:bg-indigo-700 text-indigo-100 rounded-lg text-[10px] font-medium transition-all border border-indigo-600/40 cursor-pointer"
+              >
+                3. Lüks Rezidans
+              </button>
             </div>
 
             <button
@@ -630,6 +669,82 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               )}
             </button>
           </div>
+
+          {/* AI Result Feedback and Executive Summary Preview */}
+          {aiGeneratedSummary && (
+            <div className="mt-4 p-4 rounded-2xl bg-indigo-900/90 border border-emerald-500/50 text-white space-y-3 animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-black text-emerald-300 uppercase tracking-wide">
+                    ✨ Mühendislik & Hukuki Şartname Başarıyla Hazırlandı
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAiGeneratedSummary(null)}
+                  className="text-xs text-indigo-300 hover:text-white px-2 py-0.5 rounded-md hover:bg-indigo-800 transition-colors cursor-pointer"
+                >
+                  ✕ Kapat
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+                <div className="bg-indigo-950/70 p-3 rounded-xl border border-indigo-700/50">
+                  <div className="text-[10px] text-indigo-300 font-bold uppercase">Proje & Teslim</div>
+                  <div className="text-white font-bold mt-0.5 truncate">{aiGeneratedSummary.projectName}</div>
+                  <div className="text-[11px] text-indigo-200 mt-1">Anahtar Teslim: <strong>{aiGeneratedSummary.months} Ay</strong></div>
+                </div>
+
+                <div className="bg-indigo-950/70 p-3 rounded-xl border border-indigo-700/50">
+                  <div className="text-[10px] text-indigo-300 font-bold uppercase">Şartname Maddeleri</div>
+                  <div className="text-amber-300 font-bold mt-0.5">
+                    {aiGeneratedSummary.clauseCount} Adet Resmi Madde Üretildi
+                  </div>
+                  <div className="text-[11px] text-indigo-200 mt-1">Deprem, statik, mekanik, ceza ve garanti taahhütleri.</div>
+                </div>
+
+                <div className="bg-indigo-950/70 p-3 rounded-xl border border-indigo-700/50">
+                  <div className="text-[10px] text-indigo-300 font-bold uppercase">Aktif Donanımlar</div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {aiGeneratedSummary.features.length > 0 ? (
+                      aiGeneratedSummary.features.map((f, i) => (
+                        <span key={i} className="px-1.5 py-0.5 bg-emerald-900/60 border border-emerald-600/40 text-emerald-200 text-[10px] rounded-md font-medium">
+                          ✓ {f}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[11px] text-indigo-300">Standart Deprem ve Yapı Paketi</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {aiGeneratedSummary.intro && (
+                <div className="p-3 bg-indigo-950/80 rounded-xl border border-indigo-700/50 text-xs text-indigo-100 italic border-l-4 border-l-amber-400">
+                  <div className="text-[10px] text-amber-300 font-bold not-italic mb-1">
+                    📋 Maliklere Özel Sunum Metni & Yönetici Özeti:
+                  </div>
+                  "{aiGeneratedSummary.intro.slice(0, 260)}..."
+                </div>
+              )}
+
+              <div className="text-[11px] text-indigo-200 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-indigo-800/60">
+                <span>💡 Resmi teklif evrakı, 3D model ve birim hesaplamalar bu verilere göre güncellendi.</span>
+                <a
+                  href="#ek-maddeler"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('ek-maddeler')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="text-amber-400 hover:text-amber-300 underline font-bold cursor-pointer inline-flex items-center gap-1"
+                >
+                  <span>Maddeleri Aşağıda İncele / Düzenle</span>
+                  <span>↓</span>
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -735,9 +850,88 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       </div>
 
       {/* ========================================================
+          TEKLİF RAPORU KART SEÇİMİ VE GÖRÜNÜRLÜK AYARLARI (OFFER ENGINE SECTION SELECTION)
+         ======================================================== */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5 print:hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg">
+                <Settings2 className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-black text-slate-900">Teklif Raporu Kart Seçimi ve Görünürlük Ayarları</h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Resmî teklif raporunda (PDF) hangi bölümlerin yer alacağını buradan özelleştirebilirsiniz. İhtiyaca göre kartları açıp kapatarak raporu sadeleştirebilir veya detaylandırabilirsiniz.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const keys = [
+                  'showProposalHeader', 'showVisionCards', 'showTechnicalSummary', 
+                  'showQualityStandards', 'showInnovativeOptions', 'showDualOfferMatrix', 
+                  'showFinancialSummary', 'showPaymentTimeline', 'showLegalTaahhut', 'showContractorSignature'
+                ];
+                keys.forEach(key => onUpdateParam && onUpdateParam(key as any, true));
+              }}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer"
+            >
+              Tümünü Seç
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const keys = [
+                  'showProposalHeader', 'showVisionCards', 'showTechnicalSummary', 
+                  'showQualityStandards', 'showInnovativeOptions', 'showDualOfferMatrix', 
+                  'showFinancialSummary', 'showPaymentTimeline', 'showLegalTaahhut', 'showContractorSignature'
+                ];
+                keys.forEach(key => onUpdateParam && onUpdateParam(key as any, false));
+              }}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer"
+            >
+              Tümünü Kaldır
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[
+            { key: 'showProposalHeader', label: 'Teklif Başlığı & Künye', desc: 'Raporun üst kısmındaki proje adı ve numarasını gösterir.', icon: '📑' },
+            { key: 'showVisionCards', label: 'Proje Vizyon Kartları', desc: 'Yaşam odaklı tasarım, güvenlik ve şeffaflık kartlarını ekler.', icon: '✨' },
+            { key: 'showTechnicalSummary', label: 'I. Teknik Künye', desc: 'Kat yapısı, birim adedi ve imalat bedeli özetlerini gösterir.', icon: '📐' },
+            { key: 'showQualityStandards', label: 'III. Kalite Standartları', desc: 'Deprem güvenliği ve enerji verimliliği detaylarını ekler.', icon: '🏗️' },
+            { key: 'showInnovativeOptions', label: 'İnovatif Seçenekler', desc: 'Teklif tekli paket ise ekstra konfor donanımlarını gösterir.', icon: '🌀' },
+            { key: 'showDualOfferMatrix', label: 'İkili Karşılaştırma Matrisi', desc: 'İkili teklif sunumunda paket farklarını tablo olarak gösterir.', icon: '📊' },
+            { key: 'showFinancialSummary', label: 'II. Finansal Çerçeve', desc: 'Yatırım tutarı ve finansman modeli özetini ekler.', icon: '💰' },
+            { key: 'showPaymentTimeline', label: 'IV. Ödeme Takvimi', desc: 'İnşaat süresi ve taksitlendirme detaylarını gösterir.', icon: '💳' },
+            { key: 'showLegalTaahhut', label: '6. Hukuki Protokol', desc: 'Yasal garantiler, kira desteği ve noter süreci bilgilerini ekler.', icon: '⚖️' },
+            { key: 'showContractorSignature', label: 'Yetkili İmza & Kaşe', desc: 'Teklifin sonundaki imza ve onay alanlarını gösterir.', icon: '🖋️' },
+          ].map((section) => (
+            <label key={section.key} className="flex items-start gap-3 p-3 bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 rounded-2xl cursor-pointer transition-all select-none group">
+              <input
+                type="checkbox"
+                checked={params[section.key as keyof ProjectParams] !== false}
+                onChange={(e) => onUpdateParam && onUpdateParam(section.key as any, e.target.checked)}
+                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 mt-1 cursor-pointer"
+              />
+              <div className="space-y-0.5">
+                <span className="font-bold text-slate-800 text-[11px] block group-hover:text-indigo-700">
+                  {section.icon} {section.label}
+                </span>
+                <span className="text-[10px] text-slate-500 block leading-tight">{section.desc}</span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* ========================================================
           ADDITIONAL CLAUSES / SPECIAL PROVISIONS EDITOR
          ======================================================== */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 print:hidden">
+      <div id="ek-maddeler" className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 print:hidden scroll-mt-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">

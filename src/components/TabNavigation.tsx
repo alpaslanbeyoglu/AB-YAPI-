@@ -7,6 +7,9 @@ interface TabNavigationProps {
   tabs: TabConfig[];
   onNavigate: (tabId: TabId) => void;
   theme: 'light' | 'gray';
+  internalStep?: number;
+  totalInternalSteps?: number;
+  onInternalStepChange?: (step: number) => void;
 }
 
 export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
@@ -14,67 +17,108 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
   tabs,
   onNavigate,
   theme,
+  internalStep,
+  totalInternalSteps,
+  onInternalStepChange,
 }) => {
   const visibleTabs = tabs.filter(t => t.visible).sort((a, b) => a.order - b.order);
   const currentIndex = visibleTabs.findIndex(t => t.id === activeTab);
   
   if (currentIndex === -1) return null;
 
+  const isGray = theme === 'gray';
+
+  // Wizard logic: If we are in an internal step and not at the boundaries, we navigate internally.
+  const isInternal = internalStep !== undefined && totalInternalSteps !== undefined && onInternalStepChange;
+  
+  const handlePrev = () => {
+    if (isInternal && internalStep > 1) {
+      onInternalStepChange(internalStep - 1);
+    } else {
+      const prevTab = currentIndex > 0 ? visibleTabs[currentIndex - 1] : null;
+      if (prevTab) onNavigate(prevTab.id);
+    }
+  };
+
+  const handleNext = () => {
+    if (isInternal && internalStep < totalInternalSteps) {
+      onInternalStepChange(internalStep + 1);
+    } else {
+      const nextTab = currentIndex < visibleTabs.length - 1 ? visibleTabs[currentIndex + 1] : null;
+      if (nextTab) onNavigate(nextTab.id);
+    }
+  };
+
   const prevTab = currentIndex > 0 ? visibleTabs[currentIndex - 1] : null;
   const nextTab = currentIndex < visibleTabs.length - 1 ? visibleTabs[currentIndex + 1] : null;
 
-  const isGray = theme === 'gray';
+  const showPrev = (isInternal && internalStep > 1) || prevTab;
+  const showNext = (isInternal && internalStep < totalInternalSteps) || nextTab;
+
+  const prevLabel = (isInternal && internalStep > 1) 
+    ? `Adım ${internalStep - 1}` 
+    : (prevTab ? prevTab.shortLabel : '');
+    
+  const nextLabel = (isInternal && internalStep < totalInternalSteps)
+    ? `Adım ${internalStep + 1}`
+    : (nextTab ? nextTab.shortLabel : '');
 
   return (
-    <div className={`mt-8 mb-4 pt-6 border-t flex items-center justify-between gap-2 print:hidden w-full max-w-full overflow-hidden ${
+    <div className={`mt-auto pt-8 pb-10 border-t flex items-center justify-between gap-4 print:hidden w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${
       isGray ? 'border-slate-300' : 'border-slate-200'
     }`}>
       <div className="shrink min-w-0">
-        {prevTab && (
+        {showPrev && (
           <button
             type="button"
-            onClick={() => onNavigate(prevTab.id)}
-            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-2.5 rounded-2xl border transition-all hover:-translate-x-1 group max-w-[160px] sm:max-w-xs cursor-pointer active:scale-95 ${
+            onClick={handlePrev}
+            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3.5 rounded-2xl border transition-all hover:-translate-x-1 group min-w-[120px] sm:min-w-[200px] cursor-pointer active:scale-95 ${
               isGray
                 ? 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-sm'
             }`}
           >
-            <ChevronLeft className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+            <ChevronLeft className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
             <div className="text-left min-w-0">
-              <span className="block text-[8px] sm:text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-0.5">Önceki</span>
-              <span className="block text-xs sm:text-[13px] font-bold text-slate-800 truncate">{prevTab.label.replace(/^\d+\.\s*/, '')}</span>
+              <span className="block text-[8px] sm:text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-0.5">
+                {isInternal && internalStep > 1 ? 'Geri Dön' : 'Önceki Sekme'}
+              </span>
+              <span className="block text-xs sm:text-[14px] font-bold text-slate-800 truncate">{prevLabel}</span>
             </div>
           </button>
         )}
       </div>
 
       <div className="hidden md:flex flex-col items-center shrink-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Süreç İlerleme</span>
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className={`w-2 h-2 rounded-full animate-pulse ${isInternal ? 'bg-amber-500' : 'bg-indigo-500'}`} />
+          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+            {isInternal ? 'Kurulum Aşaması' : 'Genel Süreç'}
+          </span>
         </div>
-        <div className="text-xs font-bold text-slate-600">
-          Adım {currentIndex + 1} / {visibleTabs.length}
+        <div className="text-sm font-black text-slate-700 font-mono">
+          {isInternal ? `${internalStep} / ${totalInternalSteps}` : `${currentIndex + 1} / ${visibleTabs.length}`}
         </div>
       </div>
 
       <div className="shrink min-w-0">
-        {nextTab && (
+        {showNext && (
           <button
             type="button"
-            onClick={() => onNavigate(nextTab.id)}
-            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-2.5 rounded-2xl border transition-all hover:translate-x-1 group max-w-[160px] sm:max-w-xs cursor-pointer active:scale-95 ${
+            onClick={handleNext}
+            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-3.5 rounded-2xl border transition-all hover:translate-x-1 group min-w-[120px] sm:min-w-[200px] cursor-pointer active:scale-95 ${
               isGray
                 ? 'bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-700'
                 : 'bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-700 shadow-md shadow-indigo-600/20'
             }`}
           >
             <div className="text-right min-w-0">
-              <span className="block text-[8px] sm:text-[9px] uppercase tracking-widest text-indigo-200 font-bold mb-0.5">Sonraki</span>
-              <span className="block text-xs sm:text-[13px] font-bold truncate">{nextTab.label.replace(/^\d+\.\s*/, '')}</span>
+              <span className="block text-[8px] sm:text-[9px] uppercase tracking-widest text-indigo-200 font-bold mb-0.5">
+                {isInternal && internalStep < totalInternalSteps ? 'Sıradaki Adım' : 'Sonraki Sekme'}
+              </span>
+              <span className="block text-xs sm:text-[14px] font-bold truncate">{nextLabel}</span>
             </div>
-            <ChevronRight className="w-4 h-4 text-indigo-200 group-hover:translate-x-0.5 transition-transform shrink-0" />
+            <ChevronRight className="w-5 h-5 text-indigo-200 group-hover:translate-x-0.5 transition-transform shrink-0" />
           </button>
         )}
       </div>

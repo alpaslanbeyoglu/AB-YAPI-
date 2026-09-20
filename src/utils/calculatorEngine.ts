@@ -149,6 +149,15 @@ export const DEFAULT_PARAMS: ProjectParams = {
   profitRate: 0,
   isOfferAccepted: false,
 
+  // Zemin ve Enflasyon Varsayılan Değerleri
+  soilType: 'solid',
+  hasSoilImprovement: false,
+  soilImprovementType: 'none',
+  soilImprovementCostPerBaseM2: 1800,
+  soilImprovementFixedCost: 0,
+  hasInflationBuffer: false,
+  inflationBufferRate: 15, // %15 varsayılan risk/enflasyon payı
+
   // Taban Oturumu ve Çoklu Cephe Seçenekleri
   footprintInputMode: 'directArea',
   facadeWidth: 14.0,
@@ -295,10 +304,66 @@ export function synchronizeFlats(
   upperFloorArea?: number,
   basementPurpose?: string,
   basementShopCount: number = 1,
-  basementCount: number = 1
+  basementCount: number = 1,
+  basementConfig?: ProjectParams['basementConfig']
 ): FlatItem[] {
-  const hasBasementCommercial = (basementPurpose === 'commercial_shop' || basementPurpose === 'residential' || basementPurpose === 'shop') && (basementCount || 0) > 0;
-  const activeBasementShopCount = hasBasementCommercial ? Math.max(1, basementShopCount || 1) : 0;
+  const hasBasementCommercial = ((basementPurpose === 'commercial_shop' || basementPurpose === 'residential' || basementPurpose === 'shop') || (basementConfig && basementConfig.some(u => u.type === 'commercial_shop' || u.type === 'residential'))) && (basementCount || 0) > 0;
+  
+  let activeBasementShopCount = 0;
+  const basementUnits: { type: FlatItem['flatType'], name: string, description: string }[] = [];
+
+  if (basementConfig && basementConfig.length > 0 && (basementCount || 0) > 0) {
+    basementConfig.forEach(unit => {
+      for (let j = 0; j < unit.count; j++) {
+        let flatType: FlatItem['flatType'] = 'storage';
+        let defaultName = '';
+        let defaultDesc = '';
+
+        if (unit.type === 'residential') {
+          flatType = 'basement_flat';
+          defaultName = `Bodrum Daire ${basementUnits.length + 1}`;
+          defaultDesc = 'Bodrum Kat Konut Bağımsız Bölüm';
+        } else if (unit.type === 'commercial_shop') {
+          flatType = 'basement_shop';
+          defaultName = `Bodrum İşyeri ${basementUnits.length + 1}`;
+          defaultDesc = 'Bodrum Kat Ticari Bağımsız Bölüm';
+        } else if (unit.type === 'shelter') {
+          flatType = 'shelter';
+          defaultName = `Sığınak ${basementUnits.length + 1}`;
+          defaultDesc = 'Bina Ortak Alan Sığınağı';
+        } else if (unit.type === 'parking') {
+          flatType = 'parking';
+          defaultName = `Otopark ${basementUnits.length + 1}`;
+          defaultDesc = 'Bina Ortak Alan Otoparkı';
+        } else {
+          flatType = 'storage';
+          defaultName = `Depo/Ortak Alan ${basementUnits.length + 1}`;
+          defaultDesc = 'Bina Ortak Alan / Depo';
+        }
+
+        basementUnits.push({
+          type: flatType,
+          name: defaultName,
+          description: unit.description || defaultDesc
+        });
+      }
+    });
+    activeBasementShopCount = basementUnits.length;
+  } else {
+    activeBasementShopCount = hasBasementCommercial ? Math.max(1, basementShopCount || 1) : 0;
+    for (let j = 0; j < activeBasementShopCount; j++) {
+      basementUnits.push({
+        type: basementPurpose === 'residential' ? 'basement_flat' : 'basement_shop',
+        name: activeBasementShopCount === 1 
+          ? (basementPurpose === 'residential' ? '1. Bodrum Kat Daire' : '1. Bodrum Kat İşyeri')
+          : (basementPurpose === 'residential' ? `Bodrum Daire ${j + 1}` : `Bodrum İşyeri ${j + 1}`),
+        description: basementPurpose === 'residential'
+          ? '1. Bodrum Kat Konut Bağımsız Bölüm (Daire)'
+          : '1. Bodrum Kat Ticari Bağımsız Bölüm (İşyeri/Dükkan)'
+      });
+    }
+  }
+
   const activeShopCount = hasGroundFloorShop ? Math.max(1, shopCount || 1) : 0;
   const isMansard = roofType === 'mansard';
   const isDuplex = roofType === 'duplex';
@@ -358,16 +423,13 @@ export function synchronizeFlats(
     let defaultArea = normalFloorFlatAvg;
 
     if (isBasementShopFlat) {
-      flatType = basementPurpose === 'residential' ? 'basement_flat' : 'basement_shop';
+      const bUnit = basementUnits[i];
+      flatType = bUnit.type;
       defaultArea = basementShopAvg;
       calculatedFloor = -1; // 1. Bodrum Kat
       defaultSerefiye = 1.15;
-      defaultName = activeBasementShopCount === 1 
-        ? (basementPurpose === 'residential' ? '1. Bodrum Kat Daire' : '1. Bodrum Kat İşyeri')
-        : (basementPurpose === 'residential' ? `Bodrum Daire ${i + 1}` : `Bodrum İşyeri ${i + 1}`);
-      description = basementPurpose === 'residential'
-        ? '1. Bodrum Kat Konut Bağımsız Bölüm (Daire)'
-        : '1. Bodrum Kat Ticari Bağımsız Bölüm (İşyeri/Dükkan)';
+      defaultName = bUnit.name;
+      description = bUnit.description;
     } else if (isShopFlat) {
       flatType = 'shop';
       defaultArea = shopAvg;
@@ -448,6 +510,9 @@ export function synchronizeFlats(
         landShareNumerator: existing.landShareNumerator !== undefined ? existing.landShareNumerator : Math.round(mergedArea * 10),
         landShareDenominator: existing.landShareDenominator !== undefined ? existing.landShareDenominator : 1000,
         name: mergedName,
+        useTransformationCredit: existing.useTransformationCredit !== undefined ? existing.useTransformationCredit : (transStatus !== 'none'),
+        useGrant: existing.useGrant !== undefined ? existing.useGrant : (transStatus !== 'none'),
+        useCredit: existing.useCredit !== undefined ? existing.useCredit : (transStatus !== 'none'),
       };
     }
 
@@ -459,7 +524,7 @@ export function synchronizeFlats(
       downPayment: 0,
       useTransformationCredit: transStatus !== 'none',
       useGrant: transStatus !== 'none',
-      useCredit: false,
+      useCredit: transStatus !== 'none',
       flatType,
       description,
       floorNumber: calculatedFloor,
@@ -478,8 +543,16 @@ export function calculateFlatCount(params: ProjectParams): number {
   const shopCount = hasShop ? Math.max(1, params.shopCount || 1) : 0;
 
   const basementFloorsCount = Math.max(0, params.basementCount !== undefined && !isNaN(params.basementCount) ? params.basementCount : 1);
-  const hasBasementUnit = (params.basementPurpose === 'commercial_shop' || params.basementPurpose === 'residential' || params.basementPurpose === 'shop') && basementFloorsCount > 0;
-  const basementShopCount = hasBasementUnit ? Math.max(1, params.basementShopCount || 1) : 0;
+  
+  let basementShopCount = 0;
+  if (params.basementConfig && params.basementConfig.length > 0 && basementFloorsCount > 0) {
+    basementShopCount = params.basementConfig
+      .filter(u => u.type === 'commercial_shop' || u.type === 'residential')
+      .reduce((sum, u) => sum + u.count, 0);
+  } else {
+    const hasBasementUnit = (params.basementPurpose === 'commercial_shop' || params.basementPurpose === 'residential' || params.basementPurpose === 'shop') && basementFloorsCount > 0;
+    basementShopCount = hasBasementUnit ? Math.max(1, params.basementShopCount || 1) : 0;
+  }
 
   const isMansard = params.roofType === 'mansard';
   const takenFloors = hasShop ? 1 : 0;
@@ -583,7 +656,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     upperFloorArea,
     params.basementPurpose,
     params.basementShopCount || 1,
-    basementFloorsCount
+    basementFloorsCount,
+    params.basementConfig
   );
 
   // --- OTOPARK HARCI HESAPLAMA MODÜLÜ (Otopark Yönetmeliği 2021 ve Güncel Mevzuat) ---
@@ -705,12 +779,26 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const sgkSalesCost =
     (totalArea * safeSgk + safeInsurance + effectiveFlatCount * safeSalesMarketing) * costMultiplier;
 
+  // --- ZEMİN SINIFI & İYİLEŞTİRME HESAPLARI ---
+  const soilTypeMultiplier = params.soilType === 'weak' ? 1.15 : (params.soilType === 'medium' ? 1.05 : 1.0);
+  
+  let soilImprovementCost = 0;
+  if (params.hasSoilImprovement && params.soilType !== 'solid') {
+    const soilImpType = params.soilImprovementType || 'none';
+    if (soilImpType !== 'none') {
+      const baseM2Cost = params.soilImprovementCostPerBaseM2 ?? 1800;
+      soilImprovementCost = Math.round((activeBaseArea * baseM2Cost) * 100) / 100;
+    }
+  }
+  const extraFixedSoilCost = params.soilImprovementFixedCost || 0;
+  const totalSoilExtraCost = Math.round((soilImprovementCost + extraFixedSoilCost) * costMultiplier * 100) / 100;
+
   // --- KABA İNŞAAT METRAJ & KALEMLERİ ---
-  const concreteM3 = Math.round(totalArea * 0.42 * 100) / 100;
-  const steelTon = Math.round(totalArea * 0.042 * 100) / 100;
+  const concreteM3 = Math.round(totalArea * 0.42 * soilTypeMultiplier * 100) / 100;
+  const steelTon = Math.round(totalArea * 0.042 * soilTypeMultiplier * 100) / 100;
   const brickM2 = Math.round(totalArea * 0.75 * 100) / 100; // İç ve dış tuğla/gazbeton duvar metrajı
-  const formworkM2 = Math.round(totalArea * 2.65 * 100) / 100; // Kalıp yüzey alanı
-  const excavationM3 = Math.round(activeBaseArea * (Math.max(1, basementFloorsCount) * (params.floorHeight || 2.9) + 1.6) * 1.15 * 100) / 100;
+  const formworkM2 = Math.round(totalArea * 2.65 * soilTypeMultiplier * 100) / 100; // Kalıp yüzey alanı
+  const excavationM3 = Math.round(activeBaseArea * (Math.max(1, basementFloorsCount) * (params.floorHeight || 2.9) + 1.6) * 1.15 * soilTypeMultiplier * 100) / 100;
 
   const safePriceConcrete = Math.max(0, params.priceConcrete ?? 3850);
   const safePriceSteel = Math.max(0, params.priceSteel ?? 36200);
@@ -735,8 +823,9 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const costFormworkLab = totalArea * safePriceFormworkLab;
   const costExcavationLab = excavationM3 * safePriceExcavation * 0.6; // Ekskavatör operatör & kamyon şoför işçiliği
 
+  // Zemin iyileştirme maliyetinin %50'si malzeme %50'si işçilik olarak dağıtılır
   const kabaMaterialCost =
-    Math.round((costConcreteMat + costSteelMat + costBrickMat + costExcavationMat) * kabaTypeMult * costMultiplier * 100) / 100;
+    Math.round((costConcreteMat + costSteelMat + costBrickMat + costExcavationMat + totalSoilExtraCost * 0.5) * kabaTypeMult * costMultiplier * 100) / 100;
   
   let kabaLaborCost = 0;
   if (params.useTotalLaborPrice) {
@@ -744,6 +833,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   } else {
     kabaLaborCost = Math.round((costSteelLab + costBrickLab + costFormworkLab + costExcavationLab) * kabaTypeMult * costMultiplier * 100) / 100;
   }
+  kabaLaborCost = Math.round((kabaLaborCost + totalSoilExtraCost * 0.5) * 100) / 100;
+
   const kabaTotalCost = Math.round((kabaMaterialCost + kabaLaborCost) * 100) / 100;
 
   // --- SİSTEMLER & MEKANİK ---
@@ -908,13 +999,19 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const officialLaborCost = Math.round((totalArea * safeSgk * costMultiplier + safeSalesMarketing * effectiveFlatCount * 0.5 * costMultiplier) * 100) / 100;
   const officialMaterialCost = Math.round((officialCombinedCost - officialLaborCost) * 100) / 100;
 
+  // --- ENFLASYON & RİSK PAYI HESABI ---
+  const constructionCostBeforeInflation = officialCost + sgkSalesCost + kabaTotalCost + systemsCost + finishingTotalCost;
+  const inflationBufferAmount = params.hasInflationBuffer
+    ? Math.round(constructionCostBeforeInflation * ((params.inflationBufferRate || 15) / 100) * 100) / 100
+    : 0;
+
   // Genel Malzeme vs İşçilik Toplamları
-  const totalLaborCost = Math.round((kabaLaborCost + fineLaborCost + systemsLaborCost + officialLaborCost) * 100) / 100;
-  const totalMaterialCost = Math.round((kabaMaterialCost + fineMaterialCost + systemsMaterialCost + officialMaterialCost) * 100) / 100;
+  const totalLaborCost = Math.round((kabaLaborCost + fineLaborCost + systemsLaborCost + officialLaborCost + inflationBufferAmount * 0.5) * 100) / 100;
+  const totalMaterialCost = Math.round((kabaMaterialCost + fineMaterialCost + systemsMaterialCost + officialMaterialCost + inflationBufferAmount * 0.5) * 100) / 100;
 
   const subTotalCost =
     Math.round(
-      (officialCost + sgkSalesCost + kabaTotalCost + systemsCost + finishingTotalCost) * 100
+      (constructionCostBeforeInflation + inflationBufferAmount) * 100
     ) / 100;
   const calculatedProfitAmount = Math.round(subTotalCost * (profitRate / 100) * 100) / 100;
   const calculatedGrandTotal = Math.round((subTotalCost + calculatedProfitAmount) * 100) / 100;
@@ -922,8 +1019,17 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const netCostPerSqM = totalArea > 0 ? Math.round((subTotalCost / totalArea) * 100) / 100 : 0;
   const calculatedGrossCostPerSqM = totalArea > 0 ? Math.round((calculatedGrandTotal / totalArea) * 100) / 100 : 0;
 
-  const hasBasementCommercial = params.basementPurpose === 'commercial_shop' && basementFloorsCount > 0;
-  const activeBasementShopCount = hasBasementCommercial ? Math.max(1, params.basementShopCount || 1) : 0;
+  const hasBasementCommercial = ((params.basementPurpose === 'commercial_shop' || params.basementPurpose === 'residential' || params.basementPurpose === 'shop') || (params.basementConfig && params.basementConfig.some(u => u.type === 'commercial_shop' || u.type === 'residential'))) && (basementFloorsCount > 0);
+  
+  let activeBasementShopCount = 0;
+  if (params.basementConfig && params.basementConfig.length > 0 && basementFloorsCount > 0) {
+    params.basementConfig.forEach(unit => {
+      activeBasementShopCount += (unit.count || 0);
+    });
+  } else {
+    activeBasementShopCount = hasBasementCommercial ? Math.max(1, params.basementShopCount || 1) : 0;
+  }
+
   const basementShopTotalArea = activeBasementShopCount > 0 ? activeBaseArea : 0;
   const groundShopTotalArea = params.hasGroundFloorShop ? activeBaseArea : 0;
   const shopArea = groundShopTotalArea + basementShopTotalArea;
@@ -1097,16 +1203,20 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
     const flatType = flat.flatType || 'standard';
     let floorNumber = flat.floorNumber;
+    
     if (floorNumber === undefined) {
       if (flatType === 'shop') {
         floorNumber = 0;
-      } else if (flatType === 'basement_shop') {
-        floorNumber = -1;
+      } else if (flatType === 'basement_shop' || flatType === 'basement_flat' || flatType === 'shelter' || flatType === 'parking' || flatType === 'storage') {
+        floorNumber = -1; // Default to first basement if not specified
       } else if (flatType === 'mansard') {
         floorNumber = floorCount;
       } else {
-        const resIdx = hasShop ? Math.max(0, idx - shopCount) : idx;
-        floorNumber = 1 + Math.floor(resIdx / flatsPerFloor);
+        // Standard residential fallback
+        // Adjust index by skipping basement units and ground floor shops
+        const resIdx = Math.max(0, idx - activeBasementShopCount - shopCount);
+        const resFloorOffset = Math.floor(resIdx / Math.max(1, flatsPerFloor));
+        floorNumber = (hasShop ? 1 : 0) + resFloorOffset;
       }
     } else if (flatType === 'mansard') {
       floorNumber = floorCount; // Kural: Mansart sadece en üst katta olur
@@ -1133,18 +1243,27 @@ export function calculateProject(params: ProjectParams): CalculationResult {
 
     // Balkon Alanı Hesaplama
     let balconyAreaShare = 0;
-    if (flatType === 'shop' || flatType === 'basement_shop') {
+    const isCommercial = flatType === 'shop' || flatType === 'basement_shop';
+    const isCommonArea = flatType === 'shelter' || flatType === 'parking' || flatType === 'storage';
+    // Bodrum katlar ve bodrum tipi bağımsız bölümler (konut dahil) genelde çıkma balkon almaz
+    const isBasement = (floorNumber !== undefined && floorNumber < 0) || flatType === 'basement_flat' || flatType === 'basement_shop';
+
+    if (isCommercial || isCommonArea || isBasement) {
       balconyAreaShare = 0;
     } else if (flatType === 'mansard') {
+      // Mansart katlarda (çatı katı) balkon payı daha yüksek olabilir
       balconyAreaShare = Math.round(flat.area * 0.12 * 100) / 100;
     } else if (flatType === 'duplex') {
       const lowerBalcony = Math.round((flat.area - duplexAddArea) * 0.08 * 100) / 100;
       const roofTerrace = Math.round(duplexAddArea * 0.25 * 100) / 100;
       balconyAreaShare = Math.round((lowerBalcony + roofTerrace) * 100) / 100;
     } else {
+      // Standart Konut / Daire (Zemin veya Üst Katlar)
       if (floorNumber === 0) {
+        // Zemin kat konutları için düşük oranlı balkon payı
         balconyAreaShare = Math.round(flat.area * 0.04 * 100) / 100;
       } else {
+        // 1. Kat ve üzeri tüm konutlar için standart %8 balkon alanı (Kat payları eşitlendiğinde tutarlılık sağlar)
         balconyAreaShare = Math.round(flat.area * 0.08 * 100) / 100;
       }
     }
@@ -1300,6 +1419,14 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     parkingFeeActual,
     parkingFeePerFlat,
     parkingFeeIsKentselDiscount,
+
+    // Zemin & Enflasyon Çıktıları
+    soilTypeMultiplier,
+    soilImprovementCost,
+    totalSoilExtraCost,
+    inflationBufferAmount,
+    constructionCostBeforeInflation,
+    activeBaseArea,
 
     // İnovatif Seçenekler Maliyet Çıktıları
     underfloorHeatingCost,

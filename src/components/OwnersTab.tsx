@@ -102,7 +102,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const [isStagesOpen, setIsStagesOpen] = useState(true);
   const [isSerefiyeOpen, setIsSerefiyeOpen] = useState(true);
   const [isOwnersGridOpen, setIsOwnersGridOpen] = useState(true);
-  const [isBulkControlOpen, setIsBulkControlOpen] = useState(false);
+  const [isBulkControlOpen, setIsBulkControlOpen] = useState(true);
+  const [financialStabilityNotice, setFinancialStabilityNotice] = useState(true);
 
   const updateParam = <K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) => {
     onChangeParams({
@@ -1340,8 +1341,9 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
                         <th className="p-3">Daire / Malik</th>
+                        <th className="p-3 text-right text-indigo-800 bg-indigo-50/30">Peşinat Ödemesi</th>
                         <th className="p-3 text-right">Kalan Net Borç</th>
-                        <th className="p-3 text-right text-indigo-700">1. Ara Ödeme (%25 Kaba)</th>
+                        <th className="p-3 text-right text-indigo-700">1. Ara Ödeme (%25)</th>
                         <th className="p-3 text-right text-purple-700">2. Ara Ödeme (%15 İskân)</th>
                         <th className="p-3 text-right text-slate-700">Taksitlendirilen Bakiye (%60)</th>
                         <th className="p-3 text-right text-emerald-800 font-bold bg-emerald-50/50">
@@ -1366,6 +1368,21 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                     {flat.flatType === 'basement_shop' ? 'BODRUM İŞYERİ' : 'DÜKKAN'}
                                   </span>
                                 )}
+                              </div>
+                            </td>
+                            <td className="p-2 text-right bg-indigo-50/30">
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  value={params.flats.find(f => f.id === flat.id)?.downPayment || 0}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    const fIdx = params.flats.findIndex(f => f.id === flat.id);
+                                    if (fIdx !== -1) handleFlatChange(fIdx, 'downPayment', val);
+                                  }}
+                                  className="w-full text-right font-mono font-bold text-indigo-700 bg-white border border-indigo-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-indigo-400 outline-none text-xs"
+                                />
+                                <span className="absolute left-2 top-1.5 text-[9px] text-indigo-400 font-bold">₺</span>
                               </div>
                             </td>
                             <td className="p-3 text-right font-mono text-slate-900 font-bold">
@@ -1850,15 +1867,15 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsBulkControlOpen(!isBulkControlOpen)}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ml-auto border ${
+                    className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-all cursor-pointer flex items-center gap-2 ml-auto border shadow-sm ${
                       isBulkControlOpen
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                        ? 'bg-indigo-700 text-white border-indigo-700 ring-2 ring-indigo-200'
                         : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
                     }`}
                   >
-                    <Coins className="w-3.5 h-3.5" />
-                    <span>Toplu Hibe / Kredi Ayarları</span>
-                    {isBulkControlOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    <Coins className="w-4 h-4" />
+                    <span>Toplu Ödeme, Peşinat & Hibe Ayarları</span>
+                    {isBulkControlOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
@@ -1880,6 +1897,19 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                     <p className="text-[11px] text-slate-500">
                       Konut ve dükkanlar için hibe ve kredi tutarları ayrı ayrı belirlenir. Daire borcundan önce peşinat, ardından hibe, kalan bakiyeye kredi mahsup edilir.
                     </p>
+                  </div>
+
+                  {/* Financial Security Reminder */}
+                  <div className="bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-lg">
+                    <div className="flex gap-2.5">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-[10px] font-bold text-amber-800 uppercase tracking-tight">Finansal Güvenlik & İş Sürekliliği Hatırlatması</h4>
+                        <div className="mt-0.5 text-[10px] text-amber-700 leading-tight">
+                          Kamu desteklerinin (Hibe/Kredi) gecikmesi durumunda, finansmanın Arsa Sahiplerince (Öz kaynakla) ikame edilmesi sözleşme gereği esastır.
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Toplu Peşinat Belirleme */}

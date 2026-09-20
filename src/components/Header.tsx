@@ -163,30 +163,30 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
 
           {/* User Sign In / Profile and Sync Status */}
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+          <div className="flex items-center gap-2 pl-2 border-l border-slate-200/80">
             {user ? (
               <div className="flex items-center gap-2">
                 <div className="flex flex-col text-right hidden md:flex">
-                  <span className="text-[11px] font-black leading-3 max-w-[120px] truncate text-slate-700">
+                  <span className="text-[11px] font-black leading-3 max-w-[120px] truncate text-slate-800">
                     {user.displayName}
                   </span>
-                  <span className="text-[9px] text-emerald-600 font-bold flex items-center justify-end gap-0.5 mt-0.5">
+                  <span className="text-[9px] text-emerald-600 font-extrabold flex items-center justify-end gap-0.5 mt-0.5">
                     <Cloud className="w-2.5 h-2.5" />
-                    Bulut Aktif
+                    Bulut Senkronize
                   </span>
                 </div>
                 <img
                   src={user.photoURL || 'https://www.gravatar.com/avatar/?d=mp'}
                   alt="Avatar"
-                  className="w-8 h-8 rounded-full border border-slate-200 shadow-xs object-cover"
+                  className="w-8 h-8 rounded-full border-2 border-indigo-100 shadow-xs object-cover"
                   referrerPolicy="no-referrer"
                 />
                 {isAdmin && onOpenAdminLicenses && (
                   <button
                     type="button"
                     onClick={onOpenAdminLicenses}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 font-bold text-xs transition-all active:scale-95 cursor-pointer"
-                    title="Müşteri Lisanslarını Yönet"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-extrabold text-xs transition-all active:scale-95 cursor-pointer shadow-xs"
+                    title="Müşteri ve Kullanıcı Lisanslarını Yönet"
                   >
                     <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
                     <span className="hidden sm:inline">Lisans Paneli</span>
@@ -195,7 +195,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 <button
                   type="button"
                   onClick={signOut}
-                  className="p-1.5 rounded-xl border border-rose-100 hover:bg-rose-50 text-rose-600 transition-all active:scale-95 cursor-pointer"
+                  className="p-1.5 rounded-xl border border-rose-200/80 hover:bg-rose-50 text-rose-600 transition-all active:scale-95 cursor-pointer"
                   title="Bulut Oturumunu Kapat"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -205,8 +205,8 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               <button
                 type="button"
                 onClick={signInWithGoogle}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer"
-                title="Google ile Giriş Yap ve Verilerini Bulutta Yedekle"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer"
+                title="Google Hesabınız ile Giriş Yapın ve Projelerinizi Güvenle Bulutta Saklayın"
               >
                 <LogIn className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Bulut Girişi</span>

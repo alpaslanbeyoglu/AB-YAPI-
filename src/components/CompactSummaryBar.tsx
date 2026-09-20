@@ -23,6 +23,7 @@ interface CompactSummaryBarProps {
 export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({ results, params, theme, onNavigateToItem }) => {
   const isGray = theme === 'gray';
   const [activeView, setActiveView] = useState<'project' | 'financial' | 'all'>('all');
+  const [isCollapsedMobile, setIsCollapsedMobile] = useState<boolean>(false);
 
   const formatNumber = (val: number | undefined, fraction = 0) => {
     if (val === undefined || isNaN(val)) return '0';
@@ -62,6 +63,12 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
   const shopCount = params.hasGroundFloorShop ? (params.shopCount || 1) : 0;
   const normalFlats = results.normalFlats !== undefined ? results.normalFlats : Math.max(0, totalUnits - shopCount);
   const basementCount = params.basementCount || 0;
+  const basementUnitsCount = params.basementConfig?.reduce((sum, u) => sum + u.count, 0) || 0;
+  const basementText = basementUnitsCount > 0 
+    ? ` • ${basementUnitsCount} Bodrum Ünite` 
+    : basementCount > 0 
+      ? ` • ${basementCount} Bodrum` 
+      : '';
 
   // 4. Toplam İnşaat Alanı Bilgileri
   const totalConstructionArea = results.totalArea || 0;
@@ -99,7 +106,7 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
       label: 'KAT & BAĞIMSIZ BÖLÜM',
       value: `Z+${floorCount - 1} Kat • ${totalUnits}`,
       unit: 'Bölüm',
-      subValue: `1 Zemin + ${floorCount - 1} Normal Kat${shopCount > 0 ? ` (${shopCount} Dükkan)` : ''}${basementCount > 0 ? ` • ${basementCount} Bodrum` : ''}`,
+      subValue: `1 Zemin + ${floorCount - 1} Normal Kat${shopCount > 0 ? ` (${shopCount} Dükkan)` : ''}${basementText}`,
       icon: Layers,
       badgeColor: 'bg-purple-50 text-purple-700 border-purple-200/80',
       valueColor: 'text-purple-950',
@@ -168,7 +175,22 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
         isGray ? 'bg-slate-100/95 border-slate-300' : 'bg-white/95 border-slate-200'
       } backdrop-blur-md`}
     >
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2.5 overflow-x-auto no-scrollbar">
+      {/* Mobile Toggle Bar */}
+      <div className="md:hidden flex items-center justify-between px-3 py-1 bg-slate-50/80 border-b border-slate-200/60 text-[10px] font-bold text-slate-500">
+        <span className="flex items-center gap-1 text-slate-700 font-extrabold">
+          <Building2 className="w-3 h-3 text-indigo-600" />
+          Canlı Özet {baseArea} m² • {totalUnits} Daire
+        </span>
+        <button
+          type="button"
+          onClick={() => setIsCollapsedMobile(!isCollapsedMobile)}
+          className="text-indigo-600 hover:text-indigo-800 font-bold px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 cursor-pointer"
+        >
+          {isCollapsedMobile ? 'Özeti Göster ▼' : 'Gizle ▲'}
+        </button>
+      </div>
+
+      <div className={`max-w-7xl mx-auto px-3 sm:px-4 py-1.5 ${isCollapsedMobile ? 'hidden md:flex' : 'flex'} items-center justify-between gap-2.5 overflow-x-auto no-scrollbar`}>
         {/* Sol Grup: Mimari & Yapı Ölçüleri (Kullanıcının talep ettiği taban, çıkma, kat/bölüm, toplam inşaat) */}
         {showProject && (
           <div className="flex items-center gap-2 shrink-0">
