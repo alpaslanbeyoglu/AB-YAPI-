@@ -1365,8 +1365,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       }
     }
 
-    // Bağımsız Bölüm Brüt Alanı (Balkonlar dahil)
-    const grossArea = Math.round((flat.area + balconyAreaShare) * 100) / 100;
+    // Bağımsız Bölüm Brüt Alanı (Girdiğiniz m² verisi doğrudan kat payı brüt alanıdır)
+    const grossArea = Math.round(flat.area * 100) / 100;
 
     // Toplam Brüt Alan (Bağımsız Bölüm Brüt + Ortak Alan Payı)
     const totalGrossArea = Math.round((grossArea + commonAreaShare) * 100) / 100;
