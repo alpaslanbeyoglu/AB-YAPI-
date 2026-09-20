@@ -135,72 +135,75 @@ export function generateOfferHtml(
     const vision = params.companyVision || "Geleneksel inşaat kültürümüzü modern mimari trendlerle zenginleştirerek, müşterilerimiz için hem yüksek kaliteli hem de bütçe dostu, ulaşılabilir ve akılcı yaşam alanları inşa eden öncü bir marka olmaktır.";
 
     const projectList = completedProjects.split('\n').filter(p => p.trim().length > 0).map(p => `
-      <div style="font-size:8.5px; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; padding:4px 8px; border-radius:8px; font-family:sans-serif; box-sizing:border-box; flex: 1 1 calc(50% - 6px); min-width: 140px;">
-        <span style="color:#6b21a8; font-weight:bold; margin-right:4px;">📍</span> ${p.replace(/^\d+[\.\)]\s*/, '')}
+      <div style="font-size:8px; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; padding:4px 7px; border-radius:6px; font-family:sans-serif; box-sizing:border-box; display:flex; align-items:center; gap:5px; overflow:hidden;">
+        <span style="color:#6b21a8; font-weight:bold; font-size:9px; flex-shrink:0;">📍</span>
+        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;">${p.replace(/^\d+[\.\)]\s*/, '')}</span>
       </div>
     `).join('');
 
     historyPageHtml = `
   <!-- FİRMA GEÇMİŞİ VE KURUMSAL PROFİL SAYFASI -->
-  <div style="page-break-after: always; break-after: page; padding: 24px; border: 1px solid #e2e8f0; border-radius: 20px; margin-bottom: 30px; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; min-height: 250mm; box-sizing: border-box;">
+  <div style="page-break-after: always; break-after: page; padding: 22px; border: 1px solid #e2e8f0; border-radius: 18px; margin-bottom: 25px; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; min-height: 240mm; box-sizing: border-box;">
     <div>
       <!-- Logo ve Başlık -->
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b21a8; padding-bottom:15px; margin-bottom:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b21a8; padding-bottom:12px; margin-bottom:16px;">
         <div style="display:flex; align-items:center; gap:12px;">
-          ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px; max-width:130px; object-fit:contain;" />` : ''}
+          ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:46px; max-width:130px; object-fit:contain;" />` : ''}
           <div>
-            <span style="font-size:16px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compName}</span>
-            <div style="font-size:9px; color:#5b21b6; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; font-family:sans-serif; margin-top:2px;">KURUMSAL ŞİRKET PROFİLİ & GEÇMİŞİ</div>
+            <span style="font-size:15px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compName}</span>
+            <div style="font-size:8.5px; color:#5b21b6; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; font-family:sans-serif; margin-top:2px;">KURUMSAL ŞİRKET PROFİLİ & GEÇMİŞİ</div>
           </div>
         </div>
-        <span style="font-size:9.5px; font-weight:bold; padding:4px 10px; background:#f3e8ff; border:1px solid #d8b4fe; color:#6b21a8; border-radius:20px; font-family:sans-serif;">Kurumsal Profil</span>
+        <span style="font-size:9px; font-weight:bold; padding:4px 10px; background:#f3e8ff; border:1px solid #d8b4fe; color:#6b21a8; border-radius:20px; font-family:sans-serif;">Kurumsal Profil</span>
       </div>
 
-      <!-- İki Sütunlu Düzen -->
-      <div style="display:grid; grid-template-columns: 1.15fr 0.85fr; gap:20px; box-sizing: border-box;">
-        <!-- Sol Sütun: Şirket Tarihçesi ve Referans Projeler -->
-        <div style="display:flex; flex-direction:column; gap:15px;">
-          <!-- Şirket Geçmişi -->
-          <div style="background:#faf5ff; border:1px solid #e9d5ff; padding:16px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-            <h3 style="font-size:11.5px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:8px; text-transform:uppercase; border-bottom:1px solid #d8b4fe; padding-bottom:5px; font-family:sans-serif;">🏢 Biz Kimiz? Şirket Tarihçemiz</h3>
-            <p style="font-size:10px; color:#334155; line-height:1.55; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${historyText}</p>
-          </div>
-
-          <!-- Tamamlanan Referans Projeler -->
-          <div style="background:#ffffff; border:1px solid #e2e8f0; padding:16px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-            <h3 style="font-size:11.5px; font-weight:bold; color:#1e1b4b; margin-top:0; margin-bottom:8px; text-transform:uppercase; border-bottom:1px solid #e2e8f0; padding-bottom:5px; font-family:sans-serif;">🏆 Tamamlanan Referans Projeler (Yatay Yerleşim)</h3>
-            <div style="display:flex; flex-wrap:wrap; gap:8px; max-height:300px; overflow-y:auto; padding-top:2px;">
-              ${projectList || '<span style="font-size:9px; color:#94a3b8; font-family:sans-serif;">Henüz eklenmedi.</span>'}
-            </div>
-          </div>
+      <!-- Üst Bölüm: Tarihçe (Sol) ve Misyon/Vizyon (Sağ) -->
+      <div style="display:grid; grid-template-columns: 1.15fr 0.85fr; gap:14px; margin-bottom:14px; box-sizing: border-box;">
+        <!-- Sol Sütun: Şirket Tarihçesi -->
+        <div style="background:#faf5ff; border:1px solid #e9d5ff; padding:14px; border-radius:12px;">
+          <h3 style="font-size:11px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:6px; text-transform:uppercase; border-bottom:1px solid #d8b4fe; padding-bottom:4px; font-family:sans-serif;">🏢 Biz Kimiz? Şirket Tarihçemiz</h3>
+          <p style="font-size:9.5px; color:#334155; line-height:1.5; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${historyText}</p>
         </div>
 
-        <!-- Sağ Sütun: Misyon & Vizyon -->
-        <div style="display:flex; flex-direction:column; gap:15px;">
+        <!-- Sağ Sütun: Misyon, Vizyon & Mühendislik Güvencesi -->
+        <div style="display:flex; flex-direction:column; gap:8px; justify-content:space-between;">
           <!-- Misyonumuz -->
-          <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #6b21a8; padding:16px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-            <h3 style="font-size:11.5px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:6px; text-transform:uppercase; font-family:sans-serif;">🎯 Misyonumuz</h3>
-            <p style="font-size:9.5px; color:#475569; line-height:1.5; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${mission}</p>
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #6b21a8; padding:10px 12px; border-radius:10px;">
+            <h3 style="font-size:10.5px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:4px; text-transform:uppercase; font-family:sans-serif;">🎯 Misyonumuz</h3>
+            <p style="font-size:9px; color:#475569; line-height:1.45; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${mission}</p>
           </div>
 
           <!-- Vizyonumuz -->
-          <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #4f46e5; padding:16px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
-            <h3 style="font-size:11.5px; font-weight:bold; color:#4f46e5; margin-top:0; margin-bottom:6px; text-transform:uppercase; font-family:sans-serif;">🚀 Vizyonumuz</h3>
-            <p style="font-size:9.5px; color:#475569; line-height:1.5; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${vision}</p>
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #4f46e5; padding:10px 12px; border-radius:10px;">
+            <h3 style="font-size:10.5px; font-weight:bold; color:#4f46e5; margin-top:0; margin-bottom:4px; text-transform:uppercase; font-family:sans-serif;">🚀 Vizyonumuz</h3>
+            <p style="font-size:9px; color:#475569; line-height:1.45; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${vision}</p>
           </div>
 
           <!-- Mühendislik Taahhüt -->
-          <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #cbd5e1; padding:12px; border-radius:12px; text-align:center;">
-            <span style="font-size:20px; display:block; margin-bottom:3px;">⭐</span>
-            <strong style="color:#0f172a; font-size:10.5px; display:block; margin-bottom:2px; font-family:sans-serif;">Yüksek Mühendislik Güvencesi</strong>
-            <span style="font-size:8.5px; color:#475569; line-height:1.35; display:block; font-family:sans-serif;">Projelerimiz, İMO üyesi yetkin statikerler ve uzman mimarlar gözetiminde hayata geçirilir.</span>
+          <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #cbd5e1; padding:8px 10px; border-radius:10px; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:16px;">⭐</span>
+            <div>
+              <strong style="color:#0f172a; font-size:9.5px; display:block; font-family:sans-serif;">Yüksek Mühendislik & Kalite Güvencesi</strong>
+              <span style="font-size:8px; color:#475569; line-height:1.3; display:block; font-family:sans-serif;">Projelerimiz, İMO üyesi yetkin statikerler ve mimarlar gözetiminde 1. sınıf inşa edilir.</span>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Alt Bölüm: Tamamlanan Referans Projeler (Sayfaya Tam Yatay Olarak Yayılmış 3 Sütunlu Izgara) -->
+      <div style="background:#ffffff; border:1px solid #e2e8f0; padding:12px 14px; border-radius:12px; box-sizing: border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:5px; margin-bottom:8px;">
+          <h3 style="font-size:10.5px; font-weight:bold; color:#1e1b4b; margin:0; text-transform:uppercase; font-family:sans-serif;">🏆 Tamamlanan Referans Projeler (İstanbul Geneli)</h3>
+          <span style="font-size:8px; color:#6b21a8; font-weight:bold; background:#f3e8ff; padding:2px 8px; border-radius:12px; font-family:sans-serif;">Güven Mirası</span>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; box-sizing: border-box;">
+          ${projectList || '<span style="font-size:8.5px; color:#94a3b8; font-family:sans-serif;">Henüz proje eklenmedi.</span>'}
         </div>
       </div>
     </div>
 
     <!-- Alt Bilgi -->
-    <div style="display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:12px; margin-top:15px; font-family:sans-serif;">
+    <div style="display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px; margin-top:12px; font-family:sans-serif;">
       <span>${compLegal}</span>
       <span>Sayfa II</span>
     </div>

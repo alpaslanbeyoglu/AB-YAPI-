@@ -522,21 +522,33 @@ export default function App() {
       const nextFloorCount = updates.floorCount !== undefined ? updates.floorCount : prev.floorCount;
       const nextFlatsPerFloor = updates.flatsPerFloor !== undefined ? updates.flatsPerFloor : (prev.flatsPerFloor || 2);
       const nextHasShop = updates.hasGroundFloorShop !== undefined ? updates.hasGroundFloorShop : (prev.hasGroundFloorShop || false);
-
-      const resFloors = nextHasShop ? Math.max(0, nextFloorCount - 1) : nextFloorCount;
-
+      const nextShopCount = updates.shopCount !== undefined ? updates.shopCount : (prev.shopCount || 1);
+      const nextBasementCount = updates.basementCount !== undefined ? updates.basementCount : (prev.basementCount !== undefined ? prev.basementCount : 1);
+      const nextBasementPurpose = updates.basementPurpose !== undefined ? updates.basementPurpose : prev.basementPurpose;
+      const nextBasementShopCount = updates.basementShopCount !== undefined ? updates.basementShopCount : (prev.basementShopCount || 1);
+      const nextBasementConfig = updates.basementConfig !== undefined ? updates.basementConfig : prev.basementConfig;
       const roofType = updates.roofType !== undefined ? updates.roofType : (prev.roofType || 'gable');
       const isMansard = roofType === 'mansard';
       const isDuplex = roofType === 'duplex';
-      const extraMansardFlats = isMansard
-        ? (updates.mansardFlatCount && updates.mansardFlatCount > 0
-            ? updates.mansardFlatCount
-            : prev.mansardFlatCount && prev.mansardFlatCount > 0
-            ? prev.mansardFlatCount
-            : Math.max(1, nextFlatsPerFloor))
-        : 0;
+      const nextMansardFlatCount = updates.mansardFlatCount !== undefined ? updates.mansardFlatCount : prev.mansardFlatCount;
 
-      let nextFlatCount = Math.max(1, resFloors * nextFlatsPerFloor + extraMansardFlats);
+      const calcParamsMerged: ProjectParams = {
+        ...prev,
+        ...updates,
+        baseBuildArea: activeBaseArea,
+        floorCount: nextFloorCount,
+        flatsPerFloor: nextFlatsPerFloor,
+        hasGroundFloorShop: nextHasShop,
+        shopCount: nextShopCount,
+        roofType: roofType,
+        mansardFlatCount: nextMansardFlatCount,
+        basementCount: nextBasementCount,
+        basementPurpose: nextBasementPurpose,
+        basementShopCount: nextBasementShopCount,
+        basementConfig: nextBasementConfig,
+      };
+
+      let nextFlatCount = calculateFlatCount(calcParamsMerged);
       if (
         updates.flatCount !== undefined &&
         updates.flatCount > 0 &&
@@ -544,15 +556,21 @@ export default function App() {
         updates.flatsPerFloor === undefined &&
         updates.hasGroundFloorShop === undefined &&
         updates.roofType === undefined &&
-        updates.mansardFlatCount === undefined
+        updates.mansardFlatCount === undefined &&
+        updates.shopCount === undefined &&
+        updates.basementCount === undefined
       ) {
         nextFlatCount = updates.flatCount;
       }
 
+      const footprintResult = calculateFootprint(mergedForFootprint.footprintInputMode, mergedForFootprint);
+      const cantileverInfo = calculateCantileverDetails(calcParamsMerged, activeBaseArea, footprintResult);
+      const upperFloorArea = cantileverInfo.upperFloorArea;
+
       const roofAtticArea = isDuplex
-        ? Math.round(activeBaseArea * 0.65 * 100) / 100
+        ? Math.round(upperFloorArea * 0.65 * 100) / 100
         : isMansard
-        ? Math.round(activeBaseArea * 0.70 * 100) / 100
+        ? Math.round(upperFloorArea * 0.70 * 100) / 100
         : 0;
 
       const synchronizedFlats = synchronizeFlats(
@@ -563,15 +581,15 @@ export default function App() {
         prev.transformationStatus,
         roofType,
         nextFlatsPerFloor,
-        updates.mansardFlatCount || prev.mansardFlatCount,
+        nextMansardFlatCount,
         roofAtticArea,
         nextHasShop,
-        updates.shopCount || prev.shopCount || 1,
-        activeBaseArea,
-        updates.basementPurpose !== undefined ? updates.basementPurpose : prev.basementPurpose,
-        updates.basementShopCount !== undefined ? updates.basementShopCount : (prev.basementShopCount || 1),
-        updates.basementCount !== undefined ? updates.basementCount : (prev.basementCount !== undefined ? prev.basementCount : 1),
-        updates.basementConfig !== undefined ? updates.basementConfig : prev.basementConfig
+        nextShopCount,
+        upperFloorArea,
+        nextBasementPurpose,
+        nextBasementShopCount,
+        nextBasementCount,
+        nextBasementConfig
       );
 
       const sanitizedContractorIds = (updates.contractorFlatIds ?? prev.contractorFlatIds ?? []).filter(

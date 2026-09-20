@@ -102,12 +102,18 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const [tempFlatsPerFloor, setTempFlatsPerFloor] = useState<number>(params.flatsPerFloor || 2);
   const [tempHasShop, setTempHasShop] = useState<boolean>(!!params.hasGroundFloorShop);
   const [tempShopCount, setTempShopCount] = useState<number>(params.shopCount || 1);
+  const [tempBasementCount, setTempBasementCount] = useState<number>(params.basementCount !== undefined ? params.basementCount : 1);
+  const [tempBasementPurpose, setTempBasementPurpose] = useState<string>(params.basementPurpose || 'shelter_depot');
+  const [tempBasementShopCount, setTempBasementShopCount] = useState<number>(params.basementShopCount || 1);
 
   const handleOpenUnitConfig = () => {
     setTempFloorCount(params.floorCount || 5);
     setTempFlatsPerFloor(params.flatsPerFloor || 2);
     setTempHasShop(!!params.hasGroundFloorShop);
     setTempShopCount(params.shopCount || 1);
+    setTempBasementCount(params.basementCount !== undefined ? params.basementCount : 1);
+    setTempBasementPurpose(params.basementPurpose || 'shelter_depot');
+    setTempBasementShopCount(params.basementShopCount || 1);
     setIsUnitConfigOpen(true);
   };
 
@@ -116,6 +122,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     const fpf = overrides?.flatsPerFloor ?? tempFlatsPerFloor;
     const hasShop = overrides?.hasGroundFloorShop ?? tempHasShop;
     const sc = overrides?.shopCount ?? (hasShop ? tempShopCount : 0);
+    const bc = overrides?.basementCount ?? tempBasementCount;
+    const bp = overrides?.basementPurpose ?? tempBasementPurpose;
+    const bsc = overrides?.basementShopCount ?? tempBasementShopCount;
 
     if (onUpdateAllParams) {
       onUpdateAllParams({
@@ -123,7 +132,18 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         flatsPerFloor: fpf,
         hasGroundFloorShop: hasShop,
         shopCount: sc,
+        basementCount: bc,
+        basementPurpose: bp,
+        basementShopCount: bsc,
       });
+    } else if (onUpdateParam) {
+      onUpdateParam('floorCount', fc);
+      onUpdateParam('flatsPerFloor', fpf);
+      onUpdateParam('hasGroundFloorShop', hasShop);
+      onUpdateParam('shopCount', sc);
+      onUpdateParam('basementCount', bc);
+      onUpdateParam('basementPurpose', bp);
+      onUpdateParam('basementShopCount', bsc);
     }
     setIsUnitConfigOpen(false);
   };
@@ -869,30 +889,42 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             <button
               type="button"
               onClick={() => {
-                const keys = [
+                const cardKeys = [
                   'showProposalHeader', 'showVisionCards', 'showTechnicalSummary', 
                   'showQualityStandards', 'showInnovativeOptions', 'showDualOfferMatrix', 
                   'showFinancialSummary', 'showPaymentTimeline', 'showLegalTaahhut', 'showContractorSignature'
-                ];
-                keys.forEach(key => onUpdateParam && onUpdateParam(key as any, true));
+                ] as const;
+                const updates: Partial<ProjectParams> = {};
+                cardKeys.forEach(k => { (updates as any)[k] = true; });
+                if (onUpdateAllParams) {
+                  onUpdateAllParams(updates);
+                } else if (onUpdateParam) {
+                  cardKeys.forEach(k => onUpdateParam(k as any, true));
+                }
               }}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer"
+              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer border border-indigo-200 shadow-2xs active:scale-95"
             >
-              Tümünü Seç
+              ✓ Tümünü Seç
             </button>
             <button
               type="button"
               onClick={() => {
-                const keys = [
+                const cardKeys = [
                   'showProposalHeader', 'showVisionCards', 'showTechnicalSummary', 
                   'showQualityStandards', 'showInnovativeOptions', 'showDualOfferMatrix', 
                   'showFinancialSummary', 'showPaymentTimeline', 'showLegalTaahhut', 'showContractorSignature'
-                ];
-                keys.forEach(key => onUpdateParam && onUpdateParam(key as any, false));
+                ] as const;
+                const updates: Partial<ProjectParams> = {};
+                cardKeys.forEach(k => { (updates as any)[k] = false; });
+                if (onUpdateAllParams) {
+                  onUpdateAllParams(updates);
+                } else if (onUpdateParam) {
+                  cardKeys.forEach(k => onUpdateParam(k as any, false));
+                }
               }}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer"
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer border border-slate-200 shadow-2xs active:scale-95"
             >
-              Tümünü Kaldır
+              ✕ Tümünü Kaldır
             </button>
           </div>
         </div>
@@ -1061,14 +1093,36 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">TAMAMLANAN ÖNCÜ PROJELER (HER SATIRA BİR PROJE):</label>
+                <div className="space-y-1.5 col-span-full">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="text-amber-500">🏆</span> TAMAMLANAN PROJE ADRESLERİ (REFERANSLAR SAYFASINDAN):
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const refreshed = getCompletedProjectsText();
+                          if (onUpdateParam) {
+                            onUpdateParam('companyCompletedProjects', refreshed);
+                          }
+                        }}
+                        className="text-[10px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200 transition-colors flex items-center gap-1 cursor-pointer active:scale-95"
+                        title="Referanslar sayfasındaki güncel projeleri tekrar yükler"
+                      >
+                        🔄 Referanslar Sayfasındaki Tüm Adresleri Yükle
+                      </button>
+                      <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-full">
+                        Yatay 3-4 Sütun
+                      </span>
+                    </div>
+                  </div>
                   <textarea
                     value={params.companyCompletedProjects ?? getCompletedProjectsText()}
                     onChange={(e) => onUpdateParam && onUpdateParam('companyCompletedProjects', e.target.value)}
-                    rows={3}
-                    className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-purple-500 focus:outline-none bg-white text-slate-800 font-mono"
-                    placeholder="1. Proje Adı - Detay\n2. Proje Adı - Detay"
+                    rows={5}
+                    className="w-full text-xs font-semibold px-3 py-2.5 border border-slate-200 rounded-xl focus:border-purple-500 focus:outline-none bg-white text-slate-800 font-mono shadow-2xs leading-relaxed"
+                    placeholder="1. Çınar Sk. No: 2, Cerrahpaşa Mah., Fatih / İstanbul&#10;2. Çınar Sk. No: 14, Cerrahpaşa Mah., Fatih / İstanbul"
                   />
                 </div>
 
@@ -1969,65 +2023,73 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               <span className="text-[10px] font-bold px-3 py-1 bg-purple-50 border border-purple-200 text-purple-700 rounded-full">Kurumsal Profil</span>
             </div>
 
-            {/* Main Grid Content */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Column: History & Projects */}
-              <div className="space-y-6">
-                <div className="bg-purple-50/40 border border-purple-100 p-5 rounded-2xl">
-                  <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider mb-2.5 pb-2 border-b border-purple-100">
+            {/* Top Grid: History & Mission/Vision */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+              {/* Left Column: History */}
+              <div className="bg-purple-50/40 border border-purple-100 p-4.5 rounded-2xl flex flex-col justify-between">
+                <div>
+                  <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider mb-2 pb-1.5 border-b border-purple-100">
                     🏢 Biz Kimiz? Şirket Tarihçemiz
                   </h3>
-                  <p className="text-[11px] text-slate-700 leading-relaxed text-justify whitespace-pre-wrap font-medium">
+                  <p className="text-[10.5px] text-slate-700 leading-relaxed text-justify whitespace-pre-wrap font-medium">
                     {params.companyHistoryText || "1960’lı yıllarda kurucumuz Emin Ahmetbeyoğlu’nun vizyonuyla temelleri atılan inşaat serüvenimiz, yarım asrı aşan tecrübesiyle sektördeki köklü yürüyüşünü sürdürmektedir. İkinci kuşak temsilcilerimiz Faruk Ahmetbeyoğlu ve aile büyüklerimizin öncülüğünde; Laleli, Fatih, Kocamustafapaşa, Silivrikapı, Samatya ve Yedikule gibi İstanbul’un tarihi suriçi bölgelerinde onlarca nitelikli projeye imza atarak şehrin dokusuna kalıcı değerler kattık.\n\n2010’lu yıllarda piyasa dinamiklerindeki değişimleri doğru okuyarak kurumsal yatırımlarımızı sağlık ve tarım gibi stratejik sektörlere de yönlendirdik ve vizyonumuzu daha da genişlettik. Bugün ise edindiğimiz bu çok yönlü kurumsal tecrübe ve artan sektörel talepler doğrultusunda, üçüncü nesil olarak inşaat markamızı çağın gereksinimlerine uygun, dinamik ve yenilikçi bir altyapıyla yeniden yapılandırıyoruz.\n\nGeçmişten aldığımız güven mirasını, geleceğin teknolojileriyle harmanlayarak kaldığımız yerden, daha güçlü bir şekilde üretmeye devam ediyoruz."}
                   </p>
-                </div>
-
-                <div className="bg-white border border-slate-150 p-5 rounded-2xl">
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-2.5 pb-2 border-b border-slate-100">
-                    🏆 Tamamlanan Referans Projeler
-                  </h3>
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5 pl-1">
-                    {(params.companyCompletedProjects || getCompletedProjectsText())
-                      .split('\n')
-                      .filter(p => p.trim().length > 0)
-                      .map((p, idx) => (
-                        <li key={idx} className="text-[9.5px] text-slate-600 leading-normal flex items-start gap-1.5">
-                          <span className="text-purple-600 font-extrabold mt-0.5 shrink-0">•</span>
-                          <span>{p.replace(/^\d+[\.\)]\s*/, '')}</span>
-                        </li>
-                      ))}
-                  </ul>
                 </div>
               </div>
 
               {/* Right Column: Mission, Vision & Assurance */}
-              <div className="space-y-6">
-                <div className="bg-white border-l-4 border-purple-600 p-4 rounded-r-xl border border-y-slate-150 border-r-slate-150">
+              <div className="space-y-3.5 flex flex-col justify-between">
+                <div className="bg-white border-l-4 border-purple-600 p-3.5 rounded-r-xl border border-y-slate-150 border-r-slate-150 shadow-2xs">
                   <h3 className="text-xs font-black text-purple-950 uppercase tracking-wider mb-1">
                     🎯 Misyonumuz
                   </h3>
-                  <p className="text-[11px] text-slate-500 leading-relaxed text-justify whitespace-pre-wrap">
+                  <p className="text-[10.5px] text-slate-600 leading-relaxed text-justify whitespace-pre-wrap">
                     {params.companyMission || "Köklerimizden aldığımız tecrübeyi modern mühendislik çözümlermiyle birleştirerek; insan odaklı, yapısal güvenliği merkeze alan ve yaşam standartlarını daima yukarı taşıyan projeler üretmektir."}
                   </p>
                 </div>
 
-                <div className="bg-white border-l-4 border-indigo-600 p-4 rounded-r-xl border border-y-slate-150 border-r-slate-150">
+                <div className="bg-white border-l-4 border-indigo-600 p-3.5 rounded-r-xl border border-y-slate-150 border-r-slate-150 shadow-2xs">
                   <h3 className="text-xs font-black text-indigo-950 uppercase tracking-wider mb-1">
                     🚀 Vizyonumuz
                   </h3>
-                  <p className="text-[11px] text-slate-500 leading-relaxed text-justify whitespace-pre-wrap">
+                  <p className="text-[10.5px] text-slate-600 leading-relaxed text-justify whitespace-pre-wrap">
                     {params.companyVision || "Geleneksel inşaat kültürümüzü modern mimari trendlerle zenginleştirerek, müşterilerimiz için hem yüksek kaliteli hem de bütçe dostu, ulaşılabilir ve akılcı yaşam alanları inşa eden öncü bir marka olmaktır."}
                   </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-xl text-center border border-slate-200">
-                  <span className="text-lg block mb-1">⭐</span>
-                  <strong className="text-slate-800 text-xs block mb-1">Yüksek Mühendislik Güvencesi</strong>
-                  <span className="text-[10px] text-slate-500 leading-normal block">
-                    Projelerimiz, İMO üyesi yetkin statikerler ve uzman mimarlar gözetiminde, 1. Sınıf malzemelerle hayata geçirilir.
-                  </span>
+                <div className="bg-gradient-to-r from-slate-50 via-purple-50/30 to-indigo-50/20 p-2.5 rounded-xl flex items-center gap-3 border border-slate-200">
+                  <span className="text-xl shrink-0">⭐</span>
+                  <div>
+                    <strong className="text-slate-800 text-[10.5px] block font-bold">Yüksek Mühendislik & Kalite Güvencesi</strong>
+                    <span className="text-[9.5px] text-slate-500 leading-tight block">
+                      Projelerimiz, İMO üyesi yetkin statikerler ve uzman mimarlar gözetiminde 1. sınıf standartlarda inşa edilir.
+                    </span>
+                  </div>
                 </div>
               </div>
+            </div>
+
+            {/* Bottom Full-Width Horizontal Spread: Tamamlanan Referans Projeler */}
+            <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-2xs">
+              <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b border-slate-100">
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-amber-500">🏆</span> Tamamlanan Referans Projeler
+                </h3>
+                <span className="text-[9.5px] text-purple-700 bg-purple-50 font-bold px-2.5 py-0.5 rounded-full border border-purple-100">
+                  İstanbul Geneli Yarım Asırlık Miras
+                </span>
+              </div>
+              <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {(params.companyCompletedProjects || getCompletedProjectsText())
+                  .split('\n')
+                  .filter(p => p.trim().length > 0)
+                  .map((p, idx) => (
+                    <li key={idx} className="text-[9px] text-slate-700 bg-slate-50 border border-slate-150 hover:border-purple-200 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 transition-colors">
+                      <span className="text-purple-600 font-extrabold shrink-0 text-[10px]">📍</span>
+                      <span className="truncate font-medium">{p.replace(/^\d+[\.\)]\s*/, '')}</span>
+                    </li>
+                  ))}
+              </ul>
             </div>
 
             {/* Page Footer */}
@@ -3504,15 +3566,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               {/* Açıklama Callout */}
               <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-100/70 text-[11px] text-amber-900 leading-relaxed space-y-2">
                 <div className="font-bold flex items-center gap-1.5 text-amber-950">
-                  <span>💡</span> Bağımsız Bölüm Hesaplama Rehberi
+                  <span>💡</span> Bağımsız Bölüm & Bodrum Kat Hesaplama Rehberi
                 </div>
                 <p>
-                  Teklifteki daire ve dükkan sayıları; <strong>Kat Sayısı</strong>, <strong>Katta Daire</strong> ve <strong>Zemin Kat Ticari (Dükkan)</strong> durumuna göre otomatik olarak birbirini dengeler:
+                  Teklifteki daire, dükkan ve bodrum kat sayıları; <strong>Kat Sayısı</strong>, <strong>Katta Daire</strong>, <strong>Zemin Dükkan</strong> ve <strong>Bodrum İşlevi</strong> seçeneklerine göre otomatik hesaplanır:
                 </p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li><strong>Zemin+8 Kat (Toplam 9 Kat)</strong>, katta 4 daire ve zemin dükkan ise: <strong>32 Daire + 4 Dükkan (36 Bölüm)</strong> olur.</li>
-                  <li>Eğer bina <strong>zemin dahil toplam 8 kat (Z+7)</strong> ise: 1 Zemin (4 Dükkan) + 7 Normal Kat (28 Daire) = <strong>28 Daire + 4 Dükkan (32 Bölüm)</strong> olur.</li>
-                  <li>Eğer binanızda <strong>hiç dükkan yoksa</strong> ve sadece konut ise: Zemin Kat Dükkan seçeneğini kapatarak doğrudan <strong>32 Daire</strong> yapabilirsiniz.</li>
+                <ul className="list-disc pl-4 space-y-1 text-[10.5px]">
+                  <li><strong>Zemin+8 Kat + 1 Bodrum (Sığınak)</strong>, katta 4 daire ve zemin dükkan ise: <strong>32 Daire + 4 Dükkan (36 Bölüm) + 1 Bodrum Kat</strong> olur.</li>
+                  <li><strong>2 Bodrum Kat (Otopark & Sığınak)</strong> seçilirse: Otopark ve sığınak ortak alan sayılır, dükkan ve daire adetleri ünite sayısına eklenir.</li>
+                  <li><strong>Bodrum Kat İşyeri / Dükkan</strong> seçilirse: Bodrum kattaki bağımsız dükkan sayısı da toplam ticari ünite adedine dahil edilir.</li>
                 </ul>
               </div>
 
@@ -3526,12 +3588,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       flatsPerFloor: 4,
                       hasGroundFloorShop: true,
                       shopCount: 4,
+                      basementCount: 1,
+                      basementPurpose: 'shelter_depot',
+                      basementShopCount: 0,
                     })}
-                    className="p-3 text-left bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/80 hover:border-indigo-200 rounded-xl transition-all flex items-center justify-between group"
+                    className="p-3 text-left bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100/80 hover:border-indigo-200 rounded-xl transition-all flex items-center justify-between group cursor-pointer"
                   >
                     <div>
-                      <div className="text-xs font-bold text-indigo-900 group-hover:text-indigo-700">8 Katlı Yapı (Zemin Dahil Toplam 8 Kat)</div>
-                      <div className="text-[10px] text-indigo-700/80">7 Normal Kat × 4 Daire = 28 Daire + 4 Zemin Dükkan</div>
+                      <div className="text-xs font-bold text-indigo-900 group-hover:text-indigo-700">8 Katlı + 1 Bodrumlu Karma Yapı</div>
+                      <div className="text-[10px] text-indigo-700/80">7 Normal Kat × 4 Daire = 28 Daire + 4 Zemin Dükkan + 1 Bodrum (Sığınak)</div>
                     </div>
                     <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-100 px-2 py-1 rounded font-mono">32 Birim</span>
                   </button>
@@ -3542,12 +3607,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       flatsPerFloor: 4,
                       hasGroundFloorShop: false,
                       shopCount: 0,
+                      basementCount: 1,
+                      basementPurpose: 'parking',
+                      basementShopCount: 0,
                     })}
-                    className="p-3 text-left bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100/80 hover:border-emerald-200 rounded-xl transition-all flex items-center justify-between group"
+                    className="p-3 text-left bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100/80 hover:border-emerald-200 rounded-xl transition-all flex items-center justify-between group cursor-pointer"
                   >
                     <div>
-                      <div className="text-xs font-bold text-emerald-900 group-hover:text-emerald-700">32 Dairelik Saf Konut Projesi (Dükkansız)</div>
-                      <div className="text-[10px] text-emerald-700/80">8 Normal Kat × 4 Daire = 32 Daire • Otopark ve Sığınaklı</div>
+                      <div className="text-xs font-bold text-emerald-900 group-hover:text-emerald-700">32 Dairelik Otoparklı Saf Konut Projesi</div>
+                      <div className="text-[10px] text-emerald-700/80">8 Normal Kat × 4 Daire = 32 Daire + 1 Bodrum (Kapalı Otopark & Sığınak)</div>
                     </div>
                     <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-1 rounded font-mono">32 Daire</span>
                   </button>
@@ -3558,14 +3626,36 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       flatsPerFloor: 4,
                       hasGroundFloorShop: true,
                       shopCount: 4,
+                      basementCount: 2,
+                      basementPurpose: 'parking',
+                      basementShopCount: 0,
                     })}
-                    className="p-3 text-left bg-purple-50/50 hover:bg-purple-50 border border-purple-100/80 hover:border-purple-200 rounded-xl transition-all flex items-center justify-between group"
+                    className="p-3 text-left bg-purple-50/50 hover:bg-purple-50 border border-purple-100/80 hover:border-purple-200 rounded-xl transition-all flex items-center justify-between group cursor-pointer"
                   >
                     <div>
-                      <div className="text-xs font-bold text-purple-900 group-hover:text-purple-700">Zemin + 8 Katlı Yapı (Toplam 9 Kat)</div>
-                      <div className="text-[10px] text-purple-700/80">8 Normal Kat × 4 Daire = 32 Daire + 4 Zemin Dükkan</div>
+                      <div className="text-xs font-bold text-purple-900 group-hover:text-purple-700">Zemin + 8 Kat + 2 Bodrum Kat (Çift Bodrum Otopark)</div>
+                      <div className="text-[10px] text-purple-700/80">8 Normal Kat × 4 Daire = 32 Daire + 4 Zemin Dükkan + 2 Bodrum Kat</div>
                     </div>
                     <span className="text-[10px] font-extrabold text-purple-700 bg-purple-100 px-2 py-1 rounded font-mono">36 Birim</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleApplyUnitConfig({
+                      floorCount: 8,
+                      flatsPerFloor: 4,
+                      hasGroundFloorShop: true,
+                      shopCount: 4,
+                      basementCount: 1,
+                      basementPurpose: 'commercial_shop',
+                      basementShopCount: 2,
+                    })}
+                    className="p-3 text-left bg-amber-50/50 hover:bg-amber-50 border border-amber-200/80 hover:border-amber-300 rounded-xl transition-all flex items-center justify-between group cursor-pointer"
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-amber-900 group-hover:text-amber-800">Bodrum & Zemin Dükkanlı Ticari Yapı</div>
+                      <div className="text-[10px] text-amber-800/80">7 Kat Daire (28 Daire) + 4 Zemin Dükkan + 2 Bodrum Kat Dükkan</div>
+                    </div>
+                    <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100 px-2 py-1 rounded font-mono">34 Birim</span>
                   </button>
                 </div>
               </div>
@@ -3576,7 +3666,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   {/* Kat Sayısı */}
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">🏢 Toplam Kat Sayısı</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">🏢 Toplam Üst Kat Sayısı</label>
                     <input
                       type="number"
                       min={1}
@@ -3603,6 +3693,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   </div>
                 </div>
 
+                {/* Zemin Kat Ticari Seçeneği */}
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/60 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer">
@@ -3612,7 +3703,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         onChange={(e) => setTempHasShop(e.target.checked)}
                         className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
                       />
-                      <span>Zemin Katta Dükkan Var</span>
+                      <span>Zemin Katta Dükkan / İşyeri Var</span>
                     </label>
 
                     {tempHasShop && (
@@ -3625,23 +3716,86 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                           onChange={(e) => setTempShopCount(Math.max(1, parseInt(e.target.value) || 1))}
                           className="w-12 text-[11px] font-bold font-mono px-1.5 py-0.5 rounded border border-slate-300 bg-white"
                         />
-                        <span className="text-[10px] text-slate-500 font-bold">Adet</span>
+                        <span className="text-[10px] text-slate-500 font-bold">Adet Dükkan</span>
                       </div>
                     )}
                   </div>
                 </div>
 
+                {/* BODRUM KAT & ALTYAPI DÜZENİ */}
+                <div className="p-3.5 bg-purple-50/60 rounded-2xl border border-purple-100 space-y-3">
+                  <div className="text-[11px] font-extrabold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🏗️</span> Bodrum Kat Yapısı & Altyapı Seçenekleri
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Bodrum Kat Sayısı */}
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-700 mb-1">Bodrum Kat Sayısı</label>
+                      <select
+                        value={tempBasementCount}
+                        onChange={(e) => setTempBasementCount(parseInt(e.target.value) || 0)}
+                        className="w-full text-xs font-bold px-2.5 py-1.5 rounded-lg border border-purple-200 bg-white font-mono focus:border-purple-500 focus:outline-none cursor-pointer"
+                      >
+                        <option value={0}>Bodrum Kat Yok (0 Kat)</option>
+                        <option value={1}>1 Bodrum Kat (-1. Kat)</option>
+                        <option value={2}>2 Bodrum Kat (-1, -2. Kat)</option>
+                        <option value={3}>3 Bodrum Kat (-1, -2, -3. Kat)</option>
+                        <option value={4}>4 Bodrum Kat (-1... -4. Kat)</option>
+                      </select>
+                    </div>
+
+                    {/* Bodrum Kullanım Amacı */}
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-700 mb-1">Bodrum Kat Kullanım Amacı</label>
+                      <select
+                        value={tempBasementPurpose}
+                        onChange={(e) => setTempBasementPurpose(e.target.value)}
+                        disabled={tempBasementCount === 0}
+                        className="w-full text-xs font-bold px-2.5 py-1.5 rounded-lg border border-purple-200 bg-white focus:border-purple-500 focus:outline-none disabled:opacity-50 cursor-pointer"
+                      >
+                        <option value="shelter_depot">🛡️ Sığınak & Depo / Ortak Alan</option>
+                        <option value="parking">🚗 Kapalı Otopark & Sığınak</option>
+                        <option value="commercial_shop">🏬 Bodrum Kat İşyeri / Dükkan</option>
+                        <option value="basement_flat">🏠 Bodrum Kat Daire / Konut</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Eğer Bodrum Kat İşyeri/Dükkan Seçildiyse */}
+                  {tempBasementCount > 0 && (tempBasementPurpose === 'commercial_shop' || tempBasementPurpose === 'shop') && (
+                    <div className="pt-1 flex items-center justify-between bg-white/90 p-2.5 rounded-xl border border-purple-150">
+                      <span className="text-[10.5px] font-bold text-purple-900">Bodrum Kat İşyeri / Dükkan Adedi:</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={tempBasementShopCount}
+                          onChange={(e) => setTempBasementShopCount(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-14 text-xs font-bold font-mono px-2 py-1 rounded-lg border border-purple-300 bg-white text-center"
+                        />
+                        <span className="text-[10px] text-purple-800 font-bold">Adet Dükkan</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Live Preview Bar */}
-                <div className="p-4 bg-indigo-900 rounded-2xl text-white flex items-center justify-between shadow-inner">
+                <div className="p-4 bg-indigo-900 rounded-2xl text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-inner">
                   <div>
                     <span className="text-[9px] text-indigo-300 uppercase font-black tracking-widest block">Yeni Dağılım Taslağı</span>
-                    <span className="text-sm font-black font-mono">
+                    <span className="text-sm font-black font-mono block">
                       {tempHasShop ? Math.max(1, tempFloorCount - 1) : tempFloorCount} Kat × {tempFlatsPerFloor} Daire = { (tempHasShop ? Math.max(1, tempFloorCount - 1) : tempFloorCount) * tempFlatsPerFloor } Daire
-                      {tempHasShop ? ` + ${tempShopCount} Dükkan` : ''}
+                      {tempHasShop ? ` + ${tempShopCount} Zemin Dükkan` : ''}
+                      {tempBasementCount > 0 && (tempBasementPurpose === 'commercial_shop' || tempBasementPurpose === 'shop') ? ` + ${tempBasementShopCount} Bodrum Dükkan` : ''}
+                    </span>
+                    <span className="text-[10px] text-indigo-200 font-medium block mt-0.5">
+                      Altyapı: {tempBasementCount > 0 ? `${tempBasementCount} Bodrum Kat (${tempBasementPurpose === 'parking' ? 'Kapalı Otopark & Sığınak' : tempBasementPurpose === 'commercial_shop' || tempBasementPurpose === 'shop' ? 'Bodrum Kat İşyeri / Dükkan' : tempBasementPurpose === 'basement_flat' ? 'Bodrum Kat Daire' : 'Sığınak & Depo'})` : 'Bodrum Kat Yok'}
                     </span>
                   </div>
-                  <span className="text-xs font-black bg-indigo-800 border border-indigo-700 px-3 py-1.5 rounded-xl font-mono text-emerald-400">
-                    Toplam {((tempHasShop ? Math.max(1, tempFloorCount - 1) : tempFloorCount) * tempFlatsPerFloor) + (tempHasShop ? tempShopCount : 0)} Ünite
+                  <span className="text-xs font-black bg-indigo-800 border border-indigo-700 px-3 py-1.5 rounded-xl font-mono text-emerald-400 shrink-0">
+                    Toplam {((tempHasShop ? Math.max(1, tempFloorCount - 1) : tempFloorCount) * tempFlatsPerFloor) + (tempHasShop ? tempShopCount : 0) + (tempBasementCount > 0 && (tempBasementPurpose === 'commercial_shop' || tempBasementPurpose === 'shop') ? tempBasementShopCount : 0)} Ünite
                   </span>
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { ProjectParams, CalculationResult, FlatCalcResult, CashFlowRow, FlatItem
 import { calculateNetDebt } from './debtUtils';
 import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint, FootprintCalculationResult } from './footprintUtils';
 import { getAcOptionById } from './acOptions';
+import { getCompletedProjectsText } from './completedProjectsData';
 
 export interface FacadeCantileverDetail {
   index: number;
@@ -272,6 +273,7 @@ export const DEFAULT_PARAMS: ProjectParams = {
     { id: 9, name: 'Kat Maliki 9', tc: '10000000009', area: 50, downPayment: 0, useTransformationCredit: true, useGrant: true, useCredit: false },
     { id: 10, name: 'Kat Maliki 10', tc: '10000000010', area: 50, downPayment: 0, useTransformationCredit: true, useGrant: true, useCredit: false },
   ],
+  companyCompletedProjects: getCompletedProjectsText(),
 };
 
 export function generateInitialFlats(baseArea: number, floorCount: number, flatCount: number, transStatus: string) {
@@ -314,38 +316,24 @@ export function synchronizeFlats(
 
   if (basementConfig && basementConfig.length > 0 && (basementCount || 0) > 0) {
     basementConfig.forEach(unit => {
-      for (let j = 0; j < unit.count; j++) {
-        let flatType: FlatItem['flatType'] = 'storage';
-        let defaultName = '';
-        let defaultDesc = '';
+      // Ortak alanlar (sığınak, otopark, depo) toplam inşaat alanı ve maliyet hesabına tam dahil edilir,
+      // ancak bağımsız konut/ticari birim olmadıklarından ayrı kat planı dairesi olarak üretilmez.
+      if (unit.type === 'residential' || unit.type === 'commercial_shop') {
+        for (let j = 0; j < unit.count; j++) {
+          let flatType: FlatItem['flatType'] = unit.type === 'residential' ? 'basement_flat' : 'basement_shop';
+          let defaultName = unit.type === 'residential'
+            ? `Bodrum Daire ${basementUnits.length + 1}`
+            : `Bodrum İşyeri ${basementUnits.length + 1}`;
+          let defaultDesc = unit.type === 'residential'
+            ? 'Bodrum Kat Konut Bağımsız Bölüm'
+            : 'Bodrum Kat Ticari Bağımsız Bölüm';
 
-        if (unit.type === 'residential') {
-          flatType = 'basement_flat';
-          defaultName = `Bodrum Daire ${basementUnits.length + 1}`;
-          defaultDesc = 'Bodrum Kat Konut Bağımsız Bölüm';
-        } else if (unit.type === 'commercial_shop') {
-          flatType = 'basement_shop';
-          defaultName = `Bodrum İşyeri ${basementUnits.length + 1}`;
-          defaultDesc = 'Bodrum Kat Ticari Bağımsız Bölüm';
-        } else if (unit.type === 'shelter') {
-          flatType = 'shelter';
-          defaultName = `Sığınak ${basementUnits.length + 1}`;
-          defaultDesc = 'Bina Ortak Alan Sığınağı';
-        } else if (unit.type === 'parking') {
-          flatType = 'parking';
-          defaultName = `Otopark ${basementUnits.length + 1}`;
-          defaultDesc = 'Bina Ortak Alan Otoparkı';
-        } else {
-          flatType = 'storage';
-          defaultName = `Depo/Ortak Alan ${basementUnits.length + 1}`;
-          defaultDesc = 'Bina Ortak Alan / Depo';
+          basementUnits.push({
+            type: flatType,
+            name: defaultName,
+            description: unit.description || defaultDesc
+          });
         }
-
-        basementUnits.push({
-          type: flatType,
-          name: defaultName,
-          description: unit.description || defaultDesc
-        });
       }
     });
     activeBasementShopCount = basementUnits.length;

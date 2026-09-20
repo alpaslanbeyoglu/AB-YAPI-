@@ -67,7 +67,7 @@ import { jsPDF } from 'jspdf';
 import { renderElementToCanvas } from '../utils/pdfExport';
 import { AC_PRESET_OPTIONS, getAcOptionById } from '../utils/acOptions';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
-import { calculateCantileverDetails, calculateFlatCount, calculateProject } from '../utils/calculatorEngine';
+import { calculateCantileverDetails, calculateFlatCount, calculateProject, synchronizeFlats } from '../utils/calculatorEngine';
 import {
   POLYGON_PRESETS,
   calculatePolygonArea,
@@ -204,9 +204,13 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const [backupParams, setBackupParams] = useState<ProjectParams | null>(null);
 
   // Group flats by floor for visual consistency and layout logic
+  // KURAL: Ortak alanlar (sığınak, otopark, depo) hesaplamalara tam dahil edilir, ancak kat planı şemalarında bağımsız daire kutusu olarak gösterilmez.
   const groupedFlats = useMemo(() => {
     const groups: Record<number, any[]> = {};
     params.flats.forEach(flat => {
+      if (flat.flatType === 'shelter' || flat.flatType === 'parking' || flat.flatType === 'storage') {
+        return;
+      }
       const floor = flat.floorNumber ?? 0;
       if (!groups[floor]) groups[floor] = [];
       groups[floor].push(flat);
@@ -257,6 +261,102 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const [activeScenario, setActiveScenario] = useState<number | null>(null);
   const [showExistingForm, setShowExistingForm] = useState<boolean>(false);
   const [showManualDataSection, setShowManualDataSection] = useState<boolean>(true);
+  const [equalizeSuccessToast, setEqualizeSuccessToast] = useState<string | null>(null);
+
+  const handleEqualizeFloorAreas = () => {
+    const footprintResult = calculateFootprint(params.footprintInputMode, params);
+    const baseArea = params.baseBuildArea || footprintResult.area;
+    const cantileverInfo = calculateCantileverDetails(params, baseArea, footprintResult);
+    const upperFloorArea = cantileverInfo.upperFloorArea;
+    const roofType = params.roofType || 'gable';
+    const isMansard = roofType === 'mansard';
+    const isDuplex = roofType === 'duplex';
+    const floorCount = Math.max(1, params.floorCount || 5);
+    const flatsPerFloor = Math.max(1, params.flatsPerFloor || 2);
+    const hasShop = !!params.hasGroundFloorShop;
+    const shopCount = hasShop ? Math.max(1, params.shopCount || 1) : 0;
+    
+    const roofAtticArea = isDuplex
+      ? Math.round(upperFloorArea * 0.65 * 100) / 100
+      : isMansard
+      ? Math.round(upperFloorArea * 0.70 * 100) / 100
+      : 0;
+
+    const totalFlats = calculateFlatCount(params);
+
+    const rebalancedFlats = synchronizeFlats(
+      params.flats,
+      totalFlats,
+      baseArea,
+      floorCount,
+      params.transformationStatus,
+      roofType,
+      flatsPerFloor,
+      params.mansardFlatCount,
+      roofAtticArea,
+      hasShop,
+      shopCount,
+      upperFloorArea,
+      params.basementPurpose,
+      params.basementShopCount || 1,
+      params.basementCount !== undefined ? params.basementCount : 1,
+      params.basementConfig
+    );
+
+    const shopAvg = shopCount > 0 ? parseFloat((baseArea / shopCount).toFixed(2)) : 0;
+    const upperFlatAvg = parseFloat((upperFloorArea / flatsPerFloor).toFixed(2));
+    const groundResFlatAvg = parseFloat((baseArea / flatsPerFloor).toFixed(2));
+    const mansardFlats = rebalancedFlats.filter((f) => f.flatType === 'mansard');
+    const mansardCount = mansardFlats.length > 0 ? mansardFlats.length : (params.mansardFlatCount || flatsPerFloor);
+    const mansardAreaShare = mansardCount > 0 && roofAtticArea > 0
+      ? parseFloat((roofAtticArea / mansardCount).toFixed(2))
+      : parseFloat(((upperFloorArea * 0.70) / Math.max(1, flatsPerFloor)).toFixed(2));
+    const duplexAddArea = isDuplex && roofAtticArea > 0
+      ? parseFloat((roofAtticArea / Math.min(flatsPerFloor, rebalancedFlats.filter((f) => f.flatType === 'duplex').length || flatsPerFloor)).toFixed(2))
+      : 0;
+
+    const updatedFlats = rebalancedFlats.map((flat) => {
+      let equalArea = upperFlatAvg;
+      if (flat.flatType === 'shop' || flat.flatType === 'basement_shop') {
+        equalArea = shopAvg;
+      } else if (flat.flatType === 'mansard') {
+        equalArea = mansardAreaShare;
+      } else if (flat.flatType === 'duplex') {
+        equalArea = parseFloat((upperFlatAvg + duplexAddArea).toFixed(2));
+      } else if (flat.floorNumber === 0 && !hasShop) {
+        equalArea = groundResFlatAvg;
+      } else {
+        equalArea = upperFlatAvg;
+      }
+
+      return {
+        ...flat,
+        area: equalArea,
+        landShareNumerator: Math.round(equalArea * 10),
+      };
+    });
+
+    const sanitizedContractorIds = (params.contractorFlatIds || []).filter((id) => id <= totalFlats);
+
+    onChangeParams({
+      ...params,
+      baseBuildArea: baseArea,
+      flatCount: totalFlats,
+      flats: updatedFlats,
+      contractorFlatIds: sanitizedContractorIds,
+    });
+
+    setEqualizeSuccessToast(`Tüm kat alanları (${upperFlatAvg} m²/daire) ve ${totalFlats} bağımsız bölümün kat dağılımı tam eşit olarak dengelendi.`);
+    setTimeout(() => setEqualizeSuccessToast(null), 4000);
+  };
+
+  // Otomatik Dengeleme: Yapı parametreleri ile daire sayısı veya kat yerleşimleri arasında fark varsa otomatik düzeltir
+  const expectedFlatCount = useMemo(() => calculateFlatCount(params), [params]);
+  useEffect(() => {
+    if (params.flats && params.flats.length !== expectedFlatCount && expectedFlatCount > 0) {
+      handleEqualizeFloorAreas();
+    }
+  }, [expectedFlatCount, params.flats?.length]);
 
   const handleLoadScenario = (scenarioId: number) => {
     let scenarioParams: Partial<ProjectParams> = {};
@@ -2061,26 +2161,29 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       </div>
       )}
 
-      {/* 3. BÖLÜM: BELİRLENEN YAPI KONFİGÜRASYONU ÖZETİ */}
+      {/* 3. BÖLÜM: KAT BAZLI BAĞIMSIZ BÖLÜM ŞEMASI & DAİRE DAĞILIMI */}
       {(!wizardMode || activeStep === 3) && (
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-4 animate-fade-in`}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 font-bold">
                 <Building className="w-5 h-5" />
               </div>
               <div>
                 <h2 className={`text-base sm:text-lg font-bold ${textTitle}`}>
-                  3. İmal Edilecek Yapı Özeti & İmar Parametreleri
+                  3. Kat Bazlı Bağımsız Bölüm Şeması & Daire Dağılımı
                 </h2>
                 <p className={`text-xs ${textMuted}`}>
-                  Önceki adımlarda belirlenen yapı parametreleri özeti. Değiştirmek için doğrudan 2. Adıma dönebilirsiniz.
+                  Z+{(params.floorCount || 5) - 1} Kat Yapısı • {params.hasGroundFloorShop ? `${params.shopCount || 1} Dükkan + ` : ''}{newFlatCount} Bağımsız Bölüm • Katta {params.flatsPerFloor || 2} Daire {params.roofType === 'mansard' ? '• Mansart Çatı' : params.roofType === 'duplex' ? '• Çatı Dubleksi' : ''}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Sığınak, otopark, kazan dairesi, merdiven ve asansör şaftları inşaat alanı ve maliyet hesaplamalarına dahil edilmiştir.">
+                🛡️ Ortak Alanlar Hesaba Dahil
+              </span>
               <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-800">
-                {newTotalConstructionArea.toLocaleString('tr-TR')} m² Yeni İnşaat
+                {newTotalConstructionArea.toLocaleString('tr-TR')} m² Toplam İnşaat
               </span>
               {wizardMode && (
                 <button
@@ -2096,76 +2199,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             </div>
           </div>
 
-          {/* Özet Kartları Izgarası */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Kat Düzeni</span>
-              </div>
-              <div className="text-xs font-black text-slate-800">
-                Z+{(params.floorCount || 5) - 1} Kat Yapısı
-              </div>
-              <div className="text-[10px] text-slate-500">
-                1 Zemin ({params.hasGroundFloorShop ? 'Dükkan' : 'Konut'}) + {(params.floorCount || 5) - 1} Normal Kat • {params.basementCount ? `${params.basementCount} Kat Bodrum` : 'Bodrumsuz'}
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <Home className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Konut Daireler</span>
-              </div>
-              <div className="text-xs font-black text-indigo-700">
-                {newFlatCount} Daire ({params.roomType || '3+1'})
-              </div>
-              <div className="text-[10px] text-slate-500">
-                Katta {params.flatsPerFloor || 2} daire • {params.floorHeight || 2.9}m kat yüksekliği
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <Store className="w-3.5 h-3.5 text-amber-600" />
-                <span>Zemin & Ticari</span>
-              </div>
-              <div className="text-xs font-black text-amber-700">
-                {params.hasGroundFloorShop ? `${params.shopCount || 1} Dükkan` : 'Konut Katı'}
-              </div>
-              <div className="text-[10px] text-slate-500 truncate">
-                {params.hasGroundFloorShop ? `${params.shopLocation === 'both' ? 'Zemin+Bodrum' : params.shopLocation === 'basement' ? 'Bodrum' : 'Zemin'} • ${params.shopHeight || 3.8}m h • ${params.shopArea || 80}m²` : 'Zeminde konut'}
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <Building className="w-3.5 h-3.5 text-purple-600" />
-                <span>Çatı & Çatı Katı</span>
-              </div>
-              <div className="text-xs font-black text-purple-700">
-                {params.roofType === 'mansard' ? 'Mansart Çatı' : params.roofType === 'flat' ? 'Teras Çatı' : params.roofType === 'duplex' ? 'Çatı Dubleksi' : 'Kırma Çatı'}
-              </div>
-              <div className="text-[10px] text-slate-500 truncate">
-                {params.roofType !== 'flat' ? (params.roofAtticType === 'independent' ? 'Ayrı Bağımsız Daire' : 'Alt Katla Birleşik') : 'Düz Teras'}
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <Compass className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Taban & Konsol</span>
-              </div>
-              <div className="text-xs font-black text-emerald-700">
-                {currentPolyArea.toFixed(1)} m² Oturum
-              </div>
-              <div className="text-[10px] text-slate-500">
-                {params.hasCantilever ? `${params.cantileverDepth || 1.2}m Konsol Çıkma` : 'Konsol Çıkmasız'}
-              </div>
-            </div>
-          </div>
-
           {/* BAĞIMSIZ BÖLÜM VE KAT BAZLI DAĞILIM ŞEMASI */}
-          <div className="pt-4 border-t border-slate-200/80 space-y-4">
+          <div className="space-y-4">
             {params.projectModel === 'contractorShare' && (
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-200">
                 <div className="flex items-center gap-3">
@@ -2198,13 +2233,23 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                     <Building2 className="w-4 h-4 text-indigo-600" />
-                    <span>Kat Bazlı Bağımsız Bölüm Şeması & Müteahhit Pay Dağılımı</span>
+                    <span>Kat & Daire Paylaşım Şeması</span>
                   </h4>
-                  <p className="text-[11px] text-slate-500 font-medium">Tıklayarak bağımsız bölümü Müteahhit veya Hak Sahibi arasında atayabilirsiniz.</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Bölümlere tıklayarak Müteahhit ve Hak Sahibi paylarını değiştirebilirsiniz.</p>
                 </div>
 
                 {/* Hızlı Aksiyon Butonları */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleEqualizeFloorAreas}
+                    className="px-2.5 py-1 text-[11px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg shadow-xs transition-transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                    title="Kat alanını kattaki dairelere tam eşit olarak paylaştırır ve kat düzenini hizalar"
+                  >
+                    <Scale className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Kat Alanını Eşit Paylaştır</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -2284,6 +2329,13 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   </div>
                 </div>
               </div>
+
+              {equalizeSuccessToast && (
+                <div className="p-3 bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in shadow-xs">
+                  <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>{equalizeSuccessToast}</span>
+                </div>
+              )}
 
               {/* ÖZET İSTATİSTİK ROZETLERİ */}
               {(() => {

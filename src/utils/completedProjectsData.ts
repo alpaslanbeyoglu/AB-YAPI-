@@ -48,13 +48,11 @@ export function getCompletedProjectsText(): string {
     // Filter out office and only keep completed ones (default status or explicit 'completed')
     const completedOnes = list.filter(p => !p.isOffice && (p.status || 'completed') === 'completed');
     
-    // Return formatted string of up to 4-5 items or all of them
-    // Let's take the first 4-5 projects for a neat list, or show them all. Let's take up to 5 so it fits nicely.
-    // Wait, let's take up to 5 completed projects and format them exactly!
-    return completedOnes.map((p, idx) => `${idx + 1}. ${p.title} (${p.district}) - ${p.address}`).join('\n');
+    // Return formatted string of all completed reference project addresses
+    return completedOnes.map((p, idx) => `${idx + 1}. ${p.address}, ${p.district}`).join('\n');
   } catch (e) {
     // Fallback if anything goes wrong
     const fallbackOnes = INITIAL_PROJECTS.filter(p => !p.isOffice);
-    return fallbackOnes.map((p, idx) => `${idx + 1}. ${p.title} (${p.district}) - ${p.address}`).join('\n');
+    return fallbackOnes.map((p, idx) => `${idx + 1}. ${p.address}, ${p.district}`).join('\n');
   }
 }

@@ -69,6 +69,35 @@ export const getSafeProfileKey = (name: string) => {
   return (name || 'default_profile').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
 };
 
+/**
+ * Recursively cleans and removes `undefined` properties or converts `undefined` array items to null
+ * so Firestore setDoc / updateDoc operations never throw "Unsupported field value: undefined".
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) {
+    return null as unknown as T;
+  }
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+  if (data instanceof Date) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => {
+      if (item === undefined) return null;
+      return sanitizeForFirestore(item);
+    }) as unknown as T;
+  }
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data as Record<string, any>)) {
+    if (value !== undefined) {
+      clean[key] = sanitizeForFirestore(value);
+    }
+  }
+  return clean as T;
+}
+
 export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
@@ -254,15 +283,17 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       const docRef = doc(db, 'users', user.uid, 'projects', safeKey);
-      await setDoc(docRef, {
+      const payload = sanitizeForFirestore({
         id: safeKey,
         version: project.version || '1.0.0',
         savedAt: project.savedAt || new Date().toISOString(),
-        projectAddress: project.projectAddress,
-        params: project.params,
-        results: project.results,
-        construction: construction
-      }, { merge: true });
+        projectAddress: project.projectAddress || 'Varsayılan Proje',
+        params: project.params || {},
+        results: project.results || {},
+        construction: construction || null
+      });
+
+      await setDoc(docRef, payload, { merge: true });
 
       setSyncStatus('synced');
     } catch (error) {
@@ -340,7 +371,8 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       const safeKey = getSafeProfileKey(profile.companyName);
       const docRef = doc(db, 'users', user.uid, 'companyProfiles', safeKey);
-      await setDoc(docRef, profile, { merge: true });
+      const payload = sanitizeForFirestore(profile);
+      await setDoc(docRef, payload, { merge: true });
       setSyncStatus('synced');
     } catch (error) {
       console.error("Error saving company profile to cloud:", error);
@@ -407,10 +439,11 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       const emailLower = licenseData.email.toLowerCase().trim();
       const docRef = doc(db, 'licenses', emailLower);
-      await setDoc(docRef, {
+      const payload = sanitizeForFirestore({
         ...licenseData,
         email: emailLower
-      }, { merge: true });
+      });
+      await setDoc(docRef, payload, { merge: true });
     } catch (error) {
       console.error("Error updating license:", error);
       throw error;
