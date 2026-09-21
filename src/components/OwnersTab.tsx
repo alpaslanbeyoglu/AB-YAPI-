@@ -959,15 +959,15 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
           <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
             <div>
               <label className={`block text-xs ${labelColor} mb-1.5 font-bold`}>Proje / İş Modeli:</label>
-              <select
-                value={params.projectModel || 'contractorService'}
-                onChange={(e) => updateParam('projectModel', e.target.value as any)}
-                className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-bold ${inputBg}`}
-              >
-                <option value="contractorService">1. Müteahhitlik Hizmeti (% Komisyon)</option>
-                <option value="contractorShare">2. Kat Karşılığı İnşaat Yapımı</option>
-                <option value="urbanTransformation">3. Kentsel Dönüşüm / İmar Artışlı</option>
-              </select>
+              <div className={`w-full text-xs px-3.5 py-2 rounded-xl border font-bold ${inputBg} flex flex-col justify-center`}>
+                <span className="text-slate-800 font-bold">
+                  {params.projectModel === 'contractorShare' ? '2. Kat Karşılığı Yapım' :
+                   params.projectModel === 'urbanTransformation' ? '3. Kentsel Dönüşüm' :
+                   params.projectModel === 'cash' ? '4. Nakit / Hakediş' :
+                   '1. Müteahhitlik Hizmeti'}
+                </span>
+                <span className="text-[9px] text-slate-400 font-normal">('0. Proje Kurulumu'ndan yönetilir)</span>
+              </div>
             </div>
 
             {(params.projectModel === 'contractorService' || params.projectModel === 'cash') && (

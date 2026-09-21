@@ -28,6 +28,21 @@ body {
   }
 }
 
+/* Page Break Avoidance Rules for Print & PDF Export */
+.break-inside-avoid,
+.page-break-inside-avoid,
+.avoid-break,
+.pdf-card,
+.print-card,
+table tr,
+.clause-box,
+.signature-box,
+.pdf-image-item {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+}
+
 /* Yazdırma Esnasında Yapılacak Düzenlemeler */
 @media print {
   /* Üst menü, butonlar ve yönlendirmeleri gizler */
@@ -51,10 +66,11 @@ body {
     color: black !important;
   }
 
-  /* Sözleşme maddelerinin sayfa ortasından bölünmesini engeller */
-  p, h1, h2, h3, tr, li {
-    page-break-inside: avoid;
-    break-inside: avoid;
+  /* Sözleşme maddelerinin ve tabloların sayfa ortasından bölünmesini engeller */
+  p, h1, h2, h3, h4, h5, tr, li, table, .pdf-card, .print-card, .break-inside-avoid, .avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    -webkit-column-break-inside: avoid !important;
   }
 }
 
