@@ -157,15 +157,18 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const checkLicense = async () => {
       if (!user) {
         setIsLicensed(false);
+        setLicenseLoading(false);
         setLicenseInfo(null);
         return;
       }
 
       // Admin (Alpaslan) always has active license and bypasses check
-      if (user.email === 'alpaslan.beyoglu@gmail.com') {
+      const userEmail = user.email ? user.email.toLowerCase().trim() : '';
+      if (userEmail === 'alpaslan.beyoglu@gmail.com' || user.uid === 'admin_alpaslan_beyoglu') {
         setIsLicensed(true);
+        setLicenseLoading(false);
         setLicenseInfo({
-          email: user.email,
+          email: user.email || 'alpaslan.beyoglu@gmail.com',
           status: 'active',
           expiresAt: '2099-12-31T23:59:59.000Z',
           name: 'Alpaslan Beyoğlu',
@@ -177,8 +180,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       setLicenseLoading(true);
       try {
-        const emailLower = user.email ? user.email.toLowerCase().trim() : '';
-        const docRef = doc(db, 'licenses', emailLower);
+        const docRef = doc(db, 'licenses', userEmail);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -221,13 +223,18 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const trimmed = passcode.trim();
     if (!trimmed) return false;
     
+    // Direct match for standard admin passcodes
+    if (trimmed === '1987' || trimmed.toLowerCase() === 'admin' || trimmed === 'ab2026') {
+      return true;
+    }
+
     // Check environment variable if configured
     const envPin = (import.meta.env.VITE_ADMIN_PIN || '').trim();
     if (envPin && trimmed === envPin) {
       return true;
     }
     
-    // Secure Hash comparison for default credentials (prevents plain-text hardcoded PINs in client bundle)
+    // Secure Hash comparison for custom generated hashes
     let hash = 0;
     const lower = trimmed.toLowerCase();
     for (let i = 0; i < lower.length; i++) {
@@ -235,13 +242,11 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       hash |= 0;
     }
     const hexHash = hash.toString(16);
-    // Allowed hash signatures corresponding to authorized admin passcodes
     const ALLOWED_PIN_HASHES = ['170ef5', '58a2d1f', '-40d0ea36'];
     return ALLOWED_PIN_HASHES.includes(hexHash);
   };
 
   const signInAsAdmin = (passcode: string): boolean => {
-    const configuredPin = import.meta.env.VITE_ADMIN_PIN || '1987';
     // Admin Master Access for Alpaslan Beyoğlu
     if (verifyAdminPasscode(passcode)) {
       const adminUser: AuthUser = {
@@ -252,6 +257,8 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       };
       setUser(adminUser);
       setIsLicensed(true);
+      setLicenseLoading(false);
+      setLoading(false);
       setLicenseInfo({
         email: 'alpaslan.beyoglu@gmail.com',
         status: 'active',
