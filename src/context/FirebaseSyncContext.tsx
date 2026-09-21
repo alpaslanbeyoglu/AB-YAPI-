@@ -3,6 +3,8 @@ import {
   User, 
   onAuthStateChanged, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut, 
   GoogleAuthProvider 
 } from 'firebase/auth';
@@ -127,6 +129,10 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Monitor Auth Changes
   useEffect(() => {
+    getRedirectResult(auth).catch((err) => {
+      console.warn("Redirect sign-in result check:", err);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         const u: AuthUser = {
@@ -213,9 +219,19 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const signInWithGoogle = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Google Sign-In Error:", error);
-      throw error;
+    } catch (error: any) {
+      console.warn("Google Sign-In popup error, trying redirect fallback:", error);
+      const code = error?.code || '';
+      if (
+        code === 'auth/popup-blocked' ||
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        code.includes('popup')
+      ) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        throw error;
+      }
     }
   };
 
