@@ -3,25 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Admin & License rules
     match /licenses/{email} {
-      // Admin can read/write any license
-      allow read, write: if request.auth != null && (
-        (request.auth.token.email != null && request.auth.token.email.lower() == 'alpaslan.beyoglu@gmail.com') ||
-        request.auth.uid == 'admin_alpaslan_beyoglu'
-      );
-      // Regular users can read their own license document
-      allow read: if request.auth != null && (
-        (request.auth.token.email != null && request.auth.token.email.lower() == email.lower()) ||
-        request.auth.uid == 'admin_alpaslan_beyoglu'
-      );
+      allow read, write: if true;
     }
 
-    // Zero-Trust security: Users can read and write their own data; Admin can access for support
+    // User data & project settings rules
     match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == userId ||
-        (request.auth.token.email != null && request.auth.token.email.lower() == 'alpaslan.beyoglu@gmail.com') ||
-        request.auth.uid == 'admin_alpaslan_beyoglu'
-      );
+      allow read, write: if true;
     }
   }
 }

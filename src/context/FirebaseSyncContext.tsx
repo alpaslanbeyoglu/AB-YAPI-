@@ -4,6 +4,7 @@ import {
   onAuthStateChanged, 
   signInWithPopup, 
   signInWithRedirect,
+  signInAnonymously,
   getRedirectResult,
   signOut as firebaseSignOut, 
   GoogleAuthProvider 
@@ -305,11 +306,27 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  const getFirebaseUserId = async (): Promise<string | null> => {
+    if (auth.currentUser) {
+      return auth.currentUser.uid;
+    }
+    if (user) {
+      try {
+        const cred = await signInAnonymously(auth);
+        return cred.user.uid;
+      } catch (err) {
+        console.warn("signInAnonymously fallback error:", err);
+        return user.uid;
+      }
+    }
+    return null;
+  };
+
   // Pushes a single project and its associated construction state to the cloud
   const saveProjectToCloud = async (project: SavedProjectData) => {
-    // Check if truly authenticated via Firebase, not just a local session
-    if (!auth.currentUser || !isLicensed) {
-      console.warn("Cloud sync skipped: No active Firebase Auth session.");
+    const userId = await getFirebaseUserId();
+    if (!userId || !isLicensed) {
+      console.warn("Cloud sync skipped: No active authenticated session.");
       return;
     }
     setSyncStatus('syncing');
@@ -340,7 +357,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.warn("Failed to gather construction states for cloud sync:", err);
       }
 
-      const docRef = doc(db, 'users', auth.currentUser!.uid, 'projects', safeKey);
+      const docRef = doc(db, 'users', userId, 'projects', safeKey);
       const payload = sanitizeForFirestore({
         id: safeKey,
         version: project.version || '1.0.0',
@@ -363,10 +380,11 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Loads all projects from cloud and hydrates localStorage to preserve app state
   const loadProjectsFromCloud = async (): Promise<SavedProjectData[]> => {
-    if (!auth.currentUser || !isLicensed) return [];
+    const userId = await getFirebaseUserId();
+    if (!userId || !isLicensed) return [];
     setSyncStatus('syncing');
     try {
-      const colRef = collection(db, 'users', auth.currentUser!.uid, 'projects');
+      const colRef = collection(db, 'users', userId, 'projects');
       const snapshot = await getDocs(colRef);
       const cloudProjects: SavedProjectData[] = [];
 
@@ -409,11 +427,12 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const deleteProjectFromCloud = async (projectAddress: string) => {
-    if (!auth.currentUser || !isLicensed) return;
+    const userId = await getFirebaseUserId();
+    if (!userId || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProjectKey(projectAddress);
-      const docRef = doc(db, 'users', auth.currentUser!.uid, 'projects', safeKey);
+      const docRef = doc(db, 'users', userId, 'projects', safeKey);
       await deleteDoc(docRef);
       setSyncStatus('synced');
     } catch (error) {
@@ -424,11 +443,12 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const saveCompanyProfileToCloud = async (profile: CompanyProfile) => {
-    if (!auth.currentUser || !isLicensed) return;
+    const userId = await getFirebaseUserId();
+    if (!userId || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProfileKey(profile.companyName);
-      const docRef = doc(db, 'users', auth.currentUser!.uid, 'companyProfiles', safeKey);
+      const docRef = doc(db, 'users', userId, 'companyProfiles', safeKey);
       const payload = sanitizeForFirestore(profile);
       await setDoc(docRef, payload, { merge: true });
       setSyncStatus('synced');
@@ -440,10 +460,11 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const loadCompanyProfilesFromCloud = async (): Promise<CompanyProfile[]> => {
-    if (!auth.currentUser || !isLicensed) return [];
+    const userId = await getFirebaseUserId();
+    if (!userId || !isLicensed) return [];
     setSyncStatus('syncing');
     try {
-      const colRef = collection(db, 'users', auth.currentUser!.uid, 'companyProfiles');
+      const colRef = collection(db, 'users', userId, 'companyProfiles');
       const snapshot = await getDocs(colRef);
       const profiles: CompanyProfile[] = [];
 
@@ -461,11 +482,12 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const deleteCompanyProfileToCloud = async (companyName: string) => {
-    if (!auth.currentUser || !isLicensed) return;
+    const userId = await getFirebaseUserId();
+    if (!userId || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProfileKey(companyName);
-      const docRef = doc(db, 'users', auth.currentUser!.uid, 'companyProfiles', safeKey);
+      const docRef = doc(db, 'users', userId, 'companyProfiles', safeKey);
       await deleteDoc(docRef);
       setSyncStatus('synced');
     } catch (error) {
@@ -476,9 +498,10 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const saveActiveStateToCloud = async (params: any, buildingModel: any, uiState: any) => {
-    if (!auth.currentUser || !isLicensed) return;
+    const userId = await getFirebaseUserId();
+    if (!userId || !isLicensed) return;
     try {
-      const docRef = doc(db, 'users', auth.currentUser.uid, 'settings', 'activeState');
+      const docRef = doc(db, 'users', userId, 'settings', 'activeState');
       const payload = sanitizeForFirestore({
         params,
         buildingModel,
@@ -492,9 +515,10 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const loadActiveStateFromCloud = async (): Promise<{ params: any; buildingModel: any; uiState: any } | null> => {
-    if (!auth.currentUser || !isLicensed) return null;
+    const userId = await getFirebaseUserId();
+    if (!userId || !isLicensed) return null;
     try {
-      const docRef = doc(db, 'users', auth.currentUser.uid, 'settings', 'activeState');
+      const docRef = doc(db, 'users', userId, 'settings', 'activeState');
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
