@@ -2708,20 +2708,15 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
                {!collapsedSections.contractorShare && (
                 <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
-                  <div className="space-y-1.5 pt-3">
-                    <label className={`block text-xs font-bold ${textTitle}`}>İş / Yapım Sözleşme Modeli:</label>
-                    <select
-                      value={modelParams.projectModel || 'contractorService'}
-                      onChange={(e) => updateParams({ projectModel: e.target.value as any })}
-                      className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 shadow-2xs"
-                    >
-                      <option value="contractorService">1. Müteahhitlik Hizmeti (% Komisyon)</option>
-                      <option value="contractorShare">2. Kat Karşılığı İnşaat Yapımı</option>
-                      <option value="urbanTransformation">3. Kentsel Dönüşüm / İmar Artışlı</option>
-                    </select>
-                    <p className={`text-[10px] ${textMuted} leading-relaxed mt-1`}>
-                      Sözleşme tipi fizibilite ve finansal borç dağılımını belirler.
-                    </p>
+                  <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-2xl flex items-center justify-between text-xs mt-3">
+                    <span className="font-semibold text-slate-700">Aktif Yapım / Sözleşme Modeli:</span>
+                    <span className="font-bold text-indigo-700 font-mono bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shadow-2xs">
+                      {modelParams.projectModel === 'contractorShare'
+                        ? 'Kat Karşılığı İnşaat Yapımı'
+                        : modelParams.projectModel === 'urbanTransformation'
+                        ? 'Kentsel Dönüşüm / İmar Artışlı'
+                        : 'Müteahhitlik Hizmeti (% Komisyon)'}
+                    </span>
                   </div>
 
                   {modelParams.projectModel === 'contractorShare' && (

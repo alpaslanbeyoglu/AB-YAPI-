@@ -110,10 +110,10 @@ export default function App() {
       const saved = localStorage.getItem('ab_yapi_tabs');
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<TabConfig>[];
-        // Restore icon references from DEFAULT_TABS
+        // Restore icon references and check category from DEFAULT_TABS
         return DEFAULT_TABS.map(defaultTab => {
           const savedTab = parsed.find(t => t.id === defaultTab.id);
-          return savedTab ? { ...defaultTab, visible: savedTab.visible ?? defaultTab.visible, order: savedTab.order ?? defaultTab.order } : defaultTab;
+          return savedTab ? { ...defaultTab, visible: savedTab.visible ?? defaultTab.visible, order: savedTab.order ?? defaultTab.order, category: defaultTab.category } : defaultTab;
         });
       }
     } catch (e) {}
@@ -935,7 +935,7 @@ export default function App() {
     if (savedData && savedData.params) {
       setParams(savedData.params);
       showNotification('success', `"${savedData.projectAddress}" projesi başarıyla yüklendi.`);
-      setActiveTab('hesapla');
+      setActiveTab('kurulum');
     }
   };
 
@@ -1034,15 +1034,22 @@ export default function App() {
             </button>
           </div>
 
-          {/* Sidebar Menu Items (Categorized with light hiyerarsi) */}
-          <div className="flex-1 overflow-y-auto py-4 px-3 space-y-4 no-scrollbar">
+          {/* Sidebar Menu Items (Categorized with light hiyerarsi & badges) */}
+          <div className="flex-1 overflow-y-auto py-4 px-3 space-y-5 no-scrollbar">
             {categorizedTabs.map((cat, idx) => (
               <div key={cat.id} className="space-y-1.5">
                 {sidebarOpen && (
-                  <div className="flex items-center justify-between px-2 pt-1 mb-1">
-                    <h4 className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400/90">
-                      {cat.label}
-                    </h4>
+                  <div className="flex items-center justify-between px-2 pt-1 mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="text-[10px] uppercase tracking-wider font-black text-slate-500">
+                        {cat.label}
+                      </h4>
+                      {cat.badge && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-md font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                          {cat.badge}
+                        </span>
+                      )}
+                    </div>
                     {idx > 0 && <div className="h-[1px] flex-1 bg-slate-200/60 ml-2" />}
                   </div>
                 )}

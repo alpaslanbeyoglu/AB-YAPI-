@@ -51,11 +51,18 @@ body {
     color: black !important;
   }
 
-  /* Sözleşme maddelerinin sayfa ortasından bölünmesini engeller */
-  p, h1, h2, h3, tr, li {
-    page-break-inside: avoid;
-    break-inside: avoid;
+  /* Sözleşme maddelerinin, kartların ve imza bloklarının sayfa ortasından bölünmesini engeller */
+  p, h1, h2, h3, tr, li, table, .avoid-break, .break-inside-avoid, .page-break-inside-avoid, [data-print-card] {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
+}
+
+.avoid-break,
+.break-inside-avoid,
+.page-break-inside-avoid {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
 }
 
 @keyframes fadeIn {

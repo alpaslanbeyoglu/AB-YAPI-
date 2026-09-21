@@ -4,9 +4,9 @@ service cloud.firestore {
     // Admin & License rules
     match /licenses/{email} {
       // Admin (you) can read/write any license
-      allow read, write: if request.auth != null && request.auth.token.email == 'alpaslan.beyoglu@gmail.com';
+      allow read, write: if request.auth != null && request.auth.token.email != null && request.auth.token.email.lower() == 'alpaslan.beyoglu@gmail.com';
       // Regular users can only read their own license document
-      allow read: if request.auth != null && request.auth.token.email.lower() == email.lower();
+      allow read: if request.auth != null && request.auth.token.email != null && request.auth.token.email.lower() == email.lower();
     }
 
     // Zero-Trust security: Users can only read and write their own subcollections
