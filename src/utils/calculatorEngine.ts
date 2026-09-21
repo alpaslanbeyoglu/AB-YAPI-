@@ -22,6 +22,52 @@ export interface CantileverCalculationResult {
 }
 
 /**
+  * Projede seçilen demir donatı çeliği tipinin görünen adını döndürür
+  */
+export function getSteelTypeName(params: Partial<ProjectParams>): string {
+  if (params.steelType === 'custom' && params.customSteelTypeName) {
+    return params.customSteelTypeName;
+  }
+  switch (params.steelType) {
+    case 'b500c_nervurlu':
+      return 'B500C / S500 Yüksek Süneklikli Deprem Çeliği (Q8-Q32)';
+    case 'hasir_celik':
+      return 'Q Tipi Çelik Hasır Mesh Donatısı (B500A)';
+    case 'epoxy_coated':
+      return 'Epoksi Kaplamalı Korozyon Korumalı Donatı Çeliği';
+    case 'stainless':
+      return '316L Paslanmaz Çelik İnşaat Donatısı';
+    case 'st37_flat':
+      return 'ST37 / S235 Yapısal Çelik Profil & Karkas';
+    case 's420_nervurlu':
+    default:
+      return 'Nervürlü İnşaat Demiri (S420 / B450C Q8-Q32 Malzeme)';
+  }
+}
+
+/**
+  * Projede seçilen beton sınıfının görünen adını döndürür
+  */
+export function getConcreteGradeName(params: Partial<ProjectParams>): string {
+  if (params.concreteGrade === 'custom' && params.customConcreteGradeName) {
+    return params.customConcreteGradeName;
+  }
+  switch (params.concreteGrade) {
+    case 'c35_45':
+      return 'Hazır Beton (C35/45 Yüksek Dayanımlı KDV & Pompa Dahil)';
+    case 'c40_50':
+      return 'Hazır Beton (C40/50 Özel Deprem/Perde Betonu KDV & Pompa Dahil)';
+    case 'c50_60':
+      return 'Hazır Beton (C50/60 Ultra Yüksek Dayanımlı KDV & Pompa Dahil)';
+    case 'c25_30':
+      return 'Hazır Beton (C25/30 Standart Sınıf KDV & Pompa Dahil)';
+    case 'c30_37':
+    default:
+      return 'Hazır Beton (C30/37 Sınıfı KDV & Pompa Dahil)';
+  }
+}
+
+/**
  * Dinamik Konsol Çıkma ve Kat Alanı Hesaplayıcı
  * L-Tipi (6 cephe), U-Tipi (8 cephe), Çokgen (N cephe) ve 4 cepheli yapılarda
  * bitişik nizam ve kör cephe kurallarını (İmar Mevzuatı Md. 41) dikkate alarak
@@ -1292,7 +1338,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     const effectiveInstallmentCount = Math.max(1, installmentCount || 12);
     const monthlyInstallment = Math.round((netRemainingDebt / effectiveInstallmentCount) * 100) / 100;
 
-    totalStageIncomes[0] += p1 + paid / 5;
+    totalStageIncomes[0] += p1 + paid;
     totalStageIncomes[1] += p2;
     totalStageIncomes[2] += p3;
     totalStageIncomes[3] += p4;

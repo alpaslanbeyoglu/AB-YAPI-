@@ -53,6 +53,9 @@
     "/users/{userId}/projects/{projectId}": {
       "schema": "ProjectSnapshot",
       "description": "User specific construction and calculation projects."
+    },
+    "/users/{userId}/settings/activeState": {
+      "description": "User specific active project state for cross-device sync."
     }
   }
 }

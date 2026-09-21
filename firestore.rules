@@ -3,23 +3,25 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Admin & License rules
     match /licenses/{email} {
-      // Admin (you) can read/write any license
-      allow read, write: if request.auth != null && request.auth.token.email != null && request.auth.token.email.lower() == 'alpaslan.beyoglu@gmail.com';
-      // Regular users can only read their own license document
-      allow read: if request.auth != null && request.auth.token.email != null && request.auth.token.email.lower() == email.lower();
+      // Admin can read/write any license
+      allow read, write: if request.auth != null && (
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'alpaslan.beyoglu@gmail.com') ||
+        request.auth.uid == 'admin_alpaslan_beyoglu'
+      );
+      // Regular users can read their own license document
+      allow read: if request.auth != null && (
+        (request.auth.token.email != null && request.auth.token.email.lower() == email.lower()) ||
+        request.auth.uid == 'admin_alpaslan_beyoglu'
+      );
     }
 
-    // Zero-Trust security: Users can only read and write their own subcollections
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      match /companyProfiles/{profileId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      match /projects/{projectId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+    // Zero-Trust security: Users can read and write their own data; Admin can access for support
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && (
+        request.auth.uid == userId ||
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'alpaslan.beyoglu@gmail.com') ||
+        request.auth.uid == 'admin_alpaslan_beyoglu'
+      );
     }
   }
 }

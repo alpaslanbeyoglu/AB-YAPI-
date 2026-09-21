@@ -33,6 +33,7 @@ import {
   Car,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
+import { getSteelTypeName, getConcreteGradeName } from '../utils/calculatorEngine';
 
 interface CostDetailsTabProps {
   params: ProjectParams;
@@ -268,7 +269,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
       {
         id: 'k1',
         category: 'kaba',
-        name: 'Hazır Beton (C30/37 Sınıfı KDV & Pompa Dahil)',
+        name: getConcreteGradeName(params),
         unit: 'm³',
         quantity: concreteM3,
         unitPrice: effConcretePrice,
@@ -278,7 +279,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
       {
         id: 'k2',
         category: 'kaba',
-        name: 'Nervürlü İnşaat Demiri (Q8-Q32 Malzeme)',
+        name: getSteelTypeName(params),
         unit: 'Ton',
         quantity: steelTon,
         unitPrice: effSteelPrice,
@@ -1276,30 +1277,107 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                     />
                   </div>
                 )}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                    Hazır Beton C30/37 (₺/m³)
-                  </label>
-                  <input
-                    type="number"
-                    value={params.priceConcrete ?? 3850}
-                    onChange={(e) => updateParam('priceConcrete', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
-                  />
-                  <span className="text-[9px] text-slate-400 mt-0.5 block">2026 Piyasa: 3.750 - 4.100 ₺</span>
+                {/* Hazır Beton Seçimi & Fiyatı */}
+                <div className="space-y-1.5 col-span-1 md:col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">
+                        🧱 Hazır Beton Sınıfı Seçimi
+                      </label>
+                      <select
+                        value={params.concreteGrade || 'c30_37'}
+                        onChange={(e) => updateParam('concreteGrade', e.target.value as any)}
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white text-slate-800 focus:outline-none focus:border-indigo-600"
+                      >
+                        <option value="c30_37">C30/37 Hazır Beton (TBDY 2018 Yasal Asgari)</option>
+                        <option value="c35_45">C35/45 Yüksek Dayanımlı Kentsel Dönüşüm Betonu</option>
+                        <option value="c40_50">C40/50 Özel Deprem & Perde Betonu</option>
+                        <option value="c50_60">C50/60 Ultra Yüksek Dayanımlı Beton</option>
+                        <option value="c25_30">C25/30 Standart Yapı Betonu</option>
+                        <option value="custom">✏️ Özel Beton Tanımla...</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">
+                        Hazır Beton Birim Fiyatı (₺/m³)
+                      </label>
+                      <input
+                        type="number"
+                        value={params.priceConcrete ?? 3850}
+                        onChange={(e) => updateParam('priceConcrete', Math.max(0, Number(e.target.value) || 0))}
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                      />
+                      <span className="text-[9px] text-slate-400 mt-0.5 block">2026 Piyasa: 3.750 - 4.100 ₺</span>
+                    </div>
+                  </div>
+
+                  {params.concreteGrade === 'custom' && (
+                    <div className="pt-1">
+                      <label className="block text-[10px] font-bold text-indigo-700 uppercase mb-0.5">
+                        Özel Beton Sınıfı İsmi:
+                      </label>
+                      <input
+                        type="text"
+                        value={params.customConcreteGradeName || ''}
+                        onChange={(e) => updateParam('customConcreteGradeName', e.target.value)}
+                        placeholder="Örn: C45/55 Sülfata Dayanıklı Özel Sismik Beton"
+                        className="w-full px-2.5 py-1.5 border border-indigo-400 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-950 focus:outline-none"
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                    Nervürlü Demir Malzeme (₺/Ton)
-                  </label>
-                  <input
-                    type="number"
-                    value={params.priceSteel ?? 36200}
-                    onChange={(e) => updateParam('priceSteel', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
-                  />
-                  <span className="text-[9px] text-slate-400 mt-0.5 block">2026 Piyasa: 35.000 - 37.500 ₺</span>
+                {/* Demir Donatı Çeliği Seçimi & Fiyatı */}
+                <div className="space-y-1.5 col-span-1 md:col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">
+                        ⛓️ İnşaat Demiri / Donatı Çeliği Seçimi
+                      </label>
+                      <select
+                        value={params.steelType || 's420_nervurlu'}
+                        onChange={(e) => updateParam('steelType', e.target.value as any)}
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold bg-white text-slate-800 focus:outline-none focus:border-indigo-600"
+                      >
+                        <option value="s420_nervurlu">S420 / B450C Nervürlü İnşaat Demiri (Q8-Q32 Standart)</option>
+                        <option value="b500c_nervurlu">B500C / S500 Yüksek Süneklikli Deprem Çeliği</option>
+                        <option value="hasir_celik">Q Tipi Çelik Hasır Mesh Donatısı (B500A)</option>
+                        <option value="epoxy_coated">Epoksi Kaplamalı Korozyon Korumalı Donatı</option>
+                        <option value="stainless">316L Paslanmaz Çelik İnşaat Donatısı</option>
+                        <option value="st37_flat">ST37 / S235 Yapısal Çelik Profil & Karkas</option>
+                        <option value="custom">✏️ Özel Çelik Malzemesi Tanımla...</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">
+                        Demir Malzeme Birim Fiyatı (₺/Ton)
+                      </label>
+                      <input
+                        type="number"
+                        value={params.priceSteel ?? 36200}
+                        onChange={(e) => updateParam('priceSteel', Math.max(0, Number(e.target.value) || 0))}
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                      />
+                      <span className="text-[9px] text-slate-400 mt-0.5 block">2026 Piyasa: 35.000 - 37.500 ₺</span>
+                    </div>
+                  </div>
+
+                  {params.steelType === 'custom' && (
+                    <div className="pt-1">
+                      <label className="block text-[10px] font-bold text-indigo-700 uppercase mb-0.5">
+                        Özel Çelik / Donatı Malzemesi İsmi:
+                      </label>
+                      <input
+                        type="text"
+                        value={params.customSteelTypeName || ''}
+                        onChange={(e) => updateParam('customSteelTypeName', e.target.value)}
+                        placeholder="Örn: S500-B Galvaniz Kaplamalı Deprem Donatısı (Ø12-Ø28)"
+                        className="w-full px-2.5 py-1.5 border border-indigo-400 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-950 focus:outline-none"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {!params.useTotalLaborPrice && (
@@ -1796,14 +1874,18 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
               <span className="text-[9px] text-emerald-600 font-semibold">▲ Canlı Kur</span>
             </div>
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase block">Nervürlü Demir (Ø8-32)</span>
+              <span className="text-[10px] text-slate-400 font-semibold uppercase block truncate" title={getSteelTypeName(params)}>
+                {getSteelTypeName(params)}
+              </span>
               <span className="text-xs font-extrabold text-indigo-700 block mt-1.5 font-mono">
                 {(params.priceSteel || steelPrice).toLocaleString('tr-TR')} ₺/Ton
               </span>
               <span className="text-[9px] text-slate-500 font-semibold">İşçilik: +{(params.priceSteelLabor || 4800).toLocaleString('tr-TR')} ₺</span>
             </div>
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase block">Hazır Beton (C30/37)</span>
+              <span className="text-[10px] text-slate-400 font-semibold uppercase block truncate" title={getConcreteGradeName(params)}>
+                {getConcreteGradeName(params)}
+              </span>
               <span className="text-xs font-extrabold text-sky-700 block mt-1.5 font-mono">
                 {(params.priceConcrete || concretePrice).toLocaleString('tr-TR')} ₺/m³
               </span>

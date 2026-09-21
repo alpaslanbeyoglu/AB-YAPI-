@@ -4077,18 +4077,21 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     // Build model
     buildScene();
 
-    // Resize observer
+    // Resize observer & window resize handler
     const handleResize = () => {
       if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
-      const w = containerRef.current.clientWidth;
-      const h = containerRef.current.clientHeight;
-      cameraRef.current.aspect = w / h;
-      cameraRef.current.updateProjectionMatrix();
-      rendererRef.current.setSize(w, h);
+      const w = containerRef.current.clientWidth || 800;
+      const h = containerRef.current.clientHeight || 550;
+      if (w > 0 && h > 0) {
+        cameraRef.current.aspect = w / h;
+        cameraRef.current.updateProjectionMatrix();
+        rendererRef.current.setSize(w, h);
+      }
     };
 
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(container);
+    window.addEventListener('resize', handleResize);
 
     // Animation Loop
     const animate = () => {
@@ -4101,10 +4104,67 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     animate();
 
     return () => {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      
+      window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
-      if (rendererRef.current) rendererRef.current.dispose();
-      if (containerRef.current) containerRef.current.innerHTML = '';
+
+      // Dispose OrbitControls
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
+        controlsRef.current = null;
+      }
+
+      // Comprehensive Three.js Memory Cleanup
+      if (sceneRef.current) {
+        sceneRef.current.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            if (object.geometry) {
+              object.geometry.dispose();
+            }
+            if (object.material) {
+              if (Array.isArray(object.material)) {
+                object.material.forEach((mat) => {
+                  if (mat.map) mat.map.dispose();
+                  if (mat.lightMap) mat.lightMap.dispose();
+                  if (mat.bumpMap) mat.bumpMap.dispose();
+                  if (mat.normalMap) mat.normalMap.dispose();
+                  if (mat.specularMap) mat.specularMap.dispose();
+                  mat.dispose();
+                });
+              } else {
+                if (object.material.map) object.material.map.dispose();
+                if (object.material.lightMap) object.material.lightMap.dispose();
+                if (object.material.bumpMap) object.material.bumpMap.dispose();
+                if (object.material.normalMap) object.material.normalMap.dispose();
+                if (object.material.specularMap) object.material.specularMap.dispose();
+                object.material.dispose();
+              }
+            }
+          }
+        });
+        sceneRef.current.clear();
+        sceneRef.current = null;
+      }
+
+      // Force WebGL Context Loss & Renderer Disposal
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        if (typeof rendererRef.current.forceContextLoss === 'function') {
+          rendererRef.current.forceContextLoss();
+        }
+        if (rendererRef.current.domElement && rendererRef.current.domElement.parentNode) {
+          rendererRef.current.domElement.parentNode.removeChild(rendererRef.current.domElement);
+        }
+        rendererRef.current = null;
+      }
+
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
     };
   }, [isLight]);
 

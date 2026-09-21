@@ -959,17 +959,14 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
           <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
             <div>
               <label className={`block text-xs ${labelColor} mb-1.5 font-bold`}>Proje / İş Modeli:</label>
-              <div className={`w-full text-xs px-3.5 py-2.5 rounded-xl border font-bold flex items-center justify-between ${inputBg} text-indigo-700 bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-300`}>
-                <span>
-                  {params.projectModel === 'contractorShare'
-                    ? 'Kat Karşılığı İnşaat'
-                    : params.projectModel === 'urbanTransformation'
-                    ? 'Kentsel Dönüşüm'
-                    : 'Müteahhitlik Hizmeti (% Komisyon)'}
+              <div className={`w-full text-xs px-3.5 py-2 rounded-xl border font-bold ${inputBg} flex flex-col justify-center`}>
+                <span className="text-slate-800 font-bold">
+                  {params.projectModel === 'contractorShare' ? '2. Kat Karşılığı Yapım' :
+                   params.projectModel === 'urbanTransformation' ? '3. Kentsel Dönüşüm' :
+                   params.projectModel === 'cash' ? '4. Nakit / Hakediş' :
+                   '1. Müteahhitlik Hizmeti'}
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-semibold">
-                  0. Kurulum
-                </span>
+                <span className="text-[9px] text-slate-400 font-normal">('0. Proje Kurulumu'ndan yönetilir)</span>
               </div>
             </div>
 
