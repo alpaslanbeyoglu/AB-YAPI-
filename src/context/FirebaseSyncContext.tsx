@@ -241,6 +241,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const signInAsAdmin = (passcode: string): boolean => {
+    const configuredPin = import.meta.env.VITE_ADMIN_PIN || '1987';
     // Admin Master Access for Alpaslan Beyoğlu
     if (verifyAdminPasscode(passcode)) {
       const adminUser: AuthUser = {

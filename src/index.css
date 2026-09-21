@@ -74,6 +74,13 @@ table tr,
   }
 }
 
+.avoid-break,
+.break-inside-avoid,
+.page-break-inside-avoid {
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
