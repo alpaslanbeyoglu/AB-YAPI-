@@ -1018,17 +1018,27 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                  { id: 'kentsel', label: '🏢 Kentsel Dönüşüm', desc: '6306 Sayılı Afet Riski Altındaki Alanların Dönüştürülmesi yasası kapsamında.' },
-                  { id: 'kentsel_imar', label: '⚡ Kentsel Dönüşüm + İmar Artışı', desc: 'İlave imar hakkı veya belediye emsal artış teşvikleri entegre edilmiş kentsel dönüşüm modeli.' },
-                  { id: 'kat_karsiligi', label: '🤝 Kat Karşılığı', desc: 'Arsa maliklerinin arsa paylarını müteahhide bağımsız bölüm karşılığı devretmesi.' },
-                  { id: 'muteahhitlik', label: '🔨 Müteahhitlik Hizmeti', desc: 'Tüm inşaat maliyetinin maliklerce karşılandığı, müteahhidin yapım hizmeti verdiği model.' },
+                  { id: 'kentsel', model: 'urbanTransformation', label: '🏢 Kentsel Dönüşüm', desc: '6306 Sayılı Afet Riski Altındaki Alanların Dönüştürülmesi yasası kapsamında.' },
+                  { id: 'kentsel_imar', model: 'urbanTransformation', label: '⚡ Kentsel Dönüşüm + İmar Artışı', desc: 'İlave imar hakkı veya belediye emsal artış teşvikleri entegre edilmiş kentsel dönüşüm modeli.' },
+                  { id: 'kat_karsiligi', model: 'contractorShare', label: '🤝 Kat Karşılığı', desc: 'Arsa maliklerinin arsa paylarını müteahhide bağımsız bölüm karşılığı devretmesi.' },
+                  { id: 'muteahhitlik', model: 'contractorService', label: '🔨 Müteahhitlik Hizmeti', desc: 'Tüm inşaat maliyetinin maliklerce karşılandığı, müteahhidin yapım hizmeti verdiği model.' },
                 ].map((type) => {
                   const isSel = params.projectType === type.id || (type.id === 'kentsel' && !params.projectType);
                   return (
                     <button
                       key={type.id}
                       type="button"
-                      onClick={() => onChangeParams({ ...params, projectType: type.id })}
+                      onClick={() => {
+                        const newParams: any = { 
+                          ...params, 
+                          projectType: type.id,
+                          projectModel: type.model,
+                        };
+                        if (type.id === 'kentsel_imar') {
+                          newParams.hasZoningIncrease = true;
+                        }
+                        onChangeParams(newParams);
+                      }}
                       className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                         isSel
                           ? 'bg-white border-indigo-600 shadow-md ring-2 ring-indigo-500/10'
@@ -1118,67 +1128,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
           {showManualDataSection && (
             <div className="space-y-4 animate-fade-in">
-              {/* 1. GRUP: MÜŞTERİ, PROJE & ARSA KÜNYESİ */}
-              <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-3xs space-y-2.5">
-                <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Home className="w-3.5 h-3.5 text-indigo-600" />
-                    Müşteri, Konum & Sözleşme Türü
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-normal">Teklif ve sözleşmeye yansır</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      👤 Müşteri / Proje Adı
-                    </label>
-                    <input
-                      id="minimalProjectNameInput"
-                      type="text"
-                      value={params.projectName || ''}
-                      onChange={(e) => onChangeParams({ ...params, projectName: e.target.value })}
-                      placeholder="Örn: Huzur Apartmanı Kentsel Dönüşüm"
-                      className={`w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      📍 Yapı / Proje Adresi (Ada & Parsel)
-                    </label>
-                    <div className="relative">
-                      <input
-                        ref={minimalAddressInputRef}
-                        id="minimalProjectAddressInput"
-                        type="text"
-                        value={params.projectAddress || ''}
-                        onChange={(e) => onChangeParams({ ...params, projectAddress: e.target.value })}
-                        placeholder="Örn: Kadıköy, 124 Ada 5 Parsel"
-                        className={`w-full text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      💼 Sözleşme & Dönüşüm Modeli
-                    </label>
-                    <select
-                      id="minimalProjectTypeSelect"
-                      value={params.projectType || 'kentsel'}
-                      onChange={(e) => onChangeParams({ ...params, projectType: e.target.value })}
-                      className={`w-full text-xs font-bold px-2.5 py-1.5 rounded-lg border bg-white border-slate-200`}
-                    >
-                      <option value="kentsel">🏢 Kentsel Dönüşüm (6306 S.K.)</option>
-                      <option value="kentsel_imar">⚡ Kentsel + İmar Artışlı</option>
-                      <option value="kat_karsiligi">🤝 Kat Karşılığı Sözleşme</option>
-                      <option value="muteahhitlik">🔨 Anahtar Teslim Müteahhitlik</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. GRUP: MEVCUT BİNALAR & HAK DAĞILIMI ENVANTERİ */}
+              {/* 1. GRUP: MEVCUT BİNALAR & HAK DAĞILIMI ENVANTERİ */}
               <div className="p-3.5 rounded-xl bg-white border border-slate-200/80 shadow-3xs space-y-3">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
                   <div className="flex items-center gap-2">
@@ -1672,13 +1622,43 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         </label>
                         <div className="space-y-2">
                           <select
-                            value={params.projectModel || 'contractorService'}
-                            onChange={(e) => onChangeParams({ ...params, projectModel: e.target.value as any })}
-                            className="w-full text-[11px] font-bold px-2.5 py-1.5 rounded-lg border bg-white border-emerald-200 text-emerald-950 focus:ring-2 focus:ring-emerald-500/20"
+                            id="projectModelDirectSelect"
+                            value={
+                              params.projectType === 'kentsel_imar' || (params.projectModel === 'urbanTransformation' && params.hasZoningIncrease)
+                                ? 'kentsel_imar'
+                                : params.projectType === 'kat_karsiligi' || params.projectModel === 'contractorShare'
+                                ? 'kat_karsiligi'
+                                : params.projectType === 'muteahhitlik' || params.projectModel === 'contractorService'
+                                ? 'muteahhitlik'
+                                : params.projectType === 'nakit' || params.projectModel === 'cash'
+                                ? 'nakit'
+                                : 'kentsel'
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const newParams: any = { ...params, projectType: val };
+                              if (val === 'kentsel') {
+                                newParams.projectModel = 'urbanTransformation';
+                                newParams.hasZoningIncrease = false;
+                              } else if (val === 'kentsel_imar') {
+                                newParams.projectModel = 'urbanTransformation';
+                                newParams.hasZoningIncrease = true;
+                              } else if (val === 'kat_karsiligi') {
+                                newParams.projectModel = 'contractorShare';
+                              } else if (val === 'muteahhitlik') {
+                                newParams.projectModel = 'contractorService';
+                              } else if (val === 'nakit') {
+                                newParams.projectModel = 'cash';
+                              }
+                              onChangeParams(newParams);
+                            }}
+                            className="w-full text-xs font-black px-3 py-2 rounded-lg border bg-white border-emerald-400 text-emerald-950 focus:ring-2 focus:ring-emerald-400 focus:outline-hidden shadow-2xs cursor-pointer"
                           >
-                            <option value="contractorService">1. Müteahhitlik Hizmeti (% Komisyon)</option>
-                            <option value="contractorShare">2. Kat Karşılığı İnşaat Yapımı</option>
-                            <option value="urbanTransformation">3. Kentsel Dönüşüm / İmar Artışlı</option>
+                            <option value="kentsel">🏢 Kentsel Dönüşüm (6306 S.K.)</option>
+                            <option value="kentsel_imar">⚡ Kentsel Dönüşüm + İmar Artışı</option>
+                            <option value="kat_karsiligi">🤝 Kat Karşılığı İnşaat Yapımı</option>
+                            <option value="muteahhitlik">🔨 Anahtar Teslim Müteahhitlik Hizmeti</option>
+                            <option value="nakit">💵 Nakit / Hakediş Usulü</option>
                           </select>
 
                           {/* Model Özel Parametreleri */}

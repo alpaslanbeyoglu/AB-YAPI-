@@ -2710,15 +2710,44 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 <div className="p-5 pt-0 space-y-4 border-t border-slate-100">
                   <div className="space-y-1.5 pt-3">
                     <label className={`block text-xs font-bold ${textTitle}`}>İş / Yapım Sözleşme Modeli:</label>
-                    <div className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 flex items-center justify-between">
-                      <span>
-                        {modelParams.projectModel === 'contractorShare' ? '2. Kat Karşılığı İnşaat Yapımı' :
-                         modelParams.projectModel === 'urbanTransformation' ? '3. Kentsel Dönüşüm / İmar Artışlı' :
-                         modelParams.projectModel === 'cash' ? '4. Nakit / Hakediş Usulü' :
-                         '1. Müteahhitlik Hizmeti (% Komisyon)'}
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-normal">('0. Proje Kurulumu' sekmesinden yönetilir)</span>
-                    </div>
+                    <select
+                      value={
+                        modelParams.projectType === 'kentsel_imar' || (modelParams.projectModel === 'urbanTransformation' && modelParams.hasZoningIncrease)
+                          ? 'kentsel_imar'
+                          : modelParams.projectType === 'kat_karsiligi' || modelParams.projectModel === 'contractorShare'
+                          ? 'kat_karsiligi'
+                          : modelParams.projectType === 'muteahhitlik' || modelParams.projectModel === 'contractorService'
+                          ? 'muteahhitlik'
+                          : modelParams.projectType === 'nakit' || modelParams.projectModel === 'cash'
+                          ? 'nakit'
+                          : 'kentsel'
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const newParams: any = { projectType: val };
+                        if (val === 'kentsel') {
+                          newParams.projectModel = 'urbanTransformation';
+                          newParams.hasZoningIncrease = false;
+                        } else if (val === 'kentsel_imar') {
+                          newParams.projectModel = 'urbanTransformation';
+                          newParams.hasZoningIncrease = true;
+                        } else if (val === 'kat_karsiligi') {
+                          newParams.projectModel = 'contractorShare';
+                        } else if (val === 'muteahhitlik') {
+                          newParams.projectModel = 'contractorService';
+                        } else if (val === 'nakit') {
+                          newParams.projectModel = 'cash';
+                        }
+                        updateParams(newParams);
+                      }}
+                      className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-2xs focus:ring-2 focus:ring-indigo-400 focus:outline-hidden cursor-pointer"
+                    >
+                      <option value="kentsel">🏢 Kentsel Dönüşüm (6306 S.K.)</option>
+                      <option value="kentsel_imar">⚡ Kentsel Dönüşüm + İmar Artışı</option>
+                      <option value="kat_karsiligi">🤝 Kat Karşılığı İnşaat Yapımı</option>
+                      <option value="muteahhitlik">🔨 Anahtar Teslim Müteahhitlik</option>
+                      <option value="nakit">💵 Nakit / Hakediş Usulü</option>
+                    </select>
                     <p className={`text-[10px] ${textMuted} leading-relaxed mt-1`}>
                       Sözleşme tipi fizibilite ve finansal borç dağılımını belirler.
                     </p>

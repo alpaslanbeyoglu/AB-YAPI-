@@ -22,12 +22,24 @@ import {
   Briefcase,
   Plus,
   AlertCircle,
+  TrendingUp,
+  Coins,
+  HardHat,
+  ArrowRight,
+  Activity,
+  Calculator
 } from 'lucide-react';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
-import { AppTheme, CompanyProfile, CompanyProfilePrintOptions } from '../types';
+import { AppTheme, CompanyProfile, CompanyProfilePrintOptions, ProjectParams, CalculationResult } from '../types';
 
 interface CompanyProfileTabProps {
   theme?: AppTheme;
+  params?: ProjectParams;
+  results?: CalculationResult;
+  onNavigateToNewWorkOrder?: () => void;
+  onNavigateToCRM?: () => void;
+  onNavigateToCost?: () => void;
+  onNavigateToPortfolio?: () => void;
 }
 
 const AUTHORIZED_TITLE_PRESETS = [
@@ -49,7 +61,15 @@ const SECOND_TITLE_PRESETS = [
   'Saha Denetim Sorumlusu',
 ];
 
-export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'light' }) => {
+export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ 
+  theme = 'light',
+  params,
+  results,
+  onNavigateToNewWorkOrder,
+  onNavigateToCRM,
+  onNavigateToCost,
+  onNavigateToPortfolio
+}) => {
   const {
     profile,
     profiles,
@@ -200,6 +220,107 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-8">
+      {/* ========================================================
+          EXECUTIVE CONTRACTOR HUB — CFO & OPERATIONAL DASHBOARD
+         ======================================================== */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-white/10">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-widest uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                Müteahhit Ana Yardımcısı
+              </span>
+              <span className="text-xs text-slate-400 font-mono">
+                {profile.companyName || 'AB YAPI'}
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              Şirket, Finans & Yönetim Merkezi
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              Müteahhitlik faaliyetlerinizi, nakit akışını, müşteri cari hesaplarını ve şantiye iş emirlerinizi tek bir profesyonel panelden yönetin.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {onNavigateToNewWorkOrder && (
+              <button
+                type="button"
+                onClick={onNavigateToNewWorkOrder}
+                className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-black text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Yeni İş Emri / Hesapla</span>
+              </button>
+            )}
+            {onNavigateToCRM && (
+              <button
+                type="button"
+                onClick={onNavigateToCRM}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/10 transition-all active:scale-95 cursor-pointer"
+              >
+                <Users className="w-4 h-4 text-indigo-300" />
+                <span>Müşteriler & CRM</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Executive KPI Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
+              Aktif İş Emri
+            </span>
+            <span className="text-sm sm:text-base font-black text-white line-clamp-1">
+              {params?.projectAddress || 'Varsayılan Şantiye'}
+            </span>
+            <span className="text-[10px] text-indigo-300 font-medium block mt-1">
+              {params?.projectModel === 'contractorShare' ? 'Kat Karşılığı' :
+               params?.projectModel === 'urbanTransformation' ? 'Kentsel Dönüşüm' : 'Müteahhitlik Hizmeti'}
+            </span>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
+              Toplam Proje Bütçesi
+            </span>
+            <span className="text-sm sm:text-base font-black text-emerald-400">
+              {results?.grandTotal ? `${Math.round(results.grandTotal).toLocaleString('tr-TR')} ₺` : '0 ₺'}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-1">
+              {results?.totalArea ? `${Math.round(results.totalArea)} m² Toplam İnşaat` : '-'}
+            </span>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
+              Müteahhit Hedef Kârı
+            </span>
+            <span className="text-sm sm:text-base font-black text-amber-300">
+              {results?.profitAmount ? `${Math.round(results.profitAmount).toLocaleString('tr-TR')} ₺` : '0 ₺'}
+            </span>
+            <span className="text-[10px] text-slate-400 block mt-1">
+              %{params?.profitRate || 15} Hakediş Payı
+            </span>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
+              Tahmini Teslim Süresi
+            </span>
+            <span className="text-sm sm:text-base font-black text-indigo-200">
+              {results?.finalMonths || params?.manualMonths || 12} Ay
+            </span>
+            <span className="text-[10px] text-emerald-400 font-bold block mt-1">
+              ✓ Planlanan Takvim
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* HEADER & ACTIONS */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div className="flex items-center gap-3">
@@ -207,8 +328,8 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ theme = 'l
             <Building className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Firma & Yetkili Profili</h1>
-            <p className="text-sm text-slate-500">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Firma & Yetkili Profili</h2>
+            <p className="text-xs text-slate-500">
               Yazdırma, resmî teklif, sözleşme ve keşif raporlarında yer alacak kurumsal kimlik ve imza yetkilileri.
             </p>
           </div>

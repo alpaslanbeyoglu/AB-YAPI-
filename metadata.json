@@ -1,6 +1,6 @@
 {
-  "name": "AB Yapı Hesaplayıcı",
-  "description": "AB Yapı kentsel dönüşüm, inşaat maliyet hesaplama, 3D yapı modelleme, mimari kat planı, resmi sözleşme ve inşaat süreç & müşteri ilerleme takip paneli.",
+  "name": "AB YAPI - Müteahhit Yönetim Merkezi & Şantiye ERP",
+  "description": "Müteahhit ana yardımcısı, şirket finans & nakit akışı, müşteri CRM, 3D şantiye hesaplama, metraj ve resmi sözleşme yönetim platformu.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

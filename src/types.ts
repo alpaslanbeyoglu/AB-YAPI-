@@ -771,6 +771,8 @@ export interface BuildingModelParams {
   contractorFlatIds?: number[];          // Müteahhite kalacak dairelerin ID listesi
   showContractorShare3D?: boolean;       // 3D model üzerinde müteahhit ve hak sahibi dairelerini görselleştirme seçeneği
   projectModel?: 'cash' | 'contractorShare' | 'contractorService' | 'urbanTransformation';
+  projectType?: string;
+  hasZoningIncrease?: boolean;
   contractorShareRate?: number;
   flatCount?: number;
   flats?: FlatItem[];
@@ -872,5 +874,56 @@ export interface Subcontractor {
   status: 'not_started' | 'in_progress' | 'completed' | 'paused';
   payments: SubcontractorPayment[];
   notes?: string;
+}
+
+// -------------------------------------------------------------
+// MÜTEAHHİT YÖNETİM MERKEZİ (CRM, CARİ & FİNANS) ŞEMALARI
+// -------------------------------------------------------------
+
+export type CRMContactRole = 'landowner' | 'buyer' | 'subcontractor' | 'supplier' | 'consultant';
+
+export interface UnifiedCRMContact {
+  id: string;
+  name: string;
+  companyName?: string;
+  role: CRMContactRole;
+  roleLabel: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  taxNumber?: string;
+  taxOffice?: string;
+  iban?: string;
+  associatedProjectAddress?: string;
+  totalReceivable?: number; // Müteahhitten alacak / Borç bakiyesi (₺)
+  totalPayable?: number;    // Müteahhide ödenecek bakiye (₺)
+  notes?: string;
+  createdAt: string;
+}
+
+export type ProjectLifecycleStatus = 
+  | 'lead'          // Ön Görüşme / Keşif Aşaması
+  | 'feasibility'   // Fizibilite & Maliyet Hesabı
+  | 'proposal'      // Teklif Verildi / Karar Bekleniyor
+  | 'contracted'    // Sözleşme İmzalandı / Ruhsat Sürecinde
+  | 'active_site'   // Aktif Şantiye / İnşaat Yapımında
+  | 'completed'     // İskan Alındı / Teslim Edildi (Referans)
+  | 'archived';     // Arşivlendi
+
+export interface UnifiedContractorProject {
+  id: string;
+  version: string;
+  title: string;
+  projectAddress: string;
+  status: ProjectLifecycleStatus;
+  statusLabel: string;
+  customerName?: string;
+  customerPhone?: string;
+  createdAt: string;
+  updatedAt: string;
+  params: ProjectParams;
+  results: CalculationResult;
+  buildingModel?: BuildingModelParams;
+  construction?: ConstructionProgressProjectState;
 }
 

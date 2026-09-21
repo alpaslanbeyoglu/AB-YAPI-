@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Save, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor, LogIn, LogOut, Cloud, ShieldCheck } from 'lucide-react';
+import { Save, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor, LogIn, LogOut, Cloud, ShieldCheck, Building, Plus } from 'lucide-react';
 import { Logo } from './Logo';
 import { AppTheme } from '../types';
 import { useFirebaseSync } from '../context/FirebaseSyncContext';
@@ -14,6 +14,9 @@ interface HeaderProps {
   appMode?: 'full' | 'lite';
   onToggleAppMode?: () => void;
   onOpenAdminLicenses?: () => void;
+  activeProjectName?: string;
+  onNewProjectClick?: () => void;
+  onOpenHistoryClick?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -26,6 +29,9 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   appMode = 'full',
   onToggleAppMode,
   onOpenAdminLicenses,
+  activeProjectName,
+  onNewProjectClick,
+  onOpenHistoryClick,
 }) => {
   const isGray = theme === 'gray';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,13 +52,37 @@ export const Header: React.FC<HeaderProps> = React.memo(({
       }`}
     >
       <div className="max-w-7xl mx-auto px-2.5 sm:px-4 h-16 flex items-center justify-between gap-2 sm:gap-4 w-full min-w-0">
-        {/* Brand Logo & Title using official AB YAPI SVG Logo */}
-        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
-          <Logo size="md" theme={theme} className="max-w-full" />
+        {/* Brand Logo & Active Project Badge */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 overflow-hidden">
+          <Logo size="md" theme={theme} className="max-w-full shrink-0" />
           {appMode === 'lite' && (
             <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black bg-indigo-600 text-white shadow-xs shrink-0">
               LİTE
             </span>
+          )}
+
+          {/* Active Work Order / Project Badge */}
+          {activeProjectName ? (
+            <button
+              type="button"
+              onClick={onOpenHistoryClick}
+              className="hidden lg:flex items-center gap-2 px-3 py-1 bg-indigo-50/80 hover:bg-indigo-100/90 rounded-xl border border-indigo-200/80 text-xs transition-all cursor-pointer shadow-2xs"
+              title="Aktif Proje / Arşivden Başka Proje Yükle"
+            >
+              <Building className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="text-[10px] uppercase font-black text-indigo-500">İş Emri:</span>
+              <span className="font-extrabold text-indigo-900 truncate max-w-[200px]">{activeProjectName}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onNewProjectClick}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 rounded-xl border border-emerald-200 text-emerald-800 text-xs font-black transition-all cursor-pointer shadow-2xs"
+              title="Yeni Bir Şantiye / Proje İş Emri Hesaplaması Başlat"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>+ Yeni İş Emri</span>
+            </button>
           )}
         </div>
 

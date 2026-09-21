@@ -128,7 +128,7 @@ export default function App() {
     return DEFAULT_TABS;
   });
 
-  const [activeTab, setActiveTab] = useState<TabId>('kurulum');
+  const [activeTab, setActiveTab] = useState<TabId>('profile');
   const [requestedSetupStep, setRequestedSetupStep] = useState<number | undefined>(2);
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isProjectTransferOpen, setIsProjectTransferOpen] = useState(false);
@@ -1201,6 +1201,12 @@ export default function App() {
               appMode={appMode}
               onToggleAppMode={toggleAppMode}
               onOpenAdminLicenses={() => setIsAdminLicensesOpen(true)}
+              activeProjectName={params.projectAddress || 'Varsayılan Şantiye'}
+              onNewProjectClick={() => {
+                setActiveTab('kurulum');
+                setRequestedSetupStep(1);
+              }}
+              onOpenHistoryClick={() => setActiveTab('gecmis')}
             />
           </div>
 
@@ -1436,6 +1442,15 @@ export default function App() {
           {activeTab === 'profile' && (
             <CompanyProfileTab
               theme={theme}
+              params={params}
+              results={results}
+              onNavigateToNewWorkOrder={() => {
+                setActiveTab('kurulum');
+                setRequestedSetupStep(1);
+              }}
+              onNavigateToCRM={() => setActiveTab('malikler')}
+              onNavigateToCost={() => setActiveTab('maliyet')}
+              onNavigateToPortfolio={() => setActiveTab('tamamlanan')}
             />
           )}
 
