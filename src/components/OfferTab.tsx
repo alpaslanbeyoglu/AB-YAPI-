@@ -52,6 +52,8 @@ import {
   Minus,
   Store,
   X,
+  MessageSquare,
+  Copy,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { getAcOptionById } from '../utils/acOptions';
@@ -104,9 +106,90 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   // Istanbul Real Estate Valuation Modal State
   const [isValuationModalOpen, setIsValuationModalOpen] = useState<boolean>(false);
 
+  // WhatsApp Proposal Modal State
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
+  const [whatsAppRecipientPhone, setWhatsAppRecipientPhone] = useState<string>('');
+  const [whatsAppCopied, setWhatsAppCopied] = useState<boolean>(false);
+
   // Live Control Panel State
-  const [activeControlTab, setActiveControlTab] = useState<'inflation' | 'pricing' | 'payment' | 'features'>('inflation');
+  const [activeControlTab, setActiveControlTab] = useState<'inflation' | 'pricing' | 'payment' | 'features' | 'visibility'>('inflation');
   const [isLiveControlPanelExpanded, setIsLiveControlPanelExpanded] = useState<boolean>(true);
+
+  const generateWhatsAppMessageText = () => {
+    const compName = profile?.companyName || 'AB YAPI';
+    const compAuth = profile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
+    const compAuthTitle = profile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
+    const compPhone = profile?.phone || '+90 (212) 585 10 20';
+    const compEmail = profile?.email || 'info@abyapi.com.tr';
+    const compWeb = profile?.website || 'www.abyapi.com.tr';
+    const proposalNumber = `${compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-${new Date().getFullYear()}-${String(results.flatCount || 10).padStart(3, '0')}`;
+    const proposalDate = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const grandTotalStr = (results.grandTotal || 0).toLocaleString('tr-TR');
+    const perFlatStr = Math.round((results.grandTotal || 0) / (results.flatCount || 1)).toLocaleString('tr-TR');
+    const netDebtStr = (results.flatResults?.[0]?.netRemainingDebt || 0).toLocaleString('tr-TR');
+    const monthlyStr = (results.flatResults?.[0]?.monthlyInstallment || Math.round((results.grandTotal || 0) / (results.flatCount || 1) / (params.installmentCount || 12))).toLocaleString('tr-TR');
+
+    return `🏢 *${compName.toUpperCase()} - KURUMSAL İNŞAAT & KENTSEL DÖNÜŞÜM TEKLİFİ*
+📍 *Proje Adresi:* ${params.projectAddress || 'Belirtilmedi'}
+📄 *Teklif Kodu:* ${proposalNumber} | *Tarih:* ${proposalDate}
+
+📊 *MİMARİ KÜNYE:*
+• Kat Sayısı: Zemin Üstü ${params.floorCount || 5} Kat
+• Bağımsız Bölüm: ${results.flatCount || 10} Adet Daire / Birim
+• Anahtar Teslim Süresi: ${params.manualMonths || 15} Ay
+
+💰 *FİNANSAL TEKLİF ÖZETİ:*
+• Toplam İmalat Bedeli: ${grandTotalStr} ₺
+• Daire Başı Ortalama Pay: ${perFlatStr} ₺
+• State Hibesi/Kredisi Düşülmüş Net Ödeme: *${netDebtStr} ₺ / Daire*
+
+💳 *ÖDEME VE VADE TAKVİMİ:*
+• Ödeme Modeli: ${params.paymentPlanType === 'installments' ? 'Aylık Eşit Taksit' : params.paymentPlanType === 'hybrid' ? 'Peşinat + Taksit' : '5 Aşamalı İlerleme Hakedişi'}
+• Vade / Taksit: ${params.installmentCount || 12} Ay (${monthlyStr} ₺ / Ay)
+
+🛡️ *GÜVENLİK VE TEKNİK TAAHHÜTLER:*
+✓ 2018 Türkiye Bina Deprem Yönetmeliği %100 Uyum
+✓ Radye Jeneral Temel & C35/45 Beton Sınıfı
+✓ 20 Yıl Taşıyıcı Sistem & 5 Yıl İnce İşçilik Garantisi
+${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fiyat Sabit)' : '✓ Sabit Fiyat Garantisi'}
+
+📞 *Detaylı görüşme ve randevu için:*
+👤 ${compAuth} (${compAuthTitle})
+📱 Tel: ${compPhone}
+📧 E-posta: ${compEmail}
+🌐 ${compWeb}`;
+  };
+
+  const handleCopyWhatsApp = () => {
+    navigator.clipboard.writeText(generateWhatsAppMessageText());
+    setWhatsAppCopied(true);
+    setTimeout(() => setWhatsAppCopied(false), 3000);
+  };
+
+  const handleOpenWhatsAppDirect = () => {
+    const msg = encodeURIComponent(generateWhatsAppMessageText());
+    const cleanPhone = whatsAppRecipientPhone.replace(/[^0-9]/g, '');
+    const url = cleanPhone ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}` : `https://api.whatsapp.com/send?text=${msg}`;
+    window.open(url, '_blank');
+  };
+
+  const handleSelectPreset = (presetId: string) => {
+    const selected = DUAL_OFFER_NAMING_PRESETS.find(p => p.id === presetId);
+    if (selected) {
+      if (onUpdateAllParams) {
+        onUpdateAllParams({
+          offerNamingPreset: presetId as any,
+          baseOfferTitle: selected.baseTitle,
+          plusOfferTitle: selected.plusTitle,
+        });
+      } else if (onUpdateParam) {
+        onUpdateParam('offerNamingPreset', presetId as any);
+        onUpdateParam('baseOfferTitle', selected.baseTitle);
+        onUpdateParam('plusOfferTitle', selected.plusTitle);
+      }
+    }
+  };
 
   // Unit & Floor Configurator Modal State
   const [isUnitConfigOpen, setIsUnitConfigOpen] = useState(false);
@@ -611,6 +694,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           )}
           <button
             type="button"
+            onClick={() => setIsWhatsAppModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+            title="Teklifi WhatsApp Mesajı veya PDF Özeti Olarak Hızlıca Paylaşın"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-200" />
+            <span>💬 WhatsApp Teklif Özeti Paylaş</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsValuationModalOpen(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
             title="İstanbul Emlak Piyasası İlçe, Kat, Cadde ve Cepheye Göre Satış Fiyatlama Uzmanı"
@@ -733,6 +826,19 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   {params.offerPresentationMode === 'dual' ? 'Çift Paket' : 'Tek Paket'}
                 </span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveControlTab('visibility')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  activeControlTab === 'visibility'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>5. Rapor Görünürlük & Sadeleştirme</span>
+              </button>
             </div>
 
             {/* TAB 1: ENFLASYON & TEFE/TÜFE RISK PAYI */}
@@ -826,11 +932,11 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                         <span>
                           <strong>Proje Risk Teminat Hacmi:</strong>{' '}
-                          {(results.inflationBufferAmount || Math.round((results.totalGrossCost || 0) * ((params.inflationBufferRate || 15) / 100))).toLocaleString('tr-TR')} ₺
+                          {(results.inflationBufferAmount || Math.round((results.grandTotal || 0) * ((params.inflationBufferRate || 15) / 100))).toLocaleString('tr-TR')} ₺
                         </span>
                       </div>
                       <span className="text-[11px] text-indigo-200 font-mono">
-                        (Daire Başı Ort.: ~{Math.round((results.inflationBufferAmount || Math.round((results.totalGrossCost || 0) * ((params.inflationBufferRate || 15) / 100))) / (results.flatCount || 1)).toLocaleString('tr-TR')} ₺)
+                        (Daire Başı Ort.: ~{Math.round((results.inflationBufferAmount || Math.round((results.grandTotal || 0) * ((params.inflationBufferRate || 15) / 100))) / (results.flatCount || 1)).toLocaleString('tr-TR')} ₺)
                       </span>
                     </div>
                   </div>
@@ -840,6 +946,82 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     <span>Enflasyon risk payı kapalıdır. Teklif fiyatlarında herhangi bir TEFE/TÜFE veya fiyat artış risk payı eklenmemektedir.</span>
                   </div>
                 )}
+
+                {/* Notice Box Output Toggle & Customization */}
+                <div className="pt-3 border-t border-indigo-800/60 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <span className="text-xs font-bold text-amber-200 block">
+                        📄 Teklif Çıktısında "Enflasyon / TEFE-TÜFE Güvencesi Notu" Görünsün mü?
+                      </span>
+                      <span className="text-[11px] text-indigo-300 block">
+                        Raporun ödeme takvimi altındaki mor renkli TEFE/TÜFE ve sabit fiyat güvence kutusunun son çıktıda (PDF/Baskı) yer alıp almayacağını belirlersiniz.
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onUpdateParam && onUpdateParam('showInflationGuaranteeNotice', true)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          params.showInflationGuaranteeNotice !== false
+                            ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
+                            : 'bg-indigo-900 hover:bg-indigo-800 text-indigo-300 border border-indigo-700/50'
+                        }`}
+                      >
+                        ✓ Çıktıda Göster
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onUpdateParam && onUpdateParam('showInflationGuaranteeNotice', false)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          params.showInflationGuaranteeNotice === false
+                            ? 'bg-rose-600 text-white font-black shadow-md'
+                            : 'bg-indigo-900 hover:bg-indigo-800 text-indigo-300 border border-indigo-700/50'
+                        }`}
+                      >
+                        ✕ Çıktıdan Kaldır
+                      </button>
+                    </div>
+                  </div>
+
+                  {params.showInflationGuaranteeNotice !== false && (
+                    <div className="p-3 bg-indigo-900/40 rounded-xl border border-indigo-700/40 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <label className="font-bold text-indigo-200">Not Başlığı (Dilediğiniz gibi düzenleyin):</label>
+                        {(params.customInflationNoticeTitle || params.customInflationNoticeText) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onUpdateParam) {
+                                onUpdateParam('customInflationNoticeTitle', undefined);
+                                onUpdateParam('customInflationNoticeText', undefined);
+                              }
+                            }}
+                            className="text-[10px] text-amber-300 hover:underline cursor-pointer"
+                          >
+                            Sıfırla
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={params.customInflationNoticeTitle ?? ''}
+                        onChange={(e) => onUpdateParam && onUpdateParam('customInflationNoticeTitle', e.target.value || undefined)}
+                        placeholder={params.hasInflationBuffer ? '🛡️ Enflasyon Risk Güvencesi (İmalat Bedeline Dahildir)' : '🛡️ Enflasyon ve Vade Farkı Güvencesi (TEFE/TÜFE Farkı Yoktur)'}
+                        className="w-full text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-950 text-white border border-indigo-700 focus:outline-none focus:border-amber-400"
+                      />
+                      <label className="font-bold text-indigo-200 block pt-1">Not Açıklama Metni (Dilediğiniz gibi düzenleyin):</label>
+                      <textarea
+                        rows={2}
+                        value={params.customInflationNoticeText ?? ''}
+                        onChange={(e) => onUpdateParam && onUpdateParam('customInflationNoticeText', e.target.value || undefined)}
+                        placeholder={params.hasInflationBuffer ? 'Anlaşma anında belirlenen imalat bedeline enflasyon risk payı dahil edilmiş olup, inşaat süresince kat maliklerinden ayrıca TEFE/TÜFE veya ilave maliyet farkı talep edilmeyecektir.' : 'Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.'}
+                        className="w-full text-xs px-3 py-1.5 rounded-lg bg-indigo-950 text-white border border-indigo-700 focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1149,6 +1331,105 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 </div>
               </div>
             )}
+
+            {/* TAB 5: RAPOR GÖRÜNÜRLÜK & SADELEŞTİRME */}
+            {activeControlTab === 'visibility' && (
+              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-800/60">
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-200">
+                      📄 Teklif Çıktısı (PDF/Baskı) Sayfa & Kart Görünürlük Yönetimi
+                    </h4>
+                    <p className="text-[11px] text-indigo-300">
+                      Kat maliklerine veya bina yönetimine sunulacak teklif raporunu sadeleştirebilir veya tüm detaylı teknik analizleri açabilirsiniz.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onUpdateAllParams) {
+                          onUpdateAllParams({
+                            showIntroPresentation: false,
+                            showCompanyHistory: false,
+                            showTechnicalSummary: true,
+                            showQualityStandards: false,
+                            showInnovativeOptions: false,
+                            showDualOfferMatrix: params.offerPresentationMode === 'dual',
+                            showFinancialSummary: true,
+                            showPaymentTimeline: true,
+                            showInflationGuaranteeNotice: true,
+                            showLegalTaahhut: false,
+                            showContractorSignature: true,
+                          });
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md cursor-pointer transition-all"
+                    >
+                      ⚡ Sade Müşteri Sunum Paketi (Özet)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onUpdateAllParams) {
+                          onUpdateAllParams({
+                            showIntroPresentation: true,
+                            showCompanyHistory: true,
+                            showTechnicalSummary: true,
+                            showQualityStandards: true,
+                            showInnovativeOptions: true,
+                            showDualOfferMatrix: true,
+                            showFinancialSummary: true,
+                            showPaymentTimeline: true,
+                            showInflationGuaranteeNotice: true,
+                            showLegalTaahhut: true,
+                            showContractorSignature: true,
+                          });
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-800 hover:bg-indigo-700 text-indigo-100 border border-indigo-600 cursor-pointer transition-all"
+                    >
+                      📑 Tüm Detaylar Açık (Tam Şeffaf Bütçe)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 text-xs">
+                  {[
+                    { key: 'showIntroPresentation', label: ' Sayfa I Önsöz Sunumu' },
+                    { key: 'showCompanyHistory', label: ' Şirket Geçmişi & Profil' },
+                    { key: 'showTechnicalSummary', label: ' I. Mimari & Teknik Künye' },
+                    { key: 'showQualityStandards', label: ' III. Kalite Standartları' },
+                    { key: 'showInnovativeOptions', label: ' İnovatif Konfor Özellikleri' },
+                    { key: 'showDualOfferMatrix', label: ' Çift Teklif Karşılaştırma' },
+                    { key: 'showFinancialSummary', label: ' II. Bütçe & Finansal Özet' },
+                    { key: 'showPaymentTimeline', label: ' IV. Ödeme & Teslim Takvimi' },
+                    { key: 'showInflationGuaranteeNotice', label: ' 🛡️ TEFE/TÜFE Fiyat Güvencesi' },
+                    { key: 'showLegalTaahhut', label: ' 6. Hukuki Taahhütler' },
+                    { key: 'showContractorSignature', label: ' 7. Yetkili İmza Bloğu' },
+                  ].map((item) => {
+                    const isVisible = (params as any)[item.key] !== false;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => onUpdateParam && onUpdateParam(item.key as any, !isVisible)}
+                        className={`p-2.5 rounded-xl text-left font-bold transition-all cursor-pointer border flex items-center justify-between ${
+                          isVisible
+                            ? 'bg-emerald-950/80 text-emerald-200 border-emerald-500/50 shadow-xs'
+                            : 'bg-indigo-950/60 text-indigo-400 border-indigo-800/40 opacity-60'
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-950/40">
+                          {isVisible ? 'AÇIK' : 'GİZLİ'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1438,7 +1719,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 const cardKeys = [
                   'showProposalHeader', 'showVisionCards', 'showTechnicalSummary', 
                   'showQualityStandards', 'showInnovativeOptions', 'showDualOfferMatrix', 
-                  'showFinancialSummary', 'showPaymentTimeline', 'showLegalTaahhut', 'showContractorSignature'
+                  'showFinancialSummary', 'showPaymentTimeline', 'showInflationGuaranteeNotice',
+                  'showLegalTaahhut', 'showContractorSignature'
                 ] as const;
                 const updates: Partial<ProjectParams> = {};
                 cardKeys.forEach(k => { (updates as any)[k] = true; });
@@ -1458,7 +1740,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 const cardKeys = [
                   'showProposalHeader', 'showVisionCards', 'showTechnicalSummary', 
                   'showQualityStandards', 'showInnovativeOptions', 'showDualOfferMatrix', 
-                  'showFinancialSummary', 'showPaymentTimeline', 'showLegalTaahhut', 'showContractorSignature'
+                  'showFinancialSummary', 'showPaymentTimeline', 'showInflationGuaranteeNotice',
+                  'showLegalTaahhut', 'showContractorSignature'
                 ] as const;
                 const updates: Partial<ProjectParams> = {};
                 cardKeys.forEach(k => { (updates as any)[k] = false; });
@@ -1485,6 +1768,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             { key: 'showDualOfferMatrix', label: 'İkili Karşılaştırma Matrisi', desc: 'İkili teklif sunumunda paket farklarını tablo olarak gösterir.', icon: '📊' },
             { key: 'showFinancialSummary', label: 'II. Finansal Çerçeve', desc: 'Yatırım tutarı ve finansman modeli özetini ekler.', icon: '💰' },
             { key: 'showPaymentTimeline', label: 'IV. Ödeme Takvimi', desc: 'İnşaat süresi ve taksitlendirme detaylarını gösterir.', icon: '💳' },
+            { key: 'showInflationGuaranteeNotice', label: 'Enflasyon Güvence Notu', desc: 'Ödeme takvimi altındaki TEFE/TÜFE ve sabit fiyat güvence kutusunu açar/kapatır.', icon: '🛡️' },
             { key: 'showLegalTaahhut', label: '6. Hukuki Protokol', desc: 'Yasal garantiler, kira desteği ve noter süreci bilgilerini ekler.', icon: '⚖️' },
             { key: 'showContractorSignature', label: 'Yetkili İmza & Kaşe', desc: 'Teklifin sonundaki imza ve onay alanlarını gösterir.', icon: '🖋️' },
           ].map((section) => (
@@ -3936,17 +4220,19 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               </p>
             </div>
 
-            <div className="md:col-span-2 p-5 bg-purple-50/70 rounded-3xl border border-purple-100 flex items-start gap-3 mt-1 shadow-2xs">
-              <ShieldCheck className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
-              <div>
-                <h5 className="text-xs font-extrabold text-purple-950 uppercase tracking-wide">
-                  🛡️ Enflasyon ve Vade Farkı Güvencesi (TEFE/TÜFE Farkı Yoktur)
-                </h5>
-                <p className="text-[10px] text-purple-800 leading-relaxed mt-1">
-                  Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.
-                </p>
+            {params.showInflationGuaranteeNotice !== false && (
+              <div className="md:col-span-2 p-5 bg-purple-50/70 rounded-3xl border border-purple-100 flex items-start gap-3 mt-1 shadow-2xs">
+                <ShieldCheck className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+                <div>
+                  <h5 className="text-xs font-extrabold text-purple-950 uppercase tracking-wide">
+                    {params.customInflationNoticeTitle || (params.hasInflationBuffer ? '🛡️ Enflasyon Risk Güvencesi (İmalat Bedeline Dahildir)' : '🛡️ Enflasyon ve Vade Farkı Güvencesi (TEFE/TÜFE Farkı Yoktur)')}
+                  </h5>
+                  <p className="text-[10px] text-purple-800 leading-relaxed mt-1">
+                    {params.customInflationNoticeText || (params.hasInflationBuffer ? 'Anlaşma anında belirlenen imalat bedeline enflasyon risk payı dahil edilmiş olup, inşaat süresince kat maliklerinden ayrıca TEFE/TÜFE veya ilave maliyet farkı talep edilmeyecektir.' : 'Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.')}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -4425,6 +4711,100 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         }}
         theme={theme}
       />
+
+      {/* WhatsApp Hızlı Paylaşım Modalı */}
+      {isWhatsAppModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 max-w-2xl w-full text-white shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-indigo-800/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    WhatsApp & Dijital Teklif Özeti Hazırla
+                  </h3>
+                  <p className="text-xs text-indigo-300">
+                    Kat maliklerine, WhatsApp gruplarına veya bina yönetimine anında gönderebileceğiniz profesyonel teklif özeti
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWhatsAppModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-indigo-200 block">
+                  Alıcı Telefon Numarası (İsteğe Bağlı):
+                </label>
+                <input
+                  type="text"
+                  value={whatsAppRecipientPhone}
+                  onChange={(e) => setWhatsAppRecipientPhone(e.target.value)}
+                  placeholder="Örn: 0532 123 45 67 (Boş bırakırsanız WhatsApp kişinizi seçmenize izin verir)"
+                  className="w-full text-xs font-medium px-3.5 py-2.5 rounded-xl bg-slate-950 text-white border border-indigo-700/60 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-indigo-200">
+                    Oluşturulan WhatsApp Mesaj Taslağı:
+                  </label>
+                  {whatsAppCopied && (
+                    <span className="text-[11px] text-emerald-400 font-bold animate-pulse">
+                      ✓ Metin Panoya Kopyalandı!
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  readOnly
+                  rows={12}
+                  value={generateWhatsAppMessageText()}
+                  className="w-full text-xs font-mono p-3.5 rounded-2xl bg-slate-950 text-emerald-300 border border-indigo-800/80 focus:outline-none resize-none leading-relaxed"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-indigo-800/60">
+              <button
+                type="button"
+                onClick={handleCopyWhatsApp}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-200 hover:text-white font-bold text-xs border border-indigo-700/50 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Copy className="w-4 h-4 text-indigo-300" />
+                <span>Panoya Kopyala</span>
+              </button>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsWhatsAppModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs cursor-pointer transition-all"
+                >
+                  Kapat
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenWhatsAppDirect}
+                  className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 cursor-pointer transition-all"
+                >
+                  <MessageSquare className="w-4 h-4 fill-white" />
+                  <span>WhatsApp'ta Aç ve Gönder 🚀</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

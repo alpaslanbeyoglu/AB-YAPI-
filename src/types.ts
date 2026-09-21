@@ -440,6 +440,9 @@ export interface ProjectParams {
   showDualOfferMatrix?: boolean;   // İkili Teklif Karşılaştırma Matrisi (Çift Teklifte)
   showFinancialSummary?: boolean;  // II. Proje Özeti ve Finansal Çerçeve
   showPaymentTimeline?: boolean;   // IV. Ödeme ve Teslim Takvimi
+  showInflationGuaranteeNotice?: boolean; // TEFE/TÜFE ve Vade Farkı Güvencesi Notu (Çıktıda Görünsün mü?)
+  customInflationNoticeTitle?: string; // Özel başlık
+  customInflationNoticeText?: string;  // Özel açıklama metni
   showLegalTaahhut?: boolean;      // 6. Kurumsal Taahhütler ve Hukuki Protokol
   showContractorSignature?: boolean; // Yetkili İmza ve Kaşe Alanı
 

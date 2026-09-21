@@ -40,6 +40,7 @@ interface FirebaseSyncContextType {
   signInAsAdmin: (passcode: string) => boolean;
   signOut: () => Promise<void>;
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  isAuthInitialized: boolean;
   // Projects sync
   saveProjectToCloud: (project: SavedProjectData) => Promise<void>;
   loadProjectsFromCloud: () => Promise<SavedProjectData[]>;
@@ -48,6 +49,10 @@ interface FirebaseSyncContextType {
   saveCompanyProfileToCloud: (profile: CompanyProfile) => Promise<void>;
   loadCompanyProfilesFromCloud: () => Promise<CompanyProfile[]>;
   deleteCompanyProfileToCloud: (companyName: string) => Promise<void>;
+  
+  // Active state sync (for cross-device persistence of the current working project)
+  saveActiveStateToCloud: (params: any, buildingModel: any, uiState: any) => Promise<void>;
+  loadActiveStateFromCloud: () => Promise<{ params: any; buildingModel: any; uiState: any } | null>;
   
   // Licensing & SaaS
   isLicensed: boolean;
@@ -111,6 +116,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return null;
   });
   const [loading, setLoading] = useState(true);
+  const [isAuthInitialized, setIsAuthInitialized] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
 
   // Licensing States
@@ -140,6 +146,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
           setUser(null);
         }
       }
+      setIsAuthInitialized(true);
       setLoading(false);
     });
     return unsubscribe;
@@ -253,7 +260,11 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Pushes a single project and its associated construction state to the cloud
   const saveProjectToCloud = async (project: SavedProjectData) => {
-    if (!user || !isLicensed) return;
+    // Check if truly authenticated via Firebase, not just a local session
+    if (!auth.currentUser || !isLicensed) {
+      console.warn("Cloud sync skipped: No active Firebase Auth session.");
+      return;
+    }
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProjectKey(project.projectAddress);
@@ -282,7 +293,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.warn("Failed to gather construction states for cloud sync:", err);
       }
 
-      const docRef = doc(db, 'users', user.uid, 'projects', safeKey);
+      const docRef = doc(db, 'users', auth.currentUser!.uid, 'projects', safeKey);
       const payload = sanitizeForFirestore({
         id: safeKey,
         version: project.version || '1.0.0',
@@ -305,10 +316,10 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Loads all projects from cloud and hydrates localStorage to preserve app state
   const loadProjectsFromCloud = async (): Promise<SavedProjectData[]> => {
-    if (!user || !isLicensed) return [];
+    if (!auth.currentUser || !isLicensed) return [];
     setSyncStatus('syncing');
     try {
-      const colRef = collection(db, 'users', user.uid, 'projects');
+      const colRef = collection(db, 'users', auth.currentUser!.uid, 'projects');
       const snapshot = await getDocs(colRef);
       const cloudProjects: SavedProjectData[] = [];
 
@@ -351,11 +362,11 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const deleteProjectFromCloud = async (projectAddress: string) => {
-    if (!user || !isLicensed) return;
+    if (!auth.currentUser || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProjectKey(projectAddress);
-      const docRef = doc(db, 'users', user.uid, 'projects', safeKey);
+      const docRef = doc(db, 'users', auth.currentUser!.uid, 'projects', safeKey);
       await deleteDoc(docRef);
       setSyncStatus('synced');
     } catch (error) {
@@ -366,11 +377,11 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const saveCompanyProfileToCloud = async (profile: CompanyProfile) => {
-    if (!user || !isLicensed) return;
+    if (!auth.currentUser || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProfileKey(profile.companyName);
-      const docRef = doc(db, 'users', user.uid, 'companyProfiles', safeKey);
+      const docRef = doc(db, 'users', auth.currentUser!.uid, 'companyProfiles', safeKey);
       const payload = sanitizeForFirestore(profile);
       await setDoc(docRef, payload, { merge: true });
       setSyncStatus('synced');
@@ -382,10 +393,10 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const loadCompanyProfilesFromCloud = async (): Promise<CompanyProfile[]> => {
-    if (!user || !isLicensed) return [];
+    if (!auth.currentUser || !isLicensed) return [];
     setSyncStatus('syncing');
     try {
-      const colRef = collection(db, 'users', user.uid, 'companyProfiles');
+      const colRef = collection(db, 'users', auth.currentUser!.uid, 'companyProfiles');
       const snapshot = await getDocs(colRef);
       const profiles: CompanyProfile[] = [];
 
@@ -403,11 +414,11 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const deleteCompanyProfileToCloud = async (companyName: string) => {
-    if (!user || !isLicensed) return;
+    if (!auth.currentUser || !isLicensed) return;
     setSyncStatus('syncing');
     try {
       const safeKey = getSafeProfileKey(companyName);
-      const docRef = doc(db, 'users', user.uid, 'companyProfiles', safeKey);
+      const docRef = doc(db, 'users', auth.currentUser!.uid, 'companyProfiles', safeKey);
       await deleteDoc(docRef);
       setSyncStatus('synced');
     } catch (error) {
@@ -415,6 +426,41 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setSyncStatus('error');
       throw error;
     }
+  };
+
+  const saveActiveStateToCloud = async (params: any, buildingModel: any, uiState: any) => {
+    if (!auth.currentUser || !isLicensed) return;
+    try {
+      const docRef = doc(db, 'users', auth.currentUser.uid, 'settings', 'activeState');
+      const payload = sanitizeForFirestore({
+        params,
+        buildingModel,
+        uiState,
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(docRef, payload, { merge: true });
+    } catch (error) {
+      console.error("Error saving active state to cloud:", error);
+    }
+  };
+
+  const loadActiveStateFromCloud = async (): Promise<{ params: any; buildingModel: any; uiState: any } | null> => {
+    if (!auth.currentUser || !isLicensed) return null;
+    try {
+      const docRef = doc(db, 'users', auth.currentUser.uid, 'settings', 'activeState');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+          params: data.params,
+          buildingModel: data.buildingModel,
+          uiState: data.uiState
+        };
+      }
+    } catch (error) {
+      console.error("Error loading active state from cloud:", error);
+    }
+    return null;
   };
 
   // Admin Licensing Operations
@@ -470,12 +516,15 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       signInAsAdmin,
       signOut,
       syncStatus,
+      isAuthInitialized,
       saveProjectToCloud,
       loadProjectsFromCloud,
       deleteProjectFromCloud,
       saveCompanyProfileToCloud,
       loadCompanyProfilesFromCloud,
       deleteCompanyProfileToCloud,
+      saveActiveStateToCloud,
+      loadActiveStateFromCloud,
       
       // Licensing & Admin
       isLicensed,

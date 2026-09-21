@@ -72,7 +72,15 @@ import {
 } from './types';
 
 export default function App() {
-  const { user, saveProjectToCloud, loadProjectsFromCloud, deleteProjectFromCloud } = useFirebaseSync();
+  const { 
+    user, 
+    saveProjectToCloud, 
+    loadProjectsFromCloud, 
+    deleteProjectFromCloud,
+    saveActiveStateToCloud,
+    loadActiveStateFromCloud,
+    isAuthInitialized
+  } = useFirebaseSync();
   const [isAdminLicensesOpen, setIsAdminLicensesOpen] = useState(false);
   const [theme, setTheme] = useState<AppTheme>(() => {
     try {
@@ -771,46 +779,87 @@ export default function App() {
     return [];
   });
 
-  // Synchronize calculation history with Firebase on login
+  // Synchronize calculation history and active state with Firebase on login
   useEffect(() => {
-    const syncProjectsWithFirebase = async () => {
-      if (!user) return;
+    const syncWithFirebase = async () => {
+      if (!user || !isAuthInitialized) return;
       try {
+        // 1. Sync History
         const cloudProjects = await loadProjectsFromCloud();
         if (cloudProjects && cloudProjects.length > 0) {
           setHistoryList(cloudProjects);
           localStorage.setItem('ab_yapi_history', JSON.stringify(cloudProjects));
-        } else {
+        } else if (historyList.length > 0) {
           // Back up local history to cloud if cloud is empty
           for (const localProj of historyList) {
             await saveProjectToCloud(localProj);
           }
         }
+
+        // 2. Sync Active State (Cross-device persistence)
+        const cloudActiveState = await loadActiveStateFromCloud();
+        if (cloudActiveState) {
+          if (cloudActiveState.params) {
+            setParams(cloudActiveState.params);
+            localStorage.setItem('ab_yapi_last_params', JSON.stringify(cloudActiveState.params));
+          }
+          if (cloudActiveState.buildingModel) {
+            setBuildingModelParams(cloudActiveState.buildingModel);
+            localStorage.setItem('ab_yapi_building_model', JSON.stringify(cloudActiveState.buildingModel));
+          }
+          if (cloudActiveState.uiState) {
+            const { activeTab: cloudActiveTab, tabsConfig: cloudTabsConfig } = cloudActiveState.uiState;
+            if (cloudActiveTab) {
+              setActiveTab(cloudActiveTab);
+            }
+            if (cloudTabsConfig) {
+              setTabsConfig(prev => {
+                return prev.map(defaultTab => {
+                  const savedTab = cloudTabsConfig.find((t: any) => t.id === defaultTab.id);
+                  return savedTab ? { 
+                    ...defaultTab, 
+                    visible: savedTab.visible ?? defaultTab.visible, 
+                    order: savedTab.order ?? defaultTab.order,
+                    label: savedTab.label ?? defaultTab.label,
+                    shortLabel: savedTab.shortLabel ?? defaultTab.shortLabel
+                  } : defaultTab;
+                }).sort((a, b) => a.order - b.order);
+              });
+              localStorage.setItem('ab_yapi_tabs', JSON.stringify(cloudTabsConfig));
+            }
+          }
+        }
       } catch (err) {
-        console.warn("Failed to sync project history with Firebase:", err);
+        console.warn("Failed to sync with Firebase:", err);
       }
     };
-    syncProjectsWithFirebase();
-  }, [user]);
+    syncWithFirebase();
+  }, [user, isAuthInitialized]);
 
-  // High-performance debounced persistence (prevents input lag and stutter)
+  // High-performance debounced persistence (Local Storage & Cloud)
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
         localStorage.setItem('ab_yapi_last_params', JSON.stringify(params));
-      } catch (e) {}
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [params]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
         localStorage.setItem('ab_yapi_building_model', JSON.stringify(buildingModelParams));
+        localStorage.setItem('ab_yapi_tabs', JSON.stringify(tabsConfig));
+        
+        if (user && isAuthInitialized) {
+          saveActiveStateToCloud(params, buildingModelParams, {
+            activeTab,
+            tabsConfig: tabsConfig.map(t => ({ 
+              id: t.id, 
+              visible: t.visible, 
+              order: t.order, 
+              label: t.label, 
+              shortLabel: t.shortLabel 
+            }))
+          });
+        }
       } catch (e) {}
-    }, 300);
+    }, 800);
     return () => clearTimeout(timer);
-  }, [buildingModelParams]);
+  }, [params, buildingModelParams, tabsConfig, activeTab, user, isAuthInitialized]);
 
   // Flush pending data immediately if page closes
   useEffect(() => {
@@ -818,11 +867,12 @@ export default function App() {
       try {
         localStorage.setItem('ab_yapi_last_params', JSON.stringify(params));
         localStorage.setItem('ab_yapi_building_model', JSON.stringify(buildingModelParams));
+        localStorage.setItem('ab_yapi_tabs', JSON.stringify(tabsConfig));
       } catch (e) {}
     };
     window.addEventListener('beforeunload', flushData);
     return () => window.removeEventListener('beforeunload', flushData);
-  }, [params, buildingModelParams]);
+  }, [params, buildingModelParams, tabsConfig]);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setFeedback({ type, message });

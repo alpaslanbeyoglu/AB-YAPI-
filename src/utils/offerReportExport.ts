@@ -748,12 +748,15 @@ export function generateOfferHtml(
         </p>
       </div>
     </div>
+    ${params.showInflationGuaranteeNotice !== false ? `
     <div style="margin-top:8px; background:#faf5ff; border:1px solid #e9d5ff; padding:8px 10px; border-radius:6px;">
-      <div style="font-weight:bold; font-size:10px; color:#5b21b6; margin-bottom:2px;">🛡️ Enflasyon ve Vade Farkı Güvencesi (TEFE/TÜFE Farkı Yoktur)</div>
+      <div style="font-weight:bold; font-size:10px; color:#5b21b6; margin-bottom:2px;">
+        ${params.customInflationNoticeTitle || (params.hasInflationBuffer ? '🛡️ Enflasyon Risk Güvencesi (İmalat Bedeline Dahildir)' : '🛡️ Enflasyon ve Vade Farkı Güvencesi (TEFE/TÜFE Farkı Yoktur)')}
+      </div>
       <p style="font-size:8.5px; color:#5b21b6; margin:0; line-height:1.4;">
-        Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.
+        ${params.customInflationNoticeText || (params.hasInflationBuffer ? 'Anlaşma anında belirlenen imalat bedeline enflasyon risk payı dahil edilmiş olup, inşaat süresince kat maliklerinden ayrıca TEFE/TÜFE veya ilave maliyet farkı talep edilmeyecektir.' : 'Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.')}
       </p>
-    </div>
+    </div>` : ''}
   </div>` : ''}
 
   <!-- 5. TEKLİF EKLERİ VE GÖRSELLERİ (IF ANY) -->

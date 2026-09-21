@@ -47,6 +47,18 @@ export const MenuSettingsModal: React.FC<MenuSettingsModalProps> = ({
     setLocalTabs(newTabs);
   };
 
+  const updateLabel = (index: number, label: string) => {
+    const newTabs = [...localTabs];
+    newTabs[index].label = label;
+    setLocalTabs(newTabs);
+  };
+
+  const updateShortLabel = (index: number, shortLabel: string) => {
+    const newTabs = [...localTabs];
+    newTabs[index].shortLabel = shortLabel;
+    setLocalTabs(newTabs);
+  };
+
   const handleSave = () => {
     onSave(localTabs);
     onClose();
@@ -87,10 +99,28 @@ export const MenuSettingsModal: React.FC<MenuSettingsModalProps> = ({
                   <div className="text-slate-400">
                     <Icon className="w-5 h-5" />
                   </div>
-                  <span className="font-semibold text-sm">{tab.label.replace(/^\d+\.\s*/, '')}</span>
+                <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                  <input
+                    type="text"
+                    value={tab.label}
+                    onChange={(e) => updateLabel(index, e.target.value)}
+                    className={`text-sm font-semibold bg-transparent border-b border-transparent hover:border-indigo-400 focus:border-indigo-600 focus:outline-none w-full truncate ${
+                      isGray ? 'text-slate-800' : 'text-slate-900'
+                    }`}
+                  />
+                  <input
+                    type="text"
+                    value={tab.shortLabel}
+                    onChange={(e) => updateShortLabel(index, e.target.value)}
+                    placeholder="Kısa isim"
+                    className={`text-xs bg-transparent border-b border-transparent hover:border-indigo-400 focus:border-indigo-600 focus:outline-none w-full truncate ${
+                      isGray ? 'text-slate-500' : 'text-slate-400'
+                    }`}
+                  />
                 </div>
+              </div>
 
-                <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1">
                   <button
                     onClick={() => toggleVisibility(index)}
                     className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors"
