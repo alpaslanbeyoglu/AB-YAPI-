@@ -75,6 +75,8 @@ interface OfferTabProps {
   theme?: AppTheme;
 }
 
+type OfferSubTabId = 'preview' | 'package' | 'ai_assistant' | 'cards_and_clauses' | 'company_history' | 'contractor_financials';
+
 export const OfferTab: React.FC<OfferTabProps> = ({
   params,
   results,
@@ -85,6 +87,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 }) => {
   const { profile } = useCompanyProfile();
   const offerDocRef = useRef<HTMLDivElement>(null);
+
+  // Grouped Navigation Sub-Tab State
+  const [activeSubTab, setActiveSubTab] = useState<OfferSubTabId>('preview');
 
   // AI Proposal Generator State
   const [aiPromptText, setAiPromptText] = useState('');
@@ -551,8 +556,54 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     return () => window.removeEventListener('keydown', blockShortcuts);
   }, []);
 
+  const offerSubTabs: Array<{
+    id: OfferSubTabId;
+    label: string;
+    badge?: string;
+    icon: any;
+  }> = [
+    { id: 'preview', label: '📑 Resmî Teklif (PDF)', badge: uploadedImages.length > 0 ? `${uploadedImages.length} Görsel` : undefined, icon: FileText },
+    { id: 'package', label: '⚡ Paket & Sunum Modu', badge: isDualOffer ? '2 Seçenekli (Baz+Plus)' : 'Tek Paket', icon: Sliders },
+    { id: 'ai_assistant', label: '✨ AI Teklif Asistanı', badge: 'Gemini 3.8', icon: Sparkles },
+    { id: 'cards_and_clauses', label: '🎛️ Kartlar & Ek Maddeler', badge: `${clauses.length} Madde`, icon: Settings2 },
+    { id: 'company_history', label: '🏢 Önsöz & Firma Profili', badge: params.showCompanyHistory ? 'Aktif' : 'Pasif', icon: Award },
+    { id: 'contractor_financials', label: '🔒 Müteahhit Kâr Analizi', badge: 'Gizli', icon: ShieldCheck },
+  ];
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Grouped Sub-Tab Navigation Header Bar */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-2 shadow-xs print:hidden">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          {offerSubTabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeSubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSubTab(tab.id)}
+                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                  isActive
+                    ? 'bg-slate-900 text-white shadow-md font-black scale-[1.01]'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/90'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
+                <span>{tab.label}</span>
+                {tab.badge && (
+                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-extrabold ${
+                    isActive ? 'bg-slate-800 text-amber-300 border border-amber-400/30' : 'bg-slate-100 text-slate-600 border border-slate-200'
+                  }`}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Top Action Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-slate-200 shadow-sm print:hidden">
         <div>
@@ -572,6 +623,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           <button
             type="button"
             onClick={() => {
+              setActiveSubTab('contractor_financials');
               if (params.offerPresentationMode !== 'dual' && onUpdateParam) {
                 onUpdateParam('offerPresentationMode', 'dual');
               }
@@ -628,7 +680,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       {/* ========================================================
           AI PROPOSAL GENERATOR FROM TEXT INPUT (YAPAY ZEKA İLE TEKLİF OLUŞTURUCU)
          ======================================================== */}
-      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 shadow-xl space-y-4 print:hidden border border-indigo-500/30">
+      {activeSubTab === 'ai_assistant' && (
+      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 shadow-xl space-y-4 print:hidden border border-indigo-500/30 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-700/50">
           <div>
             <h3 className="text-sm font-black text-white flex items-center gap-2">
@@ -769,27 +822,26 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
               <div className="text-[11px] text-indigo-200 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-indigo-800/60">
                 <span>💡 Resmi teklif evrakı, 3D model ve birim hesaplamalar bu verilere göre güncellendi.</span>
-                <a
-                  href="#ek-maddeler"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById('ek-maddeler')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('preview')}
                   className="text-amber-400 hover:text-amber-300 underline font-bold cursor-pointer inline-flex items-center gap-1"
                 >
-                  <span>Maddeleri Aşağıda İncele / Düzenle</span>
-                  <span>↓</span>
-                </a>
+                  <span>Teklifi Önizle ve PDF İndir</span>
+                  <span>➔</span>
+                </button>
               </div>
             </div>
           )}
         </div>
       </div>
+      )}
 
       {/* ========================================================
           INTERACTIVE IMAGE & ATTACHMENTS UPLOAD PANEL (GÖRSEL VE EVRAK UPLOAD)
          ======================================================== */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 print:hidden">
+      {activeSubTab === 'preview' && (
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 print:hidden animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -886,10 +938,13 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* ========================================================
           TEKLİF RAPORU KART SEÇİMİ VE GÖRÜNÜRLÜK AYARLARI (OFFER ENGINE SECTION SELECTION)
          ======================================================== */}
+      {activeSubTab === 'cards_and_clauses' && (
+      <div className="space-y-6 animate-fade-in">
       <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5 print:hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
@@ -1033,11 +1088,14 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         )}
       </div>
+      </div>
+      )}
 
       {/* ========================================================
           TEKLİF ÖNCESİ SUNUM VE FİRMA GEÇMİŞİ PANELİ (PRE-OFFER PRESENTATION EDITOR)
          ======================================================== */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5 print:hidden">
+      {activeSubTab === 'company_history' && (
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5 print:hidden animate-fade-in">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
@@ -1171,11 +1229,13 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* ========================================================
           DUAL OFFER PRESENTATION MODE & CUSTOMIZATION PANEL
          ======================================================== */}
-      <div className="bg-white border-2 border-indigo-100 rounded-3xl p-6 shadow-sm space-y-5 print:hidden">
+      {activeSubTab === 'package' && (
+      <div className="bg-white border-2 border-indigo-100 rounded-3xl p-6 shadow-sm space-y-5 print:hidden animate-fade-in">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
@@ -1947,8 +2007,416 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         )}
       </div>
+      )}
+
+      {/* ========================================================
+          CONTRACTOR PRIVATE FINANCIAL CONTROL PANEL
+         ======================================================== */}
+      {activeSubTab === 'contractor_financials' && (
+      <div className="space-y-6 animate-fade-in">
+        <div
+          id="contractor-financial-reflection-panel"
+          className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white border-2 border-amber-500/40 shadow-2xl space-y-6"
+        >
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-500/40 shrink-0">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="text-sm font-black text-white uppercase tracking-wider">
+                    Yüklenici Finansal Tablosu: Plus Paketin Müteahhite (Bana) Yansıyan Farkı
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                    🔒 Gizli (Müşteri Teklifinde ve PDF'te Görünmez)
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-1">
+                  Plus paketin şantiye imalat maliyetinize, müşterilerden toplanacak nakit akışına, daire başı net kârınıza ve toplam şirket kazancınıza yansıyan tüm finansal farkları inceleyin.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start lg:self-center">
+              <span className="text-[11px] text-slate-400 font-mono bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
+                Proje Birim Adedi: <strong className="text-white">{results.flatCount || 1}</strong>
+              </span>
+            </div>
+          </div>
+
+          {/* 1. DÖRT TEMEL FİNANSAL YANSIMA KARTI (EXECUTIVE OVERVIEW) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* KART 1: Şantiyeye / Bana Ekstra Maliyet */}
+            <div className="p-4 bg-slate-900/90 rounded-2xl border border-rose-500/30 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-extrabold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Calculator className="w-3.5 h-3.5 text-rose-400" />
+                    1. Bana (Şantiyeye) Yansıyan Maliyet
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">Çıkan Para</span>
+                </div>
+                <div className="text-2xl font-black font-mono text-white mt-1">
+                  {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺
+                  <span className="text-xs font-normal text-slate-400 block mt-0.5">Daire Başı Net İmalat</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                <span className="text-slate-400">Toplam Ek Maliyet:</span>
+                <strong className="font-mono text-rose-300 font-bold">{dualData.calculatedTotalCostDiff.toLocaleString('tr-TR')} ₺</strong>
+              </div>
+            </div>
+
+            {/* KART 2: Müşteriden Toplanacak Tutar */}
+            <div className="p-4 bg-slate-900/90 rounded-2xl border border-sky-500/30 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/5 rounded-full blur-xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-extrabold text-sky-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-sky-400" />
+                    2. Müşteriden Alınacak Hasılat
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">Giren Para</span>
+                </div>
+                <div className="text-2xl font-black font-mono text-sky-300 mt-1">
+                  {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
+                  <span className="text-xs font-normal text-slate-400 block mt-0.5">Daire Başı Teklif Farkı</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                <span className="text-slate-400">Toplam Tahsilat:</span>
+                <strong className="font-mono text-white font-bold">{dualData.customerTotalCostDiff.toLocaleString('tr-TR')} ₺</strong>
+              </div>
+            </div>
+
+            {/* KART 3: Müteahhide (Bana) Kalan Net İlave Kâr */}
+            <div className="p-4 bg-slate-900/90 rounded-2xl border border-emerald-500/40 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                    3. Bana Kalan Net Ekstra Kâr
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">Cepte Kalan</span>
+                </div>
+                <div className="text-2xl font-black font-mono text-emerald-400 mt-1">
+                  {dualData.contractorNetExtraMargin >= 0 ? '+' : ''}{dualData.contractorNetExtraMargin.toLocaleString('tr-TR')} ₺
+                  <span className="text-xs font-normal text-slate-400 block mt-0.5">
+                    Daire Başı: {dualData.unitProfitPerFlat >= 0 ? '+' : ''}{dualData.unitProfitPerFlat.toLocaleString('tr-TR')} ₺
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                <span className="text-slate-400">İlave Kâr Marjı:</span>
+                <strong className="font-mono text-emerald-300 font-bold">+{dualData.contractorMarginPercent}%</strong>
+              </div>
+            </div>
+
+            {/* KART 4: Toplam Şirket Kârı Değişimi */}
+            <div className="p-4 bg-slate-900/90 rounded-2xl border border-amber-500/40 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-extrabold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5 text-amber-400" />
+                    4. Toplam Proje Kârı Büyümesi
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">Genel Kâr</span>
+                </div>
+                <div className="text-2xl font-black font-mono text-amber-300 mt-1">
+                  {dualData.plusProfitAmount.toLocaleString('tr-TR')} ₺
+                  <span className="text-xs font-normal text-slate-400 block mt-0.5">
+                    Baz Kâr: {dualData.baseProfitAmount.toLocaleString('tr-TR')} ₺
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
+                <span className="text-slate-400">Net Kâr Artışınız:</span>
+                <strong className="font-mono text-emerald-400 font-bold">
+                  +{dualData.profitDiffAmount.toLocaleString('tr-TR')} ₺ ({dualData.profitDiffPercent > 0 ? `+${dualData.profitDiffPercent}%` : 'Aynı'})
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. KAT KARŞILIĞI VE MÜTEAHHİT MÜLKİYETİNDEKİ DAİRELERİN ANALİZİ (Varsa) */}
+          {dualData.contractorFlatsCount > 0 && (
+            <div className="p-4 bg-indigo-950/40 rounded-2xl border border-indigo-500/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-indigo-200 uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-indigo-400" />
+                  Kat Karşılığı Analizi: Müteahhidin (Sizin) Dairelerine Yansıyan Finansal Bakiye
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">
+                  {dualData.contractorFlatsCount} Daire Sizin / {dualData.ownerFlatsCount} Daire Kat Maliklerinin
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                  <span className="text-slate-400 block text-[10px]">Sizin Dairelerinizin Plus Maliyeti:</span>
+                  <strong className="font-mono text-base text-rose-300 block mt-0.5">
+                    {dualData.contractorOwnFlatsCost.toLocaleString('tr-TR')} ₺
+                  </strong>
+                  <span className="text-[9px] text-slate-400">{dualData.contractorFlatsCount} daire × {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺</span>
+                </div>
+
+                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                  <span className="text-slate-400 block text-[10px]">Kat Maliklerinden Toplanan Tutar:</span>
+                  <strong className="font-mono text-base text-sky-300 block mt-0.5">
+                    {dualData.collectedFromOwners.toLocaleString('tr-TR')} ₺
+                  </strong>
+                  <span className="text-[9px] text-slate-400">{dualData.ownerFlatsCount} daire × {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺</span>
+                </div>
+
+                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                  <span className="text-slate-400 block text-[10px]">Nakit Finansman Dengesi:</span>
+                  <strong className={`font-mono text-base block mt-0.5 ${dualData.netContractorBalance >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {dualData.netContractorBalance >= 0 ? '+' : ''}{dualData.netContractorBalance.toLocaleString('tr-TR')} ₺
+                  </strong>
+                  <span className="text-[9px] text-slate-400">
+                    {dualData.netContractorBalance >= 0 ? 'Malik payları kendi maliyetinizi de karşılıyor' : 'Kendi dairelerinize kalan net yatırım'}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-indigo-200/90 leading-relaxed pt-1">
+                💡 <strong>Satış Primi Avantajı:</strong> Mülkiyetinizdeki {dualData.contractorFlatsCount} adet bağımsız bölüme uygulanan Plus donanımlar (yerden ısıtma, klima, merkezi su arıtma, akıllı banyo ve mutfak), dairelerinizin piyasa satış değerini ortalama <strong>+%15-25 artıracak</strong> ve satış hızını katlayacaktır.
+              </p>
+            </div>
+          )}
+
+          {/* 3. KALEM KALEM ŞANTİYE VE TAŞERON MALİYETLERİ TABLOSU */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-amber-400" />
+                Bana Yansıyan Plus Kalemleri Maliyet ve Kâr Tablosu
+              </span>
+              <span className="text-[10px] text-slate-400">Şantiye Taşeron & Malzeme Birim Fiyatları</span>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/70">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 bg-slate-900/90 text-[10px] uppercase font-bold tracking-wider">
+                    <th className="py-2.5 px-3">Plus Donanım Kalemi</th>
+                    <th className="py-2.5 px-3">Uygulama Kapsamı</th>
+                    <th className="py-2.5 px-3 text-right">Şantiye Maliyeti (₺/Daire)</th>
+                    <th className="py-2.5 px-3 text-right">Toplam Ek İmalat (₺)</th>
+                    <th className="py-2.5 px-3 text-right">Müşteriye Sunulan (₺/Daire)</th>
+                    <th className="py-2.5 px-3 text-right">Birim Net Kâr (₺)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-medium">
+                  {dualData.itemizedContractorCosts.map((item) => {
+                    const itemShareOfCustomer = dualData.calculatedAvgCostPerFlatDiff > 0
+                      ? Math.round(dualData.customerFlatDelta * (item.unitCost / dualData.calculatedAvgCostPerFlatDiff))
+                      : item.unitCost;
+                    const itemUnitProfit = itemShareOfCustomer - item.unitCost;
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2 px-3 text-white font-semibold flex items-center gap-2">
+                          <span>{item.icon}</span>
+                          <span>{item.name}</span>
+                        </td>
+                        <td className="py-2 px-3 text-slate-400 text-[11px]">
+                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 text-[9.5px]">
+                            {item.scope}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-slate-300">
+                          {item.unitCost.toLocaleString('tr-TR')} ₺
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-indigo-300 font-bold">
+                          {item.totalCost.toLocaleString('tr-TR')} ₺
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-sky-300">
+                          {itemShareOfCustomer.toLocaleString('tr-TR')} ₺
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold">
+                          <span className={itemUnitProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                            {itemUnitProfit >= 0 ? '+' : ''}{itemUnitProfit.toLocaleString('tr-TR')} ₺
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {/* Toplam Satırı */}
+                  <tr className="bg-slate-900 border-t-2 border-slate-700 text-white font-bold">
+                    <td className="py-2.5 px-3" colSpan={2}>
+                      GENEL PLUS PAKET TOPLAMI
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono text-rose-300">
+                      {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono text-indigo-300">
+                      {dualData.calculatedTotalCostDiff.toLocaleString('tr-TR')} ₺
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono text-sky-300">
+                      {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono text-emerald-400">
+                      {dualData.unitProfitPerFlat >= 0 ? '+' : ''}{dualData.unitProfitPerFlat.toLocaleString('tr-TR')} ₺
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 4. MÜŞTERİYE SUNULACAK DAİRE BAŞI FARK GİRİŞİ & HIZLI KÂR SİMÜLATÖRÜ */}
+          <div className="p-4 sm:p-5 bg-slate-900/90 rounded-2xl border-2 border-amber-400/60 space-y-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sliders className="w-4 h-4 text-amber-400" />
+                  Müşteriye Sunulacak Daire Başı Plus Farkını Belirleyin
+                </span>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  Yüzdelik kâr butonlarına basarak veya özel tutar girerek teklif mektubunda müşterinin göreceği daire başı Plus bedelini belirleyin.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {deltaNotification && (
+                  <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-400 text-slate-950 flex items-center gap-1.5 shadow-sm">
+                    <Check className="w-3.5 h-3.5" />
+                    {deltaNotification}
+                  </span>
+                )}
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-400 text-slate-950 shrink-0">
+                  Teklif Belgesine Yansır
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Percentage Presets */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-300 font-bold flex items-center gap-1.5">
+                  <Percent className="w-3.5 h-3.5 text-amber-400" />
+                  Hızlı Kâr Marjı ve Yuvarlama Butonları:
+                </span>
+                <span className="text-slate-400 font-mono text-[10px]">
+                  Net Şantiye Maliyeti: <strong className="text-amber-300">{dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺/daire</strong>
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {deltaPresets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleApplyDelta(preset.value, preset.label)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                      preset.isActive
+                        ? 'bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-400/30 ring-2 ring-amber-300 scale-[1.03]'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600'
+                    }`}
+                    title={`${preset.label} - Daire Başı ${preset.displayVal.toLocaleString('tr-TR')} ₺`}
+                  >
+                    {preset.isActive ? (
+                      <Check className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />
+                    ) : (
+                      <span className="text-[10px] px-1 py-0.2 rounded bg-slate-700/80 text-slate-300 font-mono">
+                        {preset.percentBadge}
+                      </span>
+                    )}
+                    <span>{preset.label}</span>
+                    <span className={`font-mono text-[11px] ${preset.isActive ? 'text-slate-950 font-black' : 'text-amber-400'}`}>
+                      ({preset.displayVal.toLocaleString('tr-TR')} ₺)
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Fine-Tuning & Custom Input Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center pt-2 border-t border-slate-800">
+              <div className="lg:col-span-6 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleStepDelta(-5000)}
+                  className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1 shrink-0 cursor-pointer"
+                  title="5.000 ₺ Azalt"
+                >
+                  <Minus className="w-3.5 h-3.5 text-amber-400" />
+                  <span>-5.000 ₺</span>
+                </button>
+
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    value={params.plusOfferCustomFlatDelta ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                      handleApplyDelta(val, 'Özel Tutar');
+                    }}
+                    placeholder={`Maliyet: ${dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺`}
+                    className="w-full text-base font-black font-mono px-4 py-2.5 rounded-xl border-2 border-amber-400 bg-slate-950 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-inner"
+                  />
+                  <span className="absolute right-3 top-[11px] text-xs font-black text-amber-400 pointer-events-none">
+                    ₺ / Daire
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleStepDelta(5000)}
+                  className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1 shrink-0 cursor-pointer"
+                  title="5.000 ₺ Arttır"
+                >
+                  <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>+5.000 ₺</span>
+                </button>
+              </div>
+
+              <div className="lg:col-span-6 p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Daire Başı Net İlave Kâr:</span>
+                  <span className={`font-mono text-sm font-black ${dualData.contractorNetMarginPerFlat >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {dualData.contractorNetMarginPerFlat >= 0 ? '+' : ''}{dualData.contractorNetMarginPerFlat.toLocaleString('tr-TR')} ₺
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Toplam Şirket Ek Kârı:</span>
+                  <span className={`font-mono text-sm font-black ${dualData.contractorNetTotalProfit >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                    {dualData.contractorNetTotalProfit >= 0 ? '+' : ''}{dualData.contractorNetTotalProfit.toLocaleString('tr-TR')} ₺
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleApplyDelta(undefined, 'Maliyetine Sıfırla')}
+                  className="px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer"
+                  title="Sıfırla ve teknik maliyete dön"
+                >
+                  Sıfırla (%0)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Güvenlik & Gizlilik Bildirimi */}
+          <div className="text-[11px] text-slate-400 flex items-center gap-2 pt-2 border-t border-slate-800">
+            <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Gizlilik Garantisi:</strong> Yukarıdaki maliyet farkı, şantiye taşeron bedelleri ve yüklenici net kâr rakamları yalnızca sizin ekranınızda görünür. Müşteriye sunulan resmi teklif özetinde, mukavele ekinde ve PDF çıktısında sadece müşteriye sunduğunuz nihai Plus Paket tutarı yer alır.
+            </span>
+          </div>
+        </div>
+      </div>
+      )}
 
       {/* Main Corporate Proposal Sheet */}
+      {activeSubTab === 'preview' && (
       <div
         ref={offerDocRef}
         onCopy={(e) => e.preventDefault()}
@@ -3577,6 +4045,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* BAĞIMSIZ BÖLÜM VE KAT DAĞILIMI DÜZENLEME MODALI */}
       {isUnitConfigOpen && (
