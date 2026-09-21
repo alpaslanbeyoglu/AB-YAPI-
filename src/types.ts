@@ -327,6 +327,10 @@ export interface ProjectParams {
   additionalOfferClauses?: string[];
 
   // Kaba insaat
+  steelType?: 's420_nervurlu' | 'b500c_nervurlu' | 'hasir_celik' | 'epoxy_coated' | 'stainless' | 'st37_flat' | 'custom';
+  customSteelTypeName?: string;
+  concreteGrade?: 'c30_37' | 'c35_45' | 'c40_50' | 'c50_60' | 'c25_30' | 'custom';
+  customConcreteGradeName?: string;
   priceConcrete: number;
   priceSteel: number;
   costKabaWork: number; // Toplam kaba işçilik / kalıp-demir-duvar referansı

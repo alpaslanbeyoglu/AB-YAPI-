@@ -5,6 +5,7 @@ import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { getRoofInfo, getRoomTypeDescription } from '../utils/roofUtils';
+import { getSteelTypeName, getConcreteGradeName } from '../utils/calculatorEngine';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 
 interface SpecificationTabProps {
@@ -398,15 +399,15 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   <table class="specs-table">
     <tr>
       <th>Betonarme Karkas Beton Sınıfı</th>
-      <td>Asgari C30/35 Hazır Beton</td>
+      <td>${getConcreteGradeName(params)}</td>
     </tr>
     <tr>
       <th>Tahmini Beton Hacmi</th>
       <td>${safeConcrete.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m³</td>
     </tr>
     <tr>
-      <th>Demir Donatı Kalitesi</th>
-      <td>S420 Nervürlü Sismik Çelik</td>
+      <th>Demir Donatı Kalitesi & Tipi</th>
+      <td>${getSteelTypeName(params)}</td>
     </tr>
     <tr>
       <th>Tahmini Çelik Tonajı</th>
@@ -993,7 +994,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                     <p className="text-sm font-bold text-indigo-950 font-mono">
                       {safeConcrete.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m³
                     </p>
-                    <span className="text-[10px] text-indigo-600 font-semibold">C30/35 Hazır Beton</span>
+                    <span className="text-[10px] text-indigo-600 font-semibold">{getConcreteGradeName(params)}</span>
                   </div>
                 </div>
 
@@ -1006,7 +1007,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                     <p className="text-sm font-bold text-blue-950 font-mono">
                       {safeSteel.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} Ton
                     </p>
-                    <span className="text-[10px] text-blue-600 font-semibold">S420 Nervürlü Demir</span>
+                    <span className="text-[10px] text-blue-600 font-semibold">{getSteelTypeName(params)}</span>
                   </div>
                 </div>
               </div>
