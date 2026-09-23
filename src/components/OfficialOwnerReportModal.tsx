@@ -42,7 +42,7 @@ export const OfficialOwnerReportModal: React.FC<OfficialOwnerReportModalProps> =
   const ownerFlats = results.flatResults?.filter((f) => !f.isContractorShare) || [];
   const totalOwnerDebt = ownerFlats.reduce((sum, f) => sum + (f.grossPay || 0), 0);
   const totalDownPayments = ownerFlats.reduce((sum, f) => sum + (f.downPayment || 0), 0);
-  const totalStateSupport = ownerFlats.reduce((sum, f) => sum + (f.usedCredit || 0), 0);
+  const totalStateSupport = ownerFlats.reduce((sum, f) => sum + (f.usedGrant || 0) + (f.usedCredit || 0), 0);
   const totalRemainingDebt = ownerFlats.reduce((sum, f) => sum + (f.netRemainingDebt || 0), 0);
 
   const handlePrint = () => {
@@ -58,7 +58,7 @@ Bağımsız Bölüm: Daire No ${selectedFlat.id} (${selectedFlat.area} m²)
 Hak Sahibi: ${selectedFlat.name || 'Belirtilmedi'} (TC: ${selectedFlat.tc || '-'})
 Toplam İnşaat Maliyeti Katkı Payı: ${selectedCalc.grossPay.toLocaleString('tr-TR')} TL
 Tahsil Edilen Peşinat: ${selectedCalc.downPayment.toLocaleString('tr-TR')} TL
-Devlet Hibe Desteği (6306 Sayılı Kanun): ${selectedCalc.usedCredit.toLocaleString('tr-TR')} TL
+Devlet Desteği (Hibe/Kredi): ${((selectedCalc.usedGrant || 0) + (selectedCalc.usedCredit || 0)).toLocaleString('tr-TR')} TL
 Net Kalan Ödenecek Borç: ${selectedCalc.netRemainingDebt.toLocaleString('tr-TR')} TL
 Ödeme Modeli: ${
       params.paymentPlanType === 'installments'

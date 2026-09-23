@@ -180,7 +180,7 @@ export function generateOfferHtml(
           ${landShareCell}
           <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:600;font-family:monospace;">${f.grossPay.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#4f46e5;font-family:monospace;">-${f.downPayment.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">-${f.usedCredit.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">-${((f.usedGrant || 0) + (f.usedCredit || 0)).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
           <td style="padding:6px 8px;border:1px solid #e2e8f0;font-weight:bold;text-align:right;background-color:#f8fafc;color:#0f172a;font-family:monospace;">${f.netRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
         </tr>`;
       }
@@ -247,7 +247,7 @@ export function generateOfferHtml(
             <td style="padding:8px;border:1px solid #e2e8f0;font-weight:bold;">Tüm Bağımsız Bölümler (${targetLen} Adet Konut - Ortak Plan)</td>
             <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.grossPay,0)/targetLen).toLocaleString('tr-TR')} TL</td>
             <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#4f46e5;font-family:monospace;">-${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.downPayment,0)/targetLen).toLocaleString('tr-TR')} TL</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">-${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.usedCredit,0)/targetLen).toLocaleString('tr-TR')} TL</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;color:#047857;font-family:monospace;">-${Math.round(targetFlatsForPlan.reduce((s,f)=>s+(f.usedGrant||0)+(f.usedCredit||0),0)/targetLen).toLocaleString('tr-TR')} TL</td>
             <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.netRemainingDebt,0)/targetLen).toLocaleString('tr-TR')} TL</td>
             <td style="padding:8px;border:1px solid #e2e8f0;text-align:center;">${params.installmentCount || 12} Ay</td>
             <td style="padding:8px;border:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#065f46;background:#f0fdf4;font-family:monospace;">${Math.round(targetFlatsForPlan.reduce((s,f)=>s+f.monthlyInstallment,0)/targetLen).toLocaleString('tr-TR')} TL / Ay</td>
@@ -522,7 +522,7 @@ export function generateOfferHtml(
           <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;background:#f0fdf4;color:#047857;">0 TL</td>
           ` : `
           <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#4f46e5;">-${res.flatResults.reduce((s, f) => s + f.downPayment, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
-          <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#047857;">-${res.flatResults.reduce((s, f) => s + f.usedCredit, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
+          <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#047857;">-${res.flatResults.reduce((s, f) => s + (f.usedGrant || 0) + (f.usedCredit || 0), 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
           <td style="padding:6px 8px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;background:#e0e7ff;color:#1e3a8a;">${res.flatResults.reduce((s, f) => s + f.netRemainingDebt, 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL</td>
           `}
         </tr>

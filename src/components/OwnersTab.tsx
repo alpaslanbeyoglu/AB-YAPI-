@@ -757,7 +757,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
       .reduce((sum, item) => sum + (item.calc?.netRemainingDebt || 0), 0);
     const totalSupportFiltered = filteredFlats
       .filter((i) => !i.isContractor)
-      .reduce((sum, item) => sum + (item.calc?.usedCredit || 0), 0);
+      .reduce((sum, item) => sum + (item.calc?.usedGrant || 0) + (item.calc?.usedCredit || 0), 0);
 
     return {
       count,
