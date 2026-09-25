@@ -257,6 +257,11 @@ export const DEFAULT_PARAMS: ProjectParams = {
   linearDrainPricePerFlat: 2800,
   hasSmartDoorLock: false,
   smartDoorLockPricePerFlat: 8500,
+  hasGenerator: false,
+  generatorScope: 'common_areas',
+  generatorPrice: undefined,
+  hasPorcelainCountertop: false,
+  porcelainCountertopPricePerFlat: 25000,
 
   // Cost items
   costNotaryContract: 40000,
@@ -1067,9 +1072,24 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const smartDoorLockCost = params.hasSmartDoorLock ? Math.round(smartDoorLockUnits * smartDoorLockPricePerFlat) : 0;
   const smartDoorLockLabor = Math.round(smartDoorLockCost * 0.15);
 
+  // Jeneratör Konforu: Aksa / Alimar / Teksan veya muadili Otomatik Transfer Panolu (ATS) Kabinli Jeneratör
+  const generatorScope = params.generatorScope || 'common_areas';
+  const generatorUnits = effectiveFlatCount;
+  let defaultGenPrice = 0;
+  if (generatorScope === 'full_building') {
+    defaultGenPrice = Math.round(250000 + effectiveFlatCount * 22000);
+  } else {
+    defaultGenPrice = Math.round(180000 + effectiveFlatCount * 6000);
+  }
+  const generatorCost = params.hasGenerator
+    ? (params.generatorPrice !== undefined && params.generatorPrice > 0 ? params.generatorPrice : defaultGenPrice)
+    : 0;
+  const generatorPricePerFlat = Math.round(generatorCost / Math.max(1, effectiveFlatCount));
+  const generatorLabor = Math.round(generatorCost * 0.15);
+
   const systemsRawTotal = costElevatorTotal + costSmartHomeTotal + costIntercomTotal + costGasTotal;
   const systemsCostNormal = Math.round(systemsRawTotal * costMultiplier * 100) / 100;
-  const systemsCost = Math.round((systemsCostNormal + underfloorHeatingCost + waterFiltrationCost + acCostTotal + thermostaticMixerCost + linearDrainCost + bathroomHumidityFanCost + touchlessKitchenFaucetCost + smartDoorLockCost) * 100) / 100;
+  const systemsCost = Math.round((systemsCostNormal + underfloorHeatingCost + waterFiltrationCost + acCostTotal + thermostaticMixerCost + linearDrainCost + bathroomHumidityFanCost + touchlessKitchenFaucetCost + smartDoorLockCost + generatorCost) * 100) / 100;
 
   const systemsLaborCostNormal = Math.round(
     (costElevatorTotal * 0.20 + costSmartHomeTotal * 0.15 + costIntercomTotal * 0.20 + costGasTotal * 0.30) *
@@ -1077,10 +1097,10 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       100
   ) / 100;
 
-  // Yerden ısıtmada işçilik payı %30, su arıtmada %10 işçilik, klimada %15-%40 montaj/işçilik, bataryada %15, süzgeçte %25, banyo fanında %20, mutfak bataryasında %15, akıllı kapı kilidinde %15
+  // Yerden ısıtmada işçilik payı %30, su arıtmada %10 işçilik, klimada %15-%40 montaj/işçilik, bataryada %15, süzgeçte %25, banyo fanında %20, mutfak bataryasında %15, akıllı kapı kilidinde %15, jeneratörde %15
   const underfloorLabor = Math.round(underfloorHeatingCost * 0.30);
   const waterLabor = Math.round(waterFiltrationCost * 0.10);
-  const systemsLaborCost = Math.round((systemsLaborCostNormal + underfloorLabor + waterLabor + acLaborCost + thermostaticLabor + linearDrainLabor + bathroomHumidityFanLabor + touchlessKitchenFaucetLabor + smartDoorLockLabor) * 100) / 100;
+  const systemsLaborCost = Math.round((systemsLaborCostNormal + underfloorLabor + waterLabor + acLaborCost + thermostaticLabor + linearDrainLabor + bathroomHumidityFanLabor + touchlessKitchenFaucetLabor + smartDoorLockLabor + generatorLabor) * 100) / 100;
 
   const systemsMaterialCost = Math.round((systemsCost - systemsLaborCost) * 100) / 100;
 
@@ -1117,12 +1137,20 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const costDoors = (residentialUnitsCount * safePriceDoors) + (totalShopUnits * Math.round(safePriceDoors * 0.40));
   const costPaintPlaster = totalArea * paintPlasterAreaFactor * safePricePaintPlaster;
 
+  // Mutfak Tezgahı Konforu: 12-15mm Lüks Porselen Mutfak Tezgahı & Alınlık (Lamar / Neolith / Belenco veya muadili)
+  const porcelainCountertopUnits = residentialUnitsCount;
+  const porcelainCountertopPricePerFlat = params.porcelainCountertopPricePerFlat !== undefined && params.porcelainCountertopPricePerFlat > 0
+    ? params.porcelainCountertopPricePerFlat
+    : 25000;
+  const porcelainCountertopCost = params.hasPorcelainCountertop ? Math.round(porcelainCountertopUnits * porcelainCountertopPricePerFlat) : 0;
+  const porcelainCountertopLabor = Math.round(porcelainCountertopCost * 0.15);
+
   const finishingRawTotal =
     costPlumbing + costElectric + costPvc + costTiles + costKitchen + costDoors + costPaintPlaster;
-  const finishingTotalCost = Math.round(finishingRawTotal * inceTypeMult * costMultiplier * 100) / 100;
+  const finishingTotalCost = Math.round((finishingRawTotal * inceTypeMult * costMultiplier + porcelainCountertopCost) * 100) / 100;
 
   const fineLaborCost = Math.round(
-    (costPlumbing * 0.45 +
+    ((costPlumbing * 0.45 +
       costElectric * 0.45 +
       costPvc * 0.25 +
       costTiles * 0.50 +
@@ -1130,7 +1158,8 @@ export function calculateProject(params: ProjectParams): CalculationResult {
       costDoors * 0.20 +
       costPaintPlaster * 0.70) *
       inceTypeMult *
-      costMultiplier *
+      costMultiplier +
+      porcelainCountertopLabor) *
       100
   ) / 100;
   const fineMaterialCost = Math.round((finishingTotalCost - fineLaborCost) * 100) / 100;
@@ -1598,6 +1627,13 @@ export function calculateProject(params: ProjectParams): CalculationResult {
     smartDoorLockCost,
     smartDoorLockPricePerFlat,
     smartDoorLockUnits,
+    generatorCost,
+    generatorPricePerFlat,
+    generatorUnits,
+    generatorScope,
+    porcelainCountertopCost,
+    porcelainCountertopPricePerFlat,
+    porcelainCountertopUnits,
 
     // Standart Kat ve Bağımsız Bölüm Tanımları
     floorStructure: getFloorStructureSummary(params),

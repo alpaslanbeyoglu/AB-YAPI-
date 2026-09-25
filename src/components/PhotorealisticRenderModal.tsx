@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { BuildingModelParams, FacadeStyleType, LightingPresetType } from '../types';
 import { FACADE_STYLES, getFacadeStyleConfig } from '../utils/buildingModelUtils';
+import { useCompanyProfile } from '../context/CompanyProfileContext';
+import { processLogoForPageEmbed } from '../utils/logoProcessor';
 
 interface PhotorealisticRenderModalProps {
   isOpen: boolean;
@@ -44,6 +46,7 @@ export const PhotorealisticRenderModal: React.FC<PhotorealisticRenderModalProps>
   currentLightingPreset = 'sunset',
   currentSunTimeHour = 19.2,
 }) => {
+  const { profile } = useCompanyProfile();
   const [selectedFacade, setSelectedFacade] = useState<FacadeStyleType>(
     params.facadeStyle || 'concrete_brutalist'
   );
@@ -228,6 +231,40 @@ export const PhotorealisticRenderModal: React.FC<PhotorealisticRenderModalProps>
         ctx.font = `bold 14px "Plus Jakarta Sans", sans-serif`;
         ctx.fillText(`FOTOGERÇEKÇİ 3D MİMARİ RENDER`, margin + 30, margin + 45);
 
+        // Draw Company Logo (Top-Right, Embedded without Box, Background Removed)
+        if (profile?.logoBase64) {
+          processLogoForPageEmbed(profile.logoBase64, {
+            mode: 'adaptive_clean',
+            isDarkSurface: true,
+            tolerance: 44,
+          }).then((processedLogo) => {
+            if (processedLogo && processedLogo.width > 0 && processedLogo.height > 0) {
+              const maxLogoW = Math.round(targetW * 0.16);
+              const maxLogoH = Math.round(targetH * 0.11);
+              const ratio = processedLogo.width / processedLogo.height;
+              let drawW = maxLogoW;
+              let drawH = drawW / ratio;
+              if (drawH > maxLogoH) {
+                drawH = maxLogoH;
+                drawW = drawH * ratio;
+              }
+              const logoX = targetW - margin - drawW - 16;
+              const logoY = margin + 16;
+
+              ctx.save();
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+              ctx.shadowBlur = 18;
+              ctx.shadowOffsetY = 4;
+              ctx.drawImage(processedLogo, logoX, logoY, drawW, drawH);
+              ctx.restore();
+            }
+            const renderedData = canvas.toDataURL('image/png', 0.98);
+            setStudioRenderUrl(renderedData);
+            setIsRenderingStudio(false);
+          });
+          return;
+        }
+
         const renderedData = canvas.toDataURL('image/png', 0.98);
         setStudioRenderUrl(renderedData);
         setIsRenderingStudio(false);
@@ -239,15 +276,73 @@ export const PhotorealisticRenderModal: React.FC<PhotorealisticRenderModalProps>
     }
   };
 
-  // Trigger studio render when modal opens or settings change
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        generateStudioRender();
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, selectedFacade, selectedLighting, resolution, selectedCameraAngle]);
+  // Shared branding logic
+  const applyBranding = async (imgUrl: string, resolutionMode: '4k' | '1080p' | 'social'): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const targetW = resolutionMode === '4k' ? 3840 : resolutionMode === '1080p' ? 1920 : 1600;
+        const targetH = resolutionMode === 'social' ? 1600 : Math.round((targetW * 9) / 16);
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject('No context');
+
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+        
+        const margin = Math.round(targetW * 0.02);
+        
+        // Add Title Block
+        const titleW = Math.round(targetW * 0.32);
+        const titleH = Math.round(targetH * 0.16);
+        const titleX = targetW - margin - titleW - 10;
+        const titleY = targetH - margin - titleH - 10;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.beginPath();
+        ctx.roundRect(titleX, titleY, titleW, titleH, 16);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.round(titleH * 0.22)}px "Plus Jakarta Sans", system-ui, sans-serif`;
+        ctx.fillText(`AB YAPI | ${params.floorCount} KATLI MİMARİ PROJE`, titleX + 28, titleY + titleH * 0.32);
+
+        // Add Logo (Embedded without Box, Background Removed)
+        if (profile?.logoBase64) {
+          processLogoForPageEmbed(profile.logoBase64, {
+            mode: 'adaptive_clean',
+            isDarkSurface: true,
+            tolerance: 44,
+          }).then((processedLogo) => {
+            if (processedLogo && processedLogo.width > 0 && processedLogo.height > 0) {
+              const maxLogoW = Math.round(targetW * 0.16);
+              const maxLogoH = Math.round(targetH * 0.11);
+              const ratio = processedLogo.width / processedLogo.height;
+              let drawW = maxLogoW;
+              let drawH = drawW / ratio;
+              if (drawH > maxLogoH) {
+                drawH = maxLogoH;
+                drawW = drawH * ratio;
+              }
+              const logoX = targetW - margin - drawW - 16;
+              const logoY = margin + 16;
+
+              ctx.save();
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+              ctx.shadowBlur = 18;
+              ctx.shadowOffsetY = 4;
+              ctx.drawImage(processedLogo, logoX, logoY, drawW, drawH);
+              ctx.restore();
+            }
+            resolve(canvas.toDataURL('image/png', 0.98));
+          });
+          return;
+        }
+        resolve(canvas.toDataURL('image/png', 0.98));
+      };
+      img.src = imgUrl;
+    });
+  };
 
   // Generate AI Photorealistic ArchViz Render (Gemini Engine)
   const handleGenerateAiRender = async () => {
@@ -287,7 +382,8 @@ export const PhotorealisticRenderModal: React.FC<PhotorealisticRenderModalProps>
 
       const data = await response.json();
       if (data.imageUrl) {
-        setAiRenderUrl(data.imageUrl);
+        const branded = await applyBranding(data.imageUrl, resolution);
+        setAiRenderUrl(branded);
         setRenderEngine('ai_archviz');
       } else {
         throw new Error('Görsel çıktısı alınamadı.');

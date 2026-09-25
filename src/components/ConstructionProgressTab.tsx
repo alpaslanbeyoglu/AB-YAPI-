@@ -1035,7 +1035,10 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       em += `${profile.legalName || compName}\n`;
       em += `${profile.authorizedPerson || 'Şantiye Yönetimi'} - ${profile.authorizedTitle || 'İnşaat Mühendisi'}\n`;
       em += `Telefon: ${profile.phone || '+90 (212) 585 10 20'}\n`;
-      em += `Web: ${profile.website || 'www.abyapi.com.tr'}\n`;
+      const webUrl = profile.website || (profile.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
+      if (webUrl) {
+        em += `Web: ${webUrl}\n`;
+      }
 
       return em.trim();
     }
@@ -2496,7 +2499,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                   // Email Formal Mockup
                   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3 font-sans text-xs">
                     <div className="border-b border-slate-100 pb-2 space-y-1 text-[11px] text-slate-600">
-                      <div><b className="text-slate-900">Kimden:</b> {profile.authorizedPerson || 'Şantiye Yönetimi'} &lt;bilgi@{profile.website?.replace(/https?:\/\//, '') || 'abyapi.com.tr'}&gt;</div>
+                      <div><b className="text-slate-900">Kimden:</b> {profile.authorizedPerson || 'Şantiye Yönetimi'} &lt;bilgi@{(profile.website || (profile.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '')).replace(/https?:\/\//, '').replace(/\/$/, '') || 'ab-yapi.com.tr'}&gt;</div>
                       <div><b className="text-slate-900">Kime:</b> {recipientType === 'all' ? 'Tüm Hak Sahipleri & Kat Malikleri' : `${recipientName || 'Kat Maliki'}`}</div>
                       <div><b className="text-slate-900">Konu:</b> {params.projectAddress || 'Projemiz'} - İnşaat İlerleme Raporu</div>
                     </div>

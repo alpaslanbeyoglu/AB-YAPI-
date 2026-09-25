@@ -233,6 +233,9 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                 {profile.address && `(${highlightText(profile.address)})`}{' '}
                 {profile.taxOffice && profile.taxNumber && `[Vergi Dairesi: ${highlightText(profile.taxOffice)} / V.No: ${highlightText(profile.taxNumber)}]`}
                 {profile.chamberNo && ` [Sicil/Oda No: ${highlightText(profile.chamberNo)}]`}
+                {profile.printOptions?.showWebsite !== false && (profile.website || (profile.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '')) && (
+                  <span> [Web: <a href={(profile.website || (profile.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '')).startsWith('http') ? (profile.website || (profile.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '')) : `https://${profile.website || (profile.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '')}`} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-800 underline font-semibold">{highlightText(profile.website || (profile.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : ''))}</a>]</span>
+                )}
               </p>
               {(showFirstAuth || showSecondAuth) && (
                 <p>

@@ -43,6 +43,7 @@ import {
   Fan,
   ChefHat,
   Lock,
+  Zap,
   Calculator,
   DollarSign,
   ArrowRight,
@@ -54,6 +55,7 @@ import {
   X,
   MessageSquare,
   Copy,
+  Globe,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { getAcOptionById } from '../utils/acOptions';
@@ -67,6 +69,7 @@ import { Logo } from './Logo';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { getRoofTypeShortTitle } from '../utils/roofUtils';
 import { computeDualOffer, DUAL_OFFER_NAMING_PRESETS, DualOfferNamingPresetItem } from '../utils/dualOfferUtils';
+import { PreOfferModularWorkbench } from './PreOfferModularWorkbench';
 
 interface OfferTabProps {
   params: ProjectParams;
@@ -77,7 +80,7 @@ interface OfferTabProps {
   theme?: AppTheme;
 }
 
-type OfferSubTabId = 'preview' | 'package' | 'ai_assistant' | 'cards_and_clauses' | 'company_history' | 'contractor_financials';
+type OfferSubTabId = 'edit_workbench' | 'preview' | 'package' | 'ai_assistant' | 'cards_and_clauses' | 'company_history' | 'contractor_financials';
 
 export const OfferTab: React.FC<OfferTabProps> = ({
   params,
@@ -91,7 +94,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const offerDocRef = useRef<HTMLDivElement>(null);
 
   // Grouped Navigation Sub-Tab State
-  const [activeSubTab, setActiveSubTab] = useState<OfferSubTabId>('preview');
+  const [activeSubTab, setActiveSubTab] = useState<OfferSubTabId>('edit_workbench');
 
   // AI Proposal Generator State
   const [aiPromptText, setAiPromptText] = useState('');
@@ -126,7 +129,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     const compAuthTitle = profile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
     const compPhone = profile?.phone || '+90 (212) 585 10 20';
     const compEmail = profile?.email || 'info@abyapi.com.tr';
-    const compWeb = profile?.website || 'www.abyapi.com.tr';
+    const compWeb = profile?.website || (profile?.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
     const proposalNumber = `${compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-${new Date().getFullYear()}-${String(results.flatCount || 10).padStart(3, '0')}`;
     const proposalDate = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -162,8 +165,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
 📞 *Detaylı görüşme ve randevu için:*
 👤 ${compAuth} (${compAuthTitle})
 📱 Tel: ${compPhone}
-📧 E-posta: ${compEmail}
-🌐 ${compWeb}`;
+📧 E-posta: ${compEmail}${compWeb ? `\n🌐 ${compWeb}` : ''}`;
   };
 
   const handleCopyWhatsApp = () => {
@@ -293,6 +295,8 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
           ...(p.hasWaterFiltration !== undefined ? { hasWaterFiltration: !!p.hasWaterFiltration } : {}),
           ...(p.hasLinearShowerDrain !== undefined ? { hasLinearShowerDrain: !!p.hasLinearShowerDrain } : {}),
           ...(p.hasSmartDoorLock !== undefined ? { hasSmartDoorLock: !!p.hasSmartDoorLock } : {}),
+          ...(p.hasGenerator !== undefined ? { hasGenerator: !!p.hasGenerator } : {}),
+          ...(p.hasPorcelainCountertop !== undefined ? { hasPorcelainCountertop: !!p.hasPorcelainCountertop } : {}),
           ...(p.hasAcOption !== undefined ? { hasAcOption: !!p.hasAcOption } : {}),
           ...(p.additionalOfferClauses && Array.isArray(p.additionalOfferClauses) ? { additionalOfferClauses: p.additionalOfferClauses } : {}),
         });
@@ -303,6 +307,8 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
       if (p.hasWaterFiltration) detectedFeatures.push("Su Arıtma");
       if (p.hasLinearShowerDrain) detectedFeatures.push("Lineer Duş Süzgeci");
       if (p.hasSmartDoorLock) detectedFeatures.push("Akıllı Kapı Kilidi");
+      if (p.hasGenerator) detectedFeatures.push("Otomatik Jeneratör");
+      if (p.hasPorcelainCountertop) detectedFeatures.push("Porselen Mutfak Tezgahı");
       if (p.hasAcOption) detectedFeatures.push("Klima Altyapısı");
       if (p.hasGroundFloorShop) detectedFeatures.push(`${p.shopCount || 1} Adet Zemin Dükkan`);
       if (p.basementPurpose === 'parking') detectedFeatures.push("Kapalı Otopark");
@@ -409,6 +415,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
   const compAddress = profile?.address || 'Kocamustafapaşa Mah. Org. Abdurrahman Nafiz Gürman Cad. No:45 Fatih / İstanbul';
   const compPhone = profile?.phone || '+90 (212) 588 00 00';
   const compEmail = profile?.email || 'info@abyapi.com.tr';
+  const compWeb = profile?.website || (profile?.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
   const compTax = profile?.taxOffice && profile?.taxNumber ? `${profile.taxOffice} V.D. / V.No: ${profile.taxNumber}` : 'Fatih V.D. / V.No: 1234567890';
   const compAuth = profile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
   const compAuthTitle = profile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
@@ -595,7 +602,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
     }
   };
 
-  const handleTogglePlusFeature = (featKey: 'underfloorHeating' | 'waterFiltration' | 'acOption' | 'thermostaticShowerMixer' | 'linearShowerDrain' | 'bathroomHumidityFan' | 'touchlessKitchenFaucet' | 'smartHome') => {
+  const handleTogglePlusFeature = (featKey: 'underfloorHeating' | 'waterFiltration' | 'acOption' | 'thermostaticShowerMixer' | 'linearShowerDrain' | 'bathroomHumidityFan' | 'touchlessKitchenFaucet' | 'smartHome' | 'generator' | 'porcelainCountertop') => {
     if (onUpdateParam) {
       const currentFeatures = params.plusOfferFeatures || {
         underfloorHeating: true,
@@ -606,6 +613,8 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
         bathroomHumidityFan: true,
         touchlessKitchenFaucet: true,
         smartHome: true,
+        generator: true,
+        porcelainCountertop: true,
       };
       onUpdateParam('plusOfferFeatures', {
         ...currentFeatures,
@@ -649,10 +658,11 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
     badge?: string;
     icon: any;
   }> = [
+    { id: 'edit_workbench', label: '🎛️ Modüler Teklif Düzenleyici', badge: 'Canlı Modüller', icon: Sliders },
     { id: 'preview', label: '📑 Resmî Teklif (PDF)', badge: uploadedImages.length > 0 ? `${uploadedImages.length} Görsel` : undefined, icon: FileText },
-    { id: 'package', label: '⚡ Paket & Sunum Modu', badge: isDualOffer ? '2 Seçenekli (Baz+Plus)' : 'Tek Paket', icon: Sliders },
+    { id: 'package', label: '⚡ Paket & Sunum Modu', badge: isDualOffer ? '2 Seçenekli (Baz+Plus)' : 'Tek Paket', icon: Layers },
     { id: 'ai_assistant', label: '✨ AI Teklif Asistanı', badge: 'Gemini 3.8', icon: Sparkles },
-    { id: 'cards_and_clauses', label: '🎛️ Kartlar & Ek Maddeler', badge: `${clauses.length} Madde`, icon: Settings2 },
+    { id: 'cards_and_clauses', label: '📜 Kartlar & Ek Maddeler', badge: `${clauses.length} Madde`, icon: Settings2 },
     { id: 'company_history', label: '🏢 Önsöz & Firma Profili', badge: params.showCompanyHistory ? 'Aktif' : 'Pasif', icon: Award },
     { id: 'contractor_financials', label: '🔒 Müteahhit Kâr Analizi', badge: 'Gizli', icon: ShieldCheck },
   ];
@@ -1350,7 +1360,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                         { key: 'thermostaticShowerMixer', label: '🚿 Termostatik Batarya' },
                         { key: 'linearShowerDrain', label: '📐 Lineer Süzgeç' },
                         { key: 'bathroomHumidityFan', label: '🌀 Nem Sensörlü Fan' },
-                        { key: 'touchlessKitchenFaucet', label: '🍳 Dokunmatik Mutfak' },
+                        { key: 'touchlessKitchenFaucet', label: '🫧 Fotoselli Batarya' },
+                        { key: 'generator', label: '⚡ Otomatik Jeneratör' },
+                        { key: 'porcelainCountertop', label: '🍳 Porselen Tezgah' },
                       ].map((item) => {
                         const feats = params.plusOfferFeatures || {
                           underfloorHeating: true,
@@ -1361,6 +1373,8 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                           bathroomHumidityFan: true,
                           touchlessKitchenFaucet: true,
                           smartHome: true,
+                          generator: true,
+                          porcelainCountertop: true,
                         };
                         const isActive = feats[item.key as keyof typeof feats] !== false;
                         return (
@@ -1485,6 +1499,26 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
           </div>
         )}
       </div>
+
+      {/* ========================================================
+          PRE-OFFER MODULAR WORKBENCH (TEKLİF ÖNCESİ MODÜLER DÜZENLEME)
+         ======================================================== */}
+      {activeSubTab === 'edit_workbench' && (
+        <PreOfferModularWorkbench
+          params={params}
+          results={results}
+          profile={profile}
+          onUpdateParam={onUpdateParam}
+          onUpdateAllParams={onUpdateAllParams}
+          uploadedImages={uploadedImages}
+          setUploadedImages={setUploadedImages}
+          onNavigateToPreview={() => setActiveSubTab('preview')}
+          onOpenWhatsApp={() => setIsWhatsAppModalOpen(true)}
+          onExportPdf={handleExportPdf}
+          onPrint={handlePrint}
+          onOpenUnitConfig={handleOpenUnitConfig}
+        />
+      )}
 
       {/* ========================================================
           AI PROPOSAL GENERATOR FROM TEXT INPUT (YAPAY ZEKA İLE TEKLİF OLUŞTURUCU)
@@ -2286,6 +2320,34 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                   <div>
                     <span className="font-bold text-slate-800 block text-[11px]">🏡 Akıllı Ev Modülü</span>
                     <span className="text-[10px] text-slate-500">Aydınlatma & ana vana kontrolü</span>
+                  </div>
+                </label>
+
+                {/* Generator */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.generator !== false}
+                    onChange={() => handleTogglePlusFeature('generator')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">⚡ Otomatik Jeneratör & ATS</span>
+                    <span className="text-[10px] text-slate-500">Aksa/muadili asansör & hidrofor</span>
+                  </div>
+                </label>
+
+                {/* Porcelain Countertop */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.porcelainCountertop !== false}
+                    onChange={() => handleTogglePlusFeature('porcelainCountertop')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">🍳 Lüks Porselen Mutfak Tezgahı</span>
+                    <span className="text-[10px] text-slate-500">Lamar/muadili 12-15mm yanmaz plaka</span>
                   </div>
                 </label>
               </div>
@@ -3415,6 +3477,17 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                   <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400" /> {compAddress}</span>
                   <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-400" /> {compPhone}</span>
                   <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" /> {compEmail}</span>
+                  {compWeb && profile?.printOptions?.showWebsite !== false && (
+                    <a
+                      href={compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 hover:underline font-semibold"
+                      title="Firma Resmî Web Sitesi"
+                    >
+                      <Globe className="w-3 h-3 text-indigo-500" /> {compWeb}
+                    </a>
+                  )}
                   <span className="flex items-center gap-1"><Hash className="w-3 h-3 text-slate-400" /> {compTax}</span>
                 </div>
               </div>
@@ -4066,6 +4139,118 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                     {params.hasSmartDoorLock 
                       ? `${results.smartDoorLockCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
                       : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.smartDoorLockPricePerFlat || 8500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 9: Otomatik Dizel Jeneratör & ATS Transfer Panosu (Aksa / Alimar / Teksan veya muadili) */}
+              <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      Otomatik Transfer Panolu (ATS) Kabinli Jeneratör Sistemi
+                    </span>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasGenerator ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                      {params.hasGenerator ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    </span>
+                  </div>
+                  
+                  <div className="p-2 bg-amber-50/50 rounded-lg border border-amber-100/80 space-y-1 text-[10px]">
+                    <div className="flex items-center justify-between font-bold text-amber-950">
+                      <span>Kabinli Dizel Jeneratör + Otomatik Transfer Panosu (ATS)</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-200/70 text-amber-900 font-bold">Aksa / Alimar / Teksan veya muadili</span>
+                    </div>
+                    <div className="text-slate-600">
+                      <strong>Standart:</strong> Ses İzolasyon Kabini, Otomatik ATS Panosu, Asansör & Hidrofor Kesintisiz Besleme
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
+                    <strong>Neden Jeneratör Sistemi? (Bina Güvenliği & Kesintisiz Konfor):</strong>
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] text-slate-600">
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">⚡ Asansörde Mahsur Kalmaya Son:</span>
+                      <p>Elektrik kesintisinde 8 saniye içinde devreye girerek asansörün otomatik hareket etmesini ve güvenle tahliye sağlamasını garantiler.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">💧 Suyunuz Asla Kesilmez:</span>
+                      <p>Hidrofor ve yangın pompası jeneratör hattına bağlı olduğundan, şehir elektriği kesilse bile dairelerde tazyikli su akmaya devam eder.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🏢 Ortak Alan ve Güvenlik Aydınlatması:</span>
+                      <p>Bina girişi, merdivenler, otopark ve çevre aydınlatmaları kesintisiz çalışarak bina güvenliğini 7/24 sağlar.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🔇 Sessiz Kabin & Otomatik ATS:</span>
+                      <p>Özel ses yalıtımlı dış kabini sayesinde çevreye gürültü vermez; ATS panosu elektrik geldiğinde kendini otomatik kapatır.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-purple-100/60 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500 font-semibold">Jeneratör Yatırımı:</span>
+                  <span className="font-black text-purple-700 font-mono">
+                    {params.hasGenerator 
+                      ? `${results.generatorCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                      : `+${(180000 + (results.flatCount || 10) * 6000).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card 10: 12-15mm Lüks Porselen Mutfak Tezgahı & Alınlık (Lamar / Neolith / Belenco veya muadili) */}
+              <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <ChefHat className="w-3.5 h-3.5 text-amber-700" />
+                      12-15mm Lüks Porselen Mutfak Tezgahı ve Alınlığı
+                    </span>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasPorcelainCountertop ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                      {params.hasPorcelainCountertop ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    </span>
+                  </div>
+                  
+                  <div className="p-2 bg-amber-50/50 rounded-lg border border-amber-100/80 space-y-1 text-[10px]">
+                    <div className="flex items-center justify-between font-bold text-amber-950">
+                      <span>Lamar / Neolith / Belenco veya muadili 12-15mm Lüks Porselen Plaka</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-200/70 text-amber-900 font-bold">Yanmaz & Çizilmez</span>
+                    </div>
+                    <div className="text-slate-600">
+                      <strong>Standart:</strong> 12-15mm Porselen Tezgah, Porselen Süpürgelik & Alınlık Kaplaması, Eviye Altı İmalat
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
+                    <strong>Neden Porselen Tezgah? (Ömür Boyu Dayanım & Estetik):</strong>
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] text-slate-600">
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🔥 Sıcak Tencere Yanıklarına %100 Dayanım:</span>
+                      <p>Ocak veya fırından çıkan kaynar tencere ve tavayı doğrudan tezgahın üzerine koyabilirsiniz; asla kabarmaz, renk değiştirmez ve yanmaz.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🔪 Çizilmeye Tam Direnç:</span>
+                      <p>Sertliği elmas seviyesine yakındır. Üzerinde ekmek ve sebze doğrarken bıçakla kesme tahtası olmadan çalışsanız dahi çizilmez.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🍋 Asit ve Yağ Lekesi Tutmaz:</span>
+                      <p>Gözeneksiz sıfır emiciliğe sahip yüzeyi limon, sirke, çay, kahve veya yağ lekelerini kesinlikle içine çekmez; silindiğinde ilk günkü gibi kalır.</p>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-800 block">🛡️ Antibakteriyel ve Hijyenik:</span>
+                      <p>Gıda ile doğrudan temasa %100 uygundur, bakteri veya küf barındırmaz, kimyasal temizleyicilere karşı dayanıklıdır.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-purple-100/60 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500 font-semibold">Porselen Tezgah Yatırımı:</span>
+                  <span className="font-black text-purple-700 font-mono">
+                    {params.hasPorcelainCountertop 
+                      ? `${results.porcelainCountertopCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
+                      : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.porcelainCountertopPricePerFlat || 25000)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
                   </span>
                 </div>
               </div>
@@ -4857,6 +5042,24 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
               <div className="text-slate-400 font-mono text-[11px]">Tarih: ..... / ..... / 2026</div>
             </div>
           </div>
+
+          {/* Proposal Document Verification & Web Footer */}
+          {compWeb && profile?.printOptions?.showWebsite !== false && (
+            <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-500 font-mono">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-700">{compLegal}</span>
+              </div>
+              <a
+                href={compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <Globe className="w-3.5 h-3.5 text-indigo-500" />
+                <span>{compWeb}</span>
+              </a>
+            </div>
+          )}
         </div>
       </div>
       )}

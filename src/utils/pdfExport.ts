@@ -131,10 +131,13 @@ export function printHtmlContent(htmlContent: string, documentTitle: string): vo
 }
 
 /**
- * Converts a modern CSS color function (such as oklch, oklab, color()) to an sRGB format (hex/rgb)
- * using a temporary canvas context, falling back to a safe neutral slate hex color (#475569) if unparseable.
+ * Converts a modern CSS color function (such as oklch, oklab, color()) to an sRGB format (rgb/rgba/hex)
+ * using a temporary canvas context, falling back to pure JS OKLCH/OKLAB conversion math if canvas context is unavailable.
  */
-function convertSingleColor(fullColorCall: string): string {
+export function convertSingleColor(fullColorCall: string): string {
+  if (!fullColorCall) return 'rgb(71, 85, 105)';
+
+  // 1. Try native canvas 2D fillStyle conversion
   try {
     const canvas = document.createElement('canvas');
     canvas.width = 1;
@@ -149,48 +152,109 @@ function convertSingleColor(fullColorCall: string): string {
       }
     }
   } catch {}
-  return '#475569';
+
+  // 2. Pure JS math fallback for oklch(L C H [/ A])
+  const oklchMatch = fullColorCall.match(/oklch\s*\(\s*([\d.%]+)\s+([\d.%]+)\s+([\d.%]+)(?:\s*\/\s*([\d.%]+))?\s*\)/i);
+  if (oklchMatch) {
+    let [, lStr, cStr, hStr, aStr] = oklchMatch;
+    let L = lStr.endsWith('%') ? parseFloat(lStr) / 100 : parseFloat(lStr);
+    let C = cStr.endsWith('%') ? parseFloat(cStr) / 100 : parseFloat(cStr);
+    let H = parseFloat(hStr);
+    let A = aStr ? (aStr.endsWith('%') ? parseFloat(aStr) / 100 : parseFloat(aStr)) : 1;
+
+    if (isNaN(L)) L = 0.5;
+    if (isNaN(C)) C = 0;
+    if (isNaN(H)) H = 0;
+    if (isNaN(A)) A = 1;
+
+    const hRad = (H * Math.PI) / 180;
+    const a = C * Math.cos(hRad);
+    const b = C * Math.sin(hRad);
+
+    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+
+    const l = l_ * l_ * l_;
+    const m = m_ * m_ * m_;
+    const s = s_ * s_ * s_;
+
+    let rLin = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+    let gLin = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+    let bLin = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+    const gamma = (x: number) => {
+      const clamped = Math.max(0, Math.min(1, x));
+      return clamped <= 0.0031308
+        ? Math.round(clamped * 12.92 * 255)
+        : Math.round((1.055 * Math.pow(clamped, 1 / 2.4) - 0.055) * 255);
+    };
+
+    const r = gamma(rLin);
+    const g = gamma(gLin);
+    const bComp = gamma(bLin);
+
+    if (A < 1) {
+      return `rgba(${r}, ${g}, ${bComp}, ${A.toFixed(2)})`;
+    }
+    return `rgb(${r}, ${g}, ${bComp})`;
+  }
+
+  // 3. Pure JS math fallback for oklab(L A B [/ Alpha])
+  const oklabMatch = fullColorCall.match(/oklab\s*\(\s*([\d.%]+)\s+([\d.-]+)\s+([\d.-]+)(?:\s*\/\s*([\d.%]+))?\s*\)/i);
+  if (oklabMatch) {
+    let [, lStr, aStr, bStr, alphaStr] = oklabMatch;
+    let L = lStr.endsWith('%') ? parseFloat(lStr) / 100 : parseFloat(lStr);
+    let aVal = parseFloat(aStr);
+    let bVal = parseFloat(bStr);
+    let A = alphaStr ? (alphaStr.endsWith('%') ? parseFloat(alphaStr) / 100 : parseFloat(alphaStr)) : 1;
+
+    if (isNaN(L)) L = 0.5;
+    if (isNaN(aVal)) aVal = 0;
+    if (isNaN(bVal)) bVal = 0;
+    if (isNaN(A)) A = 1;
+
+    const l_ = L + 0.3963377774 * aVal + 0.2158037573 * bVal;
+    const m_ = L - 0.1055613458 * aVal - 0.0638541728 * bVal;
+    const s_ = L - 0.0894841775 * aVal - 1.2914855480 * bVal;
+
+    const l = l_ * l_ * l_;
+    const m = m_ * m_ * m_;
+    const s = s_ * s_ * s_;
+
+    let rLin = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+    let gLin = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+    let bLin = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+    const gamma = (x: number) => {
+      const clamped = Math.max(0, Math.min(1, x));
+      return clamped <= 0.0031308
+        ? Math.round(clamped * 12.92 * 255)
+        : Math.round((1.055 * Math.pow(clamped, 1 / 2.4) - 0.055) * 255);
+    };
+
+    const r = gamma(rLin);
+    const g = gamma(gLin);
+    const bComp = gamma(bLin);
+
+    if (A < 1) {
+      return `rgba(${r}, ${g}, ${bComp}, ${A.toFixed(2)})`;
+    }
+    return `rgb(${r}, ${g}, ${bComp})`;
+  }
+
+  return 'rgb(71, 85, 105)';
 }
 
 /**
  * Parses CSS text and replaces all occurrences of unsupported color functions (oklch, oklab, lch, lab, color)
- * with supported sRGB values using a parenthesis-depth-aware scanner.
+ * with supported sRGB values.
  */
 export function sanitizeCssColors(cssText: string): string {
   if (!cssText) return '';
-  const prefixes = ['oklch', 'oklab', 'lch', 'lab', 'color'];
-  let result = '';
-  let i = 0;
-  const len = cssText.length;
-
-  while (i < len) {
-    let matchedPrefix: string | null = null;
-    for (const prefix of prefixes) {
-      if (cssText.startsWith(prefix + '(', i) || cssText.startsWith(prefix + ' (', i)) {
-        matchedPrefix = prefix;
-        break;
-      }
-    }
-
-    if (matchedPrefix) {
-      const parenStart = cssText.indexOf('(', i);
-      let depth = 1;
-      let j = parenStart + 1;
-      while (j < len && depth > 0) {
-        if (cssText[j] === '(') depth++;
-        else if (cssText[j] === ')') depth--;
-        j++;
-      }
-      const fullCall = cssText.substring(i, j);
-      result += convertSingleColor(fullCall);
-      i = j;
-    } else {
-      result += cssText[i];
-      i++;
-    }
-  }
-
-  return result;
+  return cssText.replace(/(?:oklch|oklab|lch|lab|color)\s*\([^)]+\)/gi, (match) => {
+    return convertSingleColor(match);
+  });
 }
 
 function hasUnsupportedColor(text: string): boolean {
@@ -202,6 +266,18 @@ function hasUnsupportedColor(text: string): boolean {
     text.includes('lch(') ||
     text.includes('lab(')
   );
+}
+
+/**
+ * Cleans style tags in the host document before html2canvas runs.
+ */
+export function sanitizeMainDocumentStyles(): void {
+  const styleElements = Array.from(document.querySelectorAll('style'));
+  for (const style of styleElements) {
+    if (style.textContent && hasUnsupportedColor(style.textContent)) {
+      style.textContent = sanitizeCssColors(style.textContent);
+    }
+  }
 }
 
 /**
@@ -248,6 +324,23 @@ export function sanitizeClonedDocColors(clonedDoc: Document, clonedElement?: HTM
     const allElements = [targetElement, ...Array.from(targetElement.querySelectorAll('*'))] as HTMLElement[];
     const win = clonedDoc.defaultView || window;
 
+    const colorProperties = [
+      'color',
+      'backgroundColor',
+      'borderColor',
+      'borderTopColor',
+      'borderRightColor',
+      'borderBottomColor',
+      'borderLeftColor',
+      'outlineColor',
+      'fill',
+      'stroke',
+      'boxShadow',
+      'textDecorationColor',
+      'caretColor',
+      'columnRuleColor'
+    ];
+
     for (const el of allElements) {
       // Check inline style attribute
       const inlineStyle = el.getAttribute('style');
@@ -273,22 +366,12 @@ export function sanitizeClonedDocColors(clonedDoc: Document, clonedElement?: HTM
       if (win && win.getComputedStyle) {
         try {
           const computed = win.getComputedStyle(el);
-          const colorProps = [
-            'color',
-            'backgroundColor',
-            'borderColor',
-            'borderTopColor',
-            'borderRightColor',
-            'borderBottomColor',
-            'borderLeftColor',
-            'outlineColor',
-            'fill',
-            'stroke'
-          ];
-          for (const prop of colorProps) {
+          for (const prop of colorProperties) {
             const val = (computed as any)[prop];
             if (typeof val === 'string' && hasUnsupportedColor(val)) {
-              (el.style as any)[prop] = convertSingleColor(val);
+              const cssPropName = prop.replace(/([A-Z])/g, '-$1').toLowerCase();
+              const sanitizedVal = convertSingleColor(val);
+              el.style.setProperty(cssPropName, sanitizedVal, 'important');
             }
           }
         } catch {}
@@ -306,6 +389,9 @@ export async function renderElementToCanvas(
   element: HTMLElement,
   customOptions: any = {}
 ): Promise<HTMLCanvasElement> {
+  // Pre-clean host document styles so html2canvas CSS loader does not crash on oklch
+  sanitizeMainDocumentStyles();
+
   const { onclone: userOnClone, ...restOptions } = customOptions;
 
   return await html2canvas(element, {

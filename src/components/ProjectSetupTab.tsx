@@ -3734,6 +3734,202 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Option 9: Otomatik Dizel Jeneratör & ATS Transfer Panosu (Aksa / Alimar / Teksan veya muadili) */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasGenerator ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasGenerator ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Zap className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Otomatik Dizel Jeneratör Sistemi</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">Kabinli + Otomatik Transfer Panolu (ATS) (Aksa / Alimar / Teksan)</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasGenerator}
+                        onChange={(e) => onChangeParams({ ...params, hasGenerator: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-semibold">
+                    <span>⚡ Kesintisiz Enerji Güvenliği</span>
+                    <span className="text-amber-600 font-normal">(Asansör, hidrofor, yangın pompası & ortak alanlar)</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Şebeke elektriği kesildiğinde 8 saniye içinde otomatik devreye girerek asansörde mahsur kalmayı önleyen, suyun kesilmesini engelleyen ve ortak alanları aydınlatan <strong>ses izolasyon kabinli dizel jeneratör ve ATS transfer panosu</strong> sistemidir.
+                  </p>
+
+                  {params.hasGenerator ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] text-slate-600 bg-purple-50/60 p-2.5 rounded-lg border border-purple-100 space-y-1">
+                        <div className="flex items-center justify-between font-bold text-purple-950">
+                          <span>Jeneratör Besleme Kapsamı</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">Kabinli Dizel</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <label className={`flex items-center gap-1.5 p-1.5 rounded-lg border cursor-pointer text-[10px] ${params.generatorScope !== 'full_building' ? 'bg-purple-100 border-purple-300 font-bold text-purple-900' : 'bg-white border-slate-200 text-slate-600'}`}>
+                            <input
+                              type="radio"
+                              name="generatorScope"
+                              checked={params.generatorScope !== 'full_building'}
+                              onChange={() => onChangeParams({ ...params, generatorScope: 'common_areas' })}
+                              className="sr-only"
+                            />
+                            <span>🏢 Ortak Alan & Asansör + Hidrofor</span>
+                          </label>
+                          <label className={`flex items-center gap-1.5 p-1.5 rounded-lg border cursor-pointer text-[10px] ${params.generatorScope === 'full_building' ? 'bg-purple-100 border-purple-300 font-bold text-purple-900' : 'bg-white border-slate-200 text-slate-600'}`}>
+                            <input
+                              type="radio"
+                              name="generatorScope"
+                              checked={params.generatorScope === 'full_building'}
+                              onChange={() => onChangeParams({ ...params, generatorScope: 'full_building' })}
+                              className="sr-only"
+                            />
+                            <span>⚡ Tam Bina & Tüm Daireler</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block">Özel Jeneratör Toplam Bütçesi (İsteğe Bağlı TL - Boş bırakılırsa otomatik hesaplanır)</label>
+                        <input
+                          type="number"
+                          value={params.generatorPrice ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                            onChangeParams({ ...params, generatorPrice: val });
+                          }}
+                          placeholder={params.generatorScope === 'full_building' ? String(Math.round(250000 + (results.flatCount || 10) * 22000)) : String(Math.round(180000 + (results.flatCount || 10) * 6000))}
+                          className="w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-700 block">Jeneratör Güvencesi:</span>
+                      <ul className="list-disc pl-3.5 space-y-0.5">
+                        <li>Aksa / Alimar / Teksan veya muadili kabinli dizel jeneratör & transfer panosu.</li>
+                        <li>Elektrik kesintisinde dairelerde suyun akmaya devam etmesi ve asansör güvenliği sağlanır.</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ekstra İmalat Bedeli</span>
+                    {params.hasGenerator && (
+                      <span className="text-[9px] text-purple-700 font-bold">
+                        {params.generatorScope === 'full_building' ? 'Tam Bina Besleme' : 'Ortak Alanlar & Asansör'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasGenerator ? `${results.generatorCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 10: 12-15mm Lüks Porselen Mutfak Tezgahı & Alınlık (Lamar / Neolith / Belenco veya muadili) */}
+              <div className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${params.hasPorcelainCountertop ? 'border-purple-300 bg-purple-50/20 shadow-xs' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-2 rounded-lg ${params.hasPorcelainCountertop ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <ChefHat className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Lüks Porselen Mutfak Tezgahı</span>
+                        <span className="text-[10px] text-purple-700 font-semibold">12-15mm Çizilmez & Yanmaz Plaka (Lamar / Neolith / Belenco)</span>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!params.hasPorcelainCountertop}
+                        onChange={(e) => onChangeParams({ ...params, hasPorcelainCountertop: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[10px] text-amber-800 font-semibold">
+                    <span>🍳 Konut Mutfakları İçin</span>
+                    <span className="text-amber-600 font-normal">(Sıcak tencere yanığına ve çizilmeye %100 dayanıklı)</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Standart granit ve akrilik tezgahlara kıyasla gözeneksiz yapısıyla limon, sirke ve yağ lekesi tutmayan; sıcak tencere ve tavayı doğrudan üzerine koyabileceğiniz <strong>12-15 mm kalınlığında 1. sınıf lüks porselen mutfak tezgahı ve süpürgelik/alınlık kaplamasıdır</strong> (Lamar, Neolith veya Belenco muadilleri).
+                  </p>
+
+                  {params.hasPorcelainCountertop ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-[11px] text-slate-600 bg-purple-50/60 p-2.5 rounded-lg border border-purple-100 space-y-1">
+                        <div className="flex items-center justify-between font-bold text-purple-950">
+                          <span>Lamar / Neolith / Belenco veya muadili Porselen Plaka</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">Ultra Dayanıklı</span>
+                        </div>
+                        <ul className="text-[10px] text-slate-600 space-y-0.5 list-disc pl-3.5 pt-0.5">
+                          <li><strong>Yanmaz & Çizilmez:</strong> Bıçakla doğrudan üzerinde kesim yapılabilir, sıcaktan sararmaz ve yanmaz.</li>
+                          <li>Bakteri barındırmaz, gıda temasına %100 uygundur ve leke tutmaz.</li>
+                          {(results.shopUnitsCount || 0) > 0 && (
+                            <li className="text-amber-800 font-medium font-mono text-[9px]">
+                              {results.shopUnitsCount} adet dükkan muaf tutulmuştur ({results.residentialUnitsCount ?? (results.flatCount - (results.shopUnitsCount || 0))} konut mutfağına uygulanır).
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase block">Konut Başı Porselen Mutfak Tezgahı Bedeli (TL)</label>
+                        <input
+                          type="number"
+                          value={params.porcelainCountertopPricePerFlat ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
+                            onChangeParams({ ...params, porcelainCountertopPricePerFlat: val });
+                          }}
+                          placeholder="25000"
+                          className="w-full text-[11px] font-mono font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 bg-slate-100/60 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                      <span className="font-bold text-slate-700 block">Porselen Mutfak Tezgahı Standartları:</span>
+                      <ul className="list-disc pl-3.5 space-y-0.5">
+                        <li>Konut başı paket maliyeti: <strong>25.000 TL</strong> (12-15mm Porselen Plaka + Alınlık + Eviye Altı İmalat + Montaj).</li>
+                        <li>Lamar, Neolith veya Belenco gibi A-kalite üretici garantili ürünler.</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ekstra İmalat Bedeli</span>
+                    {params.hasPorcelainCountertop && (
+                      <span className="text-[9px] text-purple-700 font-bold">
+                        {results.porcelainCountertopUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.porcelainCountertopPricePerFlat || 25000).toLocaleString('tr-TR')} TL
+                        {(results.shopUnitsCount || 0) > 0 && <span className="text-amber-700 block text-[8px] font-medium">({results.shopUnitsCount} dükkan hariç)</span>}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-black text-slate-900 font-mono">
+                    {params.hasPorcelainCountertop ? `${results.porcelainCountertopCost?.toLocaleString('tr-TR')} TL` : 'Pasif'}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

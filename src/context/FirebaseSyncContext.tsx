@@ -15,10 +15,58 @@ import {
   setDoc, 
   getDocs, 
   deleteDoc,
-  getDoc
+  getDoc,
+  getDocFromServer
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { SavedProjectData, CompanyProfile } from '../types';
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export interface LicenseInfo {
   email: string;
@@ -127,6 +175,20 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [licenseLoading, setLicenseLoading] = useState<boolean>(false);
   const [licenseInfo, setLicenseInfo] = useState<LicenseInfo | null>(null);
   const isAdmin = user ? (user.email?.toLowerCase() === 'alpaslan.beyoglu@gmail.com') : false;
+
+  // Test Connection
+  useEffect(() => {
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    }
+    testConnection();
+  }, []);
 
   // Monitor Auth Changes
   useEffect(() => {
@@ -382,9 +444,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       setSyncStatus('synced');
     } catch (error) {
-      console.error("Error saving project to cloud:", error);
-      setSyncStatus('error');
-      throw error;
+      handleFirestoreError(error, OperationType.WRITE, 'users/' + userId + '/projects');
     }
   };
 
@@ -430,9 +490,8 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setSyncStatus('synced');
       return cloudProjects;
     } catch (error) {
-      console.error("Error loading projects from cloud:", error);
-      setSyncStatus('error');
-      throw error;
+      handleFirestoreError(error, OperationType.LIST, 'users/' + userId + '/projects');
+      return [];
     }
   };
 
@@ -446,9 +505,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       await deleteDoc(docRef);
       setSyncStatus('synced');
     } catch (error) {
-      console.error("Error deleting project from cloud:", error);
-      setSyncStatus('error');
-      throw error;
+      handleFirestoreError(error, OperationType.DELETE, 'users/' + userId + '/projects/' + safeKey);
     }
   };
 
@@ -463,9 +520,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       await setDoc(docRef, payload, { merge: true });
       setSyncStatus('synced');
     } catch (error) {
-      console.error("Error saving company profile to cloud:", error);
-      setSyncStatus('error');
-      throw error;
+      handleFirestoreError(error, OperationType.WRITE, 'users/' + userId + '/companyProfiles/' + safeKey);
     }
   };
 
@@ -485,9 +540,8 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setSyncStatus('synced');
       return profiles;
     } catch (error) {
-      console.error("Error loading company profiles from cloud:", error);
-      setSyncStatus('error');
-      throw error;
+      handleFirestoreError(error, OperationType.LIST, 'users/' + userId + '/companyProfiles');
+      return [];
     }
   };
 
@@ -501,9 +555,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       await deleteDoc(docRef);
       setSyncStatus('synced');
     } catch (error) {
-      console.error("Error deleting company profile from cloud:", error);
-      setSyncStatus('error');
-      throw error;
+      handleFirestoreError(error, OperationType.DELETE, 'users/' + userId + '/companyProfiles/' + safeKey);
     }
   };
 
@@ -520,7 +572,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
       await setDoc(docRef, payload, { merge: true });
     } catch (error) {
-      console.error("Error saving active state to cloud:", error);
+      handleFirestoreError(error, OperationType.WRITE, 'users/' + userId + '/settings/activeState');
     }
   };
 
@@ -539,7 +591,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
         };
       }
     } catch (error) {
-      console.error("Error loading active state from cloud:", error);
+      handleFirestoreError(error, OperationType.GET, 'users/' + userId + '/settings/activeState');
     }
     return null;
   };
@@ -556,8 +608,8 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
       return licenses;
     } catch (error) {
-      console.error("Error loading all licenses:", error);
-      throw error;
+      handleFirestoreError(error, OperationType.LIST, 'licenses');
+      return [];
     }
   };
 
@@ -572,8 +624,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
       await setDoc(docRef, payload, { merge: true });
     } catch (error) {
-      console.error("Error updating license:", error);
-      throw error;
+      handleFirestoreError(error, OperationType.WRITE, 'licenses/' + licenseData.email);
     }
   };
 
@@ -584,8 +635,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const docRef = doc(db, 'licenses', emailLower);
       await deleteDoc(docRef);
     } catch (error) {
-      console.error("Error deleting license:", error);
-      throw error;
+      handleFirestoreError(error, OperationType.DELETE, 'licenses/' + email);
     }
   };
 

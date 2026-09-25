@@ -36,7 +36,7 @@ export function generateOfferHtml(
   const compAddress = companyProfile?.address || 'Kocamustafapaşa Mah. Orgeneral Abdurrahman Nafiz Gürman Cad. No:42 Fatih / İSTANBUL';
   const compPhone = companyProfile?.phone || '+90 (212) 585 10 20';
   const compEmail = companyProfile?.email || 'info@abyapi.com.tr';
-  const compWeb = companyProfile?.website || 'www.abyapi.com.tr';
+  const compWeb = companyProfile?.website || (companyProfile?.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
   const compAuth = companyProfile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
   const compAuthTitle = companyProfile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
   const compAuthChamber = companyProfile?.authorizedChamberNo || 'İMO-74120';
@@ -240,7 +240,7 @@ export function generateOfferHtml(
         font-family: sans-serif;
       }
       @bottom-left {
-        content: "${compName} - Kentsel Dönüşüm Teklifi";
+        content: "${compName}${showWeb && compWeb ? ` • ${compWeb}` : ''} - Kentsel Dönüşüm Teklifi";
         font-size: 9px;
         color: #64748b;
         font-family: sans-serif;
@@ -293,7 +293,7 @@ export function generateOfferHtml(
       <div style="text-align:right;font-size:9px;color:#475569;line-height:1.4;">
         ${showAddr && compAddress ? `<div>${compAddress}</div>` : ''}
         <div>${showPhone && compPhone ? `Tel: ${compPhone}` : ''} ${showEmail && compEmail ? `• E-posta: ${compEmail}` : ''}</div>
-        <div>${showWeb && compWeb ? `Web: ${compWeb}` : ''} ${showTax && compTax ? `• ${compTax}` : ''}</div>
+        <div>${showWeb && compWeb ? `Web: <a href="${compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}" target="_blank" style="color:#4338ca;text-decoration:none;font-weight:600;">${compWeb}</a>` : ''} ${showTax && compTax ? `• ${compTax}` : ''}</div>
         ${showBank && compBank && compIban ? `<div style="font-family:monospace;color:#334155;">${compBank} - IBAN: ${compIban}</div>` : ''}
       </div>
     </div>
@@ -396,13 +396,13 @@ export function generateOfferHtml(
       <div class="card-muted" style="border-left:3px solid #3b82f6;">
         <div style="font-weight:bold;font-size:11px;color:#1e293b;margin-bottom:3px;">🏗️ Deprem Güvenliği ve Altyapı</div>
         <p style="font-size:9.5px;color:#475569;margin:0;line-height:1.45;">
-          C35/40 sınıfı yüksek mukavemetli hazır beton, radye jeneral temel ve sismik nervürlü donatı çeliği ile maksimum deprem direnci sağlanmaktadır.
+          C35/40 sınıfı yüksek mukavemetli hazır beton (Akçansa / OYAK / Çimsa veya muadili), radye jeneral temel ve sismik nervürlü donatı çeliği (İÇDAŞ / Kroman veya muadili) ile maksimum deprem direnci sağlanmaktadır.
         </p>
       </div>
       <div class="card-muted" style="border-left:3px solid #10b981;">
         <div style="font-weight:bold;font-size:11px;color:#1e293b;margin-bottom:3px;">🌿 Enerji Verimliliği ve Konfor</div>
         <p style="font-size:9.5px;color:#475569;margin:0;line-height:1.45;">
-          Yüksek dansiteli taşyünü mantolama, Isıcam Konfor serisi çift cam ve ısı yalıtımlı PVC doğramalar ile 4 mevsim yüksek ısı ve ses tasarrufu.
+          Yüksek dansiteli taşyünü mantolama (İzocam / Knauf veya muadili), Isıcam Konfor serisi çift cam (Şişecam veya muadili) ve ısı yalıtımlı PVC doğramalar (Rehau / Winsa / Pimapen veya muadili) ile 4 mevsim yüksek ısı ve ses tasarrufu.
         </p>
       </div>
     </div>` : ''}
@@ -424,7 +424,7 @@ export function generateOfferHtml(
               <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasUnderfloorHeating ? '#ecfdf5' : '#f1f5f9'};color:${params.hasUnderfloorHeating ? '#065f46' : '#475569'};border:1px solid ${params.hasUnderfloorHeating ? '#a7f3d0' : '#cbd5e1'}">${params.hasUnderfloorHeating ? 'Dahil' : 'Opsiyonel'}</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 6px 0;line-height:1.35;">
-              Radyatörlere kıyasla %15-20 yakıt tasarrufu, homojen ısı yayılımı, toz engelleme ve odalarda dekoratif genişlik sunan lüks sulu sistem.
+              Radyatörlere kıyasla %15-20 yakıt tasarrufu, homojen ısı yayılımı, toz engelleme ve odalarda dekoratif genişlik sunan lüks sulu sistem (Fraenkische / Rehau veya muadili).
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
@@ -441,7 +441,7 @@ export function generateOfferHtml(
               <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasWaterFiltration ? '#ecfdf5' : '#f1f5f9'};color:${params.hasWaterFiltration ? '#065f46' : '#475569'};border:1px solid ${params.hasWaterFiltration ? '#a7f3d0' : '#cbd5e1'}">${params.hasWaterFiltration ? 'Dahil' : 'Opsiyonel'}</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 6px 0;line-height:1.35;">
-              Bina şebeke ana girişine monte edilerek tüm dairelerde klor, kireç, ağır metalleri giderir, tesisat ve beyaz eşyaları kireçten korur.
+              Bina şebeke ana girişine monte edilerek tüm dairelerde klor, kireç, ağır metalleri giderir, tesisat ve beyaz eşyaları kireçten korur (Vipsu / Brita veya muadili).
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
@@ -458,7 +458,7 @@ export function generateOfferHtml(
               <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasAcOption ? '#ecfdf5' : '#f1f5f9'};color:${params.hasAcOption ? '#065f46' : '#475569'};border:1px solid ${params.hasAcOption ? '#a7f3d0' : '#cbd5e1'}">${params.hasAcOption ? 'Dahil' : 'Opsiyonel'}</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              <strong>${currentAc.shortTitle}</strong> (${currentAc.btu}) - ${currentAc.targetArea} salonlar için A++ inverter enerji tasarruflu iklimlendirme.
+              <strong>${currentAc.shortTitle}</strong> (${currentAc.btu}) - ${currentAc.targetArea} salonlar için A++ inverter iklimlendirme (E.C.A. / Mitsubishi / Daikin veya muadili).
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
@@ -475,7 +475,7 @@ export function generateOfferHtml(
               <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasThermostaticShowerMixer ? '#ecfdf5' : '#f1f5f9'};color:${params.hasThermostaticShowerMixer ? '#065f46' : '#475569'};border:1px solid ${params.hasThermostaticShowerMixer ? '#a7f3d0' : '#cbd5e1'}">${params.hasThermostaticShowerMixer ? 'Dahil' : 'Opsiyonel'}</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              38°C emniyet kilitli, haşlanma önleyici ve %30 su tasarruflu termostatik batarya. Yalnızca konut dairelerine uygulanır (Dükkanlar hariç).
+              38°C emniyet kilitli, haşlanma önleyici termostatik batarya (E.C.A. / Artema / VitrA veya muadili). Yalnızca konut dairelerine uygulanır.
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
@@ -492,7 +492,7 @@ export function generateOfferHtml(
               <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasLinearShowerDrain ? '#ecfdf5' : '#f1f5f9'};color:${params.hasLinearShowerDrain ? '#065f46' : '#475569'};border:1px solid ${params.hasLinearShowerDrain ? '#a7f3d0' : '#cbd5e1'}">${params.hasLinearShowerDrain ? 'Dahil' : 'Opsiyonel'}</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              304 paslanmaz çelik ızgaralı, çift hazneli koku çekvalfli hemzemin duş kanalı. Yalnızca konut dairelerine uygulanır.
+              304 paslanmaz çelik ızgaralı, çift hazneli koku çekvalfli hemzemin duş kanalı (Hüppe / Geberit veya muadili). Yalnızca konut dairelerine uygulanır.
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
@@ -509,7 +509,7 @@ export function generateOfferHtml(
               <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasBathroomHumidityFan ? '#ecfdf5' : '#f1f5f9'};color:${params.hasBathroomHumidityFan ? '#065f46' : '#475569'};border:1px solid ${params.hasBathroomHumidityFan ? '#a7f3d0' : '#cbd5e1'}">${params.hasBathroomHumidityFan ? 'Dahil' : 'Opsiyonel'}</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              Banyo konfor dokunuşu: Otomatik higrostat sensörlü, 25 dB fısıltı sessizliğinde buhar ve küf önleyici fan.
+              Banyo konfor dokunuşu: Otomatik higrostat sensörlü, 25 dB fısıltı sessizliğinde fan (Vortice / E.C.A. veya muadili).
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
@@ -526,7 +526,7 @@ export function generateOfferHtml(
               <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasTouchlessKitchenFaucet ? '#ecfdf5' : '#f1f5f9'};color:${params.hasTouchlessKitchenFaucet ? '#065f46' : '#475569'};border:1px solid ${params.hasTouchlessKitchenFaucet ? '#a7f3d0' : '#cbd5e1'}">${params.hasTouchlessKitchenFaucet ? 'Dahil' : 'Opsiyonel'}</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              Mutfak eviyesi ve banyo lavabosunda temassız kızılötesi sensör ile üstün hijyen, kireç/su lekesiz temiz yüzeyler ve %40 yüksek su tasarrufu.
+              Mutfak ve banyoda temassız kızılötesi sensörlü fotoselli bataryalar (E.C.A. / Artema / VitrA veya muadili).
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
@@ -543,12 +543,46 @@ export function generateOfferHtml(
               <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasSmartDoorLock ? '#ecfdf5' : '#f1f5f9'};color:${params.hasSmartDoorLock ? '#065f46' : '#475569'};border:1px solid ${params.hasSmartDoorLock ? '#a7f3d0' : '#cbd5e1'}">${params.hasSmartDoorLock ? 'Dahil' : 'Opsiyonel'}</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              DESİ / Kale / Smart marka parmak izli okuyucu, dokunmatik şifreli tuş takımı ve mobil uygulama (Bluetooth/Wi-Fi) entegreli motorlu çelik kapı kilidi.
+              DESİ / Kale / Smart veya muadili parmak izli okuyucu, dokunmatik şifreli tuş takımı ve mobil uygulamalı motorlu çelik kapı kilidi.
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
             <span>Yatırım Maliyeti:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.smartDoorLockCost ? res.smartDoorLockCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
+
+        <!-- Jeneratör Sistemi -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">⚡ Otomatik Transfer Panolu Jeneratör</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasGenerator ? '#ecfdf5' : '#f1f5f9'};color:${params.hasGenerator ? '#065f46' : '#475569'};border:1px solid ${params.hasGenerator ? '#a7f3d0' : '#cbd5e1'}">${params.hasGenerator ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
+              Aksa / Alimar / Teksan veya muadili kabinli dizel jeneratör ve otomatik transfer panosu (ATS). Elektrik kesintisinde asansör, hidrofor ve ortak aydınlatmalar kesintisiz çalışır.
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.generatorCost ? res.generatorCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          </div>
+        </div>
+
+        <!-- Porselen Mutfak Tezgahı -->
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🍳 12-15mm Lüks Porselen Mutfak Tezgahı</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasPorcelainCountertop ? '#ecfdf5' : '#f1f5f9'};color:${params.hasPorcelainCountertop ? '#065f46' : '#475569'};border:1px solid ${params.hasPorcelainCountertop ? '#a7f3d0' : '#cbd5e1'}">${params.hasPorcelainCountertop ? 'Dahil' : 'Opsiyonel'}</span>
+            </div>
+            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
+              Lamar / Neolith / Belenco veya muadili 1. sınıf 12-15mm porselen plaka tezgah ve alınlık. Sıcağa, yanmaya ve çizilmeye %100 dayanıklı, leke tutmayan lüks yüzey (Konutlar).
+            </p>
+          </div>
+          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
+            <span>Yatırım Maliyeti:</span>
+            <span style="font-weight:bold;color:#6b21a8;">${res.porcelainCountertopCost ? res.porcelainCountertopCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
       </div>
@@ -841,7 +875,230 @@ export function generateOfferHtml(
   </div>
   ` : ''}
 
-  <!-- 7. YETKİLİ İMZA VE KAŞE PROTOKOLÜ -->
+  <!-- 7. MARKA KATALOĞU VE KALİTE ÇÖZÜM ORTAKLARI (VEYA MUADİLLERİ) -->
+  <div class="avoid-break" style="margin-bottom:16px;">
+    <div class="section-header">7. Marka Kataloğu ve Çözüm Ortakları (Veya Muadilleri)</div>
+    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:12px; margin-bottom:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid #e2e8f0; padding-bottom:6px;">
+        <span style="font-size:10.5px; font-weight:800; color:#0f172a; text-transform:uppercase; font-family:sans-serif;">
+          🏆 Projede Kullanılacak A-Kalite Marka Grupları
+        </span>
+        <span style="font-size:8.5px; font-weight:bold; background:#e0e7ff; color:#3730a3; padding:2.5px 8px; border-radius:12px; border:1px solid #c7d2fe; font-family:sans-serif;">
+          ✓ Bütün Markalar "Veya Muadili" Standartlarındadır
+        </span>
+      </div>
+
+      <!-- BRAND GRID (4 COLUMNS) -->
+      <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
+        <!-- BRAND CARD 1: E.C.A. -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#1e3a8a; border-radius:4px;">
+              <text x="50" y="21" font-family="sans-serif" font-weight="900" font-size="16" fill="#ffffff" text-anchor="middle">E.C.A.</text>
+              <circle cx="82" cy="15" r="3" fill="#dc2626"/>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">E.C.A. veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Armatür, Batarya & Isıtma</div>
+        </div>
+
+        <!-- BRAND CARD 2: Artema -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 110 30" style="background:#0d9488; border-radius:4px;">
+              <text x="55" y="21" font-family="sans-serif" font-weight="900" font-size="15" fill="#ffffff" text-anchor="middle">ARTEMA</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Artema veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Banyo & Mutfak Armatürleri</div>
+        </div>
+
+        <!-- BRAND CARD 3: VitrA -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#0f172a; border-radius:4px;">
+              <text x="50" y="21" font-family="sans-serif" font-weight="900" font-size="16" fill="#ffffff" text-anchor="middle">VitrA</text>
+              <circle cx="74" cy="12" r="2" fill="#ef4444"/>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">VitrA veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Vitrifiye, Seramik & Banyo</div>
+        </div>
+
+        <!-- BRAND CARD 4: Kale -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#dc2626; border-radius:4px;">
+              <text x="50" y="21" font-family="sans-serif" font-weight="900" font-size="16" fill="#ffffff" text-anchor="middle">KALE</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Kale veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Seramik, Çelik Kapı & Kilit</div>
+        </div>
+
+        <!-- BRAND CARD 5: Rehau -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#e11d48; border-radius:4px;">
+              <text x="50" y="21" font-family="sans-serif" font-weight="900" font-size="15" fill="#ffffff" text-anchor="middle">REHAU</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Rehau veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">A Sınıfı Alman PVC Profil</div>
+        </div>
+
+        <!-- BRAND CARD 6: Winsa -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#0284c7; border-radius:4px;">
+              <text x="50" y="21" font-family="sans-serif" font-weight="900" font-size="15" fill="#ffffff" text-anchor="middle">WINSA</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Winsa veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">PVC Pencere & Kapı Sistemleri</div>
+        </div>
+
+        <!-- BRAND CARD 7: Şişecam -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 110 30" style="background:#2563eb; border-radius:4px;">
+              <text x="55" y="20" font-family="sans-serif" font-weight="900" font-size="13" fill="#ffffff" text-anchor="middle">ŞİŞECAM</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Şişecam veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Isıcam Konfor Çift Cam</div>
+        </div>
+
+        <!-- BRAND CARD 8: Geberit -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#0369a1; border-radius:4px;">
+              <text x="50" y="20" font-family="sans-serif" font-weight="900" font-size="14" fill="#ffffff" text-anchor="middle">GEBERIT</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Geberit veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Gömme Rezervuar & Tesisat</div>
+        </div>
+
+        <!-- BRAND CARD 9: Kütahya Seramik -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 120 30" style="background:#4f46e5; border-radius:4px;">
+              <text x="60" y="20" font-family="sans-serif" font-weight="900" font-size="11" fill="#ffffff" text-anchor="middle">KÜTAHYA SERAMİK</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Kütahya Seramik / muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Porselen & Granit Kaplama</div>
+        </div>
+
+        <!-- BRAND CARD 10: Çanakkale Seramik -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 125 30" style="background:#059669; border-radius:4px;">
+              <text x="62" y="20" font-family="sans-serif" font-weight="900" font-size="10" fill="#ffffff" text-anchor="middle">ÇANAKKALE SERAMİK</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Çanakkale Seramik / muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Zemin & Duvar Kaplamaları</div>
+        </div>
+
+        <!-- BRAND CARD 11: Daikin -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#0284c7; border-radius:4px;">
+              <text x="50" y="21" font-family="sans-serif" font-weight="900" font-size="15" fill="#ffffff" text-anchor="middle">DAIKIN</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Daikin veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Inverter Klima & Soğutma</div>
+        </div>
+
+        <!-- BRAND CARD 12: Mitsubishi Electric -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 120 30" style="background:#dc2626; border-radius:4px;">
+              <text x="60" y="20" font-family="sans-serif" font-weight="900" font-size="11" fill="#ffffff" text-anchor="middle">MITSUBISHI</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Mitsubishi veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">İklimlendirme & Isı Pompası</div>
+        </div>
+
+        <!-- BRAND CARD 13: Viessmann -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 120 30" style="background:#ea580c; border-radius:4px;">
+              <text x="60" y="20" font-family="sans-serif" font-weight="900" font-size="11" fill="#ffffff" text-anchor="middle">VIESSMANN</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Viessmann / Vaillant veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Yoğuşmalı Kombi & Isıtma</div>
+        </div>
+
+        <!-- BRAND CARD 14: DESİ -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#15803d; border-radius:4px;">
+              <text x="50" y="21" font-family="sans-serif" font-weight="900" font-size="16" fill="#ffffff" text-anchor="middle">DESİ</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">DESİ / Kale Kilit / muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Motorlu Akıllı Kilit Sistemleri</div>
+        </div>
+
+        <!-- BRAND CARD 15: Somfy -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#b45309; border-radius:4px;">
+              <text x="50" y="20" font-family="sans-serif" font-weight="900" font-size="14" fill="#ffffff" text-anchor="middle">SOMFY</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Somfy / Audio veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Akıllı Ev & İnterkom Sistemleri</div>
+        </div>
+
+        <!-- BRAND CARD 16: KONE -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 100 30" style="background:#4338ca; border-radius:4px;">
+              <text x="50" y="21" font-family="sans-serif" font-weight="900" font-size="16" fill="#ffffff" text-anchor="middle">KONE</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">KONE / Schindler veya muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Sessiz Otomatik Asansör</div>
+        </div>
+
+        <!-- BRAND CARD 17: Aksa Jeneratör -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 110 30" style="background:#0f766e; border-radius:4px;">
+              <text x="55" y="21" font-family="sans-serif" font-weight="900" font-size="15" fill="#ffffff" text-anchor="middle">AKSA</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Aksa Jeneratör / muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Otomatik Dizel Jeneratör & ATS</div>
+        </div>
+
+        <!-- BRAND CARD 18: Lamar Porselen -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
+          <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            <svg width="85" height="22" viewBox="0 0 110 30" style="background:#334155; border-radius:4px;">
+              <text x="55" y="20" font-family="sans-serif" font-weight="900" font-size="13" fill="#ffffff" text-anchor="middle">LAMAR</text>
+            </svg>
+          </div>
+          <div style="font-size:9px; font-weight:bold; color:#0f172a; font-family:sans-serif;">Lamar Porselen / muadili</div>
+          <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">12-15mm Porselen Tezgah</div>
+        </div>
+      </div>
+
+      <!-- LEGAL DISCLAIMER FOOTER NOTE -->
+      <div style="margin-top:10px; padding:8px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:8.5px; color:#1e40af; line-height:1.45; font-family:sans-serif;">
+        <strong>📌 Noter Onaylı Şartname Beyanı:</strong> Teklif dosyasında ve şartnamede ismi geçen tüm markalar veya dengi teknik standartlara sahip 1. sınıf TSE / CE / ISO belgeli muadilleri imalat sürecinde yüklenici firma tarafından kullanılacaktır. Marka seçimlerinde stok durumu, tedarik imkanları ve mimari uyum esas alınır.
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. YETKİLİ İMZA VE KAŞE PROTOKOLÜ -->
   ${showContractorSignature ? `
   <div class="avoid-break" style="margin-top:16px;border-top:2px solid #0f172a;padding-top:14px;">
     <div class="grid-2">

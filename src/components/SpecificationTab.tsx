@@ -106,6 +106,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     const compLogo = profile.logoBase64 || '';
     const compName = profile.companyName || 'AB YAPI';
     const compLegal = companyLegalName;
+    const compWeb = profile.website || (profile.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
 
     if (activeTab === 'common') {
       return `<!DOCTYPE html>
@@ -125,7 +126,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
         font-family: sans-serif;
       }
       @bottom-left {
-        content: "${compName} - Ortak Teknik Şartname";
+        content: "${compName}${compWeb ? ` • ${compWeb}` : ''} - Ortak Teknik Şartname";
         font-size: 9px;
         color: #64748b;
         font-family: sans-serif;
@@ -278,7 +279,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   </table>
 
   <div class="footer-meta">
-    ${profile.companyName} - Güvene Yükselen Yapılar | Ortak Teknik Şartname
+    ${profile.companyName} - Güvene Yükselen Yapılar | Ortak Teknik Şartname${compWeb ? ` | <a href="${compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}" target="_blank" style="color:#64748b;text-decoration:none;">${compWeb}</a>` : ''}
   </div>
 </body>
 </html>`;
@@ -316,7 +317,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
         font-family: sans-serif;
       }
       @bottom-left {
-        content: "${compName} - Projeye Özel Şartname";
+        content: "${compName}${compWeb ? ` • ${compWeb}` : ''} - Projeye Özel Şartname";
         font-size: 9px;
         color: #64748b;
         font-family: sans-serif;
@@ -445,8 +446,10 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
           params.hasAcOption ? `<strong>İklimlendirme:</strong> A++ Inverter klima sistemi (${results.acBtuInfo || '18.000 BTU/h'}) ${params.acScope === 'residential_only' ? '(Yalnızca Konutlar)' : '(Tüm Birimler)'}.` : null,
           params.hasThermostaticShowerMixer ? '<strong>Banyo Duş Bataryası:</strong> 38°C emniyet kilitli, haşlanma korumalı ve %30 su tasarruflu termostatik duş bataryası seti (Yalnızca Konutlar — Dükkanlar Hariç).' : '<strong>Banyo Duş Bataryası:</strong> 1. sınıf TSE belgeli aç-kapa pirinç duş bataryası (Konutlar).',
           params.hasLinearShowerDrain ? '<strong>Duş Drenajı:</strong> Duş kabinlerinde 304 kalite paslanmaz çelik ızgaralı, koku önleyici çekvalfli hemzemin lineer duş süzgeci (Yalnızca Konutlar — Dükkanlar Hariç).' : '<strong>Duş Drenajı:</strong> Standart koku perdeli banyo süzgeci (Konutlar).',
-          params.hasTouchlessKitchenFaucet ? '<strong>Mutfak & Banyo Bataryası:</strong> Mutfak eviyesi ve banyo lavabosunda temassız kızılötesi sensörlü, hijyenik ve %40 su tasarruflu fotoselli akıllı batarya seti.' : null,
-          params.hasSmartDoorLock ? '<strong>Akıllı Daire Kapısı Kilidi:</strong> Daire çelik giriş kapılarında parmak izli okuyucu, dokunmatik şifre tuş takımı ve mobil uygulama (Bluetooth/Wi-Fi) kontrollü DESİ / Kale / Smart marka motorlu kilit sistemi.' : '<strong>Daire Giriş Kapısı Kilidi:</strong> Monoblok emniyetli 1. sınıf mekanik göbekli çelik daire giriş kapısı kilidi.',
+          params.hasTouchlessKitchenFaucet ? '<strong>Mutfak & Banyo Bataryası:</strong> Mutfak eviyesi ve banyo lavabosunda temassız kızılötesi sensörlü, hijyenik ve %40 su tasarruflu fotoselli akıllı batarya seti veya muadili.' : null,
+          params.hasSmartDoorLock ? '<strong>Akıllı Daire Kapısı Kilidi:</strong> Daire çelik giriş kapılarında parmak izli okuyucu, dokunmatik şifre tuş takımı ve mobil uygulama (Bluetooth/Wi-Fi) kontrollü DESİ / Kale / Smart veya muadili motorlu kilit sistemi.' : '<strong>Daire Giriş Kapısı Kilidi:</strong> Monoblok emniyetli 1. sınıf mekanik göbekli çelik daire giriş kapısı kilidi.',
+          params.hasGenerator ? `<strong>Jeneratör Sistemi:</strong> Aksa / Alimar / Teksan veya muadili otomatik transfer panolu (ATS) kabinli dizel jeneratör sistemi ${params.generatorScope === 'full_building' ? '(Tüm Bina & Daireler)' : '(Asansör, Hidrofor & Ortak Alanlar)'}.` : null,
+          params.hasPorcelainCountertop ? '<strong>Mutfak Tezgahı:</strong> Lamar / Neolith / Belenco veya muadili 12-15mm lüks porselen plaka tezgah ve süpürgelik/alınlık kaplaması; sıcağa, yanmaya ve çizilmeye %100 dayanıklı leke tutmaz hijyenik yüzey (Konutlar).' : null,
         ].filter(Boolean).join('<br>')}
       </td>
     </tr>
@@ -511,7 +514,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   </table>
 
   <div class="footer-meta">
-    ${profile.companyName} - Güvene Yükselen Yapılar | Projeye Özel Teknik Şartname
+    ${profile.companyName} - Güvene Yükselen Yapılar | Projeye Özel Teknik Şartname${compWeb ? ` | <a href="${compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}" target="_blank" style="color:#64748b;text-decoration:none;">${compWeb}</a>` : ''}
   </div>
 </body>
 </html>`;

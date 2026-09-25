@@ -28,18 +28,18 @@ export const DEFAULT_PRINT_OPTIONS: CompanyProfilePrintOptions = {
 
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
   companyName: 'AB YAPI',
-  legalName: 'AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ.',
-  slogan: 'Depreme Dayanıklı, Güvenli ve Modern Yaşam Alanları',
-  tagline: 'Kentsel Dönüşüm, Statik & Mimari Mühendislik, Kat Karşılığı Projeler',
-  authorizedPerson: 'Müh. Alpaslan Beyoğlu',
-  authorizedTitle: 'Genel Müdür / İnşaat Mühendisi',
-  authorizedChamberNo: 'İMO-74120',
+  legalName: 'AB YAPI MÜTEAHHİTLİK VE DÖNÜŞÜM HİZMETLERİ TİC. LTD. ŞTİ.',
+  slogan: 'Güvene Yükselen Yapılar',
+  tagline: 'Kentsel Dönüşüm, Yapı Yönetimi ve Kat Karşılığı Projeler',
+  authorizedPerson: 'Alpaslan Beyoğlu',
+  authorizedTitle: 'Genel Müdür / Firma Yetkilisi',
+  authorizedChamberNo: '',
   authorizedPerson2: '',
   authorizedTitle2: '',
   authorizedChamberNo2: '',
   phone: '+90 (212) 585 10 20',
   email: 'info@abyapi.com.tr',
-  website: 'www.abyapi.com.tr',
+  website: 'https://ab-yapi.com.tr/',
   address: 'Kocamustafapaşa Mah. Orgeneral Abdurrahman Nafiz Gürman Cad. No:42 Fatih / İSTANBUL',
   taxOffice: 'Fatih Vergi Dairesi',
   taxNumber: '0010523491',
@@ -102,9 +102,14 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        let website = parsed.website;
+        if (parsed.companyName === 'AB YAPI' && (!website || website === 'www.abyapi.com.tr' || website === 'abyapi.com.tr')) {
+          website = 'https://ab-yapi.com.tr/';
+        }
         return {
           ...DEFAULT_COMPANY_PROFILE,
           ...parsed,
+          website: website !== undefined ? website : (parsed.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : ''),
           printOptions: {
             ...DEFAULT_PRINT_OPTIONS,
             ...(parsed.printOptions || {}),
@@ -124,7 +129,12 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
       if (storedList) {
         const parsedList = JSON.parse(storedList);
         if (Array.isArray(parsedList) && parsedList.length > 0) {
-          return parsedList;
+          return parsedList.map((p: CompanyProfile) => {
+            if (p.companyName === 'AB YAPI' && (!p.website || p.website === 'www.abyapi.com.tr' || p.website === 'abyapi.com.tr')) {
+              return { ...p, website: 'https://ab-yapi.com.tr/' };
+            }
+            return p;
+          });
         }
       }
     } catch (e) {

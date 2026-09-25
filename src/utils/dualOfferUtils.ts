@@ -75,6 +75,8 @@ export function getBaseParams(params: ProjectParams): ProjectParams {
     hasBathroomHumidityFan: false,
     hasTouchlessKitchenFaucet: false,
     hasSmartDoorLock: false,
+    hasGenerator: false,
+    hasPorcelainCountertop: false,
     priceSmartHome: 0, // Baz pakette akıllı ev yerine standart diafon/otomasyon
   };
 }
@@ -93,6 +95,11 @@ export function getPlusParams(params: ProjectParams): ProjectParams {
     hasBathroomHumidityFan: plusFeatures.bathroomHumidityFan !== false, // Varsayılan açık
     hasTouchlessKitchenFaucet: plusFeatures.touchlessKitchenFaucet !== false, // Varsayılan açık
     hasSmartDoorLock: plusFeatures.smartDoorLock !== false,                 // Varsayılan açık
+    hasGenerator: plusFeatures.generator !== false,                         // Varsayılan açık
+    generatorScope: params.generatorScope || 'common_areas',
+    generatorPrice: params.generatorPrice,
+    hasPorcelainCountertop: plusFeatures.porcelainCountertop !== false,     // Varsayılan açık
+    porcelainCountertopPricePerFlat: params.porcelainCountertopPricePerFlat,
     priceSmartHome: plusFeatures.smartHome !== false ? (params.priceSmartHome || 15000) : 0,
   };
 }
@@ -283,6 +290,28 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
     });
   }
 
+  if (plusFeatures.generator !== false && (plusResult.generatorCost || 0) > 0) {
+    itemizedContractorCosts.push({
+      id: 'generator',
+      name: 'Otomatik Transfer Panolu Jeneratör',
+      icon: '⚡',
+      unitCost: Math.round((plusResult.generatorCost || 0) / plusFlatCount),
+      totalCost: Math.round(plusResult.generatorCost || 0),
+      scope: plusResult.generatorScope === 'full_building' ? 'Tüm Bina & Daireler' : 'Ortak Alan & Asansör',
+    });
+  }
+
+  if (plusFeatures.porcelainCountertop !== false && (plusResult.porcelainCountertopCost || 0) > 0) {
+    itemizedContractorCosts.push({
+      id: 'porcelain_countertop',
+      name: 'Lüks Porselen Mutfak Tezgahı (12-15mm)',
+      icon: '🍳',
+      unitCost: Math.round((plusResult.porcelainCountertopCost || 0) / plusFlatCount),
+      totalCost: Math.round(plusResult.porcelainCountertopCost || 0),
+      scope: 'Yalnızca Konutlar',
+    });
+  }
+
   // Gerçek teknik maliyet farkı:
   // Manuel m² birim fiyatı girilse dahi kalem bazlı teknik maliyetler toplamı (technicalItemsTotal)
   // asla 0 olamaz ve gerçek şantiye donanım farkını yansıtır.
@@ -388,7 +417,7 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       baseIncluded: false,
       plusIncluded: true,
       baseSpec: 'Klimasız (Sadece boru altyapısı)',
-      plusSpec: 'Salona 1 Adet Sessiz A++ Inverter Klima (E.C.A. / Mitsubishi / Daikin)',
+      plusSpec: 'Salona 1 Adet Sessiz A++ Inverter Klima (E.C.A. / Mitsubishi / Daikin veya muadili)',
       homeownerBenefit: 'Sıcak yaz günlerinde salonunuz anında serinler. Altyapısı gizli çekildiği için evinizde kablo veya boru görüntüsü olmaz.',
       costDeltaPerFlat: Math.round(plusResult.acCostTotal ? plusResult.acCostTotal / plusFlatCount : 0),
     },
@@ -400,7 +429,7 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       baseIncluded: false,
       plusIncluded: true,
       baseSpec: 'Şebekeden doğrudan gelen filtresiz su',
-      plusSpec: 'Bina girişine merkezi arıtma sistemi (Kireç, tortu ve klor filtresi)',
+      plusSpec: 'Bina girişine merkezi arıtma sistemi (Kireç, tortu ve klor filtresi veya muadili)',
       homeownerBenefit: 'Çeşmenizden tertemiz ve yumuşak su akar. Kombiniz, çamaşır ve bulaşık makineniz kireçten bozulmaz, ömürleri uzar.',
       costDeltaPerFlat: Math.round(plusResult.waterFiltrationCost ? plusResult.waterFiltrationCost / plusFlatCount : 0),
     },
@@ -413,7 +442,7 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       baseIncluded: true,
       plusIncluded: true,
       baseSpec: 'Standart musluk ve aç-kapa duş bataryası',
-      plusSpec: 'E.C.A. / Artema 38°C Sıcaklık Sabitleyicili Emniyetli Duş Bataryası',
+      plusSpec: 'E.C.A. / Artema / VitrA veya muadili 38°C Sıcaklık Sabitleyicili Emniyetli Duş Bataryası',
       homeownerBenefit: 'Mutfakta biri su açınca duşta sıcaklık değişmez. Su 38 dereceye sabitlenir, çocukların veya yaşlıların ani sıcak suyla yanmasını engeller.',
       costDeltaPerFlat: Math.round(
         plusResult.thermostaticMixerCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
@@ -431,7 +460,7 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       baseIncluded: true,
       plusIncluded: true,
       baseSpec: 'Standart plastik yuvarlak süzgeç',
-      plusSpec: 'Hüppe / Geberit Uyumlu Çelik Uzun Duş Süzgeci ve Özel Koku Engelleyici',
+      plusSpec: 'Hüppe / Geberit veya muadili Çelik Uzun Duş Süzgeci ve Özel Koku Engelleyici',
       homeownerBenefit: 'Banyonuzda eşiksiz, düz ve şık bir duş alanı olur. Özel çekvalf sayesinde giderden banyonuza kesinlikle kötü koku veya böcek gelemez.',
       costDeltaPerFlat: Math.round(
         plusResult.linearDrainCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
@@ -449,7 +478,7 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       baseIncluded: false,
       plusIncluded: true,
       baseSpec: 'Sadece pasif havalandırma deliği (Fansız)',
-      plusSpec: 'Banyoya nemi algılayıp otomatik çalışan sessiz elektrikli fan',
+      plusSpec: 'Vortice / E.C.A. veya muadili nemi algılayıp otomatik çalışan sessiz elektrikli fan',
       homeownerBenefit: 'Duş sonrası banyoda buğu ve ıslaklık kalmaz. Rutubet, küf ve kötü kokular otomatik olarak sessizce tahliye edilir.',
       costDeltaPerFlat: Math.round(
         plusResult.bathroomHumidityFanCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
@@ -468,7 +497,7 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       baseIncluded: false,
       plusIncluded: true,
       baseSpec: 'Standart elle açılan mutfak ve banyo muslukları',
-      plusSpec: 'E.C.A. / Artema Dokunmadan Çalışan Temassız Fotoselli Musluklar',
+      plusSpec: 'E.C.A. / Artema / VitrA veya muadili Dokunmadan Çalışan Temassız Fotoselli Musluklar',
       homeownerBenefit: 'Mutfakta köfteli, hamurlu ellerle musluğa dokunmazsınız. Altına elinizi tutunca su akar, çekince durur. Hem musluk tertemiz kalır hem de su faturanız %40 düşer.',
       costDeltaPerFlat: Math.round(
         plusResult.touchlessKitchenFaucetCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
@@ -486,7 +515,7 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       baseIncluded: false,
       plusIncluded: true,
       baseSpec: 'Standart mekanik anahtarlı göbekli çelik kapı kilidi',
-      plusSpec: 'DESİ / Kale / Smart Parmak İzli, Şifreli & Mobil Uygulamalı Motorlu Akıllı Kilit',
+      plusSpec: 'DESİ / Kale / Smart veya muadili Parmak İzli, Şifreli & Mobil Uygulamalı Motorlu Akıllı Kilit',
       homeownerBenefit: 'Cebinizde ağır anahtar destesi taşıma derdi biter. Parmak izinizle, şifrenizle veya telefonunuzla kapıyı anında açabilir, misafirlerinize tek tıkla geçici şifre gönderebilirsiniz.',
       costDeltaPerFlat: Math.round(
         plusResult.smartDoorLockCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
@@ -504,9 +533,41 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
       baseIncluded: false,
       plusIncluded: true,
       baseSpec: 'Standart diafon sistemi (Sadece kapı zili)',
-      plusSpec: 'Somfy / Audio Mobil Entegre Akıllı Ev Sistemi (Uzak Vanalı Kontrol)',
+      plusSpec: 'Somfy / Audio / Legrand veya muadili Mobil Entegre Akıllı Ev Sistemi (Uzak Vanalı Kontrol)',
       homeownerBenefit: 'Evden çıktıktan sonra "Suyu açık mı bıraktım?" tasası biter. Telefondan tek tıkla evin ana suyunu ve gazını kapatabilirsiniz.',
       costDeltaPerFlat: Math.round(plusParams.priceSmartHome || 15000),
+    },
+    {
+      id: 'generator',
+      category: 'general',
+      name: 'Otomatik Jeneratör & ATS Transfer Panosu',
+      icon: '⚡',
+      baseIncluded: false,
+      plusIncluded: true,
+      baseSpec: 'Jeneratörsüz (Yalnızca şehir şebeke elektriği)',
+      plusSpec: 'Aksa / Alimar / Teksan veya muadili Kabinli Otomatik Jeneratör & Transfer Panosu (ATS)',
+      homeownerBenefit: 'Elektrik kesildiğinde 8 saniyede devreye girer. Asansörde mahsur kalmazsınız, hidrofor durmaz suyunuz kesilmez, ortak alanlar kesintisiz aydınlatılır.',
+      costDeltaPerFlat: Math.round(
+        plusResult.generatorCost ? plusResult.generatorCost / plusFlatCount : (180000 + plusFlatCount * 6000) / plusFlatCount
+      ),
+    },
+    {
+      id: 'porcelain_countertop',
+      category: 'kitchen',
+      name: 'Lüks Porselen Mutfak Tezgahı (12-15mm)',
+      icon: '🍳',
+      baseIncluded: false,
+      plusIncluded: true,
+      baseSpec: 'Standart granit veya laminat mutfak tezgahı',
+      plusSpec: 'Lamar / Neolith / Belenco veya muadili 12-15mm Çizilmez Porselen Mutfak Tezgahı & Alınlığı',
+      homeownerBenefit: 'Sıcak tencere ve tavaları tezgahın üzerine doğrudan koyabilirsiniz; yanmaz ve kabarmaz. Bıçakla çizilmez, asit ve yağ lekesi tutmaz, ömür boyu pırıl pırıl kalır.',
+      costDeltaPerFlat: Math.round(
+        plusResult.porcelainCountertopCost && plusResult.residentialUnitsCount && plusResult.residentialUnitsCount > 0
+          ? plusResult.porcelainCountertopCost / plusResult.residentialUnitsCount
+          : plusResult.porcelainCountertopCost
+          ? plusResult.porcelainCountertopCost / plusFlatCount
+          : (params.porcelainCountertopPricePerFlat || 25000)
+      ),
     },
   ];
 

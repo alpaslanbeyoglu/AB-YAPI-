@@ -27,10 +27,26 @@ import {
   HardHat,
   ArrowRight,
   Activity,
-  Calculator
+  Calculator,
+  Instagram,
+  Facebook,
+  Linkedin,
+  Youtube,
+  Twitter,
+  Share2,
+  Sparkles,
+  Copy,
+  Check,
+  Image as ImageIcon,
+  MessageSquare,
+  Send,
+  Smartphone,
+  RefreshCw,
+  Settings2
 } from 'lucide-react';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { AppTheme, CompanyProfile, CompanyProfilePrintOptions, ProjectParams, CalculationResult } from '../types';
+import { SocialMediaStudio } from './SocialMediaStudio';
 
 interface CompanyProfileTabProps {
   theme?: AppTheme;
@@ -43,20 +59,20 @@ interface CompanyProfileTabProps {
 }
 
 const AUTHORIZED_TITLE_PRESETS = [
-  'Genel Müdür / İnşaat Mühendisi',
+  'Genel Müdür / Firma Yetkilisi',
   'Yönetim Kurulu Başkanı',
-  'Şirket Müdürü / Müteahhit',
-  'İnşaat Yüksek Mühendisi / Proje Müdürü',
-  'Mimar / Kentsel Dönüşüm Uzmanı',
-  'Teknik Müdür / Başmühendis',
+  'Şirket Müdürü',
+  'Kurumsal Proje Müdürü',
+  'Şirket Temsilcisi',
+  'Teknik Müdür',
   'Şirket Yetkilisi & Temsilcisi',
 ];
 
 const SECOND_TITLE_PRESETS = [
-  'Şantiye Şefi / Mimar',
-  'Proje & Statik Sorumlusu / İnşaat Mühendisi',
+  'Proje Koordinatörü',
+  'Operasyon Sorumlusu',
   'Teknik Müdür',
-  'Hakediş & Keşif Uzmanı',
+  'Keşif & Planlama Uzmanı',
   'Müdür Yardımcısı',
   'Saha Denetim Sorumlusu',
 ];
@@ -87,6 +103,37 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
   
   const [formData, setFormData] = useState<CompanyProfile>(profile);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState<'official' | 'social'>('official');
+
+  // Social tab state
+  const [socialTemplate, setSocialTemplate] = useState<string>('new_project');
+  const [socialTitle, setSocialTitle] = useState('DEPREME DAYANIKLI YENİ YAŞAM BAŞLIYOR!');
+  const [socialProjectName, setSocialProjectName] = useState(params?.projectName || 'Kocamustafapaşa Modern Sitesi');
+  const [socialLocation, setSocialLocation] = useState(params?.projectAddress || 'Fatih / İSTANBUL');
+  const [socialBadge, setSocialBadge] = useState(params?.projectModel === 'contractorShare' ? 'Kat Karşılığı %50 Pay' : 'Kentsel Dönüşüm Teşvikli');
+  const [socialDesc, setSocialDesc] = useState(profile.slogan || 'Geleceğe güvenle yükselen, modern ve sismik mukavemeti yüksek yapılar inşa ediyoruz.');
+  
+  // Caption generator states
+  const [targetPlatform, setTargetPlatform] = useState<'instagram' | 'linkedin' | 'facebook_whatsapp'>('instagram');
+  const [generatedCaption, setGeneratedCaption] = useState('');
+  const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
+  const [additionalCaptionInfo, setAdditionalCaptionInfo] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const isGeneralTemplate = ['corporate_intro', 'earthquake_safety', 'urban_info', 'expert_advice'].includes(socialTemplate);
+
+  // Sync social states with project parameters when loaded
+  useEffect(() => {
+    if (params) {
+      if (params.projectName) setSocialProjectName(params.projectName);
+      if (params.projectAddress) setSocialLocation(params.projectAddress);
+      if (params.projectModel === 'contractorShare') {
+        setSocialBadge(`Kat Karşılığı %${params.contractorShareRate || 50} Oran`);
+      } else {
+        setSocialBadge('Kentsel Dönüşüm Teşvikli');
+      }
+    }
+  }, [params]);
   
   // Multi-profile state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -121,6 +168,215 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
     updateProfile(formData);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handleGenerateCaption = async () => {
+    if (isGeneratingCaption) return;
+    setIsGeneratingCaption(true);
+    setGeneratedCaption('');
+    try {
+      const response = await fetch('/api/generate-social-caption', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectName: socialProjectName,
+          location: socialLocation,
+          templateType: socialTemplate,
+          platform: targetPlatform,
+          companyName: profile.companyName,
+          slogan: profile.slogan,
+          additionalInfo: additionalCaptionInfo,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setGeneratedCaption(data.caption);
+      } else {
+        alert('Sosyal medya yazısı üretilemedi. Lütfen tekrar deneyiniz.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Yapay zeka servisiyle iletişim kurulurken ağ hatası oluştu.');
+    } finally {
+      setIsGeneratingCaption(false);
+    }
+  };
+
+  const handleDownloadSocialCard = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Safe Zone Definition
+    const PADDING = 100;
+    const SAFE_WIDTH = 1080 - 2 * PADDING;
+    const SAFE_HEIGHT = 1080 - 2 * PADDING;
+    const SAFE_X = PADDING;
+    const SAFE_Y = PADDING;
+
+    // Draw background (Clean Light Info Card)
+    ctx.fillStyle = '#f8fafc'; // slate-50
+    ctx.fillRect(0, 0, 1080, 1080);
+    
+    // Apply Clipping Mask
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(SAFE_X, SAFE_Y, SAFE_WIDTH, SAFE_HEIGHT, 40);
+    ctx.clip();
+
+    // Decorative Card Border
+    ctx.strokeStyle = '#e2e8f0'; // slate-200
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.roundRect(40, 40, 1000, 1000, 40);
+    ctx.stroke();
+    
+    // Top Brand Section
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(40, 40, 1000, 200, [40, 40, 0, 0]);
+    ctx.fill();
+
+    // Template Label
+    ctx.fillStyle = '#4f46e5';
+    ctx.beginPath();
+    ctx.roundRect(80, 80, 300, 50, 10);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    let templateLabel = 'YENİ PROJE DUYURUSU';
+    if (socialTemplate === 'construction_progress') templateLabel = 'ŞANTİYE GÜNCELLEMESİ';
+    if (socialTemplate === 'completed_project') templateLabel = 'PROJE TESLİM REFERANSI';
+    if (socialTemplate === 'urban_transformation') templateLabel = 'KENTSEL DÖNÜŞÜM REHBERİ';
+    if (socialTemplate === 'corporate_intro') templateLabel = 'KURUMSAL TANITIM';
+    if (socialTemplate === 'earthquake_safety') templateLabel = 'DEPREM GÜVENLİĞİ';
+    if (socialTemplate === 'urban_info') templateLabel = 'KENTSEL DÖNÜŞÜM BİLGİ';
+    if (socialTemplate === 'expert_advice') templateLabel = 'MÜHENDİSLİK DANIŞMANLIĞI';
+    
+    ctx.fillText(templateLabel, 230, 105);
+
+    // Title Section
+    ctx.fillStyle = '#0f172a'; // slate-900
+    ctx.font = 'black 60px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
+      const words = text.split(' ');
+      let line = '';
+      let currentY = y;
+      const lines: string[] = [];
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = context.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+          lines.push(line);
+          line = words[n] + ' ';
+        } else {
+          line = testLine;
+        }
+      }
+      lines.push(line);
+      lines.forEach((l) => {
+        context.fillText(l.trim(), x, currentY);
+        currentY += lineHeight;
+      });
+      return currentY;
+    };
+    const finalTitleY = wrapText(ctx, socialTitle.toUpperCase(), 80, 280, 920, 75);
+
+    // Info Card Body
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(80, finalTitleY + 40, 920, 450, 20);
+    ctx.fill();
+
+    // Card Content: Project Info
+    if (isGeneralTemplate) {
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 36px sans-serif';
+      ctx.fillText(socialLocation, 120, finalTitleY + 80);
+      
+      ctx.fillStyle = '#059669'; // emerald-600
+      ctx.font = 'bold 36px sans-serif';
+      ctx.fillText(socialBadge, 120, finalTitleY + 160);
+    } else {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText('PROJE KONUMU:', 120, finalTitleY + 80);
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 36px sans-serif';
+      ctx.fillText(socialLocation, 400, finalTitleY + 80);
+      
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText('DURUM:', 120, finalTitleY + 160);
+      ctx.fillStyle = '#059669'; // emerald-600
+      ctx.font = 'bold 36px sans-serif';
+      ctx.fillText(socialBadge, 400, finalTitleY + 160);
+    }
+
+    ctx.fillStyle = '#334155'; // slate-700
+    ctx.font = '400 32px sans-serif';
+    wrapText(ctx, socialDesc, SAFE_X + 60, finalTitleY + 240, SAFE_WIDTH - 120, 35);
+
+    // Restore context after clipping
+    ctx.restore();
+
+    // Footer lines and logos
+    const footerY = 920;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillRect(100, footerY, 880, 2);
+
+    // Brand elements
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 30px sans-serif';
+    ctx.fillText(profile.companyName || 'AB YAPI', 100, footerY + 30);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '500 22px sans-serif';
+    ctx.fillText(profile.website || 'https://ab-yapi.com.tr/', 100, footerY + 75);
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = 'italic 20px sans-serif';
+    ctx.fillText(profile.slogan || 'Güvenli, Modern Gelecek', 500, footerY + 30);
+
+    const triggerDownload = () => {
+      const link = document.createElement('a');
+      link.download = `${socialProjectName.toLowerCase().replace(/\s+/g, '_')}_gonderi.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+
+    if (profile.logoBase64) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const ratio = img.width / img.height;
+          const h = 70;
+          const w = h * ratio;
+          ctx.drawImage(img, 980 - w, footerY + 20, w, h);
+        } catch (e) {
+          console.warn("Logo loading into canvas failed, downloading anyway.", e);
+        }
+        triggerDownload();
+      };
+      img.onerror = () => {
+        triggerDownload();
+      };
+      img.src = profile.logoBase64;
+    } else {
+      triggerDownload();
+    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -203,8 +459,9 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
     const templateProfile: CompanyProfile = {
       ...profile, // Copy printOptions and other static settings
       companyName: newCompanyName.trim(),
-      legalName: newCompanyLegalName.trim() || `${newCompanyName.trim()} MÜTEAHHİTLİK VE MÜHENDİSLİK LTD. ŞTİ.`,
+      legalName: newCompanyLegalName.trim() || `${newCompanyName.trim()} MÜTEAHHİTLİK VE DÖNÜŞÜM HİZMETLERİ LTD. ŞTİ.`,
       authorizedPerson: newAuthorizedPerson.trim() || 'Yeni Yetkili Kişi',
+      website: '', // Sadece AB YAPI profiline özel web adresi, yeni profilde boş başlar
       logoBase64: '', // Start with blank logo for new firm
       stampBase64: '', // Start with blank stamp for new firm
     };
@@ -321,7 +578,36 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
         </div>
       </div>
 
-      {/* HEADER & ACTIONS */}
+      {/* Sub-Tab Selector */}
+      <div className="flex border-b border-slate-200">
+        <button
+          onClick={() => setActiveSubTab('official')}
+          className={`pb-3.5 px-6 font-extrabold text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeSubTab === 'official'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Building className="w-4 h-4" />
+          <span>Kurumsal & Resmî Kimlik</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab('social')}
+          className={`pb-3.5 px-6 font-extrabold text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeSubTab === 'social'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Share2 className="w-4 h-4 text-pink-600" />
+          <span>Sosyal Medya & Paylaşım Stüdyosu</span>
+          <span className="px-2 py-0.5 rounded-full text-[9px] bg-indigo-100 text-indigo-700 font-extrabold uppercase animate-pulse">Yeni</span>
+        </button>
+      </div>
+
+      {activeSubTab === 'official' ? (
+        <div className="space-y-8">
+          {/* HEADER & ACTIONS */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-600">
@@ -833,7 +1119,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                   name="authorizedPerson2"
                   value={formData.authorizedPerson2 || ''}
                   onChange={handleInputChange}
-                  placeholder="Örn: Mimar / Şantiye Şefi (İsteğe Bağlı)"
+                  placeholder="Örn: Yetkili / Şantiye Sorumlusu (İsteğe Bağlı)"
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                 />
               </div>
@@ -861,7 +1147,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                   name="authorizedTitle2"
                   value={formData.authorizedTitle2 || ''}
                   onChange={handleInputChange}
-                  placeholder="Örn: Şantiye Şefi / Mimar"
+                  placeholder="Örn: Şantiye Sorumlusu / Yetkili"
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-semibold focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                 />
 
@@ -940,7 +1226,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                     name="website"
                     value={formData.website || ''}
                     onChange={handleInputChange}
-                    placeholder="www.abyapi.com.tr"
+                    placeholder="https://ab-yapi.com.tr/"
                     className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                   />
                 </div>
@@ -1237,6 +1523,24 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
           </div>
         </div>
       </div>
+    </div>
+      ) : (
+        <>
+          <input
+            type="file"
+            ref={logoInputRef}
+            onChange={handleLogoUpload}
+            accept="image/*"
+            className="hidden"
+          />
+          <SocialMediaStudio
+            profile={profile}
+            params={params}
+            results={results}
+            onUploadLogoClick={() => logoInputRef.current?.click()}
+          />
+        </>
+      )}
     </div>
   );
 };

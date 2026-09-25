@@ -29,17 +29,17 @@ export interface CompanyProfile {
   legalName: string;            // Örn: "AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ."
   slogan: string;               // Örn: "Güvene Yükselen Yapılar"
   tagline: string;              // Örn: "Kentsel Dönüşüm, Mühendislik ve Kat Karşılığı Projeler"
-  authorizedPerson: string;     // Örn: "Müh. Alpaslan Beyoğlu"
-  authorizedTitle: string;      // Örn: "Genel Müdür / İnşaat Mühendisi"
-  authorizedChamberNo?: string; // Örn: "İMO-74120"
+  authorizedPerson: string;     // Örn: "Alpaslan Beyoğlu"
+  authorizedTitle: string;      // Örn: "Genel Müdür / Firma Yetkilisi"
+  authorizedChamberNo?: string; // Örn: "Sicil No"
   authorizedChamber?: string;   // Alias
   authorizedPerson2?: string;   // Örn: "2. Yetkili (İsteğe bağlı)"
-  authorizedTitle2?: string;    // Örn: "Şantiye Şefi / Mimar"
-  authorizedChamberNo2?: string;// Örn: "MO-55210"
+  authorizedTitle2?: string;    // Örn: "Proje Koordinatörü"
+  authorizedChamberNo2?: string;// Örn: "Sicil No"
   authorizedChamber2?: string;  // Alias
   phone: string;                // Örn: "+90 (212) 585 10 20"
   email: string;                // Örn: "info@abyapi.com.tr"
-  website: string;              // Örn: "www.abyapi.com.tr"
+  website: string;              // Örn: "https://ab-yapi.com.tr/"
   address: string;              // Örn: "Fatih Kocamustafapaşa Mah. İstanbul"
   taxOffice: string;            // Örn: "Fatih V.D."
   taxNumber: string;            // Örn: "0010523491"
@@ -404,6 +404,11 @@ export interface ProjectParams {
   touchlessKitchenFaucetPricePerFlat?: number; // Konut başı fotoselli mutfak bataryası birim fiyatı
   hasSmartDoorLock?: boolean; // Motorlu & Biyometrik Akıllı Daire Giriş Kapısı Kilit Sistemi (Parmak İzli + Şifreli + Mobil Uygulamalı DESİ/Kale/Smart markaları)
   smartDoorLockPricePerFlat?: number; // Daire başı motorlu akıllı kilit birim fiyatı (TL)
+  hasGenerator?: boolean; // Merkezi Otomatik Transfer Panolu (ATS) Kabinli Jeneratör Sistemi (Aksa / Alimar veya muadili)
+  generatorScope?: 'common_areas' | 'full_building'; // 'common_areas': Asansör, hidrofor, yangın pompası, ortak aydınlatmalar; 'full_building': Tam daire içi besleme
+  generatorPrice?: number; // Özel jeneratör toplam bütçesi (TL)
+  hasPorcelainCountertop?: boolean; // Mutfakta 12-15mm Lüks Porselen Mutfak Tezgahı & Alınlık (Lamar / Neolith / Belenco veya muadili)
+  porcelainCountertopPricePerFlat?: number; // Daire başı porselen mutfak tezgahı birim fiyatı (TL)
 
   // Çift Teklif (Dual Offer) & Paket Seçenekleri
   offerPresentationMode?: 'single' | 'dual'; // 'single' = Tek Seçenekli Sunum, 'dual' = 2 Seçenekli (Baz & Plus) Karşılaştırmalı Teklif
@@ -423,6 +428,8 @@ export interface ProjectParams {
     smartDoorLock?: boolean;
     smartHome?: boolean;
     highEndElevator?: boolean;
+    generator?: boolean;
+    porcelainCountertop?: boolean;
   };
 
   // Sunum Sayfası & Firma Geçmişi Seçenekleri
@@ -609,6 +616,13 @@ export interface CalculationResult {
   smartDoorLockCost?: number;
   smartDoorLockPricePerFlat?: number;
   smartDoorLockUnits?: number;
+  generatorCost?: number;
+  generatorPricePerFlat?: number;
+  generatorUnits?: number;
+  generatorScope?: string;
+  porcelainCountertopCost?: number;
+  porcelainCountertopPricePerFlat?: number;
+  porcelainCountertopUnits?: number;
 
   // Standart Kat ve Bağımsız Bölüm Tanımları (Tüm sayfalarda yeknesaklık)
   floorStructure?: FloorStructureSummary;

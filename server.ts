@@ -325,6 +325,95 @@ Lütfen aşağıdaki anahtarlara sahip geçerli bir JSON objesi döndür (Markdo
   }
 });
 
+// AI Social Media Caption Generator Endpoint
+app.post("/api/generate-social-caption", async (req, res) => {
+  const { projectName, location, templateType, platform, companyName, slogan, additionalInfo } = req.body;
+  
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not defined.");
+    }
+
+    const platformPrompts: Record<string, string> = {
+      instagram: "Instagram: Enerjik, dikkat çekici, bol emojili, samimi ama profesyonel, okuması kolay kısa paragraflarla yazılmalı. En alta 7-10 popüler inşaat ve kentsel dönüşüm etiketi (#kentseldönüşüm gibi) eklenmeli.",
+      linkedin: "LinkedIn: Profesyonel, kurumsal, mühendislik derinliği ve statik deprem güvenliğine odaklı, vizyoner, sektör analizlerine yer veren, resmi bir dil. En alta 4-5 profesyonel sektör etiketi eklenmeli.",
+      facebook_whatsapp: "Facebook/WhatsApp: Bilgilendirici, güven veren, sıcak ve aile dostu, net iletişim bilgilerine ve çağrılara odaklı. Kısa ve paylaşılabilir yapıda."
+    };
+
+    const templatePrompts: Record<string, string> = {
+      warm_family_home: "Sıcak Yuva ve Aile Huzuru: Sadece betonarme bir bina değil, ailelerin ve çocukların nesiller boyu güvenle, huzurla ve mutlulukla yaşayacağı sıcak bir yuva inşa ettiğimizi anlatan duygusal, samimi ve güven veren bir paylaşım.",
+      modern_comfort_options: "Üstün Konfor ve Donanım Opsiyonları: Yerden ısıtma, yüksek tavan ferahlığı, 1. sınıf ankastre mutfak, ebeveyn banyosu, tam otomatik asansör ve otopark gibi yaşam konforunu yükselten donanım seçeneklerimizi tanıtan etkileyici bir paylaşım.",
+      custom_interior_choices: "Kişiye Özel Malzeme ve Renk Seçim Opsiyonu: İnşaat aşamasında kat maliklerimize mutfak dolabı, tezgah, seramik, parke ve iç kapı renk/modellerini kendi zevklerine göre seçme ayrıcalığı sunduğumuzu vurgulayan cazip bir paylaşım.",
+      quality_of_life_smart: "Yüksek Yaşam Kalitesi ve Akıllı Altyapı: Komşular arası üst düzey ses/ısı yalıtımı, görüntülü interkom, 7/24 güvenlik kamerası, su deposu, jeneratör ve akıllı ev altyapısı ile yaşam kalitesini nasıl yükselttiğimizi anlatan paylaşım.",
+      eco_energy_savings: "Dört Mevsim Konfor ve Enerji Tasarrufu: Taş yünü mantolama, konfor ısıcam doğramalar ve verimli ısıtma sistemleriyle kışın sıcak, yazın serin ve düşük faturalı, bütçe dostu yuvalar ürettiğimizi anlatan paylaşım.",
+      value_investment_life: "Değer Kazanan Yatırım ve Prestij: Hem bugün huzurla oturulacak konforlu bir yuva hem de estetik dış cephesi ve iskanlı sağlam tapusuyla yarın değerine değer katacak yüksek yatırım potansiyelli konutlar ürettiğimizi anlatan paylaşım.",
+      urban_transformation_guide: "Kentsel Dönüşüm Rehberi: Eski ve riskli binaların 3 adımda güvenli, modern ve yüksek değerli yuvalara nasıl dönüştürüldüğünü anlatan bilgilendirici paylaşım.",
+      seismic_safety_standards: "Deprem ve Yapı Güvenliği: 2018 Türkiye Bina Deprem Yönetmeliğine uygun radye temel, C35/45 hazır beton ve güçlü taşıyıcı sistem standartlarımızı anlatan güven odaklı paylaşım.",
+      state_grant_support: "Hibe, Kredi ve Kira Yardımı Rehberi: Kentsel dönüşümde devlet destekli yapım hibesi, uygun kredi, kira yardımı ve harç muafiyetlerini maliklere açıklayan bilgilendirici paylaşım.",
+      free_feasibility_check: "Ücretsiz Ön Analiz ve Teklif: Bin주/arsa sahiplerine sunduğumuz ücretsiz imar analizi, kat planı çalışması ve şeffaf teklif hizmetini tanıtan harekete geçirici paylaşım.",
+      transparent_flat_for_land: "Kat Karşılığı Güvence Modeli: Hak sahiplerinin haklarını koruyan, noter kurası, teknik şartname garantisi ve kira yardımı güvenceli şeffaf kat karşılığı modelimizi anlatan paylaşım.",
+      corporate_trust_vision: "Kurumsal Kimlik ve Güven: Şirketimizin şeffaf sözleşme ilkeleri, birinci sınıf malzeme kalitesi ve ruhsattan iskana kurumsal süreç yönetimini anlatan vizyon paylaşımı.",
+      new_project_launch: "Yeni Proje Duyurusu: Projenin başlangıcını, mimari özelliklerini, deprem direncini ve yüksek yaşam standartlarını müjdeleyen heyecan verici bir paylaşım.",
+      show_flat_interior: "İç Mekân ve İnce İşçilik Tanıtımı: Lake mutfak dolapları, kuvars tezgah, yağmur duş, gizli LED aydınlatma ve 1. sınıf ince işçilik detaylarımızı öne çıkaran estetik paylaşım.",
+      new_project: "Yeni Proje Duyurusu: Projenin başlangıcını, arsa ve imar özelliklerini, deprem direncini ve lüks yaşam standartlarını müjdeleyen heyecan verici bir paylaşım.",
+      construction_progress: "Şantiye İlerleme Güncellemesi: Devam eden beton dökümü, kaba inşaat seviyesi, şantiyedeki hummalı çalışma ve taahhüt edilen teslim süresine odaklanan dinamik bir paylaşım.",
+      completed_handover: "Tamamlanan İş / Referans: Teslim edilen dairelerin konforunu, memnun kat maliklerini, modern dış cepheyi ve bölgeye değer katan estetik mimariyi anlatan gurur verici bir referans paylaşımı.",
+      completed_project: "Tamamlanan İş / Referans: Teslim edilen dairelerin konforunu, memnun kat maliklerini, modern dış cepheyi ve bölgeye değer katan estetik mimariyi anlatan gurur verici bir referans paylaşımı.",
+      urban_transformation: "Kentsel Dönüşüm Fırsatı: Eski ve riskli binaların kentsel dönüşüm teşviki, hibe ve kredilerle nasıl güvenli, modern ve lüks konutlara dönüştürülebileceğini açıklayan paylaşım.",
+      corporate_intro: "Kurumsal Slogan ve Tanıtım: Şirketin uzmanlığı, güvenilirliği ve kurumsal gücünü ön plana çıkaran prestijli bir tanıtım paylaşımı.",
+      earthquake_safety: "Deprem Güvenliği: Türkiye deprem kuşağında sismik güvenlik, radye temel ve C35 hazır beton önemini anlatan paylaşım.",
+      urban_info: "Kentsel Dönüşüm Bilgilendirme: Kentsel dönüşümün aşamaları, devlet destekleri, hibe ve krediler hakkında genel bilgi veren paylaşım.",
+      expert_advice: "Ücretsiz Ön Rapor: Maliklerin binalarını yenilemeden önce ücretsiz kentsel dönüşüm ön analiz raporu alabileceklerini anlatan çağrı paylaşımı."
+    };
+
+    const selectedPlatformPrompt = platformPrompts[platform] || platformPrompts.instagram;
+    const selectedTemplatePrompt = templatePrompts[templateType] || templatePrompts.new_project;
+
+    const prompt = `Sen Türkiye'nin en deneyimli inşaat ve kentsel dönüşüm şirketi kurumsal iletişim uzmanısın.
+Aşağıdaki bilgilere dayanarak mükemmel bir sosyal medya gönderi metni (gönderi açıklaması/caption) yaz.
+
+FİRMA BİLVİLERİ:
+- Firma Adı: ${companyName || 'AB YAPI'}
+- Firma Sloganı: ${slogan || 'Güvene Yükselen Yapılar'}
+
+PROJE DETAYLARI:
+- Proje Adı: ${projectName || 'Yeni Proje'}
+- Konum: ${location || 'İstanbul'}
+${additionalInfo ? `- Ek Detaylar/Gelişmeler: ${additionalInfo}` : ''}
+
+YAZIM FORMATI VE HEDEF PLATFORM:
+- Platform Tarzı: ${selectedPlatformPrompt}
+- Gönderi Amacı / Şablon: ${selectedTemplatePrompt}
+
+Önemli Kurallar:
+1. Kesinlikle kurgusal veya yapay olmayan, sanki profesyonel bir sosyal medya ajansı tarafından özenle kaleme alınmış hissi veren Türkçe bir metin üret.
+2. Metin içinde firma yetkilisi veya mühendis/mimar gibi teknik unvanlar kullanma; kurumsal kimliğimizi "Firma Yönetimi", "Yönetim Ekibimiz" veya sadece "Firma Adı" olarak temsil et.
+3. Emojileri yerinde ve estetik kullan, göz yormasın ama canlılık katsın.
+4. Başlıkları büyük harflerle vurgula.
+5. Sadece gönderi metnini ve etiketleri döndür, başka hiçbir açıklama veya markdown bloğu döndürme.`;
+
+    const response = await generateTextWithFallbackAndRetry({
+      contents: prompt,
+    });
+
+    const caption = response.text || "";
+    res.json({ success: true, caption: caption.trim() });
+  } catch (error: any) {
+    console.error("Social Caption Error:", error);
+    let fallbackText = `🏗️ ${companyName || 'AB YAPI'} Güvencesiyle Yeni Bir Yaşam Başlıyor!\n\n📍 ${location || 'İstanbul'} konumunda inşa edeceğimiz, modern mühendislik standartlarına uygun ve depreme tam dayanıklı yeni projemiz: *${projectName || 'Yeni Yaşam Projesi'}*!\n\n✨ Sizin ve ailenizin güvenliği için 2018 Deprem Yönetmeliği standartlarında, radye temel ve yüksek mukavemetli C35 hazır beton ile hayalinizdeki modern konutları inşa ediyoruz.\n\n📞 Detaylı bilgi ve kentsel dönüşüm danışmanlığı için bize ulaşın.\n🌐 https://ab-yapi.com.tr/\n\n#kentseldönüşüm #${companyName ? companyName.toLowerCase().replace(/\s+/g, '') : 'abyapi'} #güvenliyapılar #inşaat #modernmimari #istanbulinsaat`;
+    
+    if (templateType === 'construction_progress') {
+      fallbackText = `⚡ Şantiyemizde Hummalı Çalışma Tüm Hızıyla Devam Ediyor!\n\n📍 ${location || 'İstanbul'} projemiz *${projectName || 'Yeni Yaşam Projesi'}* şantiyesinden güncel kareler! Mühendislerimizin kontrolünde, kaliteden ödün vermeden güvenle yükseliyoruz.\n\n🏗️ Kaba inşaat ve betonarme imalatlarımız planlanan takvime uygun şekilde tamamlanıyor. Güvenli yaşam alanlarınızı taahhüt ettiğimiz sürede teslim etmek için durmaksızın çalışıyoruz.\n\n🌐 Gelişmeleri sitemizden takip edebilirsiniz: https://ab-yapi.com.tr/\n\n#şantiyegünlükleri #inşaat #depremebinalar #hakediş #modernyapı #${companyName ? companyName.toLowerCase().replace(/\s+/g, '') : 'abyapi'}`;
+    } else if (templateType === 'completed_project') {
+      fallbackText = `🔑 Bir Mutluluk Hikayesi Daha: Söz Verdiğimiz Gibi Anahtar Teslim!\n\n📍 ${location || 'İstanbul'}'daki gurur projemiz *${projectName || 'Yeni Yaşam Projesi'}* başarıyla tamamlandı ve kat maliklerimize anahtarları teslim edildi! 🎉\n\nModern dış cephesi, geniş peyzajı ve lüks ince işçiliğiyle fark yaratan bu muhteşem eserde artık yaşam başladı. Tüm maliklerimize huzurlu ve güvenli bir ömür dileriz.\n\n👉 Referanslarımızı incelemek için sitemizi ziyaret edin: https://ab-yapi.com.tr/\n\n#tamamlananproje #anahtarteslim #referansproje #modernkonut #lüksdaire #${companyName ? companyName.toLowerCase().replace(/\s+/g, '') : 'abyapi'}`;
+    } else if (templateType === 'urban_transformation') {
+      fallbackText = `🛡️ Depreme Dayanıklı Yarınlar İçin Kentsel Dönüşüm Vakti!\n\nEski, yorulmuş veya depreme dayanıksız binanızı ${companyName || 'AB YAPI'} ile kentsel dönüşüm kapsamına alın, hayata güvenle bakın! 📍 ${location || 'İstanbul'} genelinde onlarca binayı modern mühendislikle yeniden inşa ettik.\n\n💡 Devlet destekli hibe, faiz indirimli krediler ve kira yardımı fırsatlarıyla, binanızı kat karşılığı veya müteahhitlik hizmetiyle lüks bir yaşam alanına dönüştürüyoruz.\n\n🗣️ Ücretsiz zemin etüdü ve kentsel dönüşüm ön raporu için hemen başvurun:\n🌐 https://ab-yapi.com.tr/\n\n#kentseldönüşüm #depremönlemi #güvenliyapı #binaortakkararı #${companyName ? companyName.toLowerCase().replace(/\s+/g, '') : 'abyapi'}`;
+    }
+
+    res.json({ success: true, caption: fallbackText, isFallback: true });
+  }
+});
+
 // Nano Banana AI Blueprint & Architectural Drawing Generator Endpoint
 app.post("/api/generate-blueprint-drawing", async (req, res) => {
   try {

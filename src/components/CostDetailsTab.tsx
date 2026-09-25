@@ -547,6 +547,30 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
           laborShare: 15,
         }
       ] : []),
+      ...(params.hasGenerator && results.generatorCost ? [
+        {
+          id: 't12',
+          category: 'tesisat' as const,
+          name: `Otomatik Dizel Jeneratör & ATS Transfer Panosu (${params.generatorScope === 'full_building' ? 'Tam Bina & Daireler' : 'Ortak Alan, Asansör & Hidrofor'}) (Aksa / Alimar / Teksan veya muadili)`,
+          unit: 'Sistem',
+          quantity: 1,
+          unitPrice: results.generatorCost,
+          total: results.generatorCost,
+          laborShare: 15,
+        }
+      ] : []),
+      ...(params.hasPorcelainCountertop && results.porcelainCountertopCost ? [
+        {
+          id: 'i8',
+          category: 'ince' as const,
+          name: '12-15mm Lüks Porselen Mutfak Tezgahı ve Alınlığı (Lamar / Neolith / Belenco veya muadili)',
+          unit: 'Daire/Mutfak',
+          quantity: results.porcelainCountertopUnits || flatCount,
+          unitPrice: results.porcelainCountertopPricePerFlat || 25000,
+          total: results.porcelainCountertopCost,
+          laborShare: 15,
+        }
+      ] : []),
 
       // RESMİ & İDARİ GİDERLER
       {

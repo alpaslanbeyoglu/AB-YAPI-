@@ -37,7 +37,7 @@ export function generateOfferHtml(
   const compAddress = companyProfile?.address || 'Kocamustafapaşa Mah. Orgeneral Abdurrahman Nafiz Gürman Cad. No:42 Fatih / İSTANBUL';
   const compPhone = companyProfile?.phone || '+90 (212) 585 10 20';
   const compEmail = companyProfile?.email || 'info@abyapi.com.tr';
-  const compWeb = companyProfile?.website || 'www.abyapi.com.tr';
+  const compWeb = companyProfile?.website || (companyProfile?.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
   
   // 1st Authorized
   const compAuth = companyProfile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
@@ -354,7 +354,7 @@ export function generateOfferHtml(
         font-family: sans-serif;
       }
       @bottom-left {
-        content: "${compName} - Resmî Teklifname";
+        content: "${compName}${showWeb && compWeb ? ` • ${compWeb}` : ''} - Resmî Teklifname";
         font-size: 9px;
         color: #64748b;
         font-family: sans-serif;
@@ -399,7 +399,7 @@ export function generateOfferHtml(
           ${showPhone && compPhone && showEmail && compEmail ? '| ' : ''}
           ${showEmail && compEmail ? `E-posta: ${compEmail} ` : ''}
           ${(showPhone || showEmail) && showWeb && compWeb ? '| ' : ''}
-          ${showWeb && compWeb ? `Web: ${compWeb}` : ''}
+          ${showWeb && compWeb ? `Web: <a href="${compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}" target="_blank" style="color:#4338ca;text-decoration:none;font-weight:600;">${compWeb}</a>` : ''}
           ${(showTax && compTax) || (showLicence && compLicence) || (showTrade && compTrade) || (showMersis && compMersis) || (showChamber && compChamber) ? '<br>' : ''}
           ${showTax && compTax ? `<strong>${compTax}</strong> ` : ''}
           ${showTrade && compTrade ? `| <strong>${compTrade}</strong> ` : ''}
@@ -644,6 +644,8 @@ export function generateContractHtml(
   const compTax = companyProfile?.taxOffice && companyProfile?.taxNumber ? `${companyProfile.taxOffice} - V.No: ${companyProfile.taxNumber}` : '';
   const compBank = companyProfile?.bankName || '';
   const compIban = companyProfile?.iban || '';
+  const showWeb = opts.showWebsite !== false;
+  const compWeb = companyProfile?.website || (companyProfile?.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
 
   const contractTitle =
     params.projectModel === 'contractorShare'
@@ -713,7 +715,7 @@ export function generateContractHtml(
         font-family: sans-serif;
       }
       @bottom-left {
-        content: "${compName} - Yapım Sözleşmesi";
+        content: "${compName}${showWeb && compWeb ? ` • ${compWeb}` : ''} - Yapım Sözleşmesi";
         font-size: 9px;
         color: #64748b;
         font-family: sans-serif;
@@ -755,7 +757,7 @@ export function generateContractHtml(
   <div class="avoid-break">
     <h3>BÖLÜM I: TARAFLAR VE PROJE TANIMI</h3>
     <h4>MADDE 1: TARAFLAR</h4>
-    <p><strong>1. YÜKLENİCİ (MÜTEAHHİT):</strong> ${showLegal ? compLegal : compName} ${showAddr && compAddress ? `(${compAddress})` : ''} ${showTax && compTax ? `[Vergi Dairesi/No: ${compTax}]` : ''}<br>
+    <p><strong>1. YÜKLENİCİ (MÜTEAHHİT):</strong> ${showLegal ? compLegal : compName} ${showAddr && compAddress ? `(${compAddress})` : ''} ${showTax && compTax ? `[Vergi Dairesi/No: ${compTax}]` : ''} ${showWeb && compWeb ? `[Web: ${compWeb}]` : ''}<br>
     ${showFirstAuth || showSecondAuth ? `Yetkili Temsilci: ${showFirstAuth ? `${compAuth} (${compAuthTitle}${showFirstAuthChamber && compAuthChamber ? ` - ${compAuthChamber}` : ''})` : ''}${showFirstAuth && showSecondAuth && compAuth2 ? ' / ' : ''}${showSecondAuth && compAuth2 ? `${compAuth2} (${compAuthTitle2}${showSecondAuthChamber && compAuthChamber2 ? ` - ${compAuthChamber2}` : ''})` : ''}<br>` : ''}
     ${showBank && compBank && compIban ? `Resmî Hesap: ${compBank} - IBAN: ${compIban}<br>` : ''}
     <strong>2. İŞ SAHİBİ / KAT MALİKLERİ:</strong> Ek-1 Hak Sahipleri Listesinde isim, TC kimlik ve arsa payı bilgileri bulunan taşınmaz malikleri.</p>
