@@ -369,28 +369,28 @@ app.post("/api/generate-social-caption", async (req, res) => {
     const selectedPlatformPrompt = platformPrompts[platform] || platformPrompts.instagram;
     const selectedTemplatePrompt = templatePrompts[templateType] || templatePrompts.new_project;
 
-    const prompt = `Sen Türkiye'nin en deneyimli inşaat ve kentsel dönüşüm şirketi kurumsal iletişim uzmanısın.
-Aşağıdaki bilgilere dayanarak mükemmel bir sosyal medya gönderi metni (gönderi açıklaması/caption) yaz.
+    const prompt = `Sen Türkiye'nin en deneyimli inşaat, taahhüt ve kentsel dönüşüm şirketinin kurumsal iletişim uzmanısın.
+Aşağıdaki seçili bilgi kartı içeriğine dayanarak mükemmel, genel geçer ve kurumsal bir sosyal medya gönderi metni (caption) yaz.
 
-FİRMA BİLVİLERİ:
+FİRMA BİLGİLERİ:
 - Firma Adı: ${companyName || 'AB YAPI'}
 - Firma Sloganı: ${slogan || 'Güvene Yükselen Yapılar'}
 
-PROJE DETAYLARI:
-- Proje Adı: ${projectName || 'Yeni Proje'}
-- Konum: ${location || 'İstanbul'}
-${additionalInfo ? `- Ek Detaylar/Gelişmeler: ${additionalInfo}` : ''}
+SEÇİLİ BİLGİ KARTI İÇERİĞİ VE ODAK NOKTASI:
+- Kart Konsepti / Başlığı: ${projectName || 'Kurumsal Bilgi Kartı'}
+${additionalInfo ? `- Kart Maddeleri ve Vurgular: ${additionalInfo}` : ''}
 
 YAZIM FORMATI VE HEDEF PLATFORM:
 - Platform Tarzı: ${selectedPlatformPrompt}
 - Gönderi Amacı / Şablon: ${selectedTemplatePrompt}
 
 Önemli Kurallar:
-1. Kesinlikle kurgusal veya yapay olmayan, sanki profesyonel bir sosyal medya ajansı tarafından özenle kaleme alınmış hissi veren Türkçe bir metin üret.
-2. Metin içinde firma yetkilisi veya mühendis/mimar gibi teknik unvanlar kullanma; kurumsal kimliğimizi "Firma Yönetimi", "Yönetim Ekibimiz" veya sadece "Firma Adı" olarak temsil et.
-3. Emojileri yerinde ve estetik kullan, göz yormasın ama canlılık katsın.
-4. Başlıkları büyük harflerle vurgula.
-5. Sadece gönderi metnini ve etiketleri döndür, başka hiçbir açıklama veya markdown bloğu döndürme.`;
+1. KESİNLİKLE YER VEYA KONUM İSMİ BELİRTME: Metin içinde hiçbir şehir, il, ilçe, semt, mahalle veya bölge adı (örneğin İstanbul, Fatih, Kocamustafapaşa vb.) veya konum odaklı etiket (#istanbulinsaat vb.) KESİNLİKLE KULLANMA. Her yerde paylaşılabilecek genel, zamansız ve kurumsal bir yazı üret.
+2. Kesinlikle kurgusal veya yapay olmayan, sanki profesyonel bir kurumsal iletişim ajansı tarafından özenle kaleme alınmış hissi veren Türkçe bir metin üret.
+3. Metin içinde firma yetkilisi veya mühendis/mimar gibi teknik unvanlar kullanma; kurumsal kimliğimizi "Firma Yönetimi", "Yönetim Ekibimiz" veya doğrudan "${companyName || 'AB YAPI'}" olarak temsil et.
+4. Seçili bilgi kartındaki maddeleri (yuva sıcaklığı, konfor opsiyonları, yaşam kalitesi, kentsel dönüşüm veya yapı güvenliği) akıcı şekilde metne yansıt.
+5. Emojileri yerinde ve estetik kullan, başlıkları vurgula.
+6. Sadece gönderi metnini ve konum içermeyen genel sektörel etiketleri döndür, başka hiçbir açıklama döndürme.`;
 
     const response = await generateTextWithFallbackAndRetry({
       contents: prompt,
@@ -400,14 +400,15 @@ YAZIM FORMATI VE HEDEF PLATFORM:
     res.json({ success: true, caption: caption.trim() });
   } catch (error: any) {
     console.error("Social Caption Error:", error);
-    let fallbackText = `🏗️ ${companyName || 'AB YAPI'} Güvencesiyle Yeni Bir Yaşam Başlıyor!\n\n📍 ${location || 'İstanbul'} konumunda inşa edeceğimiz, modern mühendislik standartlarına uygun ve depreme tam dayanıklı yeni projemiz: *${projectName || 'Yeni Yaşam Projesi'}*!\n\n✨ Sizin ve ailenizin güvenliği için 2018 Deprem Yönetmeliği standartlarında, radye temel ve yüksek mukavemetli C35 hazır beton ile hayalinizdeki modern konutları inşa ediyoruz.\n\n📞 Detaylı bilgi ve kentsel dönüşüm danışmanlığı için bize ulaşın.\n🌐 https://ab-yapi.com.tr/\n\n#kentseldönüşüm #${companyName ? companyName.toLowerCase().replace(/\s+/g, '') : 'abyapi'} #güvenliyapılar #inşaat #modernmimari #istanbulinsaat`;
-    
+    const brandTag = companyName ? companyName.toLowerCase().replace(/\s+/g, '') : 'abyapi';
+    let fallbackText = `🏡 ${companyName || 'AB YAPI'} Güvencesiyle Huzurlu Yuvalar, Yüksek Yaşam Kalitesi!\n\n✨ *${projectName || 'Güvenli ve Konforlu Yaşam Alanları'}*\n\nSadece bir bina değil; ailenizle ve sevdiklerinizle uzun yıllar huzurla yaşayacağınız, konforu ve güvenliği bir arada sunan modern yaşam alanları inşa ediyoruz.\n\n${additionalInfo ? `📌 Öne Çıkan Standartlarımız:\n${additionalInfo}\n\n` : ''}📞 Sunduğumuz konfor opsiyonları, kentsel dönüşüm çözümleri ve detaylı bilgi için bizimle iletişime geçin.\n🌐 https://ab-yapi.com.tr/\n\n#huzurluyuva #yaşamkalitesi #konforlukonut #kentseldönüşüm #güvenliyapılar #inşaat #${brandTag}`;
+
     if (templateType === 'construction_progress') {
-      fallbackText = `⚡ Şantiyemizde Hummalı Çalışma Tüm Hızıyla Devam Ediyor!\n\n📍 ${location || 'İstanbul'} projemiz *${projectName || 'Yeni Yaşam Projesi'}* şantiyesinden güncel kareler! Mühendislerimizin kontrolünde, kaliteden ödün vermeden güvenle yükseliyoruz.\n\n🏗️ Kaba inşaat ve betonarme imalatlarımız planlanan takvime uygun şekilde tamamlanıyor. Güvenli yaşam alanlarınızı taahhüt ettiğimiz sürede teslim etmek için durmaksızın çalışıyoruz.\n\n🌐 Gelişmeleri sitemizden takip edebilirsiniz: https://ab-yapi.com.tr/\n\n#şantiyegünlükleri #inşaat #depremebinalar #hakediş #modernyapı #${companyName ? companyName.toLowerCase().replace(/\s+/g, '') : 'abyapi'}`;
-    } else if (templateType === 'completed_project') {
-      fallbackText = `🔑 Bir Mutluluk Hikayesi Daha: Söz Verdiğimiz Gibi Anahtar Teslim!\n\n📍 ${location || 'İstanbul'}'daki gurur projemiz *${projectName || 'Yeni Yaşam Projesi'}* başarıyla tamamlandı ve kat maliklerimize anahtarları teslim edildi! 🎉\n\nModern dış cephesi, geniş peyzajı ve lüks ince işçiliğiyle fark yaratan bu muhteşem eserde artık yaşam başladı. Tüm maliklerimize huzurlu ve güvenli bir ömür dileriz.\n\n👉 Referanslarımızı incelemek için sitemizi ziyaret edin: https://ab-yapi.com.tr/\n\n#tamamlananproje #anahtarteslim #referansproje #modernkonut #lüksdaire #${companyName ? companyName.toLowerCase().replace(/\s+/g, '') : 'abyapi'}`;
-    } else if (templateType === 'urban_transformation') {
-      fallbackText = `🛡️ Depreme Dayanıklı Yarınlar İçin Kentsel Dönüşüm Vakti!\n\nEski, yorulmuş veya depreme dayanıksız binanızı ${companyName || 'AB YAPI'} ile kentsel dönüşüm kapsamına alın, hayata güvenle bakın! 📍 ${location || 'İstanbul'} genelinde onlarca binayı modern mühendislikle yeniden inşa ettik.\n\n💡 Devlet destekli hibe, faiz indirimli krediler ve kira yardımı fırsatlarıyla, binanızı kat karşılığı veya müteahhitlik hizmetiyle lüks bir yaşam alanına dönüştürüyoruz.\n\n🗣️ Ücretsiz zemin etüdü ve kentsel dönüşüm ön raporu için hemen başvurun:\n🌐 https://ab-yapi.com.tr/\n\n#kentseldönüşüm #depremönlemi #güvenliyapı #binaortakkararı #${companyName ? companyName.toLowerCase().replace(/\s+/g, '') : 'abyapi'}`;
+      fallbackText = `⚡ Şantiyelerimizde Planlı, Titiz ve Güvenli İlerleyiş Devam Ediyor!\n\n🏗️ Kaliteden ödün vermeden, onaylı projelerimize ve iş takvimimize sadık kalarak güvenle yükseliyoruz.\n\nBetonarme, demir donatı ve ince işçilik imalatlarımızın her aşamasını yüksek kalite standartlarında tamamlıyor; güvenli yaşam alanlarınızı taahhüt ettiğimiz sürede anahtar teslim sunmak için özenle çalışıyoruz.\n\n🌐 Kurumsal çözümlerimizi incelemek için: https://ab-yapi.com.tr/\n\n#şantiyegünlükleri #inşaat #güvenliyapılar #kaliteliişçilik #modernyapı #${brandTag}`;
+    } else if (templateType === 'completed_project' || templateType === 'completed_handover') {
+      fallbackText = `🔑 Bir Mutluluk Hikayesi Daha: Söz Verdiğimiz Gibi Anahtar Teslim!\n\n🎉 Modern dış cephesi, ferah kat planları ve 1. sınıf ince işçilik kalitesiyle özenle tamamladığımız projemizde kat maliklerimize anahtarlarını teslim etmenin gururunu yaşıyoruz.\n\nYeni yuvalarında tüm maliklerimize aileleriyle birlikte sağlıklı, huzurlu ve güvenli bir ömür dileriz.\n\n👉 Hizmetlerimiz ve referans standartlarımız için: https://ab-yapi.com.tr/\n\n#anahtarteslim #huzurluyuva #referansproje #modernkonut #yaşamkalitesi #${brandTag}`;
+    } else if (templateType === 'urban_transformation' || templateType === 'urban_transformation_guide') {
+      fallbackText = `🛡️ Depreme Dayanıklı, Konforlu Yarınlar İçin Kentsel Dönüşüm Vakti!\n\nEski veya ekonomik ömrünü tamamlamış binanızı ${companyName || 'AB YAPI'} güvencesiyle yenileyin, geleceğe güvenle bakın!\n\n💡 Devlet destekli hibe, uygun kredi ve kira yardımı avantajlarından yararlanarak; şeffaf sözleşme ve üstün konfor opsiyonlarıyla binanızı yüksek değerli modern bir yuvaya dönüştürüyoruz.\n\n🗣️ Ücretsiz ön analiz ve dönüşüm danışmanlığı için hemen bize ulaşın:\n🌐 https://ab-yapi.com.tr/\n\n#kentseldönüşüm #güvenliyapı #modernyuva #binayenileme #yaşamkalitesi #${brandTag}`;
     }
 
     res.json({ success: true, caption: fallbackText, isFallback: true });

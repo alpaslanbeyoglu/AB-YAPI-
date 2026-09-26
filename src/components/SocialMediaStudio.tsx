@@ -170,8 +170,6 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
   const companyWebsite = (profile.website || 'https://ab-yapi.com.tr/').replace(/^https?:\/\//, '').replace(/\/$/, '');
   const companyPhone = profile.phone || '+90 (212) 585 10 20';
 
-  const projectTitle = params?.projectName || 'Kocamustafapaşa Modern Konut Projesi';
-  const projectLocation = params?.projectAddress || 'Fatih / İSTANBUL';
   const floorCount = params?.floorCount || 5;
   const totalFlats = (params?.floorCount || 5) * (params?.flatsPerFloor || 2);
   const deliveryMonths = params?.manualMonths || 15;
@@ -380,13 +378,13 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
         subtitle: 'Aktif Proje Tanıtım Görseli',
         tagText: 'YENİ PROJE BİLGİ KARTI',
         headline: 'GÜVENLİ VE MODERN YENİ YAŞAM BAŞLIYOR',
-        subheadline: `${projectTitle} • ${projectLocation}`,
+        subheadline: `${companyName} Güvencesiyle Modern Mimari ve Konforlu Yaşam Projesi`,
         infoPoints: [
           `Mimari Planlama: Zemin Üstü ${floorCount} Kat, Toplam ${totalFlats} Bağımsız Bölüm`,
           `Yapım Modeli: ${modelText} • ${deliveryMonths} Ayda Anahtar Teslim Hedefi`,
           'TBDY-2018 Deprem Yönetmeliğine Uygun Radye Temel ve Lüks Donanım',
         ],
-        footerCallout: `${projectLocation} bölgesine değer katan modern yaşam projesi.`,
+        footerCallout: 'Yaşam kalitenizi yükselten modern ve güvenli konut projelerimizle tanışın.',
       },
       {
         id: 'construction_progress',
@@ -395,7 +393,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
         subtitle: 'Yapım Süreci Güncellemesi',
         tagText: 'ŞANTİYE BİLGİ KARTI',
         headline: 'ŞANTİYEMİZDE PLANLI VE GÜVENLİ İLERLEYİŞ',
-        subheadline: `${projectTitle} • ${projectLocation}`,
+        subheadline: `${companyName} Kalite Standartlarıyla Titiz ve Planlı Yapım Süreci`,
         infoPoints: [
           'Onaylı Projeye ve İş Takvimine Uygun Kesintisiz Saha İmalatı',
           'Yapı Denetim Kontrollü Betonarme, Demir Donatı ve Kalıp Uygulamaları',
@@ -410,7 +408,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
         subtitle: 'Anahtar Teslim Başarı Paylaşımı',
         tagText: 'REFERANS PROJE KARTI',
         headline: 'SÖZ VERDİĞİMİZ GİBİ ANAHTAR TESLİM MUTLULUK',
-        subheadline: `${projectTitle} • ${projectLocation}`,
+        subheadline: `${companyName} İmzasıyla Tamamlanan Modern ve Güvenli Yaşam Alanları`,
         infoPoints: [
           `${floorCount} Katlı Modern Mimari ve Estetik Dış Cephe Tasarımı`,
           '1. Sınıf Mutfak, Banyo, Zemin ve Ortak Alan İnce İşçilik Kalitesi',
@@ -425,7 +423,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
         subtitle: 'Mutfak, Banyo ve Konfor Detayları',
         tagText: 'İÇ MEKÂN & KONFOR DETAYLARI',
         headline: 'İNCE İŞÇİLİKTE KALİTE VE ESTETİK BİR ARADA',
-        subheadline: `${projectTitle} • ${projectLocation} Projemizden Konfor Detayları`,
+        subheadline: `${companyName} Projelerinde Sunulan Üst Düzey İç Mekân ve Konfor Detayları`,
         infoPoints: [
           'Özel Tasarım Lake Mutfak Dolapları, Kuvars Tezgâh ve Geniş Depolama Alanları',
           '1. Sınıf Seramik, Gömme Rezervuar, Yağmur Duş ve Modern Banyo Mobilyaları',
@@ -434,7 +432,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
         footerCallout: 'Projelerimizdeki malzeme kalitesini ve işçilik detaylarını yerinde inceleyin.',
       },
     ];
-  }, [companyName, companySlogan, projectTitle, projectLocation, floorCount, totalFlats, deliveryMonths, modelText]);
+  }, [companyName, companySlogan, floorCount, totalFlats, deliveryMonths, modelText]);
 
   const concepts = buildConcepts();
 
@@ -1108,13 +1106,13 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectName: subheadline || projectTitle,
-          location: projectLocation,
+          projectName: headline,
+          location: '',
           templateType: selectedConceptId,
           platform: targetPlatform,
           companyName,
           slogan: companySlogan,
-          additionalInfo: `${headline}. Maddeler: 1) ${point1} 2) ${point2} 3) ${point3}. ${additionalCaptionInfo}`,
+          additionalInfo: `Alt Başlık: ${subheadline}. Maddeler: 1) ${point1} 2) ${point2} 3) ${point3}. Çağrı: ${footerCallout}. ${additionalCaptionInfo} (ÖNEMLİ: Hiçbir il, ilçe, semt veya konum ismi belirtmeden genel bir kurumsal yazı üret.)`,
         }),
       });
       const data = await response.json();
@@ -1614,7 +1612,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
                 type="text"
                 value={additionalCaptionInfo}
                 onChange={(e) => setAdditionalCaptionInfo(e.target.value)}
-                placeholder="Ek vurgu notu (opsiyonel, örn: Fatih bölgesindeki tecrübemiz)"
+                placeholder="Ek vurgu notu (opsiyonel, örn: 1. sınıf malzeme ve zamanında teslim güvencesi)"
                 className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:border-indigo-500 focus:outline-none"
               />
 
