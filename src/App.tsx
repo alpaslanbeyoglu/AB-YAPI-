@@ -1051,7 +1051,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 w-full max-w-full overflow-x-hidden ${
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 w-full max-w-full overflow-x-clip ${
         isGray ? 'bg-slate-100 text-slate-900' : 'bg-[#fafafa] text-slate-900'
       }`}
     >
@@ -1189,8 +1189,9 @@ export default function App() {
         </aside>
 
         {/* RIGHT CONTENT BODY COLUMN */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden relative">
-          <div className="sticky top-0 z-30 print:hidden w-full max-w-full overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 overflow-x-clip relative">
+          {/* Unified Sticky Top Header & Mobile Menu Bar */}
+          <div className="sticky top-0 z-30 print:hidden w-full max-w-full">
             <Header
               onExportJson={handleExportJson}
               onImportJson={handleImportJson}
@@ -1208,86 +1209,86 @@ export default function App() {
               }}
               onOpenHistoryClick={() => setActiveTab('gecmis')}
             />
-          </div>
 
-          {/* Top Menu Bar (Categorized & Sticky) - MOBILE ONLY */}
-          <div className={`md:hidden sticky top-[64px] z-20 border-b shadow-sm transition-colors print:hidden w-full max-w-full overflow-hidden ${
-            isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'
-          }`}>
-            <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar w-full max-w-full">
-              {categorizedTabs.map((cat, catIdx) => (
-                <div key={cat.id} className="flex items-center gap-1 shrink-0">
-                  {catIdx > 0 && <div className="w-[1px] h-4 bg-slate-300 mx-1" />}
-                  <div className={`flex flex-col gap-0.5 ${catIdx === 0 ? '' : 'ml-1'}`}>
-                    <span className="text-[8px] uppercase tracking-tighter font-bold text-slate-400 px-1">{cat.label}</span>
-                    <div className="flex items-center gap-1.5">
-                      {cat.tabs.map(tab => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-                        return (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setActiveTab(tab.id)}
-                            title={tab.label}
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap shrink-0 ${
-                              isActive
-                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]'
-                                : isGray
-                                ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200'
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                            }`}
-                          >
-                            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : ''}`} />
-                            <span>{tab.shortLabel}</span>
-                            {tab.id === 'gecmis' && (
-                              <span className={`ml-0.5 text-[9px] px-1.5 rounded-full font-bold ${
-                                isActive ? 'bg-indigo-50 text-white' : 'bg-pink-100 text-pink-800'
-                              }`}>
-                                {historyList.length}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
+            {/* Top Menu Bar (Categorized) - MOBILE ONLY */}
+            <div className={`md:hidden border-b shadow-xs transition-colors w-full max-w-full overflow-hidden ${
+              isGray ? 'bg-slate-100/95 border-slate-300' : 'bg-white/95 border-slate-200'
+            }`}>
+              <div className="max-w-7xl mx-auto px-2.5 sm:px-4 py-1.5 flex items-center gap-2.5 sm:gap-4 overflow-x-auto no-scrollbar w-full max-w-full">
+                {categorizedTabs.map((cat, catIdx) => (
+                  <div key={cat.id} className="flex items-center gap-1 shrink-0">
+                    {catIdx > 0 && <div className="w-[1px] h-4 bg-slate-300 mx-1" />}
+                    <div className={`flex flex-col gap-0.5 ${catIdx === 0 ? '' : 'ml-1'}`}>
+                      <span className="text-[8px] uppercase tracking-tighter font-bold text-slate-400 px-1">{cat.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        {cat.tabs.map(tab => {
+                          const Icon = tab.icon;
+                          const isActive = activeTab === tab.id;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setActiveTab(tab.id)}
+                              title={tab.label}
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap shrink-0 ${
+                                isActive
+                                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]'
+                                  : isGray
+                                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                              }`}
+                            >
+                              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : ''}`} />
+                              <span>{tab.shortLabel}</span>
+                              {tab.id === 'gecmis' && (
+                                <span className={`ml-0.5 text-[9px] px-1.5 rounded-full font-bold ${
+                                  isActive ? 'bg-indigo-50 text-white' : 'bg-pink-100 text-pink-800'
+                                }`}>
+                                  {historyList.length}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              
-              {/* Quick Mobile Lite Mode Switch Button */}
-              <button
-                type="button"
-                onClick={toggleAppMode}
-                title="Mobil Lite Sürüme Geç"
-                className={`self-end mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 border cursor-pointer active:scale-95 ${
-                  isGray
-                    ? 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border-indigo-200 shadow-xs'
-                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-xs'
-                }`}
-              >
-                <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
-                <span className="hidden sm:inline">Mobil Lite</span>
-              </button>
+                ))}
+                
+                {/* Quick Mobile Lite Mode Switch Button */}
+                <button
+                  type="button"
+                  onClick={toggleAppMode}
+                  title="Mobil Lite Sürüme Geç"
+                  className={`self-end mb-0.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 border cursor-pointer active:scale-95 ${
+                    isGray
+                      ? 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border-indigo-200 shadow-xs'
+                      : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-xs'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+                  <span className="hidden sm:inline">Mobil Lite</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setIsMenuSettingsOpen(true)}
-                title="Menü Ayarları"
-                className={`ml-auto self-end mb-0.5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
-                  isGray
-                    ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-slate-300'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
-                }`}
-              >
-                <Settings2 className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">Menü</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIsMenuSettingsOpen(true)}
+                  title="Menü Ayarları"
+                  className={`ml-auto self-end mb-0.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
+                    isGray
+                      ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-slate-300'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
+                  }`}
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">Menü</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Global Live Summary Bar - STICKY (Optimized height top-[118px] mobile / top-[64px] desktop) */}
-          <div className="sticky top-[118px] md:top-[64px] z-10 print:hidden w-full max-w-full overflow-hidden">
+          {/* Global Live Summary Bar */}
+          <div className="md:sticky md:top-[64px] z-10 print:hidden w-full max-w-full overflow-hidden">
             <CompactSummaryBar
               results={results}
               params={params}

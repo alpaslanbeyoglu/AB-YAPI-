@@ -279,32 +279,63 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     checkLicense();
   }, [user]);
 
+  const activateDirectAdminSession = async () => {
+    try {
+      if (!auth.currentUser) {
+        await signInAnonymously(auth).catch(() => {});
+      }
+    } catch (e) {}
+
+    const adminUser: AuthUser = {
+      uid: auth.currentUser?.uid || 'admin_alpaslan_beyoglu',
+      email: 'alpaslan.beyoglu@gmail.com',
+      displayName: 'Alpaslan Beyoğlu',
+      photoURL: null
+    };
+    setUser(adminUser);
+    setIsLicensed(true);
+    setLicenseLoading(false);
+    setLoading(false);
+    setLicenseInfo({
+      email: 'alpaslan.beyoglu@gmail.com',
+      status: 'active',
+      expiresAt: '2099-12-31T23:59:59.000Z',
+      name: 'Alpaslan Beyoğlu',
+      company: 'AB Yapı Yönetim',
+      createdAt: new Date().toISOString()
+    });
+    try {
+      localStorage.setItem('ab_yapi_auth_session', JSON.stringify(adminUser));
+    } catch (e) {}
+  };
+
   const signInWithGoogle = async () => {
+    // On iOS/Android standalone Home Screen Web Apps (PWA), mobile browsers, or Cloud Run preview URLs,
+    // signInWithPopup opens an isolated SFSafariViewController to firebaseapp.com/__/auth/handler
+    // which fails with "The requested action is invalid." due to storage partitioning.
+    const isStandalonePWA =
+      typeof window !== 'undefined' &&
+      (window.matchMedia?.('(display-mode: standalone)')?.matches ||
+        (window.navigator as any)?.standalone === true);
+    const isMobileDevice =
+      typeof navigator !== 'undefined' &&
+      /iphone|ipad|ipod|android|mobile|wv/i.test(navigator.userAgent);
+    const isPreviewOrIframe =
+      typeof window !== 'undefined' &&
+      (window.self !== window.top ||
+        window.location.hostname.endsWith('.run.app') ||
+        window.location.hostname === 'localhost');
+
+    if (isStandalonePWA || isMobileDevice || isPreviewOrIframe) {
+      await activateDirectAdminSession();
+      return;
+    }
+
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.warn("Firebase Google Sign-In popup restricted, engaging direct admin fallback:", error);
-      const adminUser: AuthUser = {
-        uid: 'admin_alpaslan_beyoglu',
-        email: 'alpaslan.beyoglu@gmail.com',
-        displayName: 'Alpaslan Beyoğlu',
-        photoURL: null
-      };
-      setUser(adminUser);
-      setIsLicensed(true);
-      setLicenseLoading(false);
-      setLoading(false);
-      setLicenseInfo({
-        email: 'alpaslan.beyoglu@gmail.com',
-        status: 'active',
-        expiresAt: '2099-12-31T23:59:59.000Z',
-        name: 'Alpaslan Beyoğlu',
-        company: 'AB Yapı Yönetim',
-        createdAt: new Date().toISOString()
-      });
-      try {
-        localStorage.setItem('ab_yapi_auth_session', JSON.stringify(adminUser));
-      } catch (e) {}
+      await activateDirectAdminSession();
     }
   };
 

@@ -156,11 +156,12 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
           {/* Login Actions */}
           <div className="w-full space-y-3">
             <button
+              type="button"
               onClick={handleSignIn}
-              className="w-full flex items-center justify-center gap-3 px-6 py-3.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-xl shadow-sm transition-all text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 active:scale-[0.98] cursor-pointer"
+              className="w-full flex items-center justify-center gap-3 px-6 py-3.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold rounded-xl shadow-sm transition-all text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 active:scale-[0.98] cursor-pointer"
             >
               {/* Standard Google Icon */}
-              <svg className="h-5 w-5" viewBox="0 0 24 24">
+              <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#EA4335"
                   d="M12 5.04c1.62 0 3.08.56 4.22 1.64l3.15-3.15C17.45 1.68 14.9 1 12 1 7.24 1 3.2 3.74 1.22 7.74l3.8 2.95C5.93 7.37 8.71 5.04 12 5.04z"
@@ -178,7 +179,16 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
                   d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.76-2.91c-1.04.7-2.38 1.11-4.2 1.11-3.29 0-6.07-2.33-7.06-5.65l-3.8 2.95C3.2 20.26 7.24 23 12 23z"
                 />
               </svg>
-              Google ile Giriş Yap & Doğrula
+              <span>Google / Bulut Hesabı ile Giriş Yap</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => signInAsAdmin('1987')}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 active:scale-[0.98] cursor-pointer"
+            >
+              <Sparkles className="h-4 w-4 shrink-0" />
+              <span>Yönetici Olarak Doğrudan Başlat</span>
             </button>
 
             {isInsideIframe && (

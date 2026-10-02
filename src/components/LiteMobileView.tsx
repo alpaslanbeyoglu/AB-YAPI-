@@ -283,19 +283,34 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
 
   // Card background styling based on theme
   const cardBg = isGray ? 'bg-white/90 border-slate-300' : 'bg-white border-slate-200';
+  const isStandalonePWA =
+    typeof window !== 'undefined' &&
+    ((window.navigator as any)?.standalone === true ||
+      window.matchMedia?.('(display-mode: standalone)')?.matches === true);
 
   return (
-    <div className={`min-h-screen pb-24 font-sans w-full max-w-full overflow-x-hidden ${isGray ? 'bg-slate-200 text-slate-900' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen pb-24 font-sans w-full max-w-full overflow-x-clip ${isGray ? 'bg-slate-200 text-slate-900' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* ------------------------------------------------------------- */}
       {/* TOP STICKY BAR: LOGO, QUICK ACTIONS, CONVERSION BUTTON        */}
       {/* ------------------------------------------------------------- */}
-      <div className={`sticky top-0 z-40 backdrop-blur-md border-b px-3 py-2.5 flex items-center justify-between shadow-xs ${
-        isGray ? 'bg-slate-100/95 border-slate-300' : 'bg-white/95 border-slate-200'
-      }`}>
-        <div className="flex items-center gap-2">
-          <Logo size="sm" theme={theme} />
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide bg-indigo-600 text-white shadow-xs">
+      <div
+        style={
+          isStandalonePWA
+            ? {
+                paddingTop: 'max(env(safe-area-inset-top, 0px), 46px)',
+                paddingLeft: 'max(env(safe-area-inset-left, 0px), 12px)',
+                paddingRight: 'max(env(safe-area-inset-right, 0px), 12px)',
+              }
+            : undefined
+        }
+        className={`pwa-safe-top sticky top-0 z-40 backdrop-blur-md border-b px-3 py-2.5 flex items-center justify-between shadow-xs ${
+          isGray ? 'bg-slate-100/95 border-slate-300' : 'bg-white/95 border-slate-200'
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <Logo size="sm" variant="compact" theme={theme} />
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide bg-indigo-600 text-white shadow-xs shrink-0">
             LİTE
           </span>
         </div>

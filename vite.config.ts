@@ -19,6 +19,9 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['apple-touch-icon.png', 'logo.svg'],
         workbox: {
+          skipWaiting: true,
+          clientsClaim: true,
+          cleanupOutdatedCaches: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           navigateFallback: undefined,
@@ -26,17 +29,19 @@ export default defineConfig(({ mode }) => {
           runtimeCaching: [
             {
               urlPattern: ({ request, url }) =>
+                request.destination === 'document' ||
                 request.destination === 'script' ||
                 request.destination === 'style' ||
                 url.pathname.endsWith('.js') ||
                 url.pathname.endsWith('.css') ||
                 url.pathname.includes('/assets/'),
-              handler: 'StaleWhileRevalidate',
+              handler: 'NetworkFirst',
               options: {
-                cacheName: 'app-assets',
+                cacheName: 'app-assets-v4',
+                networkTimeoutSeconds: 4,
                 expiration: {
                   maxEntries: 100,
-                  maxAgeSeconds: 30 * 24 * 60 * 60,
+                  maxAgeSeconds: 7 * 24 * 60 * 60,
                 },
               },
             },

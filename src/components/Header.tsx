@@ -43,18 +43,37 @@ export const Header: React.FC<HeaderProps> = React.memo(({
     }
   };
 
+  const isStandalonePWA =
+    typeof window !== 'undefined' &&
+    ((window.navigator as any)?.standalone === true ||
+      window.matchMedia?.('(display-mode: standalone)')?.matches === true);
+
   return (
     <header
-      className={`sticky top-0 z-30 backdrop-blur-md border-b shadow-xs transition-colors duration-200 w-full max-w-full overflow-hidden ${
+      style={
+        isStandalonePWA
+          ? {
+              paddingTop: 'max(env(safe-area-inset-top, 0px), 46px)',
+              paddingLeft: 'max(env(safe-area-inset-left, 0px), 8px)',
+              paddingRight: 'max(env(safe-area-inset-right, 0px), 8px)',
+            }
+          : undefined
+      }
+      className={`pwa-safe-top backdrop-blur-md border-b shadow-xs transition-colors duration-200 w-full max-w-full overflow-hidden ${
         isGray
           ? 'bg-slate-100/95 border-slate-300 text-slate-800'
           : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-100/60'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-2.5 sm:px-4 h-16 flex items-center justify-between gap-2 sm:gap-4 w-full min-w-0">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 min-h-[52px] sm:h-16 py-1.5 sm:py-0 flex items-center justify-between gap-1.5 sm:gap-4 w-full min-w-0">
         {/* Brand Logo & Active Project Badge */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 overflow-hidden">
-          <Logo size="md" theme={theme} className="max-w-full shrink-0" />
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
+          <div className="sm:hidden min-w-0 overflow-hidden">
+            <Logo size="sm" variant="compact" theme={theme} className="max-w-full shrink-0" />
+          </div>
+          <div className="hidden sm:block min-w-0 overflow-hidden">
+            <Logo size="md" theme={theme} className="max-w-full shrink-0" />
+          </div>
           {appMode === 'lite' && (
             <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black bg-indigo-600 text-white shadow-xs shrink-0">
               LİTE
@@ -95,7 +114,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               id="app-mode-toggle-btn"
               type="button"
               onClick={onToggleAppMode}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl border text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer ${
                 appMode === 'lite'
                   ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
                   : isGray
@@ -150,7 +169,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             <button
               type="button"
               onClick={onOpenTransferModal}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer ${
+              className={`flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer ${
                 isGray
                   ? 'bg-white hover:bg-slate-50 text-indigo-700 border-indigo-200'
                   : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200/90'
@@ -165,7 +184,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               <button
                 type="button"
                 onClick={onExportJson}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+                className={`flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
                   isGray
                     ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
                     : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs'
@@ -178,7 +197,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+                className={`flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
                   isGray
                     ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
                     : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs'
@@ -193,9 +212,9 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
 
           {/* User Sign In / Profile and Sync Status */}
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200/80">
+          <div className="flex items-center gap-1 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200/80">
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <div className="flex flex-col text-right hidden md:flex">
                   <span className="text-[11px] font-black leading-3 max-w-[120px] truncate text-slate-800">
                     {user.displayName}
@@ -208,14 +227,14 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 <img
                   src={user.photoURL || 'https://www.gravatar.com/avatar/?d=mp'}
                   alt="Avatar"
-                  className="w-8 h-8 rounded-full border-2 border-indigo-100 shadow-xs object-cover"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-indigo-100 shadow-xs object-cover shrink-0"
                   referrerPolicy="no-referrer"
                 />
                 {isAdmin && onOpenAdminLicenses && (
                   <button
                     type="button"
                     onClick={onOpenAdminLicenses}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-extrabold text-xs transition-all active:scale-95 cursor-pointer shadow-xs"
+                    className="flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-extrabold text-xs transition-all active:scale-95 cursor-pointer shadow-xs"
                     title="Müşteri ve Kullanıcı Lisanslarını Yönet"
                   >
                     <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
@@ -235,11 +254,11 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               <button
                 type="button"
                 onClick={signInWithGoogle}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer"
-                title="Google Hesabınız ile Giriş Yapın ve Projelerinizi Güvenle Bulutta Saklayın"
+                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer whitespace-nowrap"
+                title="Giriş Yapın ve Projelerinizi Güvenle Bulutta Saklayın"
               >
-                <LogIn className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Bulut Girişi</span>
+                <LogIn className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span>Giriş</span>
               </button>
             )}
           </div>
