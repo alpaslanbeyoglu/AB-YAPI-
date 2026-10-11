@@ -211,7 +211,13 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       } else {
         // If not in firebase, check if we have a locally saved dev session
         const cached = localStorage.getItem('ab_yapi_auth_session');
-        if (!cached) {
+        if (cached) {
+          try {
+            setUser(JSON.parse(cached));
+          } catch (e) {
+            setUser(null);
+          }
+        } else {
           setUser(null);
         }
       }
@@ -530,8 +536,8 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const userId = await getFirebaseUserId();
     if (!userId || !isLicensed) return;
     setSyncStatus('syncing');
+    const safeKey = getSafeProjectKey(projectAddress);
     try {
-      const safeKey = getSafeProjectKey(projectAddress);
       const docRef = doc(db, 'users', userId, 'projects', safeKey);
       await deleteDoc(docRef);
       setSyncStatus('synced');
@@ -544,8 +550,8 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const userId = await getFirebaseUserId();
     if (!userId || !isLicensed) return;
     setSyncStatus('syncing');
+    const safeKey = getSafeProfileKey(profile.companyName);
     try {
-      const safeKey = getSafeProfileKey(profile.companyName);
       const docRef = doc(db, 'users', userId, 'companyProfiles', safeKey);
       const payload = sanitizeForFirestore(profile);
       await setDoc(docRef, payload, { merge: true });
@@ -580,8 +586,8 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const userId = await getFirebaseUserId();
     if (!userId || !isLicensed) return;
     setSyncStatus('syncing');
+    const safeKey = getSafeProfileKey(companyName);
     try {
-      const safeKey = getSafeProfileKey(companyName);
       const docRef = doc(db, 'users', userId, 'companyProfiles', safeKey);
       await deleteDoc(docRef);
       setSyncStatus('synced');

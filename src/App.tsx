@@ -984,9 +984,40 @@ export default function App() {
   const handleLoadProject = (savedData: SavedProjectData) => {
     if (savedData && savedData.params) {
       setParams(savedData.params);
+      if (savedData.buildingModelParams) {
+        setBuildingModelParams(savedData.buildingModelParams);
+      }
       showNotification('success', `"${savedData.projectAddress}" projesi başarıyla yüklendi.`);
       setActiveTab('kurulum');
     }
+  };
+
+  const handleLoadProjectForProgress = (savedData: SavedProjectData) => {
+    if (savedData && savedData.params) {
+      setParams(savedData.params);
+      if (savedData.buildingModelParams) {
+        setBuildingModelParams(savedData.buildingModelParams);
+      }
+      showNotification('success', `"${savedData.projectAddress}" şantiyesine başarıyla geçildi.`);
+      setActiveTab('surec');
+    }
+  };
+
+  const handleAddNewConstructionProject = (newProj: SavedProjectData) => {
+    const updated = [newProj, ...historyList.filter(p => p.projectAddress !== newProj.projectAddress)];
+    setHistoryList(updated);
+    try {
+      localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
+    } catch (e) {}
+    if (user) {
+      saveProjectToCloud(newProj).catch(() => {});
+    }
+    setParams(newProj.params);
+    if (newProj.buildingModelParams) {
+      setBuildingModelParams(newProj.buildingModelParams);
+    }
+    showNotification('success', `Yeni şantiye "${newProj.projectAddress}" başarıyla oluşturuldu ve yüklendi.`);
+    setActiveTab('surec');
   };
 
   const handleClearHistory = () => {
@@ -1409,6 +1440,14 @@ export default function App() {
               params={params}
               results={results}
               theme={theme}
+              savedProjects={historyList}
+              onSelectProject={handleLoadProjectForProgress}
+              onAddNewProject={handleAddNewConstructionProject}
+              onDeleteProject={(address) => {
+                const idx = historyList.findIndex(p => p.projectAddress === address);
+                if (idx !== -1) handleDeleteHistoryItem(idx);
+              }}
+              onSaveCurrentProject={handleCalculate}
               onUpdateParam={(key, val) => updateCalculatorParams({ [key]: val })}
               onNavigateToOffer={() => setActiveTab('teklif')}
               onNavigateToContract={() => setActiveTab('sozlesme')}

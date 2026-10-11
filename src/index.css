@@ -34,20 +34,6 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
-@media all and (display-mode: standalone) {
-  .pwa-safe-top {
-    padding-top: max(env(safe-area-inset-top, 0px), 44px);
-  }
-}
-
-html.is-ios-standalone .pwa-safe-top {
-  padding-top: max(env(safe-area-inset-top, 0px), 48px) !important;
-}
-
-html.is-standalone-pwa .pwa-safe-top {
-  padding-top: max(env(safe-area-inset-top, 0px), 36px);
-}
-
 /* Prevent iOS Safari / WebClip from auto-zooming out of screen bounds when focusing inputs */
 @media screen and (max-width: 768px) {
   input,

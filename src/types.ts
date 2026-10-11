@@ -672,6 +672,7 @@ export interface SavedProjectData {
   projectAddress: string;
   params: ProjectParams;
   results: CalculationResult;
+  buildingModelParams?: BuildingModelParams;
 }
 
 export type RoomType = '1+1' | '2+1' | '3+1' | '4+1' | '5+1';

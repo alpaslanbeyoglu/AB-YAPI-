@@ -50,16 +50,12 @@ export const Header: React.FC<HeaderProps> = React.memo(({
 
   return (
     <header
-      style={
-        isStandalonePWA
-          ? {
-              paddingTop: 'max(env(safe-area-inset-top, 0px), 46px)',
-              paddingLeft: 'max(env(safe-area-inset-left, 0px), 8px)',
-              paddingRight: 'max(env(safe-area-inset-right, 0px), 8px)',
-            }
-          : undefined
-      }
-      className={`pwa-safe-top backdrop-blur-md border-b shadow-xs transition-colors duration-200 w-full max-w-full overflow-hidden ${
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+      }}
+      className={`backdrop-blur-md border-b shadow-xs transition-colors duration-200 w-full max-w-full overflow-hidden ${
         isGray
           ? 'bg-slate-100/95 border-slate-300 text-slate-800'
           : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-100/60'

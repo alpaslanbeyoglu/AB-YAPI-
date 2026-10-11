@@ -43,7 +43,15 @@ import {
   Share,
   Search,
   X,
-  Filter
+  Filter,
+  Briefcase,
+  FolderPlus,
+  PlusCircle,
+  Layers3,
+  ArrowRightCircle,
+  RotateCcw,
+  CheckCircle,
+  Building,
 } from 'lucide-react';
 import {
   ProjectParams,
@@ -59,6 +67,7 @@ import {
   SubcontractorPayment,
   SavedProjectData
 } from '../types';
+import { calculateProject, DEFAULT_PARAMS } from '../utils/calculatorEngine';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { useFirebaseSync } from '../context/FirebaseSyncContext';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
@@ -71,6 +80,11 @@ interface ConstructionProgressTabProps {
   onNavigateToOffer?: () => void;
   onNavigateToContract?: () => void;
   onUpdateParam?: (key: keyof ProjectParams, value: any) => void;
+  savedProjects?: SavedProjectData[];
+  onSelectProject?: (project: SavedProjectData) => void;
+  onAddNewProject?: (newProject: SavedProjectData) => void;
+  onDeleteProject?: (address: string) => void;
+  onSaveCurrentProject?: () => void;
 }
 
 // 12 Standard Turkish Urban Transformation & Construction Stages
@@ -356,6 +370,11 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   onNavigateToOffer,
   onNavigateToContract,
   onUpdateParam,
+  savedProjects = [],
+  onSelectProject,
+  onAddNewProject,
+  onDeleteProject,
+  onSaveCurrentProject,
 }) => {
   const { profile } = useCompanyProfile();
   const { user, saveProjectToCloud } = useFirebaseSync();
@@ -363,11 +382,11 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   const cardBg = isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200';
   const printDocRef = useRef<HTMLDivElement>(null);
 
-  // Storage key based on project address to support multi-project persistence
+  // Storage key based on project address/name to support multi-project persistence
   const safeProjectKey = useMemo(() => {
-    const addr = params.projectAddress || 'default_project';
+    const addr = params.projectName || params.projectAddress || 'default_project';
     return 'ab_yapi_progress_' + addr.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-  }, [params.projectAddress]);
+  }, [params.projectName, params.projectAddress]);
 
   // Project Duration in Months
   const totalMonths = useMemo(() => {
@@ -383,6 +402,9 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     return { startDateStr, endDateStr };
   }, [totalMonths]);
 
+  // Ref to track project key and avoid cross-project state overwrite
+  const lastLoadedKeyRef = useRef<string>(safeProjectKey);
+
   // Main State
   const [stages, setStages] = useState<ConstructionStage[]>(() => {
     try {
@@ -390,7 +412,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       if (saved) return JSON.parse(saved);
     } catch (e) {}
 
-    // Initialize with distributed dates across total duration
+    // Initialize clean 0% stages with distributed dates across total duration
     const startDate = new Date();
     const totalDays = totalMonths * 30;
 
@@ -457,8 +479,34 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   // View Mode: 'admin' (can edit everything) vs 'client' (clean view for clients)
   const [isClientMode, setIsClientMode] = useState<boolean>(false);
 
-  // Active Sub-Tab: 'timeline' | 'logs' | 'notification' | 'report' | 'subcontractors'
-  const [activeSubTab, setActiveSubTab] = useState<'timeline' | 'logs' | 'notification' | 'report' | 'subcontractors'>('timeline');
+  // Active Sub-Tab: 'timeline' | 'portfolio' | 'logs' | 'notification' | 'report' | 'subcontractors'
+  const [activeSubTab, setActiveSubTab] = useState<'timeline' | 'portfolio' | 'logs' | 'notification' | 'report' | 'subcontractors'>('timeline');
+
+  // Interactive Reset Modal state
+  const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
+  const [resetModeOption, setResetModeOption] = useState<'clean' | 'demo'>('clean');
+  const [resetLogsOption, setResetLogsOption] = useState<boolean>(false);
+
+  // Interactive New Project / Site Modal state
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState<boolean>(false);
+  const [newSiteName, setNewSiteName] = useState<string>('');
+  const [newSiteAddress, setNewSiteAddress] = useState<string>('');
+  const [newSiteBaseArea, setNewSiteBaseArea] = useState<number>(120);
+  const [newSiteFloorCount, setNewSiteFloorCount] = useState<number>(5);
+  const [newSiteFlatsPerFloor, setNewSiteFlatsPerFloor] = useState<number>(2);
+  const [newSiteMonths, setNewSiteMonths] = useState<number>(14);
+
+  // Toast feedback state
+  const [toastNotification, setToastNotification] = useState<{ type: 'success' | 'info'; text: string } | null>(null);
+
+  const showToast = (text: string, type: 'success' | 'info' = 'success') => {
+    setToastNotification({ type, text });
+    setTimeout(() => setToastNotification(null), 3500);
+  };
+
+  // Portfolio filter states
+  const [portfolioSearchQuery, setPortfolioSearchQuery] = useState<string>('');
+  const [portfolioStatusFilter, setPortfolioStatusFilter] = useState<'all' | 'in_progress' | 'completed' | 'preparing'>('all');
 
   // Subcontractor State
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>(() => {
@@ -474,6 +522,64 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       notes: ''
     }));
   });
+
+  // Watch for project key changes to cleanly reload project data without overwriting
+  useEffect(() => {
+    if (lastLoadedKeyRef.current !== safeProjectKey) {
+      lastLoadedKeyRef.current = safeProjectKey;
+
+      try {
+        const savedStages = localStorage.getItem(safeProjectKey + '_stages');
+        if (savedStages) {
+          setStages(JSON.parse(savedStages));
+        } else {
+          // Initialize clean 0% stages for this new project
+          const startDate = new Date();
+          const totalDays = totalMonths * 30;
+          const cleanStages = DEFAULT_STAGE_DEFINITIONS.map((def, idx) => {
+            const startDayOffset = Math.floor((idx / DEFAULT_STAGE_DEFINITIONS.length) * totalDays);
+            const stageDuration = Math.max(20, Math.floor((def.weightPercent / 100) * totalDays * 1.3));
+            const stDate = new Date(startDate.getTime() + startDayOffset * 24 * 60 * 60 * 1000);
+            const enDate = new Date(stDate.getTime() + stageDuration * 24 * 60 * 60 * 1000);
+            return {
+              ...def,
+              status: 'not_started' as ConstructionStageStatus,
+              progressPercent: 0,
+              subTasks: def.subTasks ? def.subTasks.map(t => ({ ...t, completed: false })) : undefined,
+              startDatePlanned: stDate.toISOString().slice(0, 10),
+              endDatePlanned: enDate.toISOString().slice(0, 10),
+              startDateActual: undefined,
+              endDateActual: undefined,
+            };
+          });
+          setStages(cleanStages);
+        }
+
+        const savedLogs = localStorage.getItem(safeProjectKey + '_logs');
+        setLogs(savedLogs ? JSON.parse(savedLogs) : []);
+
+        const savedSubs = localStorage.getItem(safeProjectKey + '_subcontractors');
+        setSubcontractors(savedSubs ? JSON.parse(savedSubs) : DEFAULT_SUBCONTRACTORS.map(sub => ({
+          ...sub,
+          progressPercent: 0,
+          status: 'not_started',
+          payments: [],
+          notes: ''
+        })));
+
+        const savedNotif = localStorage.getItem(safeProjectKey + '_notif_history');
+        setNotificationHistory(savedNotif ? JSON.parse(savedNotif) : []);
+
+        const savedContract = localStorage.getItem(safeProjectKey + '_contract_date');
+        if (savedContract) setContractDate(savedContract);
+
+        const savedTarget = localStorage.getItem(safeProjectKey + '_target_date');
+        if (savedTarget) setPlannedCompletionDate(savedTarget);
+      } catch (err) {
+        console.error("Proje verisi yüklenirken hata:", err);
+      }
+    }
+  }, [safeProjectKey, totalMonths]);
 
   // Selected subcontractor for viewing/editing details
   const [selectedSubcontractorId, setSelectedSubcontractorId] = useState<string | null>(null);
@@ -531,7 +637,15 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   // -------------------------------------------------------------
   // ADVANCED NOTIFICATION TEMPLATE ENGINE STATE
   // -------------------------------------------------------------
-  type PeriodSelectMode = 'weekly_current' | 'monthly_current' | 'specific_log' | 'milestone_stage' | 'custom_period';
+  type PeriodSelectMode =
+    | 'active_stage_live'
+    | 'milestone_stage'
+    | 'stage_payment_call'
+    | 'full_stage_scorecard'
+    | 'weekly_current'
+    | 'monthly_current'
+    | 'specific_log'
+    | 'custom_period';
 
   const [periodMode, setPeriodMode] = useState<PeriodSelectMode>('weekly_current');
   const [selectedLogId, setSelectedLogId] = useState<string>(() => logs[0]?.id || '');
@@ -835,18 +949,37 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     }
   };
 
-  // Reset to default stages
-  const handleResetStages = () => {
-    if (window.confirm('Tüm aşamaları ve varsayılan takvimi sıfırlamak istediğinize emin misiniz?')) {
-      const startDate = new Date();
-      const totalDays = totalMonths * 30;
+  // Execute Reset with either Clean 0% or Demo state
+  const handleExecuteReset = (mode: 'clean' | 'demo') => {
+    const startDate = new Date();
+    const totalDays = totalMonths * 30;
 
-      const freshStages = DEFAULT_STAGE_DEFINITIONS.map((def, idx) => {
+    let nextStages: ConstructionStage[];
+    if (mode === 'clean') {
+      // 0% - Brand new construction site (all 12 stages at 0%, not_started, clean subtasks)
+      nextStages = DEFAULT_STAGE_DEFINITIONS.map((def, idx) => {
         const startDayOffset = Math.floor((idx / DEFAULT_STAGE_DEFINITIONS.length) * totalDays);
         const stageDuration = Math.max(20, Math.floor((def.weightPercent / 100) * totalDays * 1.3));
         const stDate = new Date(startDate.getTime() + startDayOffset * 24 * 60 * 60 * 1000);
         const enDate = new Date(stDate.getTime() + stageDuration * 24 * 60 * 60 * 1000);
-
+        return {
+          ...def,
+          progressPercent: 0,
+          status: 'not_started' as ConstructionStageStatus,
+          startDatePlanned: stDate.toISOString().slice(0, 10),
+          endDatePlanned: enDate.toISOString().slice(0, 10),
+          startDateActual: undefined,
+          endDateActual: undefined,
+          subTasks: def.subTasks ? def.subTasks.map(t => ({ ...t, completed: false })) : undefined,
+        };
+      });
+    } else {
+      // Demo / sample state
+      nextStages = DEFAULT_STAGE_DEFINITIONS.map((def, idx) => {
+        const startDayOffset = Math.floor((idx / DEFAULT_STAGE_DEFINITIONS.length) * totalDays);
+        const stageDuration = Math.max(20, Math.floor((def.weightPercent / 100) * totalDays * 1.3));
+        const stDate = new Date(startDate.getTime() + startDayOffset * 24 * 60 * 60 * 1000);
+        const enDate = new Date(stDate.getTime() + stageDuration * 24 * 60 * 60 * 1000);
         return {
           ...def,
           startDatePlanned: stDate.toISOString().slice(0, 10),
@@ -855,10 +988,251 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
           endDateActual: def.status === 'completed' ? enDate.toISOString().slice(0, 10) : undefined,
         };
       });
-
-      setStages(freshStages);
     }
+
+    setStages(nextStages);
+    try {
+      localStorage.setItem(safeProjectKey + '_stages', JSON.stringify(nextStages));
+    } catch (e) {}
+
+    if (resetLogsOption) {
+      setLogs([]);
+      try {
+        localStorage.setItem(safeProjectKey + '_logs', JSON.stringify([]));
+      } catch (e) {}
+    }
+
+    setIsResetModalOpen(false);
+    showToast(
+      mode === 'clean'
+        ? 'İnşaat aşamaları başarıyla %0 olarak sıfırlandı. Yeni şantiye takvimi hazır!'
+        : 'İnşaat aşamaları örnek demo takvimine güncellendi.'
+    );
   };
+
+  // Quick notify for a specific stage from the timeline card
+  const handleQuickNotifyStage = (stage: ConstructionStage) => {
+    setSelectedStageId(stage.id);
+    setPeriodMode('milestone_stage');
+    setIsManuallyEdited(false);
+    setActiveSubTab('notification');
+    showToast(`"${stage.name}" aşaması için bilgilendirme mesajı hazırlandı.`);
+  };
+
+  // Create a new concurrent construction site
+  const handleCreateNewSite = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSiteAddress.trim()) {
+      showToast('Lütfen şantiye adresini veya ada/parsel bilgisini girin.', 'info');
+      return;
+    }
+
+    const cleanName = newSiteName.trim() || newSiteAddress.trim().slice(0, 40);
+    const months = Number(newSiteMonths) || 14;
+    const baseArea = Number(newSiteBaseArea) || 120;
+    const flCount = Number(newSiteFloorCount) || 5;
+    const fPerFloor = Number(newSiteFlatsPerFloor) || 2;
+    const totalFlats = flCount * fPerFloor;
+
+    const newParams: ProjectParams = {
+      ...DEFAULT_PARAMS,
+      projectName: cleanName,
+      projectAddress: newSiteAddress.trim(),
+      manualMonths: months,
+      baseBuildArea: baseArea,
+      floorCount: flCount,
+      flatsPerFloor: fPerFloor,
+      flatCount: totalFlats,
+      isOfferAccepted: true,
+      flats: Array.from({ length: totalFlats }, (_, i) => ({
+        id: i + 1,
+        name: `Kat Maliki ${i + 1}`,
+        area: Math.round((baseArea * 0.8) / fPerFloor),
+        tc: '',
+        phone: '',
+        downPayment: 0,
+        useTransformationCredit: false,
+      })),
+    };
+
+    const calculated = calculateProject(newParams);
+
+    const newSnapshot: SavedProjectData = {
+      version: '1.0.0',
+      savedAt: new Date().toISOString(),
+      projectAddress: newSiteAddress.trim(),
+      params: newParams,
+      results: calculated,
+    };
+
+    // Pre-initialize clean 0% stages in localStorage for this new site
+    const newKey = 'ab_yapi_progress_' + (cleanName || newSiteAddress).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    const startDate = new Date();
+    const totalDays = months * 30;
+    const freshStages = DEFAULT_STAGE_DEFINITIONS.map((def, idx) => {
+      const startDayOffset = Math.floor((idx / DEFAULT_STAGE_DEFINITIONS.length) * totalDays);
+      const stageDuration = Math.max(20, Math.floor((def.weightPercent / 100) * totalDays * 1.3));
+      const stDate = new Date(startDate.getTime() + startDayOffset * 24 * 60 * 60 * 1000);
+      const enDate = new Date(stDate.getTime() + stageDuration * 24 * 60 * 60 * 1000);
+      return {
+        ...def,
+        progressPercent: 0,
+        status: 'not_started' as ConstructionStageStatus,
+        startDatePlanned: stDate.toISOString().slice(0, 10),
+        endDatePlanned: enDate.toISOString().slice(0, 10),
+        startDateActual: undefined,
+        endDateActual: undefined,
+        subTasks: def.subTasks ? def.subTasks.map(t => ({ ...t, completed: false })) : undefined,
+      };
+    });
+
+    try {
+      localStorage.setItem(newKey + '_stages', JSON.stringify(freshStages));
+      localStorage.setItem(newKey + '_logs', JSON.stringify([]));
+      localStorage.setItem(newKey + '_subcontractors', JSON.stringify([]));
+    } catch (e) {}
+
+    if (onAddNewProject) {
+      onAddNewProject(newSnapshot);
+    } else if (onSelectProject) {
+      onSelectProject(newSnapshot);
+    }
+
+    setIsNewProjectModalOpen(false);
+    setNewSiteName('');
+    setNewSiteAddress('');
+    showToast(`"${cleanName}" yeni şantiyesi başarıyla oluşturuldu ve yüklendi!`);
+  };
+
+  // Multi-Project Portfolio projects list
+  const portfolioList = useMemo(() => {
+    const currentItem = {
+      id: safeProjectKey,
+      name: params.projectName || params.projectAddress || 'Mevcut Şantiye',
+      address: params.projectAddress || 'Adres Belirtilmedi',
+      totalArea: results.totalArea || 0,
+      flatCount: results.flatCount || params.flatCount || 0,
+      floorCount: params.floorCount || 5,
+      overallProgress: overallProgress,
+      activeStageName: currentActiveStage?.name || 'Kaba Yapı',
+      status: overallProgress === 100 ? ('completed' as const) : overallProgress > 0 ? ('in_progress' as const) : ('preparing' as const),
+      remainingDays: remainingDays,
+      targetDate: plannedCompletionDate,
+      contractDate: contractDate,
+      subcontractorCount: subcontractors.length,
+      isCurrent: true,
+      rawProject: undefined as SavedProjectData | undefined,
+    };
+
+    const list: typeof currentItem[] = [currentItem];
+
+    if (savedProjects && savedProjects.length > 0) {
+      savedProjects.forEach(sp => {
+        const spAddr = sp.params.projectName || sp.projectAddress || '';
+        const spKey = 'ab_yapi_progress_' + spAddr.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+        if (spKey === safeProjectKey) {
+          currentItem.rawProject = sp;
+          return;
+        }
+
+        let spProgress = 0;
+        let spActiveStageName = '1. Proje & Ruhsat';
+        try {
+          const spStagesStr = localStorage.getItem(spKey + '_stages');
+          if (spStagesStr) {
+            const spStages: ConstructionStage[] = JSON.parse(spStagesStr);
+            const wSum = spStages.reduce((acc, s) => acc + (s.progressPercent * (s.weightPercent || 1)), 0);
+            const tW = spStages.reduce((acc, s) => acc + (s.weightPercent || 1), 0);
+            spProgress = Math.min(100, Math.round(wSum / (tW || 100)));
+            const activeSt = spStages.find(s => s.status === 'in_progress') || spStages.find(s => s.status === 'not_started') || spStages[0];
+            if (activeSt) spActiveStageName = activeSt.name;
+          }
+        } catch (e) {}
+
+        let spSubsCount = 0;
+        try {
+          const spSubsStr = localStorage.getItem(spKey + '_subcontractors');
+          if (spSubsStr) {
+            spSubsCount = JSON.parse(spSubsStr).length;
+          }
+        } catch (e) {}
+
+        const targetDate = localStorage.getItem(spKey + '_target_date') || defaultDates.endDateStr;
+        const targetMs = new Date(targetDate).getTime();
+        const nowMs = Date.now();
+        const remDays = Math.max(0, Math.ceil((targetMs - nowMs) / (1000 * 60 * 60 * 24)));
+
+        list.push({
+          id: spKey,
+          name: sp.params.projectName || sp.projectAddress,
+          address: sp.projectAddress,
+          totalArea: sp.results?.totalArea || 0,
+          flatCount: sp.results?.flatCount || sp.params?.flatCount || 0,
+          floorCount: sp.params?.floorCount || 5,
+          overallProgress: spProgress,
+          activeStageName: spActiveStageName,
+          status: spProgress === 100 ? ('completed' as const) : spProgress > 0 ? ('in_progress' as const) : ('preparing' as const),
+          remainingDays: remDays,
+          targetDate: targetDate,
+          contractDate: (sp.params as any)?.contractDate || new Date().toISOString().slice(0, 10),
+          subcontractorCount: spSubsCount,
+          isCurrent: false,
+          rawProject: sp,
+        });
+      });
+    }
+
+    return list;
+  }, [safeProjectKey, params, results, overallProgress, currentActiveStage, remainingDays, plannedCompletionDate, contractDate, subcontractors.length, savedProjects, defaultDates]);
+
+  // Filtered portfolio list
+  const filteredPortfolio = useMemo(() => {
+    return portfolioList.filter(item => {
+      const q = portfolioSearchQuery.toLowerCase().trim();
+      const matchesSearch = !q || item.name.toLowerCase().includes(q) || item.address.toLowerCase().includes(q);
+      const matchesStatus = portfolioStatusFilter === 'all' || item.status === portfolioStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [portfolioList, portfolioSearchQuery, portfolioStatusFilter]);
+
+  // Aggregate metrics for multiple construction sites
+  const portfolioAggregates = useMemo(() => {
+    const totalSites = portfolioList.length;
+    const totalArea = portfolioList.reduce((acc, s) => acc + (s.totalArea || 0), 0);
+    const totalFlats = portfolioList.reduce((acc, s) => acc + (s.flatCount || 0), 0);
+    const avgProgress = Math.round(portfolioList.reduce((acc, s) => acc + (s.overallProgress || 0), 0) / (totalSites || 1));
+    const totalSubs = portfolioList.reduce((acc, s) => acc + (s.subcontractorCount || 0), 0);
+    const inProgressCount = portfolioList.filter(s => s.status === 'in_progress').length;
+    const completedCount = portfolioList.filter(s => s.status === 'completed').length;
+    const preparingCount = portfolioList.filter(s => s.status === 'preparing').length;
+    return {
+      totalSites,
+      totalArea,
+      totalFlats,
+      avgProgress,
+      totalSubs,
+      inProgressCount,
+      completedCount,
+      preparingCount,
+    };
+  }, [portfolioList]);
+
+  // Aggregate Category percentages for stage scorecards
+  const categoryProgress = useMemo(() => {
+    const getCatPct = (cat: string) => {
+      const catStages = stages.filter(s => s.category === cat);
+      if (catStages.length === 0) return 0;
+      const wSum = catStages.reduce((acc, s) => acc + (s.progressPercent * (s.weightPercent || 1)), 0);
+      const tW = catStages.reduce((acc, s) => acc + (s.weightPercent || 1), 0);
+      return Math.min(100, Math.round(wSum / (tW || 1)));
+    };
+    return {
+      projeRuhsat: getCatPct('proje_ruhsat'),
+      kabaYapi: getCatPct('kaba_yapi'),
+      tesisatInce: getCatPct('tesisat_ince'),
+      teslim: getCatPct('teslim'),
+    };
+  }, [stages]);
 
   // Ascii / Unicode Progress Bar Generator for SMS & WhatsApp
   const makeAsciiProgressBar = (pct: number) => {
@@ -867,10 +1241,10 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     return '▓'.repeat(filled) + '░'.repeat(total - filled);
   };
 
-  // Generate Message Template for any selected period
+  // Generate Message Template aligned with construction stages and payment milestones
   const generateMessageContent = () => {
     const compName = profile.companyName || 'AB YAPI';
-    const projName = params.projectAddress || 'İstanbul Kentsel Dönüşüm Projemiz';
+    const projName = params.projectName || params.projectAddress || 'İstanbul Kentsel Dönüşüm Projemiz';
     const todayStr = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
     const selectedLog = logs.find(l => l.id === selectedLogId) || logs[0];
     const selectedStage = stages.find(s => s.id === selectedStageId) || currentActiveStage;
@@ -878,15 +1252,46 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     // Determine period label & title
     let periodLabel = 'Haftalık İnşaat İlerleme Bülteni';
     let periodIcon = '🏗️';
-    let completedText = selectedLog?.completedWork || 'Kalıp, demir ve beton döküm imalatları şantiyede eksiksiz tamamlanmıştır.';
-    let plannedText = selectedLog?.plannedNextWork || 'Önümüzdeki etap karkas ve donatı işleri takvime uygun sürdürülecektir.';
+    let completedText = '';
+    let plannedText = '';
     let effectiveProgress = overallProgress;
 
-    if (periodMode === 'weekly_current') {
+    if (periodMode === 'active_stage_live') {
+      periodLabel = `Mevcut Faz Durumu: ${currentActiveStage?.name || 'Kaba Yapı'}`;
+      periodIcon = '🏗️';
+      effectiveProgress = overallProgress;
+      const completedSub = currentActiveStage?.subTasks?.filter(t => t.completed).map(t => `• ${t.title}`).join('\n');
+      const pendingSub = currentActiveStage?.subTasks?.filter(t => !t.completed).map(t => `• ${t.title}`).join('\n');
+      completedText = completedSub ? `Tamamlanan İmalat Adımları:\n${completedSub}` : (currentActiveStage?.notes || 'İmalatlar devam etmektedir.');
+      plannedText = pendingSub ? `Aynı Aşamada Devam Eden / Sıradaki İşler:\n${pendingSub}` : 'Aşama tamamlanmak üzeredir, sonraki faza geçilecektir.';
+    } else if (periodMode === 'milestone_stage') {
+      periodLabel = `Aşama Tamamlandı: ${selectedStage?.name || 'İnşaat Fazı'}`;
+      periodIcon = '🎉';
+      effectiveProgress = overallProgress;
+      const allSub = selectedStage?.subTasks?.map(t => `• ${t.title} (Tamamlandı)`).join('\n');
+      completedText = `"${selectedStage?.name}" etabı şantiyemizde Yapı Denetim ve Şantiye Şefliğimiz kontrolünde eksiksiz tamamlanmıştır.\n${allSub || selectedStage?.notes || ''}`;
+      plannedText = 'Bir sonraki imalat etabına derhal başlanmış olup şantiye takvimine uygun şekilde hızla ilerlenmektedir.';
+    } else if (periodMode === 'stage_payment_call') {
+      periodLabel = `Hakediş & Ödeme Bilgilendirmesi (${selectedStage?.name || 'Aşama Ödemesi'})`;
+      periodIcon = '💳';
+      effectiveProgress = overallProgress;
+      completedText = `Sözleşmemizin hakediş protokolü uyarınca "${selectedStage?.name}" imalatları başarıyla tamamlanmış olup ilgili aşama hakediş taksiti muaccel hale gelmiştir.\nKat maliklerimizin sözleşmede kararlaştırılan hakediş bedellerini şirket hesabına intikal ettirmesi rica olunur.`;
+      plannedText = 'Ödemelerin tamamlanmasının ardından bir sonraki etap imalatlarına aralıksız devam edilecektir.';
+    } else if (periodMode === 'full_stage_scorecard') {
+      periodLabel = '12 Aşamalı Genel Şantiye Süreç Karnesi';
+      periodIcon = '📊';
+      effectiveProgress = overallProgress;
+      completedText = `Kategori Bazlı Şantiye Fiziki Gerçekleşme:\n` +
+        `1️⃣ Proje, Zemin & Ruhsat: %${categoryProgress.projeRuhsat}\n` +
+        `2️⃣ Temel, Kaba Yapı & Duvar: %${categoryProgress.kabaYapi}\n` +
+        `3️⃣ Tesisat, Mantolama & İnce İşler: %${categoryProgress.tesisatInce}\n` +
+        `4️⃣ Asansör, Peyzaj & İskan: %${categoryProgress.teslim}`;
+      plannedText = `Mevcut aktif çalışılan aşama: "${currentActiveStage?.name}". İmalatlarımız yürürlükteki Deprem Yönetmeliği standartlarında devam etmektedir.`;
+    } else if (periodMode === 'weekly_current') {
       periodLabel = `Haftalık İnşaat Bülteni (${todayStr})`;
       periodIcon = '🏗️';
-      completedText = selectedLog?.completedWork || 'Kaba inşaat kalıp ve donatı işleri tamamlandı.';
-      plannedText = selectedLog?.plannedNextWork || 'Bir sonraki kat tabliyesi ve kolon betonu dökülecektir.';
+      completedText = selectedLog?.completedWork || (currentActiveStage ? `"${currentActiveStage.name}" etabında imalatlar devam etmektedir.` : 'Kaba yapı kalıp ve donatı işleri tamamlandı.');
+      plannedText = selectedLog?.plannedNextWork || 'Önümüzdeki hafta takvime uygun imalatlara devam edilecektir.';
       effectiveProgress = overallProgress;
     } else if (periodMode === 'monthly_current') {
       const monthName = new Date().toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
@@ -901,12 +1306,6 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       completedText = selectedLog?.completedWork || '';
       plannedText = selectedLog?.plannedNextWork || '';
       effectiveProgress = selectedLog?.overallProgress || overallProgress;
-    } else if (periodMode === 'milestone_stage') {
-      periodLabel = `Kritik Aşama Müjdesi: ${selectedStage?.name || 'İmalat Aşaması'}`;
-      periodIcon = '🎉';
-      completedText = selectedStage?.notes || `${selectedStage?.name} aşaması tüm kontrolleri yapılarak başarıyla tamamlanmıştır.`;
-      plannedText = 'Sonraki imalat etabına derhal başlanmaktadır.';
-      effectiveProgress = overallProgress;
     } else if (periodMode === 'custom_period') {
       periodLabel = customPeriodTitle || 'Şantiye Özel Duyurusu';
       periodIcon = '📢';
@@ -1160,6 +1559,118 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      {/* TOAST FEEDBACK */}
+      {toastNotification && (
+        <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs font-bold transition-all shadow-md animate-fade-in print:hidden ${
+          toastNotification.type === 'success' ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-indigo-600 text-white border-indigo-700'
+        }`}>
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 shrink-0" />
+            <span>{toastNotification.text}</span>
+          </div>
+          <button type="button" onClick={() => setToastNotification(null)} className="text-white/80 hover:text-white font-black text-sm">&times;</button>
+        </div>
+      )}
+
+      {/* MULTI-PROJECT & SITE MANAGER EXECUTIVE BAR */}
+      <div className="bg-slate-900 text-white rounded-3xl p-5 shadow-lg border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-400 flex items-center justify-center shrink-0">
+            <Building2 className="w-6 h-6" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                Aktif Şantiye
+              </span>
+              <span className="text-xs text-slate-400">
+                Portföy: {portfolioList.length} Şantiye Projesi
+              </span>
+            </div>
+            <h3 className="text-base font-extrabold text-white truncate mt-0.5">
+              {params.projectName || params.projectAddress || 'Aktif Şantiye'}
+            </h3>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-300 mt-1">
+              <span className="font-bold text-emerald-400">%{overallProgress} Fiziki Gerçekleşme</span>
+              <span>&bull;</span>
+              <span className="text-slate-300">{remainingDays} Gün Kaldı</span>
+              <span>&bull;</span>
+              <span className="text-amber-300 truncate max-w-xs">{currentActiveStage?.name}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto">
+          {/* Quick Dropdown selector for active sites */}
+          <div className="relative flex-1 md:flex-initial">
+            <select
+              value={safeProjectKey}
+              onChange={(e) => {
+                const selectedKey = e.target.value;
+                if (selectedKey === 'NEW_PROJECT') {
+                  setIsNewProjectModalOpen(true);
+                  return;
+                }
+                const site = portfolioList.find(s => s.id === selectedKey);
+                if (site && site.rawProject && onSelectProject) {
+                  onSelectProject(site.rawProject);
+                } else if (site) {
+                  showToast(`"${site.name}" şantiyesine geçildi.`);
+                }
+              }}
+              className="w-full md:w-auto bg-slate-800 hover:bg-slate-750 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-700 outline-none cursor-pointer"
+            >
+              <optgroup label="Devam Eden Şantiyeler">
+                {portfolioList.map(site => (
+                  <option key={site.id} value={site.id}>
+                    {site.isCurrent ? '✓ ' : ''}{site.name} (%{site.overallProgress} - {site.activeStageName.slice(0, 22)})
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="İşlemler">
+                <option value="NEW_PROJECT">+ Yeni Şantiye Başlat...</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsNewProjectModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+            title="Aynı anda yeni bir inşaata başlayın ve yönetin"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">Yeni Şantiye Ekle</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('portfolio')}
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+              activeSubTab === 'portfolio'
+                ? 'bg-white text-slate-900 border-white font-extrabold shadow-sm'
+                : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+            }`}
+            title="Tüm aktif şantiyeleri tek ekranda görün ve yönetin"
+          >
+            <Briefcase className="w-4 h-4 text-indigo-400" />
+            <span>Portföyüm ({portfolioList.length})</span>
+          </button>
+
+          {!isClientMode && (
+            <button
+              type="button"
+              onClick={() => setIsResetModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 rounded-xl text-xs font-bold border border-slate-700 hover:border-rose-800/60 transition-all cursor-pointer"
+              title="Bu şantiyenin aşamalarını ve takvimini sıfırlayın"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">Aşamaları Sıfırla</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* TOP HEADER & ACTION CONTROLS */}
       <div className={`${cardBg} rounded-3xl border p-6 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 print:hidden`}>
         <div className="space-y-2 max-w-2xl">
@@ -1368,15 +1879,15 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
 
         <button
           type="button"
-          onClick={() => setActiveSubTab('logs')}
+          onClick={() => setActiveSubTab('portfolio')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'logs'
+            activeSubTab === 'portfolio'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
-          <Clock className="w-4 h-4" />
-          <span>Haftalık / Aylık Şantiye Günlüğü ({logs.length})</span>
+          <Building2 className="w-4 h-4" />
+          <span>🏗️ Çoklu Şantiye Portföyü ({portfolioList.length})</span>
         </button>
 
         <button
@@ -1390,6 +1901,19 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
         >
           <Send className="w-4 h-4" />
           <span>Müşteri Bilgilendirme Mesaj Motoru</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('logs')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeSubTab === 'logs'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Clock className="w-4 h-4" />
+          <span>Haftalık / Aylık Şantiye Günlüğü ({logs.length})</span>
         </button>
 
         <button
@@ -1420,6 +1944,369 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       </div>
 
       {/* ------------------------------------------------------------- */}
+      {/* 0. SUB-TAB: MULTI-PROJECT PORTFOLIO DASHBOARD                 */}
+      {/* ------------------------------------------------------------- */}
+      {activeSubTab === 'portfolio' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 shadow-xl border border-indigo-900/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
+                  Çoklu Şantiye & Portföy Portalı
+                </span>
+                <span className="text-xs text-slate-400 font-medium">
+                  {portfolioList.length} Şantiye Kayıtlı
+                </span>
+              </div>
+              <h3 className="text-xl font-extrabold text-white tracking-tight">
+                Eşzamanlı İnşaat Süreçleri ve Şantiye Portföyü
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Aynı anda birden fazla inşaat ve kentsel dönüşüm projesini başlatın, her şantiyenin 12 aşamasını bağımsız yönetin, kat maliklerine projeye özel bildirimler gönderin.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsNewProjectModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-2xl text-xs font-black shadow-lg shadow-indigo-600/30 transition-all cursor-pointer shrink-0"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>+ Yeni Şantiye Başlat</span>
+            </button>
+          </div>
+
+          {/* BENTO STATS CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                🏗️ Aktif Şantiye Sayısı
+              </span>
+              <div className="text-2xl font-black font-mono text-slate-900 tracking-tight">
+                {portfolioAggregates.totalSites} <span className="text-xs font-bold text-slate-500">Proje</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                <span className="text-emerald-600 font-bold">{portfolioAggregates.inProgressCount} Devam Eden</span>
+                <span>&bull;</span>
+                <span className="text-slate-400">{portfolioAggregates.completedCount} Tamamlandı</span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                📐 Toplam İnşaat Alanı
+              </span>
+              <div className="text-2xl font-black font-mono text-slate-900 tracking-tight">
+                {portfolioAggregates.totalArea.toLocaleString('tr-TR')} <span className="text-xs font-bold text-slate-500">m²</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Portföydeki tüm şantiyelerin toplam inşaat sahası
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                🏢 Bağımsız Bölüm Hacmi
+              </span>
+              <div className="text-2xl font-black font-mono text-slate-900 tracking-tight">
+                {portfolioAggregates.totalFlats} <span className="text-xs font-bold text-slate-500">Daire / Bölüm</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Hak sahiplerine teslim edilecek toplam daire sayısı
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                  📊 Ortalama Fiziki İlerleme
+                </span>
+                <div className="text-2xl font-black font-mono text-indigo-600 tracking-tight">
+                  %{portfolioAggregates.avgProgress}
+                </div>
+              </div>
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-1 border border-slate-200">
+                <div
+                  className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${portfolioAggregates.avgProgress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SEARCH & STATUS FILTER */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={portfolioSearchQuery}
+                onChange={(e) => setPortfolioSearchQuery(e.target.value)}
+                placeholder="Şantiye adı, adres veya ada/parsel ara..."
+                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 placeholder:text-slate-400"
+              />
+              {portfolioSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setPortfolioSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
+              {[
+                { id: 'all', label: `Tüm Şantiyeler (${portfolioList.length})` },
+                { id: 'in_progress', label: `Devam Eden (${portfolioAggregates.inProgressCount})` },
+                { id: 'preparing', label: `Hazırlık / Ruhsat (${portfolioAggregates.preparingCount})` },
+                { id: 'completed', label: `Tamamlanan (${portfolioAggregates.completedCount})` },
+              ].map((filter) => {
+                const isActive = portfolioStatusFilter === filter.id;
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setPortfolioStatusFilter(filter.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SITES GRID */}
+          {filteredPortfolio.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 p-12 text-center text-xs space-y-3 bg-white text-slate-500">
+              <Building2 className="w-10 h-10 text-slate-400 mx-auto" />
+              <h4 className="text-sm font-bold text-slate-800">Filtre kriterlerine uygun şantiye bulunamadı.</h4>
+              <p className="text-slate-400 max-w-sm mx-auto">
+                Arama terimini değiştirebilir veya yeni bir inşaat projesi başlatabilirsiniz.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsNewProjectModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 shadow-sm cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Yeni Şantiye Ekle</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredPortfolio.map((site) => {
+                const isCurrent = site.isCurrent;
+
+                return (
+                  <div
+                    key={site.id}
+                    className={`rounded-3xl border p-5 shadow-xs transition-all duration-200 flex flex-col justify-between space-y-4 relative ${
+                      isCurrent
+                        ? 'bg-indigo-50/20 border-indigo-500 ring-2 ring-indigo-500/20 shadow-md'
+                        : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
+                    }`}
+                  >
+                    {/* Header line */}
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        {isCurrent ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-white shadow-xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                            Aktif Yönetilen Şantiye
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                            site.status === 'completed'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : site.status === 'in_progress'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                            {site.status === 'completed' ? 'Tamamlandı' : site.status === 'in_progress' ? 'Devam Ediyor' : 'Hazırlık Fazı'}
+                          </span>
+                        )}
+
+                        <span className="text-[11px] font-mono font-bold text-slate-400">
+                          {site.remainingDays > 0 ? `${site.remainingDays} Gün Kaldı` : 'Süre Doldu'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="text-base font-extrabold text-slate-900 leading-snug line-clamp-1">
+                          {site.name}
+                        </h4>
+                        <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                          {site.address}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar & Current Phase */}
+                    <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500 font-semibold">Fiziki Gerçekleşme</span>
+                        <span className="font-mono font-black text-slate-900">%{site.overallProgress}</span>
+                      </div>
+                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            site.overallProgress === 100 ? 'bg-emerald-600' : 'bg-indigo-600'
+                          }`}
+                          style={{ width: `${site.overallProgress}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60 text-slate-600">
+                        <span className="truncate max-w-[180px]">
+                          <b>Mevcut Faz:</b> {site.activeStageName}
+                        </span>
+                        <span><b>Hedef:</b> {site.targetDate}</span>
+                      </div>
+                    </div>
+
+                    {/* Quick Specs */}
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="bg-slate-50/70 p-2 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block">Alan</span>
+                        <span className="font-bold text-slate-800">{site.totalArea} m²</span>
+                      </div>
+                      <div className="bg-slate-50/70 p-2 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block">Daire</span>
+                        <span className="font-bold text-slate-800">{site.flatCount} Adet</span>
+                      </div>
+                      <div className="bg-slate-50/70 p-2 rounded-xl border border-slate-100">
+                        <span className="text-[10px] text-slate-400 font-bold block">Taşeron</span>
+                        <span className="font-bold text-slate-800">{site.subcontractorCount} Ekip</span>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                      {!isCurrent ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (site.rawProject && onSelectProject) {
+                              onSelectProject(site.rawProject);
+                              showToast(`"${site.name}" şantiyesine geçildi.`);
+                            }
+                          }}
+                          className="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Building className="w-3.5 h-3.5" />
+                          <span>Bu Şantiyeye Geç & Yönet</span>
+                        </button>
+                      ) : (
+                        <div className="w-full py-2 px-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black flex items-center justify-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Mevcut Şantiye Seçili</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isCurrent && site.rawProject && onSelectProject) {
+                              onSelectProject(site.rawProject);
+                            }
+                            setActiveSubTab('timeline');
+                          }}
+                          className="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition text-center cursor-pointer"
+                          title="12 Aşamalı Süreç Takvimini Aç"
+                        >
+                          Aşamalar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isCurrent && site.rawProject && onSelectProject) {
+                              onSelectProject(site.rawProject);
+                            }
+                            setActiveSubTab('notification');
+                          }}
+                          className="py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-[11px] font-bold transition text-center cursor-pointer"
+                          title="Kat Maliklerine Bildirim Gönder"
+                        >
+                          Malik Bildir
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isCurrent && site.rawProject && onSelectProject) {
+                              onSelectProject(site.rawProject);
+                            }
+                            setActiveSubTab('report');
+                          }}
+                          className="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition text-center cursor-pointer"
+                          title="Resmî A4 Durum Raporunu Aç"
+                        >
+                          A4 Rapor
+                        </button>
+                      </div>
+
+                      {/* Delete project button if not current and rawProject exists */}
+                      {!isCurrent && site.rawProject && onDeleteProject && (
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`"${site.name}" şantiyesini ve tüm verilerini silmek istediğinize emin misiniz?`)) {
+                                onDeleteProject(site.rawProject!.savedAt);
+                                showToast(`"${site.name}" şantiyesi silindi.`, 'info');
+                              }
+                            }}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Şantiyeyi Sil</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Quick CTA Footer */}
+          <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-indigo-600 text-white shrink-0">
+                <FolderPlus className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-sm font-extrabold text-slate-900">
+                  Yeni Bir Şantiye Daha Mı Başlatmak İstiyorsunuz?
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Her şantiye için ayrı ayrı 12 aşama ilerlemesi, alt görevler, hak sahipleri bildirimleri ve taşeron hakedişleri tutulur.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsNewProjectModalOpen(true)}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer shrink-0"
+            >
+              + Yeni Şantiye / İnşaat Başlat
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
       {/* 1. SUB-TAB: 12 CONSTRUCTION STAGES & TIMELINE                  */}
       {/* ------------------------------------------------------------- */}
       {activeSubTab === 'timeline' && (
@@ -1442,12 +2329,12 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
             {!isClientMode && (
               <button
                 type="button"
-                onClick={handleResetStages}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer"
-                title="Aşamaları varsayılan süre ve değerlerle yeniden hesapla"
+                onClick={() => setIsResetModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs"
+                title="İnşaat aşamalarını %0 temiz başlangıç veya demo olarak sıfırlayın"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Takvimi Sıfırla</span>
+                <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                <span>Aşamaları Sıfırla</span>
               </button>
             )}
           </div>
@@ -1648,7 +2535,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                     </div>
                   </div>
 
-                  {/* Stage Footer: Dates & Status changer */}
+                  {/* Stage Footer: Dates, Notify Button & Status changer */}
                   <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -1657,8 +2544,18 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                       </span>
                     </div>
 
-                    {!isClientMode ? (
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickNotifyStage(stage)}
+                        className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+                        title="Bu aşama için kat maliklerine anında bildirim oluştur"
+                      >
+                        <Send className="w-3 h-3 text-indigo-600" />
+                        <span>Maliklere Bildir</span>
+                      </button>
+
+                      {!isClientMode ? (
                         <select
                           value={stage.status}
                           onChange={(e) => handleUpdateStageStatus(stage.id, e.target.value as ConstructionStageStatus)}
@@ -1669,12 +2566,12 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                           <option value="completed">Tamamlandı</option>
                           <option value="delayed">Gecikmede</option>
                         </select>
-                      </div>
-                    ) : (
-                      <span className="font-semibold text-slate-600">
-                        Yetkili: {stage.responsible}
-                      </span>
-                    )}
+                      ) : (
+                        <span className="font-semibold text-slate-600">
+                          Yetkili: {stage.responsible}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -1976,83 +2873,41 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                   <label className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 text-indigo-600" />
-                    <span>1. Periyot & Rapor Türü</span>
+                    <span>1. Şantiye Süreci & Bilgilendirme Formatı</span>
                   </label>
                   <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                    {periodMode === 'weekly_current' ? 'Haftalık' :
+                    {periodMode === 'active_stage_live' ? 'Canlı Aşama' :
+                     periodMode === 'milestone_stage' ? 'Aşama Müjdesi' :
+                     periodMode === 'stage_payment_call' ? 'Hakediş & Taksit' :
+                     periodMode === 'full_stage_scorecard' ? '12 Aşamalı Karne' :
+                     periodMode === 'weekly_current' ? 'Haftalık' :
                      periodMode === 'monthly_current' ? 'Aylık' :
-                     periodMode === 'specific_log' ? 'Bülten Seçimi' :
-                     periodMode === 'milestone_stage' ? 'Aşama Müjdesi' : 'Özel Dönem'}
+                     periodMode === 'specific_log' ? 'Kayıtlı Bülten' : 'Özel Dönem'}
                   </span>
                 </div>
 
+                {/* İnşaat Aşamalarıyla Uyumlu 8 Temel Bilgilendirme Modu */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      setPeriodMode('weekly_current');
+                      setPeriodMode('active_stage_live');
                       setIsManuallyEdited(false);
                     }}
                     className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${
-                      periodMode === 'weekly_current'
+                      periodMode === 'active_stage_live'
                         ? 'bg-indigo-50/90 border-indigo-300 text-indigo-900 font-bold shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold flex items-center gap-1.5">
-                        <span>📢</span> Bu Hafta
+                        <span>🏗️</span> Canlı Aşama Durumu
                       </span>
-                      {periodMode === 'weekly_current' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                      {periodMode === 'active_stage_live' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
                     </div>
                     <p className="text-[10px] text-slate-500 mt-1 font-normal">
-                      Haftalık tamamlanan işler ve hedefler
-                    </p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPeriodMode('monthly_current');
-                      setIsManuallyEdited(false);
-                    }}
-                    className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${
-                      periodMode === 'monthly_current'
-                        ? 'bg-indigo-50/90 border-indigo-300 text-indigo-900 font-bold shadow-xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold flex items-center gap-1.5">
-                        <span>🗓️</span> Bu Ay
-                      </span>
-                      {periodMode === 'monthly_current' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1 font-normal">
-                      Aylık genel gerçekleşme & takvim
-                    </p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPeriodMode('specific_log');
-                      setIsManuallyEdited(false);
-                    }}
-                    className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${
-                      periodMode === 'specific_log'
-                        ? 'bg-indigo-50/90 border-indigo-300 text-indigo-900 font-bold shadow-xs'
-                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold flex items-center gap-1.5">
-                        <span>📜</span> Kayıtlı Bülten
-                      </span>
-                      {periodMode === 'specific_log' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1 font-normal">
-                      Geçmiş şantiye raporlarından biri
+                      Aktif fazdaki tamamlanan & sıradaki alt görevler
                     </p>
                   </button>
 
@@ -2070,17 +2925,222 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold flex items-center gap-1.5">
-                        <span>🏆</span> Aşama Müjdesi
+                        <span>🏆</span> Aşama Tamamlandı Müjdesi
                       </span>
                       {periodMode === 'milestone_stage' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
                     </div>
                     <p className="text-[10px] text-slate-500 mt-1 font-normal">
-                      Önemli bir imalat tamamlandığında
+                      Bir etabın başarıyla ve denetim onayıyla bitişi
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodMode('stage_payment_call');
+                      setIsManuallyEdited(false);
+                    }}
+                    className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${
+                      periodMode === 'stage_payment_call'
+                        ? 'bg-amber-50/90 border-amber-300 text-amber-900 font-bold shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>💳</span> Aşama Hakediş / Taksit Çağrısı
+                      </span>
+                      {periodMode === 'stage_payment_call' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 font-normal">
+                      Aşama tamamlanmasına bağlı resmi taksit çağrısı
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodMode('full_stage_scorecard');
+                      setIsManuallyEdited(false);
+                    }}
+                    className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${
+                      periodMode === 'full_stage_scorecard'
+                        ? 'bg-indigo-50/90 border-indigo-300 text-indigo-900 font-bold shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>📊</span> 12 Aşamalı Süreç Karnesi
+                      </span>
+                      {periodMode === 'full_stage_scorecard' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 font-normal">
+                      Ruhsat, kaba, ince, teslim 4 faz ilerleme özeti
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodMode('weekly_current');
+                      setIsManuallyEdited(false);
+                    }}
+                    className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${
+                      periodMode === 'weekly_current'
+                        ? 'bg-indigo-50/90 border-indigo-300 text-indigo-900 font-bold shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>📢</span> Haftalık Şantiye Bülteni
+                      </span>
+                      {periodMode === 'weekly_current' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 font-normal">
+                      Haftalık tamamlanan işler ve saha hedefleri
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodMode('monthly_current');
+                      setIsManuallyEdited(false);
+                    }}
+                    className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${
+                      periodMode === 'monthly_current'
+                        ? 'bg-indigo-50/90 border-indigo-300 text-indigo-900 font-bold shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>🗓️</span> Aylık Faaliyet Raporu
+                      </span>
+                      {periodMode === 'monthly_current' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 font-normal">
+                      Aylık genel gerçekleşme & takvim durumu
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodMode('specific_log');
+                      setIsManuallyEdited(false);
+                    }}
+                    className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${
+                      periodMode === 'specific_log'
+                        ? 'bg-indigo-50/90 border-indigo-300 text-indigo-900 font-bold shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>📜</span> Kayıtlı Şantiye Günlüğü
+                      </span>
+                      {periodMode === 'specific_log' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 font-normal">
+                      Geçmiş şantiye raporlarından biri
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPeriodMode('custom_period');
+                      setIsManuallyEdited(false);
+                    }}
+                    className={`p-3 rounded-xl border text-left text-xs transition cursor-pointer ${
+                      periodMode === 'custom_period'
+                        ? 'bg-indigo-50/90 border-indigo-300 text-indigo-900 font-bold shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <span>📣</span> Özel Şantiye Duyurusu
+                      </span>
+                      {periodMode === 'custom_period' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 font-normal">
+                      Serbest şantiye notu veya ara duyuru
                     </p>
                   </button>
                 </div>
 
                 {/* Sub-selectors based on mode */}
+                {periodMode === 'active_stage_live' && (
+                  <div className="bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-100 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-indigo-950">Mevcut Canlı Şantiye Fazı:</span>
+                      <span className="text-xs font-black text-indigo-600 bg-white px-2 py-0.5 rounded-md border border-indigo-200">
+                        {currentActiveStage?.name} (%{currentActiveStage?.progressPercent})
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-indigo-800 leading-snug">
+                      Bu şablon doğrudan şantiye veritabanından <b>{currentActiveStage?.name}</b> aşamasındaki tamamlanan alt imalatları otomatik çeker ve hak sahiplerine şeffaf şekilde raporlar.
+                    </p>
+                  </div>
+                )}
+
+                {(periodMode === 'milestone_stage' || periodMode === 'stage_payment_call') && (
+                  <div className={`p-3.5 rounded-xl border space-y-2 ${
+                    periodMode === 'stage_payment_call' ? 'bg-amber-50/80 border-amber-200' : 'bg-emerald-50/70 border-emerald-200'
+                  }`}>
+                    <label className="text-[11px] font-black text-slate-900 block">
+                      {periodMode === 'stage_payment_call' ? 'Ödemesi / Taksiti Talep Edilen İnşaat Etabı:' : 'Tamamlanan & Kutlanacak İnşaat Etabı:'}
+                    </label>
+                    <select
+                      value={selectedStageId}
+                      onChange={(e) => {
+                        setSelectedStageId(e.target.value);
+                        setIsManuallyEdited(false);
+                      }}
+                      className="w-full text-xs p-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-800"
+                    >
+                      {stages.map((stage) => (
+                        <option key={stage.id} value={stage.id}>
+                          {stage.name} (%{stage.progressPercent} - {stage.status === 'completed' ? 'Tamamlandı' : 'Devam Ediyor'})
+                        </option>
+                      ))}
+                    </select>
+                    {periodMode === 'stage_payment_call' && (
+                      <p className="text-[10px] text-amber-800 font-medium">
+                        💡 <b>Not:</b> Mesajda şirket unvanınız ve sözleşme protokolü uyarınca ilgili aşamanın hakediş taksitinin ödeneceği belirtilir.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {periodMode === 'full_stage_scorecard' && (
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                    <span className="text-[11px] font-black text-slate-800 block">4 Ana İnşaat Fazı İlerleme Özeti:</span>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-slate-500 block">1. Proje & Ruhsat</span>
+                        <span className="font-bold text-indigo-700">%{categoryProgress.projeRuhsat}</span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-slate-500 block">2. Kaba Yapı & Duvar</span>
+                        <span className="font-bold text-indigo-700">%{categoryProgress.kabaYapi}</span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-slate-500 block">3. Tesisat & İnce İşler</span>
+                        <span className="font-bold text-indigo-700">%{categoryProgress.tesisatInce}</span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-slate-500 block">4. Asansör, Çevre & İskan</span>
+                        <span className="font-bold text-indigo-700">%{categoryProgress.teslim}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {periodMode === 'specific_log' && (
                   <div className="bg-indigo-50/60 p-3 rounded-xl border border-indigo-100 space-y-1.5">
                     <label className="text-[11px] font-extrabold text-indigo-950 block">
@@ -2097,28 +3157,6 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                       {logs.map((log) => (
                         <option key={log.id} value={log.id}>
                           {log.periodLabel} ({log.date}) &bull; {log.title.slice(0, 40)}...
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {periodMode === 'milestone_stage' && (
-                  <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200 space-y-1.5">
-                    <label className="text-[11px] font-extrabold text-amber-950 block">
-                      Tamamlanan / Kutlanacak Aşamayı Seçin:
-                    </label>
-                    <select
-                      value={selectedStageId}
-                      onChange={(e) => {
-                        setSelectedStageId(e.target.value);
-                        setIsManuallyEdited(false);
-                      }}
-                      className="w-full text-xs p-2 rounded-lg border border-amber-200 bg-white font-medium text-slate-800"
-                    >
-                      {stages.map((stage) => (
-                        <option key={stage.id} value={stage.id}>
-                          {stage.name} (%{stage.progressPercent} - {stage.status === 'completed' ? 'Tamamlandı' : 'Devam Ediyor'})
                         </option>
                       ))}
                     </select>
@@ -3462,6 +4500,290 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                 );
               })()}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 1: RESET CONSTRUCTION STAGES & TIMELINE MODAL           */}
+      {/* ------------------------------------------------------------- */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in print:hidden">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-5 animate-scale-up">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900">
+                    İnşaat Aşamaları ve Takvim Sıfırlama
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    {params.projectName || params.projectAddress || 'Mevcut Şantiye'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm font-bold transition cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-1">
+              <p className="font-extrabold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Bu işlem şantiye ilerleme durumunu yeniden yapılandırır.</span>
+              </p>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                Aşağıdaki sıfırlama türünü seçip onayladığınızda, seçilen şantiyenin 12 aşaması güncellenecektir.
+              </p>
+            </div>
+
+            {/* Reset Mode Selection */}
+            <div className="space-y-2.5">
+              <label className="text-xs font-bold text-slate-800 block">
+                Sıfırlama Şablonunu Seçin:
+              </label>
+
+              <label
+                onClick={() => setResetModeOption('clean')}
+                className={`p-3.5 rounded-2xl border flex items-start gap-3 cursor-pointer transition ${
+                  resetModeOption === 'clean'
+                    ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-500/20'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="resetOption"
+                  checked={resetModeOption === 'clean'}
+                  onChange={() => setResetModeOption('clean')}
+                  className="mt-0.5 text-indigo-600"
+                />
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-extrabold text-slate-900">%0 Temiz Şantiye Başlangıcı</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-800">
+                      Önerilen
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Tüm 12 inşaat aşamasını <b>%0</b> durumuna çeker, işaretlenmiş alt görevleri temizler ve bugünün tarihinden itibaren sözleşme süresine ({totalMonths} ay) göre gerçekçi yeni bir şantiye takvimi oluşturur.
+                  </p>
+                </div>
+              </label>
+
+              <label
+                onClick={() => setResetModeOption('demo')}
+                className={`p-3.5 rounded-2xl border flex items-start gap-3 cursor-pointer transition ${
+                  resetModeOption === 'demo'
+                    ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-500/20'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="resetOption"
+                  checked={resetModeOption === 'demo'}
+                  onChange={() => setResetModeOption('demo')}
+                  className="mt-0.5 text-indigo-600"
+                />
+                <div className="space-y-0.5">
+                  <span className="text-xs font-extrabold text-slate-900">Örnek Demo Takvimi</span>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Örnek imalat yüzdeleri (kaba yapı devam eden, ruhsat tamamlanan vb.) içeren tanıtım verisini yükler.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* Checkbox to also clear logs */}
+            <label className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={resetLogsOption}
+                onChange={(e) => setResetLogsOption(e.target.checked)}
+                className="rounded text-indigo-600"
+              />
+              <span>Şantiye bültenlerini ve haftalık rapor geçmişini de temizle</span>
+            </label>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition cursor-pointer"
+              >
+                Vazgeç
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleExecuteReset(resetModeOption)}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-extrabold shadow-md shadow-rose-600/20 transition cursor-pointer flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Sıfırlamayı Onayla & Uygula</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 2: ADD NEW CONCURRENT CONSTRUCTION SITE / PROJECT        */}
+      {/* ------------------------------------------------------------- */}
+      {isNewProjectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in print:hidden">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-5 animate-scale-up max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <PlusCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900">
+                    Yeni Şantiye / İnşaat Projesi Başlat
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Portföye ekleyin, eşzamanlı olarak bağımsız yönetin
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNewProjectModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm font-bold transition cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewSite} className="space-y-4">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  🏗️ Proje / Şantiye Adı
+                </label>
+                <input
+                  type="text"
+                  value={newSiteName}
+                  onChange={(e) => setNewSiteName(e.target.value)}
+                  placeholder="Örn: Moda Kentsel Dönüşüm Projesi"
+                  className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  📍 Şantiye Adresi / Ada-Parsel <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newSiteAddress}
+                  onChange={(e) => setNewSiteAddress(e.target.value)}
+                  placeholder="Örn: Kadıköy Caferağa Mah. Moda Cad. No: 42 (Ada 124 / Parsel 8)"
+                  className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    ⏱️ Sözleşme Süresi (Ay)
+                  </label>
+                  <input
+                    type="number"
+                    min="6"
+                    max="48"
+                    value={newSiteMonths}
+                    onChange={(e) => setNewSiteMonths(Math.max(6, parseInt(e.target.value) || 12))}
+                    className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    📐 Taban Oturumu (m²)
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="5000"
+                    value={newSiteBaseArea}
+                    onChange={(e) => setNewSiteBaseArea(Math.max(50, parseInt(e.target.value) || 120))}
+                    className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    🏢 Kat Sayısı
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={newSiteFloorCount}
+                    onChange={(e) => setNewSiteFloorCount(Math.max(1, parseInt(e.target.value) || 5))}
+                    className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    🚪 Kat Başı Daire Sayısı
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={newSiteFlatsPerFloor}
+                    onChange={(e) => setNewSiteFlatsPerFloor(Math.max(1, parseInt(e.target.value) || 2))}
+                    className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic summary */}
+              <div className="bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Hesaplanan Hacim</span>
+                  <span className="font-extrabold text-slate-800">
+                    {newSiteFloorCount * newSiteFlatsPerFloor} Bağımsız Bölüm &bull; {Math.round(newSiteBaseArea * newSiteFloorCount * 1.35)} m² İnşaat
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Başlangıç Durumu</span>
+                  <span className="font-extrabold text-emerald-700">%0 Temiz Takvim</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsNewProjectModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition cursor-pointer"
+                >
+                  İptal
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-extrabold shadow-md shadow-indigo-600/20 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Şantiyeyi Başlat & Portföye Ekle</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
