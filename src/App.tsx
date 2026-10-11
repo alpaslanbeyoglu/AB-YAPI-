@@ -119,11 +119,13 @@ export default function App() {
       const saved = localStorage.getItem('ab_yapi_tabs');
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<TabConfig>[];
-        // Restore icon references and check category from DEFAULT_TABS
+        // Restore icon references and enforce canonical order and category from DEFAULT_TABS
         return DEFAULT_TABS.map(defaultTab => {
           const savedTab = parsed.find(t => t.id === defaultTab.id);
-          return savedTab ? { ...defaultTab, visible: savedTab.visible ?? defaultTab.visible, order: savedTab.order ?? defaultTab.order, category: defaultTab.category } : defaultTab;
-        });
+          return savedTab
+            ? { ...defaultTab, visible: savedTab.visible ?? defaultTab.visible, order: defaultTab.order, category: defaultTab.category, shortLabel: defaultTab.shortLabel, label: defaultTab.label }
+            : defaultTab;
+        }).sort((a, b) => a.order - b.order);
       }
     } catch (e) {}
     return DEFAULT_TABS;
@@ -1330,34 +1332,38 @@ export default function App() {
           </div>
 
           <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 w-full max-w-full overflow-x-hidden min-w-0">
-            {/* Proje Yaşam Döngüsü & Hiyerarşik Faz Çubuğu */}
-            <ProjectLifecycleBar
-              activeTab={activeTab}
-              onNavigate={setActiveTab}
-              isOfferAccepted={params.isOfferAccepted ?? false}
-              onToggleOfferAccepted={(val) => {
-                updateCalculatorParams({ isOfferAccepted: val });
-                if (val) {
-                  showNotification('success', 'Teklif kabul edildi olarak işaretlendi. Şantiye süreci başlatıldı!');
-                } else {
-                  showNotification('success', 'Teklif değerlendirme aşamasına alındı.');
-                }
-              }}
-              projectName={params.projectName || params.projectAddress}
-              theme={theme}
-            />
+            {/* Proje Yaşam Döngüsü & Hiyerarşik Faz Çubuğu (Yalnızca Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
+            {tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
+              <ProjectLifecycleBar
+                activeTab={activeTab}
+                onNavigate={setActiveTab}
+                isOfferAccepted={params.isOfferAccepted ?? false}
+                onToggleOfferAccepted={(val) => {
+                  updateCalculatorParams({ isOfferAccepted: val });
+                  if (val) {
+                    showNotification('success', 'Teklif kabul edildi olarak işaretlendi. Şantiye süreci başlatıldı!');
+                  } else {
+                    showNotification('success', 'Teklif değerlendirme aşamasına alındı.');
+                  }
+                }}
+                projectName={params.projectName || params.projectAddress}
+                theme={theme}
+              />
+            )}
 
-            {/* Top Navigation */}
-            <TabNavigation
-              activeTab={activeTab}
-              tabs={tabsConfig}
-              onNavigate={setActiveTab}
-              theme={theme}
-              internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
-              totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
-              stepLabels={['Mevcut Durum', 'Yeni Tasarım', 'Daire Matrisi']}
-              onInternalStepChange={setRequestedSetupStep}
-            />
+            {/* Top Navigation (Yalnızca Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
+            {tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
+              <TabNavigation
+                activeTab={activeTab}
+                tabs={tabsConfig}
+                onNavigate={setActiveTab}
+                theme={theme}
+                internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
+                totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
+                stepLabels={['Mevcut Durum', 'Yeni Tasarım', 'Daire Matrisi']}
+                onInternalStepChange={setRequestedSetupStep}
+              />
+            )}
 
             {/* Tab Views */}
             <div className="flex-1 w-full min-w-0 max-w-full overflow-x-hidden">
@@ -1549,16 +1555,18 @@ export default function App() {
           </Suspense>
         </ErrorBoundary>
         
-        <TabNavigation
-          activeTab={activeTab}
-          tabs={tabsConfig}
-          onNavigate={setActiveTab}
-          theme={theme}
-          internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
-          totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
-          stepLabels={['Mevcut Durum', 'Yeni Tasarım', 'Daire Matrisi']}
-          onInternalStepChange={setRequestedSetupStep}
-        />
+        {tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
+          <TabNavigation
+            activeTab={activeTab}
+            tabs={tabsConfig}
+            onNavigate={setActiveTab}
+            theme={theme}
+            internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
+            totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
+            stepLabels={['Mevcut Durum', 'Yeni Tasarım', 'Daire Matrisi']}
+            onInternalStepChange={setRequestedSetupStep}
+          />
+        )}
       </div>
     </main>
     </div>
