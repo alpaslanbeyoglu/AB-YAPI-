@@ -3948,12 +3948,23 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               <span>← 2. Adıma Dön (Ölçüleri Düzenle)</span>
             </button>
             <div className="flex items-center gap-3">
+              {onNavigateToModel && (
+                <button
+                  type="button"
+                  onClick={onNavigateToModel}
+                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                >
+                  <Building className="w-3.5 h-3.5 text-indigo-300" />
+                  <span>3D Bina Modeli</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={onNavigateToModel || onNext}
+                onClick={onNavigateToOwners || onNext}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
               >
-                <span>2. Adıma Devam Et (3D Yapı & Dış Cephe Tasarımı)</span>
+                <span>Hak Sahipleri ve Maliyet Dağılımına Geç</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

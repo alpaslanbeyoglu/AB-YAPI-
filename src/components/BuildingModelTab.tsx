@@ -2885,7 +2885,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               onClick={onNavigateToSetup}
               className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <span>← 1. Adım: Proje Kurulumu</span>
+              <span>← Proje Kurulumu</span>
             </button>
           )}
           <div className="flex items-center gap-3 ml-auto">
@@ -2893,9 +2893,19 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               <button
                 type="button"
                 onClick={onNavigateToOwners}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5 text-indigo-300" />
+                <span>Hak Sahipleri Tablosu</span>
+              </button>
+            )}
+            {onNavigateToCost && (
+              <button
+                type="button"
+                onClick={onNavigateToCost}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
               >
-                <span>3. Adıma Devam Et (Müşteriler & Malikler)</span>
+                <span>Maliyet & Metraj Analizine Geç</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             )}
