@@ -1502,6 +1502,11 @@ export default function App() {
               theme={theme}
               params={params}
               results={results}
+              historyList={historyList}
+              onSelectProject={(project, targetTab) => {
+                handleLoadProject(project);
+                if (targetTab) setActiveTab(targetTab);
+              }}
               onNavigateToNewWorkOrder={() => {
                 setActiveTab('kurulum');
                 setRequestedSetupStep(1);
