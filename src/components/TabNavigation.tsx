@@ -23,8 +23,8 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
   stepLabels,
   onInternalStepChange,
 }) => {
-  const visibleTabs = tabs.filter(t => t.visible).sort((a, b) => a.order - b.order);
-  const currentIndex = visibleTabs.findIndex(t => t.id === activeTab);
+  const studioTabs = tabs.filter(t => t.visible && t.category === 'project_studio').sort((a, b) => a.order - b.order);
+  const currentIndex = studioTabs.findIndex(t => t.id === activeTab);
   
   if (currentIndex === -1) return null;
 
@@ -37,7 +37,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
     if (isInternal && internalStep > 1) {
       onInternalStepChange(internalStep - 1);
     } else {
-      const prevTab = currentIndex > 0 ? visibleTabs[currentIndex - 1] : null;
+      const prevTab = currentIndex > 0 ? studioTabs[currentIndex - 1] : null;
       if (prevTab) onNavigate(prevTab.id);
     }
   };
@@ -46,13 +46,13 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
     if (isInternal && internalStep < totalInternalSteps) {
       onInternalStepChange(internalStep + 1);
     } else {
-      const nextTab = currentIndex < visibleTabs.length - 1 ? visibleTabs[currentIndex + 1] : null;
+      const nextTab = currentIndex < studioTabs.length - 1 ? studioTabs[currentIndex + 1] : null;
       if (nextTab) onNavigate(nextTab.id);
     }
   };
 
-  const prevTab = currentIndex > 0 ? visibleTabs[currentIndex - 1] : null;
-  const nextTab = currentIndex < visibleTabs.length - 1 ? visibleTabs[currentIndex + 1] : null;
+  const prevTab = currentIndex > 0 ? studioTabs[currentIndex - 1] : null;
+  const nextTab = currentIndex < studioTabs.length - 1 ? studioTabs[currentIndex + 1] : null;
 
   const showPrev = (isInternal && internalStep > 1) || prevTab;
   const showNext = (isInternal && internalStep < totalInternalSteps) || nextTab;
@@ -128,7 +128,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = React.memo(({
           </div>
         ) : (
           <div className="text-sm font-black text-slate-700 font-mono">
-            {currentIndex + 1} / {visibleTabs.length}
+            {currentIndex + 1} / {studioTabs.length}
           </div>
         )}
       </div>
