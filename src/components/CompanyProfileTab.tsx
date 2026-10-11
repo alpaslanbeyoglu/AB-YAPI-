@@ -42,16 +42,26 @@ import {
   Send,
   Smartphone,
   RefreshCw,
-  Settings2
+  Settings2,
+  Newspaper,
+  Layers,
+  ArrowUpRight,
+  ChevronRight,
+  CheckCircle,
+  Clock,
+  DollarSign
 } from 'lucide-react';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
-import { AppTheme, CompanyProfile, CompanyProfilePrintOptions, ProjectParams, CalculationResult } from '../types';
+import { AppTheme, CompanyProfile, CompanyProfilePrintOptions, ProjectParams, CalculationResult, SavedProjectData } from '../types';
+import { TabId } from '../config/tabs';
 import { SocialMediaStudio } from './SocialMediaStudio';
 
 interface CompanyProfileTabProps {
   theme?: AppTheme;
   params?: ProjectParams;
   results?: CalculationResult;
+  historyList?: SavedProjectData[];
+  onSelectProject?: (project: SavedProjectData, targetTab?: TabId) => void;
   onNavigateToNewWorkOrder?: () => void;
   onNavigateToCRM?: () => void;
   onNavigateToCost?: () => void;
@@ -81,6 +91,8 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
   theme = 'light',
   params,
   results,
+  historyList = [],
+  onSelectProject,
   onNavigateToNewWorkOrder,
   onNavigateToCRM,
   onNavigateToCost,
@@ -112,28 +124,6 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
   const [socialLocation, setSocialLocation] = useState(params?.projectAddress || 'Fatih / İSTANBUL');
   const [socialBadge, setSocialBadge] = useState(params?.projectModel === 'contractorShare' ? 'Kat Karşılığı %50 Pay' : 'Kentsel Dönüşüm Teşvikli');
   const [socialDesc, setSocialDesc] = useState(profile.slogan || 'Geleceğe güvenle yükselen, modern ve sismik mukavemeti yüksek yapılar inşa ediyoruz.');
-  
-  // Caption generator states
-  const [targetPlatform, setTargetPlatform] = useState<'instagram' | 'linkedin' | 'facebook_whatsapp'>('instagram');
-  const [generatedCaption, setGeneratedCaption] = useState('');
-  const [isGeneratingCaption, setIsGeneratingCaption] = useState(false);
-  const [additionalCaptionInfo, setAdditionalCaptionInfo] = useState('');
-  const [copySuccess, setCopySuccess] = useState(false);
-
-  const isGeneralTemplate = ['corporate_intro', 'earthquake_safety', 'urban_info', 'expert_advice'].includes(socialTemplate);
-
-  // Sync social states with project parameters when loaded
-  useEffect(() => {
-    if (params) {
-      if (params.projectName) setSocialProjectName(params.projectName);
-      if (params.projectAddress) setSocialLocation(params.projectAddress);
-      if (params.projectModel === 'contractorShare') {
-        setSocialBadge(`Kat Karşılığı %${params.contractorShareRate || 50} Oran`);
-      } else {
-        setSocialBadge('Kentsel Dönüşüm Teşvikli');
-      }
-    }
-  }, [params]);
   
   // Multi-profile state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -168,215 +158,6 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
     updateProfile(formData);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
-  };
-
-  const handleGenerateCaption = async () => {
-    if (isGeneratingCaption) return;
-    setIsGeneratingCaption(true);
-    setGeneratedCaption('');
-    try {
-      const response = await fetch('/api/generate-social-caption', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          projectName: socialProjectName,
-          location: socialLocation,
-          templateType: socialTemplate,
-          platform: targetPlatform,
-          companyName: profile.companyName,
-          slogan: profile.slogan,
-          additionalInfo: additionalCaptionInfo,
-        }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setGeneratedCaption(data.caption);
-      } else {
-        alert('Sosyal medya yazısı üretilemedi. Lütfen tekrar deneyiniz.');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Yapay zeka servisiyle iletişim kurulurken ağ hatası oluştu.');
-    } finally {
-      setIsGeneratingCaption(false);
-    }
-  };
-
-  const handleDownloadSocialCard = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1080;
-    canvas.height = 1080;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Safe Zone Definition
-    const PADDING = 100;
-    const SAFE_WIDTH = 1080 - 2 * PADDING;
-    const SAFE_HEIGHT = 1080 - 2 * PADDING;
-    const SAFE_X = PADDING;
-    const SAFE_Y = PADDING;
-
-    // Draw background (Clean Light Info Card)
-    ctx.fillStyle = '#f8fafc'; // slate-50
-    ctx.fillRect(0, 0, 1080, 1080);
-    
-    // Apply Clipping Mask
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(SAFE_X, SAFE_Y, SAFE_WIDTH, SAFE_HEIGHT, 40);
-    ctx.clip();
-
-    // Decorative Card Border
-    ctx.strokeStyle = '#e2e8f0'; // slate-200
-    ctx.lineWidth = 12;
-    ctx.beginPath();
-    ctx.roundRect(40, 40, 1000, 1000, 40);
-    ctx.stroke();
-    
-    // Top Brand Section
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.roundRect(40, 40, 1000, 200, [40, 40, 0, 0]);
-    ctx.fill();
-
-    // Template Label
-    ctx.fillStyle = '#4f46e5';
-    ctx.beginPath();
-    ctx.roundRect(80, 80, 300, 50, 10);
-    ctx.fill();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    
-    let templateLabel = 'YENİ PROJE DUYURUSU';
-    if (socialTemplate === 'construction_progress') templateLabel = 'ŞANTİYE GÜNCELLEMESİ';
-    if (socialTemplate === 'completed_project') templateLabel = 'PROJE TESLİM REFERANSI';
-    if (socialTemplate === 'urban_transformation') templateLabel = 'KENTSEL DÖNÜŞÜM REHBERİ';
-    if (socialTemplate === 'corporate_intro') templateLabel = 'KURUMSAL TANITIM';
-    if (socialTemplate === 'earthquake_safety') templateLabel = 'DEPREM GÜVENLİĞİ';
-    if (socialTemplate === 'urban_info') templateLabel = 'KENTSEL DÖNÜŞÜM BİLGİ';
-    if (socialTemplate === 'expert_advice') templateLabel = 'MÜHENDİSLİK DANIŞMANLIĞI';
-    
-    ctx.fillText(templateLabel, 230, 105);
-
-    // Title Section
-    ctx.fillStyle = '#0f172a'; // slate-900
-    ctx.font = 'black 60px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
-      const words = text.split(' ');
-      let line = '';
-      let currentY = y;
-      const lines: string[] = [];
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = context.measureText(testLine);
-        const testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
-          lines.push(line);
-          line = words[n] + ' ';
-        } else {
-          line = testLine;
-        }
-      }
-      lines.push(line);
-      lines.forEach((l) => {
-        context.fillText(l.trim(), x, currentY);
-        currentY += lineHeight;
-      });
-      return currentY;
-    };
-    const finalTitleY = wrapText(ctx, socialTitle.toUpperCase(), 80, 280, 920, 75);
-
-    // Info Card Body
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.roundRect(80, finalTitleY + 40, 920, 450, 20);
-    ctx.fill();
-
-    // Card Content: Project Info
-    if (isGeneralTemplate) {
-      ctx.fillStyle = '#1e293b';
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(socialLocation, 120, finalTitleY + 80);
-      
-      ctx.fillStyle = '#059669'; // emerald-600
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(socialBadge, 120, finalTitleY + 160);
-    } else {
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillText('PROJE KONUMU:', 120, finalTitleY + 80);
-      ctx.fillStyle = '#1e293b';
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(socialLocation, 400, finalTitleY + 80);
-      
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillText('DURUM:', 120, finalTitleY + 160);
-      ctx.fillStyle = '#059669'; // emerald-600
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(socialBadge, 400, finalTitleY + 160);
-    }
-
-    ctx.fillStyle = '#334155'; // slate-700
-    ctx.font = '400 32px sans-serif';
-    wrapText(ctx, socialDesc, SAFE_X + 60, finalTitleY + 240, SAFE_WIDTH - 120, 35);
-
-    // Restore context after clipping
-    ctx.restore();
-
-    // Footer lines and logos
-    const footerY = 920;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.fillRect(100, footerY, 880, 2);
-
-    // Brand elements
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 30px sans-serif';
-    ctx.fillText(profile.companyName || 'AB YAPI', 100, footerY + 30);
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '500 22px sans-serif';
-    ctx.fillText(profile.website || 'https://ab-yapi.com.tr/', 100, footerY + 75);
-
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = 'italic 20px sans-serif';
-    ctx.fillText(profile.slogan || 'Güvenli, Modern Gelecek', 500, footerY + 30);
-
-    const triggerDownload = () => {
-      const link = document.createElement('a');
-      link.download = `${socialProjectName.toLowerCase().replace(/\s+/g, '_')}_gonderi.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    };
-
-    if (profile.logoBase64) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        try {
-          const ratio = img.width / img.height;
-          const h = 70;
-          const w = h * ratio;
-          ctx.drawImage(img, 980 - w, footerY + 20, w, h);
-        } catch (e) {
-          console.warn("Logo loading into canvas failed, downloading anyway.", e);
-        }
-        triggerDownload();
-      };
-      img.onerror = () => {
-        triggerDownload();
-      };
-      img.src = profile.logoBase64;
-    } else {
-      triggerDownload();
-    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -457,28 +238,31 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
     }
 
     const templateProfile: CompanyProfile = {
-      ...profile, // Copy printOptions and other static settings
+      ...profile,
       companyName: newCompanyName.trim(),
       legalName: newCompanyLegalName.trim() || `${newCompanyName.trim()} MÜTEAHHİTLİK VE DÖNÜŞÜM HİZMETLERİ LTD. ŞTİ.`,
       authorizedPerson: newAuthorizedPerson.trim() || 'Yeni Yetkili Kişi',
-      website: '', // Sadece AB YAPI profiline özel web adresi, yeni profilde boş başlar
-      logoBase64: '', // Start with blank logo for new firm
-      stampBase64: '', // Start with blank stamp for new firm
+      website: '',
+      logoBase64: '',
+      stampBase64: '',
     };
 
     createNewProfile(templateProfile);
 
-    // Reset fields & close modal
     setNewCompanyName('');
     setNewCompanyLegalName('');
     setNewAuthorizedPerson('');
     setShowCreateModal(false);
   };
 
+  // Separate history items into active sites and proposals
+  const activeConstructions = historyList.filter(p => p.params?.isOfferAccepted);
+  const proposalProjects = historyList.filter(p => !p.params?.isOfferAccepted);
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       {/* ========================================================
-          EXECUTIVE CONTRACTOR HUB — CFO & OPERATIONAL DASHBOARD
+          EXECUTIVE CONTRACTOR HUB — MAIN COMPANY DASHBOARD
          ======================================================== */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 relative overflow-hidden">
         <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -487,17 +271,17 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-widest uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                Müteahhit Ana Yardımcısı
+                Firma Ana Sayfası & Genel Yönetim
               </span>
               <span className="text-xs text-slate-400 font-mono">
                 {profile.companyName || 'AB YAPI'}
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Şirket, Finans & Yönetim Merkezi
+              Şirket Genel Yönetim Merkezi
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Müteahhitlik faaliyetlerinizi, nakit akışını, müşteri cari hesaplarını ve şantiye iş emirlerinizi tek bir profesyonel panelden yönetin.
+              Müteahhitlik projelerinizi, canlı piyasa malzeme fiyatlarını, döviz kurlarını ve aktif şantiyelerinizi tek merkezden takip edin.
             </p>
           </div>
 
@@ -509,7 +293,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                 className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-black text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Yeni İş Emri / Hesapla</span>
+                <span>Yeni Proje Oluştur</span>
               </button>
             )}
             {onNavigateToCRM && (
@@ -529,10 +313,10 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
-              Aktif İş Emri
+              Aktif Çalışılan Proje
             </span>
             <span className="text-sm sm:text-base font-black text-white line-clamp-1">
-              {params?.projectAddress || 'Varsayılan Şantiye'}
+              {params?.projectName || params?.projectAddress || 'Varsayılan Şantiye'}
             </span>
             <span className="text-[10px] text-indigo-300 font-medium block mt-1">
               {params?.projectModel === 'contractorShare' ? 'Kat Karşılığı' :
@@ -542,25 +326,25 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
-              Toplam Proje Bütçesi
+              Faal Şantiye Sayısı
             </span>
             <span className="text-sm sm:text-base font-black text-emerald-400">
-              {results?.grandTotal ? `${Math.round(results.grandTotal).toLocaleString('tr-TR')} ₺` : '0 ₺'}
+              {activeConstructions.length} Şantiye
             </span>
             <span className="text-[10px] text-slate-400 block mt-1">
-              {results?.totalArea ? `${Math.round(results.totalArea)} m² Toplam İnşaat` : '-'}
+              {proposalProjects.length} Teklif Aşamasında
             </span>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
-              Müteahhit Hedef Kârı
+              Aktif Proje Bütçesi
             </span>
             <span className="text-sm sm:text-base font-black text-amber-300">
-              {results?.profitAmount ? `${Math.round(results.profitAmount).toLocaleString('tr-TR')} ₺` : '0 ₺'}
+              {results?.grandTotal ? `${Math.round(results.grandTotal).toLocaleString('tr-TR')} ₺` : '0 ₺'}
             </span>
             <span className="text-[10px] text-slate-400 block mt-1">
-              %{params?.profitRate || 15} Hakediş Payı
+              {results?.totalArea ? `${Math.round(results.totalArea)} m² İnşaat` : '-'}
             </span>
           </div>
 
@@ -572,14 +356,224 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
               {results?.finalMonths || params?.manualMonths || 12} Ay
             </span>
             <span className="text-[10px] text-emerald-400 font-bold block mt-1">
-              ✓ Planlanan Takvim
+              ✓ Çalışma Alanında Açık
             </span>
           </div>
         </div>
       </div>
 
-      {/* Sub-Tab Selector */}
-      <div className="flex border-b border-slate-200">
+      {/* ========================================================
+          1. CANLI PİYASA & FİNANSAL GÖSTERGELER WIDGETI
+         ======================================================== */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+            <Coins className="w-4 h-4 text-emerald-600" />
+            <span>Canlı Piyasa & İnşaat Malzeme Finansal Özeti</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Canlı Piyasa Fiyatları
+            </span>
+          </h2>
+          <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+            Güncelleme: Bugün {new Date().toLocaleDateString('tr-TR')}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">İnşaat Demiri (Q8-Q32)</span>
+            <div className="text-sm sm:text-base font-black text-slate-900 font-mono">28.850 ₺</div>
+            <span className="text-[10px] font-bold text-emerald-600 block">Ton / Fabrika Çıkış (%+0.8)</span>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Hazır Beton (C35/45)</span>
+            <div className="text-sm sm:text-base font-black text-slate-900 font-mono">2.850 ₺</div>
+            <span className="text-[10px] font-bold text-emerald-600 block">m³ / Pompalı Dahil</span>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Çimento (50 kg Torba)</span>
+            <div className="text-sm sm:text-base font-black text-slate-900 font-mono">195 ₺</div>
+            <span className="text-[10px] font-bold text-slate-500 block">CEM II 42.5 N Torba</span>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Dolar (USD / TRY)</span>
+            <div className="text-sm sm:text-base font-black text-indigo-700 font-mono">36,45 ₺</div>
+            <span className="text-[10px] font-bold text-indigo-600 block">TCMB Serbest Piyasa</span>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Euro (EUR / TRY)</span>
+            <div className="text-sm sm:text-base font-black text-indigo-700 font-mono">38,20 ₺</div>
+            <span className="text-[10px] font-bold text-indigo-600 block">TCMB Serbest Piyasa</span>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Gram Altın (TL)</span>
+            <div className="text-sm sm:text-base font-black text-amber-700 font-mono">3.140 ₺</div>
+            <span className="text-[10px] font-bold text-amber-600 block">Kapalıçarşı Serbest</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================
+          2. AKTİF ŞANTİYELER VE TEKLİFLER LİSTESİ (SEÇİLDİĞİNDE ALT SAYFALAR GELİR)
+         ======================================================== */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div>
+            <h2 className="text-base font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+              <HardHat className="w-5 h-5 text-indigo-600" />
+              <span>Firmanın Şantiyeleri ve Teklif Yapılmış Projeleri</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              İncelemek veya düzenlemek istediğiniz projenin üzerine tıklayarak o projeye ait 9 adımlı stüdyoya geçiş yapabilirsiniz.
+            </p>
+          </div>
+          {onNavigateToNewWorkOrder && (
+            <button
+              onClick={onNavigateToNewWorkOrder}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Yeni Proje Ekle
+            </button>
+          )}
+        </div>
+
+        {/* Projects Display Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {historyList.length > 0 ? (
+            historyList.map((proj, idx) => {
+              const isCurrentActive = params?.projectAddress === proj.projectAddress;
+              const isAccepted = proj.params?.isOfferAccepted;
+              return (
+                <div
+                  key={idx}
+                  onClick={() => onSelectProject && onSelectProject(proj, 'kurulum')}
+                  className={`bg-white border rounded-2xl p-4 transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 group relative overflow-hidden ${
+                    isCurrentActive
+                      ? 'border-indigo-600 ring-2 ring-indigo-500/20 shadow-md bg-indigo-50/10'
+                      : 'border-slate-200 hover:border-indigo-300 hover:shadow-md'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                        isAccepted
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
+                        {isAccepted ? '🟢 Faal Şantiye' : '🟡 Teklif / Fizibilite'}
+                      </span>
+                      {isCurrentActive && (
+                        <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
+                          Çalışılan Proje
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="font-extrabold text-sm text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                      {proj.params?.projectName || proj.projectAddress || 'İsimsiz Proje'}
+                    </h3>
+                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-1 line-clamp-1">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      {proj.projectAddress}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-600 font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Bağımsız Bölüm:</span>
+                      <span className="font-bold text-slate-800">{proj.results?.flatCount || proj.params?.flatCount || 0} Adet</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">İnşaat Alanı:</span>
+                      <span className="font-bold text-slate-800">{proj.results?.totalArea ? `${Math.round(proj.results.totalArea)} m²` : '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Proje Bedeli:</span>
+                      <span className="font-black text-indigo-600">{proj.results?.grandTotal ? `${Math.round(proj.results.grandTotal).toLocaleString('tr-TR')} ₺` : '-'}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-between text-xs font-bold text-indigo-600 group-hover:translate-x-0.5 transition-transform">
+                    <span>Proje Stüdyosunu Aç</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-full p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-center space-y-2">
+              <Building className="w-8 h-8 text-slate-400 mx-auto" />
+              <p className="text-xs font-bold text-slate-700">Henüz kayıtlı proje bulunmuyor.</p>
+              <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                Proje Kurulumu sekmesinden yeni bir kentsel dönüşüm veya inşaat hesabı başlatabilir ya da yukarıdaki "Yeni Proje Ekle" butonunu kullanabilirsiniz.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ========================================================
+          3. İNŞAAT VE GAYRİMENKUL SEKTÖRÜ GÜNCEL HABERLERİ
+         ======================================================== */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <h2 className="text-base font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+            <Newspaper className="w-5 h-5 text-indigo-600" />
+            <span>İnşaat & Gayrimenkul Sektöründen Güncel Haberler</span>
+          </h2>
+          <span className="text-xs text-slate-400 font-medium">Bakanlık & Mevzuat Haberleri</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-2xs">
+            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+              Kentsel Dönüşüm Teşviki
+            </span>
+            <h3 className="font-bold text-xs text-slate-900 leading-snug">
+              6306 Sayılı Kanun Kapsamında Hibe Desteği Artırıldı
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Çevre, Şehirlilik ve İklim Değişikliği Bakanlığı kentsel dönüşüm hibe ve kredi destek üst limitlerini güncelledi.
+            </p>
+            <div className="pt-2 text-[10px] text-slate-400 font-medium">Resmî Gazete Yayımlandı</div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-2xs">
+            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800">
+              İmar Yönetmeliği
+            </span>
+            <h3 className="font-bold text-xs text-slate-900 leading-snug">
+              Otopark Yönetmeliğinde Parsel İçi Çözümler Kolaylaştırıldı
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Dar parsellerde mekanik otopark sistemleri ve zemin altı otopark çözümlerinde ruhsat onay süreçleri hızlandırıldı.
+            </p>
+            <div className="pt-2 text-[10px] text-slate-400 font-medium">Belediye Mevzuatı</div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-2xs">
+            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800">
+              Yapı Denetim
+            </span>
+            <h3 className="font-bold text-xs text-slate-900 leading-snug">
+              2026 Yapı Yaklaşık Birim Maliyetleri Yayınlandı
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Mimarlık ve Mühendislik Hizmet Bedellerinde esas alınacak 2026 yılı yapı yaklaşık birim maliyetleri tebliği Resmi Gazete'de.
+            </p>
+            <div className="pt-2 text-[10px] text-slate-400 font-medium">Bakanlık Tebliği</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sub-Tab Selector for Profile Settings vs Social Media Studio */}
+      <div className="flex border-b border-slate-200 pt-6">
         <button
           onClick={() => setActiveSubTab('official')}
           className={`pb-3.5 px-6 font-extrabold text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
@@ -589,7 +583,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
           }`}
         >
           <Building className="w-4 h-4" />
-          <span>Kurumsal & Resmî Kimlik</span>
+          <span>Kurumsal & Resmî Kimlik Ayarları</span>
         </button>
         <button
           onClick={() => setActiveSubTab('social')}
@@ -601,7 +595,6 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
         >
           <Share2 className="w-4 h-4 text-pink-600" />
           <span>Sosyal Medya & Paylaşım Stüdyosu</span>
-          <span className="px-2 py-0.5 rounded-full text-[9px] bg-indigo-100 text-indigo-700 font-extrabold uppercase animate-pulse">Yeni</span>
         </button>
       </div>
 
