@@ -58,6 +58,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
+import { sanitizeCustomerMessageText } from '../utils/textSanitizer';
 import { getAcOptionById } from '../utils/acOptions';
 import { generateOfferHtml } from '../utils/offerReportExport';
 import { getCompletedProjectsText } from '../utils/completedProjectsData';
@@ -138,7 +139,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     const netDebtStr = (results.flatResults?.[0]?.netRemainingDebt || 0).toLocaleString('tr-TR');
     const monthlyStr = (results.flatResults?.[0]?.monthlyInstallment || Math.round((results.grandTotal || 0) / (results.flatCount || 1) / (params.installmentCount || 12))).toLocaleString('tr-TR');
 
-    return `🏢 *${compName.toUpperCase()} - KURUMSAL İNŞAAT & KENTSEL DÖNÜŞÜM TEKLİFİ*
+    const msg = `🏢 *${compName.toUpperCase()} - KURUMSAL İNŞAAT & KENTSEL DÖNÜŞÜM TEKLİFİ*
 📍 *Proje Adresi:* ${params.projectAddress || 'Belirtilmedi'}
 📄 *Teklif Kodu:* ${proposalNumber} | *Tarih:* ${proposalDate}
 
@@ -166,16 +167,21 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
 👤 ${compAuth} (${compAuthTitle})
 📱 Tel: ${compPhone}
 📧 E-posta: ${compEmail}${compWeb ? `\n🌐 ${compWeb}` : ''}`;
+
+    return sanitizeCustomerMessageText(msg);
   };
 
   const handleCopyWhatsApp = () => {
-    navigator.clipboard.writeText(generateWhatsAppMessageText());
+    const sanitizedMsg = sanitizeCustomerMessageText(generateWhatsAppMessageText());
+    navigator.clipboard.writeText(sanitizedMsg);
     setWhatsAppCopied(true);
     setTimeout(() => setWhatsAppCopied(false), 3000);
   };
 
   const handleOpenWhatsAppDirect = () => {
-    const msg = encodeURIComponent(generateWhatsAppMessageText());
+    const rawMsg = generateWhatsAppMessageText();
+    const sanitizedMsg = sanitizeCustomerMessageText(rawMsg);
+    const msg = encodeURIComponent(sanitizedMsg);
     const cleanPhone = whatsAppRecipientPhone.replace(/[^0-9]/g, '');
     const url = cleanPhone ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}` : `https://api.whatsapp.com/send?text=${msg}`;
     window.open(url, '_blank');

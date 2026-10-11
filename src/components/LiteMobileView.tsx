@@ -43,6 +43,7 @@ import {
 } from '../types';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { Logo } from './Logo';
+import { sanitizeCustomerMessageText } from '../utils/textSanitizer';
 import { CompactSummaryBar } from './CompactSummaryBar';
 
 interface LiteMobileViewProps {
@@ -221,7 +222,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
 
     const activeStage = stages.find(s => s.status === 'in_progress') || stages[0];
 
-    return `🏗️ *${compName.toUpperCase()} - ŞANTİYE İLERLEME RAPORU*\n` +
+    const msg = `🏗️ *${compName.toUpperCase()} - ŞANTİYE İLERLEME RAPORU*\n` +
       `📍 *Proje:* ${projName}\n` +
       `📅 *Tarih:* ${todayStr}\n\n` +
       `Sayın Kat Maliklerimiz,\n` +
@@ -232,6 +233,8 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
       `Şantiyemizdeki tüm imalatlar deprem yönetmeliği ve yapı denetim standartlarına tam uyumlu olarak sürdürülmektedir.\n\n` +
       `*${compName} Şantiye Yönetimi*\n` +
       `📞 ${profile.phone || '+90 (212) 585 10 20'}`;
+
+    return sanitizeCustomerMessageText(msg);
   };
 
   const handleSendWhatsApp = () => {

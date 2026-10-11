@@ -52,56 +52,52 @@ import {
   DollarSign
 } from 'lucide-react';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
-import { AppTheme, CompanyProfile, CompanyProfilePrintOptions, ProjectParams, CalculationResult, SavedProjectData } from '../types';
-import { TabId } from '../config/tabs';
-import { SocialMediaStudio } from './SocialMediaStudio';
+import { CompanyProfile, CompanyProfilePrintOptions } from '../types';
 
-interface CompanyProfileTabProps {
-  theme?: AppTheme;
-  params?: ProjectParams;
-  results?: CalculationResult;
-  historyList?: SavedProjectData[];
-  onSelectProject?: (project: SavedProjectData, targetTab?: TabId) => void;
+export interface CompanyProfileTabProps {
+  theme?: string;
+  historyList?: any[];
   onNavigateToNewWorkOrder?: () => void;
   onNavigateToCRM?: () => void;
   onNavigateToCost?: () => void;
   onNavigateToPortfolio?: () => void;
+  onSelectProject?: (projectId: any, targetTab?: string) => void;
+  params?: any;
+  results?: any;
 }
 
 const AUTHORIZED_TITLE_PRESETS = [
-  'Genel Müdür / Firma Yetkilisi',
   'Yönetim Kurulu Başkanı',
-  'Şirket Müdürü',
-  'Kurumsal Proje Müdürü',
-  'Şirket Temsilcisi',
-  'Teknik Müdür',
-  'Şirket Yetkilisi & Temsilcisi',
+  'Şirket Müdürü / Genel Müdür',
+  'İnşaat Mühendisi',
+  'Proje Müdürü',
+  'Mimar',
+  'Teknik Müdür'
 ];
 
 const SECOND_TITLE_PRESETS = [
-  'Proje Koordinatörü',
-  'Operasyon Sorumlusu',
-  'Teknik Müdür',
-  'Keşif & Planlama Uzmanı',
-  'Müdür Yardımcısı',
-  'Saha Denetim Sorumlusu',
+  'Şantiye Şefi',
+  'Proje Müdürü',
+  'İş Geliştirme Sorumlusu',
+  'Finans Müdürü',
+  'Kalite Güvence Sorumlusu',
+  'Sözleşmeler Yöneticisi'
 ];
 
 export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ 
-  theme = 'light',
-  params,
-  results,
-  historyList = [],
-  onSelectProject,
+  historyList,
   onNavigateToNewWorkOrder,
   onNavigateToCRM,
-  onNavigateToCost,
-  onNavigateToPortfolio
+  onSelectProject,
+  params,
+  results,
 }) => {
   const {
     profile,
     profiles,
     updateProfile,
+    updatePrintOptions,
+    togglePrintOption,
     setLogo,
     removeLogo,
     setStamp,
@@ -110,20 +106,11 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
     importProfile,
     switchProfile,
     createNewProfile,
-    deleteProfile
+    deleteProfile,
   } = useCompanyProfile();
   
   const [formData, setFormData] = useState<CompanyProfile>(profile);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<'official' | 'social'>('official');
-
-  // Social tab state
-  const [socialTemplate, setSocialTemplate] = useState<string>('new_project');
-  const [socialTitle, setSocialTitle] = useState('DEPREME DAYANIKLI YENİ YAŞAM BAŞLIYOR!');
-  const [socialProjectName, setSocialProjectName] = useState(params?.projectName || 'Kocamustafapaşa Modern Sitesi');
-  const [socialLocation, setSocialLocation] = useState(params?.projectAddress || 'Fatih / İSTANBUL');
-  const [socialBadge, setSocialBadge] = useState(params?.projectModel === 'contractorShare' ? 'Kat Karşılığı %50 Pay' : 'Kentsel Dönüşüm Teşvikli');
-  const [socialDesc, setSocialDesc] = useState(profile.slogan || 'Geleceğe güvenle yükselen, modern ve sismik mukavemeti yüksek yapılar inşa ediyoruz.');
   
   // Multi-profile state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -362,61 +349,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
         </div>
       </div>
 
-      {/* ========================================================
-          1. CANLI PİYASA & FİNANSAL GÖSTERGELER WIDGETI
-         ======================================================== */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
-            <Coins className="w-4 h-4 text-emerald-600" />
-            <span>Canlı Piyasa & İnşaat Malzeme Finansal Özeti</span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Canlı Piyasa Fiyatları
-            </span>
-          </h2>
-          <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-            Güncelleme: Bugün {new Date().toLocaleDateString('tr-TR')}
-          </span>
-        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">İnşaat Demiri (Q8-Q32)</span>
-            <div className="text-sm sm:text-base font-black text-slate-900 font-mono">28.850 ₺</div>
-            <span className="text-[10px] font-bold text-emerald-600 block">Ton / Fabrika Çıkış (%+0.8)</span>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Hazır Beton (C35/45)</span>
-            <div className="text-sm sm:text-base font-black text-slate-900 font-mono">2.850 ₺</div>
-            <span className="text-[10px] font-bold text-emerald-600 block">m³ / Pompalı Dahil</span>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Çimento (50 kg Torba)</span>
-            <div className="text-sm sm:text-base font-black text-slate-900 font-mono">195 ₺</div>
-            <span className="text-[10px] font-bold text-slate-500 block">CEM II 42.5 N Torba</span>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Dolar (USD / TRY)</span>
-            <div className="text-sm sm:text-base font-black text-indigo-700 font-mono">36,45 ₺</div>
-            <span className="text-[10px] font-bold text-indigo-600 block">TCMB Serbest Piyasa</span>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Euro (EUR / TRY)</span>
-            <div className="text-sm sm:text-base font-black text-indigo-700 font-mono">38,20 ₺</div>
-            <span className="text-[10px] font-bold text-indigo-600 block">TCMB Serbest Piyasa</span>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-2xs space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Gram Altın (TL)</span>
-            <div className="text-sm sm:text-base font-black text-amber-700 font-mono">3.140 ₺</div>
-            <span className="text-[10px] font-bold text-amber-600 block">Kapalıçarşı Serbest</span>
-          </div>
-        </div>
-      </div>
 
       {/* ========================================================
           2. AKTİF ŞANTİYELER VE TEKLİFLER LİSTESİ (SEÇİLDİĞİNDE ALT SAYFALAR GELİR)
@@ -518,88 +451,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
         </div>
       </div>
 
-      {/* ========================================================
-          3. İNŞAAT VE GAYRİMENKUL SEKTÖRÜ GÜNCEL HABERLERİ
-         ======================================================== */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h2 className="text-base font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
-            <Newspaper className="w-5 h-5 text-indigo-600" />
-            <span>İnşaat & Gayrimenkul Sektöründen Güncel Haberler</span>
-          </h2>
-          <span className="text-xs text-slate-400 font-medium">Bakanlık & Mevzuat Haberleri</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-2xs">
-            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
-              Kentsel Dönüşüm Teşviki
-            </span>
-            <h3 className="font-bold text-xs text-slate-900 leading-snug">
-              6306 Sayılı Kanun Kapsamında Hibe Desteği Artırıldı
-            </h3>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Çevre, Şehirlilik ve İklim Değişikliği Bakanlığı kentsel dönüşüm hibe ve kredi destek üst limitlerini güncelledi.
-            </p>
-            <div className="pt-2 text-[10px] text-slate-400 font-medium">Resmî Gazete Yayımlandı</div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-2xs">
-            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800">
-              İmar Yönetmeliği
-            </span>
-            <h3 className="font-bold text-xs text-slate-900 leading-snug">
-              Otopark Yönetmeliğinde Parsel İçi Çözümler Kolaylaştırıldı
-            </h3>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Dar parsellerde mekanik otopark sistemleri ve zemin altı otopark çözümlerinde ruhsat onay süreçleri hızlandırıldı.
-            </p>
-            <div className="pt-2 text-[10px] text-slate-400 font-medium">Belediye Mevzuatı</div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-2xs">
-            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800">
-              Yapı Denetim
-            </span>
-            <h3 className="font-bold text-xs text-slate-900 leading-snug">
-              2026 Yapı Yaklaşık Birim Maliyetleri Yayınlandı
-            </h3>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Mimarlık ve Mühendislik Hizmet Bedellerinde esas alınacak 2026 yılı yapı yaklaşık birim maliyetleri tebliği Resmi Gazete'de.
-            </p>
-            <div className="pt-2 text-[10px] text-slate-400 font-medium">Bakanlık Tebliği</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Sub-Tab Selector for Profile Settings vs Social Media Studio */}
-      <div className="flex border-b border-slate-200 pt-6">
-        <button
-          onClick={() => setActiveSubTab('official')}
-          className={`pb-3.5 px-6 font-extrabold text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-            activeSubTab === 'official'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Building className="w-4 h-4" />
-          <span>Kurumsal & Resmî Kimlik Ayarları</span>
-        </button>
-        <button
-          onClick={() => setActiveSubTab('social')}
-          className={`pb-3.5 px-6 font-extrabold text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-            activeSubTab === 'social'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Share2 className="w-4 h-4 text-pink-600" />
-          <span>Sosyal Medya & Paylaşım Stüdyosu</span>
-        </button>
-      </div>
-
-      {activeSubTab === 'official' ? (
-        <div className="space-y-8">
+      <div className="pt-4 border-t border-slate-200">
           {/* HEADER & ACTIONS */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div className="flex items-center gap-3">
@@ -1516,24 +1368,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
           </div>
         </div>
       </div>
-    </div>
-      ) : (
-        <>
-          <input
-            type="file"
-            ref={logoInputRef}
-            onChange={handleLogoUpload}
-            accept="image/*"
-            className="hidden"
-          />
-          <SocialMediaStudio
-            profile={profile}
-            params={params}
-            results={results}
-            onUploadLogoClick={() => logoInputRef.current?.click()}
-          />
-        </>
-      )}
+      </div>
     </div>
   );
 };

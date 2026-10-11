@@ -218,6 +218,13 @@ export default function App() {
     }, 120);
   };
 
+  const activateProjectTabs = () => {
+    setTabsConfig(prev => prev.map(t => {
+      if (t.category === 'project_studio') return { ...t, visible: true };
+      return t;
+    }));
+  };
+
   // App mode: 'full' (standart tam sürüm) or 'lite' (kullanıcı isterse geçebileceği hafif sürüm)
   // Kullanıcı isteği doğrultusunda sayfa ilk yüklemede daima 'full' (tam) sürüm olarak açılır.
   const [appMode, setAppMode] = useState<'full' | 'lite'>('full');
@@ -990,6 +997,7 @@ export default function App() {
       if (savedData.buildingModelParams) {
         setBuildingModelParams(savedData.buildingModelParams);
       }
+      activateProjectTabs();
       showNotification('success', `"${savedData.projectAddress}" projesi başarıyla yüklendi.`);
       setActiveTab('kurulum');
     }
@@ -1001,6 +1009,7 @@ export default function App() {
       if (savedData.buildingModelParams) {
         setBuildingModelParams(savedData.buildingModelParams);
       }
+      activateProjectTabs();
       showNotification('success', `"${savedData.projectAddress}" şantiyesine başarıyla geçildi.`);
       setActiveTab('surec');
     }
@@ -1019,6 +1028,7 @@ export default function App() {
     if (newProj.buildingModelParams) {
       setBuildingModelParams(newProj.buildingModelParams);
     }
+    activateProjectTabs();
     showNotification('success', `Yeni şantiye "${newProj.projectAddress}" başarıyla oluşturuldu ve yüklendi.`);
     setActiveTab('surec');
   };
@@ -1057,7 +1067,7 @@ export default function App() {
   // Group tabs by category
   const categorizedTabs = TAB_CATEGORIES.map(cat => ({
     ...cat,
-    tabs: tabsConfig.filter(t => t.category === cat.id && t.visible).sort((a, b) => a.order - b.order)
+    tabs: tabsConfig.filter(t => t.category === cat.id && t.visible && (activeTab !== 'profile' || t.category !== 'project_studio')).sort((a, b) => a.order - b.order)
   }));
 
   // If mobile Lite mode is active, render the dedicated LiteMobileView
@@ -1511,7 +1521,7 @@ export default function App() {
               historyList={historyList}
               onSelectProject={(project, targetTab) => {
                 handleLoadProject(project);
-                if (targetTab) setActiveTab(targetTab);
+                if (targetTab) setActiveTab(targetTab as TabId);
               }}
               onNavigateToNewWorkOrder={() => {
                 setActiveTab('kurulum');

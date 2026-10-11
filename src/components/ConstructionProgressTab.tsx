@@ -53,6 +53,7 @@ import {
   CheckCircle,
   Building,
 } from 'lucide-react';
+import { sanitizeCustomerMessageText, countTypoOccurrences } from '../utils/textSanitizer';
 import {
   ProjectParams,
   CalculationResult,
@@ -409,7 +410,18 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   const [stages, setStages] = useState<ConstructionStage[]>(() => {
     try {
       const saved = localStorage.getItem(safeProjectKey + '_stages');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: ConstructionStage[] = JSON.parse(saved);
+        return parsed.map(s => ({
+          ...s,
+          name: sanitizeCustomerMessageText(s.name),
+          notes: s.notes ? sanitizeCustomerMessageText(s.notes) : s.notes,
+          subTasks: s.subTasks?.map(st => ({
+            ...st,
+            title: sanitizeCustomerMessageText(st.title),
+          })),
+        }));
+      }
     } catch (e) {}
 
     // Initialize clean 0% stages with distributed dates across total duration
@@ -531,7 +543,16 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       try {
         const savedStages = localStorage.getItem(safeProjectKey + '_stages');
         if (savedStages) {
-          setStages(JSON.parse(savedStages));
+          const parsed: ConstructionStage[] = JSON.parse(savedStages);
+          setStages(parsed.map(s => ({
+            ...s,
+            name: sanitizeCustomerMessageText(s.name),
+            notes: s.notes ? sanitizeCustomerMessageText(s.notes) : s.notes,
+            subTasks: s.subTasks?.map(st => ({
+              ...st,
+              title: sanitizeCustomerMessageText(st.title),
+            })),
+          })));
         } else {
           // Initialize clean 0% stages for this new project
           const startDate = new Date();
@@ -556,7 +577,18 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
         }
 
         const savedLogs = localStorage.getItem(safeProjectKey + '_logs');
-        setLogs(savedLogs ? JSON.parse(savedLogs) : []);
+        if (savedLogs) {
+          const parsed: ConstructionProgressLog[] = JSON.parse(savedLogs);
+          setLogs(parsed.map(l => ({
+            ...l,
+            periodLabel: sanitizeCustomerMessageText(l.periodLabel),
+            title: sanitizeCustomerMessageText(l.title),
+            completedWork: sanitizeCustomerMessageText(l.completedWork),
+            plannedNextWork: sanitizeCustomerMessageText(l.plannedNextWork),
+          })));
+        } else {
+          setLogs([]);
+        }
 
         const savedSubs = localStorage.getItem(safeProjectKey + '_subcontractors');
         setSubcontractors(savedSubs ? JSON.parse(savedSubs) : DEFAULT_SUBCONTRACTORS.map(sub => ({
@@ -836,11 +868,11 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       id: 'log_' + Date.now(),
       date: new Date().toISOString().slice(0, 10),
       periodType: newLogPeriodType,
-      periodLabel: newLogPeriodLabel.trim() || `${newLogPeriodType === 'weekly' ? 'Haftalık' : 'Aylık'} Rapor`,
-      title: newLogTitle.trim(),
+      periodLabel: sanitizeCustomerMessageText(newLogPeriodLabel.trim() || `${newLogPeriodType === 'weekly' ? 'Haftalık' : 'Aylık'} Rapor`),
+      title: sanitizeCustomerMessageText(newLogTitle.trim()),
       overallProgress: overallProgress,
-      completedWork: newLogCompleted.trim(),
-      plannedNextWork: newLogPlanned.trim(),
+      completedWork: sanitizeCustomerMessageText(newLogCompleted.trim()),
+      plannedNextWork: sanitizeCustomerMessageText(newLogPlanned.trim()),
       workDaysCount: Number(newLogWorkDays) || 6,
       weatherStatus: newLogWeather.trim(),
       isSharedWithClients: true,
@@ -1257,7 +1289,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     let effectiveProgress = overallProgress;
 
     if (periodMode === 'active_stage_live') {
-      periodLabel = `Mevcut Faz Durumu: ${currentActiveStage?.name || 'Kaba Yapı'}`;
+      periodLabel = sanitizeCustomerMessageText(`Mevcut Faz Durumu: ${currentActiveStage?.name || 'Kaba Yapı'}`);
       periodIcon = '🏗️';
       effectiveProgress = overallProgress;
       const completedSub = currentActiveStage?.subTasks?.filter(t => t.completed).map(t => `• ${t.title}`).join('\n');
@@ -1265,14 +1297,14 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       completedText = completedSub ? `Tamamlanan İmalat Adımları:\n${completedSub}` : (currentActiveStage?.notes || 'İmalatlar devam etmektedir.');
       plannedText = pendingSub ? `Aynı Aşamada Devam Eden / Sıradaki İşler:\n${pendingSub}` : 'Aşama tamamlanmak üzeredir, sonraki faza geçilecektir.';
     } else if (periodMode === 'milestone_stage') {
-      periodLabel = `Aşama Tamamlandı: ${selectedStage?.name || 'İnşaat Fazı'}`;
+      periodLabel = sanitizeCustomerMessageText(`Aşama Tamamlandı: ${selectedStage?.name || 'İnşaat Fazı'}`);
       periodIcon = '🎉';
       effectiveProgress = overallProgress;
       const allSub = selectedStage?.subTasks?.map(t => `• ${t.title} (Tamamlandı)`).join('\n');
       completedText = `"${selectedStage?.name}" etabı şantiyemizde Yapı Denetim ve Şantiye Şefliğimiz kontrolünde eksiksiz tamamlanmıştır.\n${allSub || selectedStage?.notes || ''}`;
       plannedText = 'Bir sonraki imalat etabına derhal başlanmış olup şantiye takvimine uygun şekilde hızla ilerlenmektedir.';
     } else if (periodMode === 'stage_payment_call') {
-      periodLabel = `Hakediş & Ödeme Bilgilendirmesi (${selectedStage?.name || 'Aşama Ödemesi'})`;
+      periodLabel = sanitizeCustomerMessageText(`Hakediş & Ödeme Bilgilendirmesi (${selectedStage?.name || 'Aşama Ödemesi'})`);
       periodIcon = '💳';
       effectiveProgress = overallProgress;
       completedText = `Sözleşmemizin hakediş protokolü uyarınca "${selectedStage?.name}" imalatları başarıyla tamamlanmış olup ilgili aşama hakediş taksiti muaccel hale gelmiştir.\nKat maliklerimizin sözleşmede kararlaştırılan hakediş bedellerini şirket hesabına intikal ettirmesi rica olunur.`;
@@ -1301,15 +1333,19 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       plannedText = selectedLog?.plannedNextWork || 'Sonraki ay tesisat altyapı ve duvar örüm imalatlarına geçilecektir.';
       effectiveProgress = overallProgress;
     } else if (periodMode === 'specific_log') {
-      periodLabel = selectedLog?.periodLabel || 'Şantiye Bülteni';
+      periodLabel = sanitizeCustomerMessageText(selectedLog?.periodLabel || 'Şantiye Bülteni');
       periodIcon = '📝';
       completedText = selectedLog?.completedWork || '';
       plannedText = selectedLog?.plannedNextWork || '';
       effectiveProgress = selectedLog?.overallProgress || overallProgress;
     } else if (periodMode === 'custom_period') {
-      periodLabel = customPeriodTitle || 'Şantiye Özel Duyurusu';
+      periodLabel = sanitizeCustomerMessageText(customPeriodTitle || 'Şantiye Özel Duyurusu');
       periodIcon = '📢';
     }
+
+    // Sanitize any potential typos (e.g. 'imaalat' -> 'imalat') in completed & planned texts
+    completedText = sanitizeCustomerMessageText(completedText);
+    plannedText = sanitizeCustomerMessageText(plannedText);
 
     // Recipient Greeting
     let greeting = 'Sayın Kat Maliklerimiz,';
@@ -1369,7 +1405,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
         if (profile.website) msg += `🌐 ${profile.website}\n`;
       }
 
-      return msg.trim();
+      return sanitizeCustomerMessageText(msg.trim());
     }
 
     // 2. SMS FORMAT (Concise, character-optimized)
@@ -1395,7 +1431,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       if (includeContact && profile.phone) {
         sms += `Bilgi: ${profile.phone}`;
       }
-      return sms.trim();
+      return sanitizeCustomerMessageText(sms.trim());
     }
 
     // 3. EMAIL FORMAT (Formal corporate letter)
@@ -1439,7 +1475,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
         em += `Web: ${webUrl}\n`;
       }
 
-      return em.trim();
+      return sanitizeCustomerMessageText(em.trim());
     }
 
     return '';
@@ -1499,50 +1535,70 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
 
   // Copy to clipboard
   const handleCopyMessage = () => {
-    navigator.clipboard.writeText(messageBody);
+    const cleanText = sanitizeCustomerMessageText(messageBody);
+    if (cleanText !== messageBody) {
+      setMessageBody(cleanText);
+    }
+    navigator.clipboard.writeText(cleanText);
     setCopySuccess(true);
-    recordNotificationSent(messageChannel, messageBody);
+    recordNotificationSent(messageChannel, cleanText);
     setTimeout(() => setCopySuccess(false), 2500);
   };
 
   // Open WhatsApp
   const handleSendWhatsApp = () => {
-    const text = encodeURIComponent(messageBody);
+    const cleanText = sanitizeCustomerMessageText(messageBody);
+    if (cleanText !== messageBody) {
+      setMessageBody(cleanText);
+    }
+    const text = encodeURIComponent(cleanText);
     const cleanPhone = recipientPhone ? recipientPhone.replace(/[^0-9]/g, '') : '';
     const url = cleanPhone
       ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${text}`
       : `https://api.whatsapp.com/send?text=${text}`;
     window.open(url, '_blank');
-    recordNotificationSent('whatsapp', messageBody);
+    recordNotificationSent('whatsapp', cleanText);
   };
 
   // Send SMS
   const handleSendSMS = () => {
-    const text = encodeURIComponent(messageBody);
+    const cleanText = sanitizeCustomerMessageText(messageBody);
+    if (cleanText !== messageBody) {
+      setMessageBody(cleanText);
+    }
+    const text = encodeURIComponent(cleanText);
     const cleanPhone = recipientPhone ? recipientPhone.replace(/[^0-9]/g, '') : '';
     const url = cleanPhone ? `sms:${cleanPhone}?body=${text}` : `sms:?body=${text}`;
     window.location.href = url;
-    recordNotificationSent('sms', messageBody);
+    recordNotificationSent('sms', cleanText);
   };
 
   // Send Email
   const handleSendEmail = () => {
+    const cleanText = sanitizeCustomerMessageText(messageBody);
+    if (cleanText !== messageBody) {
+      setMessageBody(cleanText);
+    }
     const subject = encodeURIComponent(`${params.projectAddress || 'Projemiz'} İnşaat İlerleme Raporu`);
-    const body = encodeURIComponent(messageBody);
+    const body = encodeURIComponent(cleanText);
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    recordNotificationSent('email', messageBody);
+    recordNotificationSent('email', cleanText);
   };
 
   // Native Web Share API
   const handleNativeShare = async () => {
+    const cleanText = sanitizeCustomerMessageText(messageBody);
+    if (cleanText !== messageBody) {
+      setMessageBody(cleanText);
+    }
     if (navigator.share) {
       try {
         await navigator.share({
           title: `${params.projectAddress || 'Projemiz'} İnşaat İlerleme Raporu`,
-          text: messageBody,
+          text: cleanText,
         });
         setShareSuccess(true);
-        recordNotificationSent(messageChannel, messageBody);
+        recordNotificationSent(messageChannel, cleanText);
         setTimeout(() => setShareSuccess(false), 2500);
       } catch (e) {
         // User cancelled share
@@ -3457,6 +3513,10 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                     <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
                       Canlı Mesaj Önizlemesi ({messageChannel.toUpperCase()})
                     </h4>
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                      <Sparkles className="w-3 h-3 text-emerald-600" />
+                      <span>İmla Düzeltme Aktif (İmalat Standartı)</span>
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -3554,9 +3614,23 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                       <Edit3 className="w-3.5 h-3.5 text-slate-500" />
                       <span>Metni Doğrudan Düzenle (Son Rötuşlar)</span>
                     </label>
-                    <span className="text-[10px] text-slate-400">
-                      {isManuallyEdited ? '✏️ Özel düzenlendi' : 'Otomatik şablon'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const sanitized = sanitizeCustomerMessageText(messageBody);
+                          setMessageBody(sanitized);
+                        }}
+                        className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                        title="Metindeki 'imaalat' gibi hatalı yazımları standart 'imalat' terminolojisine dönüştürür"
+                      >
+                        <Sparkles className="w-3 h-3 text-emerald-600" />
+                        <span>Yazımı Düzelt (İmaalat ➔ İmalat)</span>
+                      </button>
+                      <span className="text-[10px] text-slate-400">
+                        {isManuallyEdited ? '✏️ Özel düzenlendi' : 'Otomatik şablon'}
+                      </span>
+                    </div>
                   </div>
                   <textarea
                     rows={5}
@@ -3564,6 +3638,9 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                     onChange={(e) => {
                       setMessageBody(e.target.value);
                       setIsManuallyEdited(true);
+                    }}
+                    onBlur={() => {
+                      setMessageBody(prev => sanitizeCustomerMessageText(prev));
                     }}
                     className="w-full font-mono text-xs p-3 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:border-indigo-500 transition outline-none"
                     placeholder="Mesaj metnini burada doğrudan değiştirebilirsiniz..."
