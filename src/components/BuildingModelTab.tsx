@@ -1021,25 +1021,30 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         {/* BOTTOM SECTION: Dimension & Structural Parameter Input Cards */}
         <div className="flex items-center justify-between px-1 py-1">
           <div className="flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-indigo-600" />
+            <Palette className="w-4 h-4 text-indigo-600" />
             <span className={`text-xs font-black uppercase tracking-wider ${textTitle}`}>
-              Yapı & Mimari Parametre Panelleri
+              Mimari Cephe & Dış Görünüm Parametreleri
+            </span>
+            <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold border border-indigo-200">
+              Tek Doğruluk Kaynağı: Boyut ve Katlar 1. Kurulumdan Yönetilir
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {onNavigateToSetup && (
+              <button
+                type="button"
+                onClick={onNavigateToSetup}
+                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer"
+              >
+                ← 1. Kurulumda Ölçüleri Değiştir
+              </button>
+            )}
             <button
               type="button"
               onClick={handleExpandAll}
-              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer"
-            >
-              Tümünü Genişlet
-            </button>
-            <button
-              type="button"
-              onClick={handleCollapseAll}
               className="text-[11px] font-bold text-slate-600 hover:text-slate-800 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
             >
-              Tümünü Daralt
+              Tümünü Genişlet
             </button>
           </div>
         </div>
@@ -1605,6 +1610,23 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                           🏘️ Arka & Sol Bitişik Nizam
                         </button>
                       </div>
+                    </div>
+
+                    {/* Bilgilendirme Notu: Tek Doğruluk Kaynağı */}
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs text-slate-600">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Bina taban oturumu, kat ve daire adetleri <strong>1. Proje Kurulumu</strong> sekmesinden tek merkez olarak yönetilmektedir.</span>
+                      </span>
+                      {onNavigateToSetup && (
+                        <button
+                          type="button"
+                          onClick={onNavigateToSetup}
+                          className="text-[11px] font-bold text-indigo-600 hover:underline shrink-0"
+                        >
+                          1. Kuruluma Git →
+                        </button>
+                      )}
                     </div>
 
                     {/* Mode: Freehand Polygon Canvas (Serbest Çizim Modu) */}
