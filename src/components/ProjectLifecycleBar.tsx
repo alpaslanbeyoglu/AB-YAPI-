@@ -113,7 +113,7 @@ export const ProjectLifecycleBar: React.FC<ProjectLifecycleBarProps> = ({
     >
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 sm:gap-3">
         {/* PIPELINE STAGES PROGRESS ROW */}
-        <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar scrollbar-none py-0.5 min-w-0 flex-1">
+        <div className="flex items-center gap-1 xl:gap-1.5 overflow-x-auto no-scrollbar scrollbar-none py-0.5 min-w-0 flex-1">
           {stages.map((stage, idx) => {
             const Icon = stage.icon;
             const isCurrent = stage.matchingTabs.includes(activeTab);
@@ -123,7 +123,7 @@ export const ProjectLifecycleBar: React.FC<ProjectLifecycleBarProps> = ({
               <React.Fragment key={stage.id}>
                 {idx > 0 && (
                   <ChevronRight
-                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                    className={`w-3 h-3 xl:w-3.5 xl:h-3.5 shrink-0 transition-colors ${
                       isPassed ? 'text-indigo-400' : 'text-slate-300'
                     }`}
                   />
@@ -133,16 +133,16 @@ export const ProjectLifecycleBar: React.FC<ProjectLifecycleBarProps> = ({
                   type="button"
                   onClick={() => onNavigate(stage.targetTab)}
                   title={`${stage.number}. Aşama: ${stage.label} (${stage.description})`}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer group ${
+                  className={`flex items-center gap-1 xl:gap-1.5 px-2 xl:px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer group ${
                     isCurrent
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25 scale-[1.02]'
+                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25 scale-[1.01]'
                       : isPassed
                       ? 'bg-indigo-50/80 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/60'
                       : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/70'
                   }`}
                 >
                   <span
-                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] xl:text-[10px] font-black shrink-0 ${
                       isCurrent
                         ? 'bg-white/20 text-white'
                         : isPassed
@@ -154,14 +154,14 @@ export const ProjectLifecycleBar: React.FC<ProjectLifecycleBarProps> = ({
                   </span>
 
                   <Icon
-                    className={`w-3.5 h-3.5 shrink-0 ${
+                    className={`w-3 h-3 xl:w-3.5 xl:h-3.5 shrink-0 ${
                       isCurrent ? 'text-white' : isPassed ? 'text-indigo-600' : 'text-slate-400'
                     }`}
                   />
 
-                  <span className="whitespace-nowrap font-extrabold tracking-tight">
-                    <span className="hidden sm:inline">{stage.label}</span>
-                    <span className="sm:hidden">{stage.shortLabel}</span>
+                  <span className="whitespace-nowrap font-extrabold tracking-tight text-[11px] xl:text-xs">
+                    <span className="hidden xl:inline">{stage.label}</span>
+                    <span className="xl:hidden">{stage.shortLabel}</span>
                   </span>
                 </button>
               </React.Fragment>

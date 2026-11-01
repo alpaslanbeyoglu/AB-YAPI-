@@ -171,118 +171,121 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
   return (
     <div 
       id="compact-summary-bar"
-      className={`w-full border-b shadow-sm transition-all overflow-hidden ${
+      className={`w-full border-b shadow-sm transition-all overflow-hidden relative ${
         isGray ? 'bg-slate-100/95 border-slate-300' : 'bg-white/95 border-slate-200'
       } backdrop-blur-md`}
     >
       {/* Mobile Toggle Bar */}
       <div className="md:hidden flex items-center justify-between px-3 py-1 bg-slate-50/80 border-b border-slate-200/60 text-[10px] font-bold text-slate-500">
-        <span className="flex items-center gap-1 text-slate-700 font-extrabold">
-          <Building2 className="w-3 h-3 text-indigo-600" />
+        <span className="flex items-center gap-1 text-slate-700 font-extrabold truncate mr-2">
+          <Building2 className="w-3 h-3 text-indigo-600 shrink-0" />
           Canlı Özet {baseArea} m² • {totalUnits} Daire
         </span>
         <button
           type="button"
           onClick={() => setIsCollapsedMobile(!isCollapsedMobile)}
-          className="text-indigo-600 hover:text-indigo-800 font-bold px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 cursor-pointer"
+          className="text-indigo-600 hover:text-indigo-800 font-bold px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 cursor-pointer shrink-0"
         >
           {isCollapsedMobile ? 'Özeti Göster ▼' : 'Gizle ▲'}
         </button>
       </div>
 
-      <div className={`max-w-7xl mx-auto px-3 sm:px-4 py-1.5 ${isCollapsedMobile ? 'hidden md:flex' : 'flex'} items-center justify-between gap-2.5 overflow-x-auto no-scrollbar`}>
-        {/* Sol Grup: Mimari & Yapı Ölçüleri (Kullanıcının talep ettiği taban, çıkma, kat/bölüm, toplam inşaat) */}
-        {showProject && (
-          <div className="flex items-center gap-2 shrink-0">
-            {projectItems.map((item) => {
-              return (
+      <div className={`max-w-7xl mx-auto px-2 sm:px-4 py-1 sm:py-1.5 ${isCollapsedMobile ? 'hidden md:flex' : 'flex'} items-center justify-between gap-2 overflow-x-auto no-scrollbar`}>
+        {/* Scrollable Chips Wrapper */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
+          {/* Sol Grup: Mimari & Yapı Ölçüleri */}
+          {showProject && (
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {projectItems.map((item) => {
+                return (
+                  <button
+                    key={item.id}
+                    id={`summary-chip-${item.id}`}
+                    type="button"
+                    onClick={() => onNavigateToItem?.(item.id)}
+                    title={`${item.label}: Veri giriş ekranına atlamak için tıklayın`}
+                    className="flex flex-col justify-center px-2 sm:px-2.5 py-1 rounded-lg border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] shrink-0 min-w-[110px] sm:min-w-[125px] max-w-[155px] hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100/80 active:scale-[0.98] transition-all text-left cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between gap-1 leading-none mb-0.5 w-full">
+                      <span className={`inline-flex items-center px-1 sm:px-1.5 py-0.5 rounded text-[7.5px] sm:text-[8px] font-black tracking-wider uppercase border truncate ${item.badgeColor}`}>
+                        {item.label}
+                      </span>
+                      <span className="text-[8px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0">↗</span>
+                    </div>
+
+                    <div className="flex items-baseline gap-1 leading-none truncate">
+                      <span className={`text-[11px] sm:text-[12.5px] font-black font-mono tracking-tight truncate ${item.valueColor}`}>
+                        {item.value}
+                      </span>
+                      {item.unit && (
+                        <span className="text-[8.5px] sm:text-[9px] font-bold text-slate-500 shrink-0">
+                          {item.unit}
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="text-[8px] sm:text-[8.5px] font-medium text-slate-400 mt-0.5 leading-tight truncate w-full block">
+                      {item.subValue}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Orta Ayırıcı */}
+          {showProject && showFinancial && (
+            <div className="h-6 sm:h-7 w-[1px] bg-slate-200 shrink-0 mx-0.5" />
+          )}
+
+          {/* Sağ Grup: Finans & Süre Özeti */}
+          {showFinancial && (
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {financialItems.map((item) => (
                 <button 
                   key={item.id}
                   id={`summary-chip-${item.id}`}
                   type="button"
                   onClick={() => onNavigateToItem?.(item.id)}
                   title={`${item.label}: Veri giriş ekranına atlamak için tıklayın`}
-                  className="flex flex-col justify-center px-2.5 py-1 rounded-lg border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] shrink-0 min-w-[130px] max-w-[175px] hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100/80 active:scale-[0.98] transition-all text-left cursor-pointer group"
+                  className="flex flex-col justify-center px-2 sm:px-2.5 py-1 rounded-lg border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] shrink-0 min-w-[105px] sm:min-w-[120px] max-w-[150px] hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100/80 active:scale-[0.98] transition-all text-left cursor-pointer group"
                 >
                   <div className="flex items-center justify-between gap-1 leading-none mb-0.5 w-full">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider uppercase border ${item.badgeColor}`}>
+                    <span className={`inline-flex items-center px-1 sm:px-1.5 py-0.5 rounded text-[7.5px] sm:text-[8px] font-black tracking-wider uppercase border truncate ${item.badgeColor}`}>
                       {item.label}
                     </span>
-                    <span className="text-[8px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">↗</span>
+                    <span className="text-[8px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0">↗</span>
                   </div>
                   
-                  <div className="flex items-baseline gap-1 leading-none">
-                    <span className={`text-[12px] sm:text-[13px] font-black font-mono tracking-tight ${item.valueColor}`}>
+                  <div className="flex items-baseline gap-1 leading-none truncate">
+                    <span className={`text-[11px] sm:text-[12.5px] font-black font-mono tracking-tight truncate ${item.valueColor}`}>
                       {item.value}
                     </span>
                     {item.unit && (
-                      <span className="text-[9px] font-bold text-slate-500">
+                      <span className="text-[8.5px] sm:text-[9px] font-bold text-slate-500 shrink-0">
                         {item.unit}
                       </span>
                     )}
                   </div>
 
-                  <span className="text-[8.5px] font-medium text-slate-400 mt-0.5 leading-tight truncate">
+                  <span className="text-[8px] sm:text-[8.5px] font-medium text-slate-400 mt-0.5 leading-tight truncate w-full block">
                     {item.subValue}
                   </span>
                 </button>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* Orta Ayırıcı (Her iki grup aktifken görünür) */}
-        {showProject && showFinancial && (
-          <div className="hidden md:block h-7 w-[1px] bg-slate-200 shrink-0 mx-0.5" />
-        )}
-
-        {/* Sağ Grup: Finans & Süre Özeti (Kompakt Mini Kartlar) */}
-        {showFinancial && (
-          <div className="flex items-center gap-2 shrink-0">
-            {financialItems.map((item) => (
-              <button 
-                key={item.id}
-                id={`summary-chip-${item.id}`}
-                type="button"
-                onClick={() => onNavigateToItem?.(item.id)}
-                title={`${item.label}: Veri giriş ekranına atlamak için tıklayın`}
-                className="flex flex-col justify-center px-2.5 py-1 rounded-lg border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] shrink-0 min-w-[120px] max-w-[160px] hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100/80 active:scale-[0.98] transition-all text-left cursor-pointer group"
-              >
-                <div className="flex items-center justify-between gap-1 leading-none mb-0.5 w-full">
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider uppercase border ${item.badgeColor}`}>
-                    {item.label}
-                  </span>
-                  <span className="text-[8px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors">↗</span>
-                </div>
-                
-                <div className="flex items-baseline gap-1 leading-none">
-                  <span className={`text-[12px] sm:text-[13px] font-black font-mono tracking-tight ${item.valueColor}`}>
-                    {item.value}
-                  </span>
-                  {item.unit && (
-                    <span className="text-[9px] font-bold text-slate-500">
-                      {item.unit}
-                    </span>
-                  )}
-                </div>
-
-                <span className="text-[8.5px] font-medium text-slate-400 mt-0.5 leading-tight truncate">
-                  {item.subValue}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Görünüm Filtre / Segment Seçici (Mimari, Finans veya Tümü) */}
-        <div className="flex items-center gap-1 shrink-0 ml-auto pl-1">
-          <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200/80 text-[9px] font-bold text-slate-600">
+        {/* Görünüm Filtre / Segment Seçici */}
+        <div className="flex items-center gap-1 shrink-0 ml-auto pl-1 sm:pl-2">
+          <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200/80 text-[8.5px] sm:text-[9px] font-bold text-slate-600">
             <button
               type="button"
               id="summary-view-project"
               onClick={() => setActiveView('project')}
               title="Sadece Yapı & Mimari Ölçülerini Göster"
-              className={`px-2 py-0.5 rounded-md transition-all ${
+              className={`px-1.5 sm:px-2 py-0.5 rounded-md transition-all ${
                 activeView === 'project'
                   ? 'bg-white text-indigo-700 shadow-xs font-black'
                   : 'hover:text-slate-900 text-slate-500'
@@ -295,7 +298,7 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
               id="summary-view-all"
               onClick={() => setActiveView('all')}
               title="Mimari ve Finansal Özetin Tamamını Göster"
-              className={`px-2 py-0.5 rounded-md transition-all ${
+              className={`px-1.5 sm:px-2 py-0.5 rounded-md transition-all ${
                 activeView === 'all'
                   ? 'bg-white text-indigo-700 shadow-xs font-black'
                   : 'hover:text-slate-900 text-slate-500'
@@ -308,7 +311,7 @@ export const CompactSummaryBar: React.FC<CompactSummaryBarProps> = React.memo(({
               id="summary-view-financial"
               onClick={() => setActiveView('financial')}
               title="Sadece Maliyet & Süre Özetini Göster"
-              className={`px-2 py-0.5 rounded-md transition-all ${
+              className={`px-1.5 sm:px-2 py-0.5 rounded-md transition-all ${
                 activeView === 'financial'
                   ? 'bg-white text-indigo-700 shadow-xs font-black'
                   : 'hover:text-slate-900 text-slate-500'
