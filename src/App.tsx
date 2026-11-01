@@ -29,6 +29,7 @@ import { ProjectSetupTab } from './components/ProjectSetupTab';
 import { LiteMobileView } from './components/LiteMobileView';
 import { ProjectTransferModal } from './components/ProjectTransferModal';
 import { ProjectLifecycleBar } from './components/ProjectLifecycleBar';
+import { QuickProposalModal } from './components/QuickProposalModal';
 
 // Resilient lazy loader for secondary tabs that retries once on network hiccups
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -61,8 +62,8 @@ const MenuSettingsModal = lazyWithRetry(() => import('./components/MenuSettingsM
 import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
 
 
-import { DEFAULT_PARAMS, calculateProject, synchronizeFlats, calculateFlatCount, calculateCantileverDetails } from './utils/calculatorEngine';
-import { DEFAULT_BUILDING_PARAMS } from './utils/buildingModelUtils';
+import { DEFAULT_PARAMS, calculateProject, synchronizeFlats, calculateFlatCount, calculateCantileverDetails, getInitialProjectParams } from './utils/calculatorEngine';
+import { DEFAULT_BUILDING_PARAMS, getInitialBuildingModelParams } from './utils/buildingModelUtils';
 import { calculateFootprint } from './utils/footprintUtils';
 import {
   ProjectParams,
@@ -135,6 +136,7 @@ export default function App() {
   const [requestedSetupStep, setRequestedSetupStep] = useState<number | undefined>(2);
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isProjectTransferOpen, setIsProjectTransferOpen] = useState(false);
+  const [isQuickProposalOpen, setIsQuickProposalOpen] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     try {
@@ -898,8 +900,9 @@ export default function App() {
       projectAddress: params.projectAddress,
       params,
       results,
+      buildingModelParams, // 3D model parametrelerini de snapshot'a dahil ediyoruz!
     };
-    const updatedHistory = [newSnapshot, ...historyList.slice(0, 19)];
+    const updatedHistory = [newSnapshot, ...historyList.filter(p => p.projectAddress !== params.projectAddress).slice(0, 19)];
     setHistoryList(updatedHistory);
     try {
       localStorage.setItem('ab_yapi_history', JSON.stringify(updatedHistory));
@@ -916,6 +919,47 @@ export default function App() {
 
   const handleQuickSave = () => {
     handleCalculate();
+  };
+
+  // Sıfırdan Yeni Proje / İş Emri Başlatma (Mevcut olanı arşive güvenle kaydedip tertemiz sıfırlar)
+  const handleStartNewProject = (customAddress?: string) => {
+    // Mevcut projenin adı veya adresi varsa önce arşive al
+    if (params.projectAddress || params.projectName) {
+      const currentSnapshot: SavedProjectData = {
+        version: '1.0.0',
+        savedAt: new Date().toISOString(),
+        projectAddress: params.projectAddress || 'Arşiv Proje',
+        params,
+        results,
+        buildingModelParams,
+      };
+      setHistoryList(prev => {
+        const filtered = prev.filter(p => p.projectAddress !== currentSnapshot.projectAddress);
+        const updated = [currentSnapshot, ...filtered.slice(0, 19)];
+        try {
+          localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+      if (user) {
+        saveProjectToCloud(currentSnapshot).catch(() => {});
+      }
+    }
+
+    const initialP = getInitialProjectParams(customAddress || 'Yeni Kentsel Dönüşüm Projesi');
+    const initialModel = getInitialBuildingModelParams();
+
+    setParams(initialP);
+    setBuildingModelParams(initialModel);
+    try {
+      localStorage.setItem('ab_yapi_last_params', JSON.stringify(initialP));
+      localStorage.setItem('ab_yapi_building_model', JSON.stringify(initialModel));
+    } catch (e) {}
+
+    activateProjectTabs();
+    setActiveTab('kurulum');
+    setRequestedSetupStep(1);
+    showNotification('success', 'Mevcut çalışma arşive alındı ve sıfırdan yeni bir proje çalışma alanı açıldı.');
   };
 
   const handleExportJson = (includeHistory = false) => {
@@ -991,28 +1035,48 @@ export default function App() {
     }
   };
 
-  const handleLoadProject = (savedData: SavedProjectData) => {
+  const handleLoadProject = (savedData: SavedProjectData, targetTab: TabId = 'kurulum') => {
     if (savedData && savedData.params) {
       setParams(savedData.params);
       if (savedData.buildingModelParams) {
         setBuildingModelParams(savedData.buildingModelParams);
+        try {
+          localStorage.setItem('ab_yapi_building_model', JSON.stringify(savedData.buildingModelParams));
+        } catch (e) {}
+      } else {
+        // Eğer kayıtlı projede 3D model yoksa, o projenin params verileriyle sıfırdan oluştur
+        const freshModel: BuildingModelParams = {
+          ...DEFAULT_BUILDING_PARAMS,
+          floorCount: savedData.params.floorCount || 5,
+          flatsPerFloor: savedData.params.flatsPerFloor || 2,
+          hasGroundFloorShop: !!savedData.params.hasGroundFloorShop,
+          shopCount: savedData.params.shopCount || 1,
+          baseBuildArea: savedData.params.baseBuildArea || 140,
+          facadeWidth: savedData.params.facadeWidth || 14.0,
+          facadeDepth: savedData.params.facadeDepth || 18.0,
+          roofType: savedData.params.roofType || 'gable',
+          basementCount: savedData.params.basementCount !== undefined ? savedData.params.basementCount : 1,
+          contractorFlatIds: savedData.params.contractorFlatIds || [],
+          contractorShareRate: savedData.params.contractorShareRate || 50,
+          projectModel: savedData.params.projectModel,
+        };
+        setBuildingModelParams(freshModel);
+        try {
+          localStorage.setItem('ab_yapi_building_model', JSON.stringify(freshModel));
+        } catch (e) {}
       }
+      try {
+        localStorage.setItem('ab_yapi_last_params', JSON.stringify(savedData.params));
+      } catch (e) {}
+
       activateProjectTabs();
-      showNotification('success', `"${savedData.projectAddress}" projesi başarıyla yüklendi.`);
-      setActiveTab('kurulum');
+      showNotification('success', `"${savedData.params.projectName || savedData.projectAddress}" projesi ve 3D modeli başarıyla yüklendi.`);
+      setActiveTab(targetTab);
     }
   };
 
   const handleLoadProjectForProgress = (savedData: SavedProjectData) => {
-    if (savedData && savedData.params) {
-      setParams(savedData.params);
-      if (savedData.buildingModelParams) {
-        setBuildingModelParams(savedData.buildingModelParams);
-      }
-      activateProjectTabs();
-      showNotification('success', `"${savedData.projectAddress}" şantiyesine başarıyla geçildi.`);
-      setActiveTab('surec');
-    }
+    handleLoadProject(savedData, 'surec');
   };
 
   const handleAddNewConstructionProject = (newProj: SavedProjectData) => {
@@ -1246,12 +1310,26 @@ export default function App() {
               appMode={appMode}
               onToggleAppMode={toggleAppMode}
               onOpenAdminLicenses={() => setIsAdminLicensesOpen(true)}
-              activeProjectName={params.projectAddress || 'Varsayılan Şantiye'}
-              onNewProjectClick={() => {
-                setActiveTab('kurulum');
-                setRequestedSetupStep(1);
-              }}
+              activeProjectName={params.projectName || params.projectAddress || 'Varsayılan Şantiye'}
+              onNewProjectClick={() => handleStartNewProject()}
               onOpenHistoryClick={() => setActiveTab('gecmis')}
+              onOpenQuickProposal={() => setIsQuickProposalOpen(true)}
+              historyList={historyList}
+              onSelectProject={(proj) => handleLoadProject(proj, activeTab)}
+              currentProposalStatus={params.proposalStatus || (params.isOfferAccepted ? 'accepted' : 'draft')}
+              onChangeProposalStatus={(newStatus) => {
+                const isAccepted = newStatus === 'accepted' || newStatus === 'active_site';
+                updateCalculatorParams({
+                  proposalStatus: newStatus,
+                  isOfferAccepted: isAccepted,
+                });
+                if (newStatus === 'accepted' || newStatus === 'active_site') {
+                  showNotification('success', 'Teklif kabul edildi olarak işaretlendi. Şantiye süreci başlatıldı!');
+                  setActiveTab('surec');
+                } else {
+                  showNotification('success', `Teklif durumu güncellendi: ${newStatus}`);
+                }
+              }}
             />
 
             {/* Top Menu Bar (Categorized) - MOBILE ONLY */}
@@ -1523,10 +1601,7 @@ export default function App() {
                 handleLoadProject(project);
                 if (targetTab) setActiveTab(targetTab as TabId);
               }}
-              onNavigateToNewWorkOrder={() => {
-                setActiveTab('kurulum');
-                setRequestedSetupStep(1);
-              }}
+              onNavigateToNewWorkOrder={() => handleStartNewProject()}
               onNavigateToCRM={() => setActiveTab('malikler')}
               onNavigateToCost={() => setActiveTab('maliyet')}
               onNavigateToPortfolio={() => setActiveTab('tamamlanan')}
@@ -1556,10 +1631,7 @@ export default function App() {
                 if (project) handleLoadProject(project);
                 setActiveTab(targetTab);
               }}
-              onNewProject={() => {
-                setActiveTab('kurulum');
-                setRequestedSetupStep(1);
-              }}
+              onNewProject={() => handleStartNewProject()}
             />
           )}
           </Suspense>
@@ -1602,6 +1674,17 @@ export default function App() {
       onImportProject={handleImportProjectData}
       onExportProject={handleExportJson}
       historyList={historyList}
+      theme={theme}
+    />
+
+    <QuickProposalModal
+      isOpen={isQuickProposalOpen}
+      onClose={() => setIsQuickProposalOpen(false)}
+      onApplyProposal={(newParams) => {
+        updateCalculatorParams(newParams);
+        showNotification('success', 'Hızlı teklif başarıyla oluşturuldu ve çalışma alanına aktarıldı!');
+        setActiveTab('teklif');
+      }}
       theme={theme}
     />
 

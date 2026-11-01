@@ -441,6 +441,7 @@ export interface ProjectParams {
   companyMission?: string; // Misyon metni
   companyVision?: string; // Vizyon metni
   isOfferAccepted?: boolean; // Teklif kabul edilip edilmediği (Süreç takibi ile ilişkilendirilmiş)
+  proposalStatus?: ProposalStatus; // Teklif yaşam döngüsü durumu: 'draft' | 'presented' | 'accepted' | 'active_site' | 'archived'
 
   // Teklif Raporu Görünürlük Kontrolleri (Tüm Kartları Seçebilme)
   showProposalHeader?: boolean;   // Teklif Başlığı & Künye (Her zaman açık önerilir)
@@ -896,6 +897,8 @@ export interface Subcontractor {
 // -------------------------------------------------------------
 
 export type CRMContactRole = 'landowner' | 'buyer' | 'subcontractor' | 'supplier' | 'consultant';
+
+export type ProposalStatus = 'draft' | 'presented' | 'accepted' | 'active_site' | 'archived';
 
 export interface UnifiedCRMContact {
   id: string;

@@ -195,6 +195,7 @@ export const DEFAULT_PARAMS: ProjectParams = {
   costMultiplier: 1.0,
   profitRate: 0,
   isOfferAccepted: false,
+  proposalStatus: 'draft',
 
   // Zemin ve Enflasyon Varsayılan Değerleri
   soilType: 'solid',
@@ -326,6 +327,29 @@ export const DEFAULT_PARAMS: ProjectParams = {
   ],
   companyCompletedProjects: getCompletedProjectsText(),
 };
+
+/**
+ * Sıfırdan yeni bir proje oluşturulurken kullanılacak fabrika ayarları
+ */
+export function getInitialProjectParams(customAddress = 'Yeni Kentsel Dönüşüm Projesi'): ProjectParams {
+  return {
+    ...DEFAULT_PARAMS,
+    projectName: '',
+    projectAddress: customAddress,
+    landArea: 400,
+    baseBuildArea: 140,
+    floorCount: 5,
+    flatsPerFloor: 2,
+    flatCount: 10,
+    hasGroundFloorShop: false,
+    shopCount: 0,
+    basementCount: 1,
+    isOfferAccepted: false,
+    proposalStatus: 'draft',
+    flats: generateInitialFlats(140, 5, 10, 'currentSupport'),
+    existingBuildings: [],
+  };
+}
 
 export function generateInitialFlats(baseArea: number, floorCount: number, flatCount: number, transStatus: string) {
   const total = baseArea * floorCount;

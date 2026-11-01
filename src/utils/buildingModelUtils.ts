@@ -290,6 +290,29 @@ export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
   showContractorShare3D: false,
 };
 
+/**
+ * Sıfırdan yeni bir 3D model oluştururken kullanılacak fabrika ayarları
+ */
+export function getInitialBuildingModelParams(): BuildingModelParams {
+  return {
+    ...DEFAULT_BUILDING_PARAMS,
+    facadeWidth: 14.0,
+    facadeDepth: 18.0,
+    floorCount: 5,
+    flatsPerFloor: 2,
+    hasGroundFloorShop: false,
+    shopCount: 0,
+    basementCount: 1,
+    roofType: 'gable',
+    wallColor: '#f1f5f9',
+    roofColor: '#b91c1c',
+    accentColor: '#b5734c',
+    frameColor: '#18181b',
+    surfaceRotation: 0,
+    contractorFlatIds: [],
+  };
+}
+
 export interface RoomDetail {
   id: string;
   name: string;

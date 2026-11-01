@@ -1,8 +1,10 @@
 import React, { useRef } from 'react';
-import { Save, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor, LogIn, LogOut, Cloud, ShieldCheck, Building, Plus } from 'lucide-react';
+import { Save, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor, LogIn, LogOut, Cloud, ShieldCheck, Building, Plus, ChevronDown, Check, Clock, HardHat, CheckCircle2, Sparkles } from 'lucide-react';
 import { Logo } from './Logo';
 import { AppTheme } from '../types';
 import { useFirebaseSync } from '../context/FirebaseSyncContext';
+
+import { SavedProjectData, ProposalStatus } from '../types';
 
 interface HeaderProps {
   onExportJson: () => void;
@@ -17,6 +19,11 @@ interface HeaderProps {
   activeProjectName?: string;
   onNewProjectClick?: () => void;
   onOpenHistoryClick?: () => void;
+  onOpenQuickProposal?: () => void;
+  historyList?: SavedProjectData[];
+  onSelectProject?: (project: SavedProjectData) => void;
+  currentProposalStatus?: ProposalStatus;
+  onChangeProposalStatus?: (status: ProposalStatus) => void;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -32,10 +39,16 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   activeProjectName,
   onNewProjectClick,
   onOpenHistoryClick,
+  onOpenQuickProposal,
+  historyList = [],
+  onSelectProject,
+  currentProposalStatus = 'draft',
+  onChangeProposalStatus,
 }) => {
   const isGray = theme === 'gray';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, signInWithGoogle, signOut, syncStatus, isAdmin } = useFirebaseSync();
+  const [isSwitcherOpen, setIsSwitcherOpen] = React.useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -76,29 +89,156 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             </span>
           )}
 
-          {/* Active Work Order / Project Badge */}
-          {activeProjectName ? (
-            <button
-              type="button"
-              onClick={onOpenHistoryClick}
-              className="hidden lg:flex items-center gap-2 px-3 py-1 bg-indigo-50/80 hover:bg-indigo-100/90 rounded-xl border border-indigo-200/80 text-xs transition-all cursor-pointer shadow-2xs"
-              title="Aktif Proje / Arşivden Başka Proje Yükle"
-            >
-              <Building className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-              <span className="text-[10px] uppercase font-black text-indigo-500">İş Emri:</span>
-              <span className="font-extrabold text-indigo-900 truncate max-w-[200px]">{activeProjectName}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onNewProjectClick}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 rounded-xl border border-emerald-200 text-emerald-800 text-xs font-black transition-all cursor-pointer shadow-2xs"
-              title="Yeni Bir Şantiye / Proje İş Emri Hesaplaması Başlat"
-            >
-              <Plus className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>+ Yeni İş Emri</span>
-            </button>
-          )}
+          {/* Active Work Order / Project Switcher & Status Dropdown */}
+          <div className="relative hidden lg:block">
+            <div className="flex items-center gap-1.5 bg-slate-50/90 hover:bg-slate-100/90 p-1 pl-2.5 rounded-xl border border-slate-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
+                className="flex items-center gap-2 text-xs transition-all cursor-pointer text-left"
+                title="Aktif Proje / Projeler Arasında Hızlı Geçiş Yap"
+              >
+                <Building className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[9px] uppercase font-black text-indigo-500">Aktif Proje</span>
+                  <span className="font-extrabold text-slate-800 truncate max-w-[180px]">{activeProjectName}</span>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+              </button>
+
+              {/* Status Badge & Status Selector */}
+              {onChangeProposalStatus && (
+                <div className="flex items-center pl-1.5 border-l border-slate-200">
+                  <select
+                    value={currentProposalStatus}
+                    onChange={(e) => onChangeProposalStatus(e.target.value as ProposalStatus)}
+                    className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border cursor-pointer focus:outline-none transition-colors ${
+                      currentProposalStatus === 'accepted' || currentProposalStatus === 'active_site'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : currentProposalStatus === 'presented'
+                        ? 'bg-blue-100 text-blue-800 border-blue-300'
+                        : currentProposalStatus === 'archived'
+                        ? 'bg-slate-200 text-slate-700 border-slate-300'
+                        : 'bg-amber-100 text-amber-800 border-amber-300'
+                    }`}
+                    title="Teklif Yaşam Döngüsü Durumu"
+                  >
+                    <option value="draft">⏳ Taslak / Hazırlanıyor</option>
+                    <option value="presented">📤 Müşteriye Sunuldu</option>
+                    <option value="accepted">✅ Teklif Kabul Edildi</option>
+                    <option value="active_site">🏗️ Faal Şantiye</option>
+                    <option value="archived">📦 Arşivlendi</option>
+                  </select>
+                </div>
+              )}
+
+              {onOpenQuickProposal && (
+                <button
+                  type="button"
+                  onClick={onOpenQuickProposal}
+                  className="p-1 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-black flex items-center gap-1 cursor-pointer transition-colors shadow-2xs ml-1"
+                  title="2 Dakikada Hızlı Teklif Sihirbazını Aç"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Hızlı Teklif</span>
+                </button>
+              )}
+
+              {onNewProjectClick && (
+                <button
+                  type="button"
+                  onClick={onNewProjectClick}
+                  className="p-1 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                  title="Mevcut çalışmayı arşive alıp sıfırdan yeni bir proje başlatır"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Sıfırla</span>
+                </button>
+              )}
+            </div>
+
+            {/* Quick Project Switcher Popover */}
+            {isSwitcherOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsSwitcherOpen(false)} />
+                <div className="absolute left-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 p-2 space-y-1 animate-fade-in text-xs max-h-96 overflow-y-auto">
+                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100">
+                    <span className="font-extrabold text-[11px] text-slate-700 uppercase tracking-wider">
+                      Kayıtlı Projeler & Teklifler ({historyList.length})
+                    </span>
+                    {onNewProjectClick && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSwitcherOpen(false);
+                          onNewProjectClick();
+                        }}
+                        className="text-[10px] text-indigo-600 hover:underline font-bold"
+                      >
+                        + Yeni Başlat
+                      </button>
+                    )}
+                  </div>
+
+                  {historyList.length === 0 ? (
+                    <div className="p-3 text-center text-slate-400 text-xs">
+                      Henüz kayıtlı başka proje bulunmuyor.
+                    </div>
+                  ) : (
+                    historyList.map((p, idx) => {
+                      const isCurrent = p.projectAddress === activeProjectName || p.params?.projectName === activeProjectName;
+                      const isAcc = p.params?.isOfferAccepted || p.params?.proposalStatus === 'accepted';
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setIsSwitcherOpen(false);
+                            onSelectProject?.(p);
+                          }}
+                          className={`w-full text-left p-2.5 rounded-xl transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                            isCurrent
+                              ? 'bg-indigo-50 text-indigo-900 border border-indigo-200 font-bold'
+                              : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className="truncate flex-1">
+                            <div className="font-bold text-slate-900 truncate">
+                              {p.params?.projectName || p.projectAddress || 'İsimsiz Proje'}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono truncate">
+                              {p.projectAddress} • {p.params?.flatCount || 10} Daire
+                            </div>
+                          </div>
+                          {isAcc && (
+                            <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                              Şantiye
+                            </span>
+                          )}
+                          {isCurrent && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
+                        </button>
+                      );
+                    })
+                  )}
+
+                  {onOpenHistoryClick && (
+                    <div className="pt-1.5 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSwitcherOpen(false);
+                          onOpenHistoryClick();
+                        }}
+                        className="w-full py-1.5 text-center text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50/50 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Tüm Proje Arşivini Görüntüle →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Right Actions: Mode Switch, Theme toggle & local save */}
