@@ -53,6 +53,7 @@ import {
 } from 'lucide-react';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { CompanyProfile, CompanyProfilePrintOptions } from '../types';
+import { LiveMarketPricesBar } from './LiveMarketPricesBar';
 
 export interface CompanyProfileTabProps {
   theme?: string;
@@ -85,6 +86,7 @@ const SECOND_TITLE_PRESETS = [
 ];
 
 export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ 
+  theme = 'light',
   historyList,
   onNavigateToNewWorkOrder,
   onNavigateToCRM,
@@ -349,7 +351,8 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
         </div>
       </div>
 
-
+      {/* Live Market Prices Tracker (Gram Altın, Demir, Beton, USD, EUR) */}
+      <LiveMarketPricesBar theme={theme as any} />
 
       {/* ========================================================
           2. AKTİF ŞANTİYELER VE TEKLİFLER LİSTESİ (SEÇİLDİĞİNDE ALT SAYFALAR GELİR)

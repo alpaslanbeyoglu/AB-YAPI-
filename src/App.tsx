@@ -1410,14 +1410,16 @@ export default function App() {
           </div>
 
           {/* Global Live Summary Bar */}
-          <div className="md:sticky md:top-[64px] z-10 print:hidden w-full max-w-full overflow-hidden">
-            <CompactSummaryBar
-              results={results}
-              params={params}
-              theme={theme}
-              onNavigateToItem={handleSummaryChipNavigate}
-            />
-          </div>
+          {activeTab !== 'profile' && (
+            <div className="md:sticky md:top-[64px] z-10 print:hidden w-full max-w-full overflow-hidden">
+              <CompactSummaryBar
+                results={results}
+                params={params}
+                theme={theme}
+                onNavigateToItem={handleSummaryChipNavigate}
+              />
+            </div>
+          )}
 
           <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 w-full max-w-full overflow-x-hidden min-w-0">
             {/* Proje Yaşam Döngüsü & Hiyerarşik Faz Çubuğu (Yalnızca Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
