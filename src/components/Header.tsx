@@ -68,20 +68,20 @@ export const Header: React.FC<HeaderProps> = React.memo(({
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',
       }}
-      className={`backdrop-blur-md border-b shadow-xs transition-colors duration-200 w-full max-w-full overflow-hidden ${
+      className={`backdrop-blur-md border-b shadow-xs transition-colors duration-200 w-full max-w-full ${
         isGray
           ? 'bg-slate-100/95 border-slate-300 text-slate-800'
           : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-100/60'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 min-h-[52px] sm:h-16 py-1.5 sm:py-0 flex items-center justify-between gap-1.5 sm:gap-4 w-full min-w-0">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-4 min-h-[50px] sm:h-16 py-1 sm:py-0 flex items-center justify-between gap-1.5 sm:gap-3 w-full min-w-0">
         {/* Brand Logo & Active Project Badge */}
-        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
-          <div className="sm:hidden min-w-0 overflow-hidden">
-            <Logo size="sm" variant="compact" theme={theme} className="max-w-full shrink-0" />
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
+          <div className="sm:hidden shrink-0">
+            <Logo size="sm" variant="compact" theme={theme} className="max-w-full" />
           </div>
-          <div className="hidden sm:block min-w-0 overflow-hidden">
-            <Logo size="md" theme={theme} className="max-w-full shrink-0" />
+          <div className="hidden sm:block shrink-0">
+            <Logo size="md" theme={theme} className="max-w-full" />
           </div>
           {appMode === 'lite' && (
             <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black bg-indigo-600 text-white shadow-xs shrink-0">
@@ -90,29 +90,31 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           )}
 
           {/* Active Work Order / Project Switcher & Status Dropdown */}
-          <div className="relative hidden lg:block">
-            <div className="flex items-center gap-1.5 bg-slate-50/90 hover:bg-slate-100/90 p-1 pl-2.5 rounded-xl border border-slate-200 shadow-2xs">
+          <div className="relative hidden lg:flex items-center min-w-0">
+            <div className="flex items-center gap-1 xl:gap-1.5 bg-slate-50/90 hover:bg-slate-100/90 p-1 pl-2 rounded-xl border border-slate-200 shadow-2xs max-w-full">
               <button
                 type="button"
                 onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
-                className="flex items-center gap-2 text-xs transition-all cursor-pointer text-left"
+                className="flex items-center gap-1.5 text-xs transition-all cursor-pointer text-left min-w-0 shrink"
                 title="Aktif Proje / Projeler Arasında Hızlı Geçiş Yap"
               >
                 <Building className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                <div className="flex flex-col leading-tight">
+                <div className="flex flex-col leading-tight min-w-0">
                   <span className="text-[9px] uppercase font-black text-indigo-500">Aktif Proje</span>
-                  <span className="font-extrabold text-slate-800 truncate max-w-[180px]">{activeProjectName}</span>
+                  <span className="font-extrabold text-slate-800 truncate max-w-[90px] xl:max-w-[160px] 2xl:max-w-[200px]">
+                    {activeProjectName}
+                  </span>
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-0.5" />
               </button>
 
               {/* Status Badge & Status Selector */}
               {onChangeProposalStatus && (
-                <div className="flex items-center pl-1.5 border-l border-slate-200">
+                <div className="flex items-center pl-1 border-l border-slate-200 shrink-0">
                   <select
                     value={currentProposalStatus}
                     onChange={(e) => onChangeProposalStatus(e.target.value as ProposalStatus)}
-                    className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border cursor-pointer focus:outline-none transition-colors ${
+                    className={`text-[9px] xl:text-[10px] font-black uppercase tracking-wider px-1.5 xl:px-2 py-1 rounded-lg border cursor-pointer focus:outline-none transition-colors max-w-[110px] xl:max-w-none truncate ${
                       currentProposalStatus === 'accepted' || currentProposalStatus === 'active_site'
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                         : currentProposalStatus === 'presented'
@@ -123,9 +125,9 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                     }`}
                     title="Teklif Yaşam Döngüsü Durumu"
                   >
-                    <option value="draft">⏳ Taslak / Hazırlanıyor</option>
-                    <option value="presented">📤 Müşteriye Sunuldu</option>
-                    <option value="accepted">✅ Teklif Kabul Edildi</option>
+                    <option value="draft">⏳ Taslak</option>
+                    <option value="presented">📤 Sunuldu</option>
+                    <option value="accepted">✅ Kabul Edildi</option>
                     <option value="active_site">🏗️ Faal Şantiye</option>
                     <option value="archived">📦 Arşivlendi</option>
                   </select>
@@ -136,11 +138,12 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 <button
                   type="button"
                   onClick={onOpenQuickProposal}
-                  className="p-1 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-black flex items-center gap-1 cursor-pointer transition-colors shadow-2xs ml-1"
+                  className="p-1 px-1.5 xl:px-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] xl:text-[11px] font-black flex items-center gap-1 cursor-pointer transition-colors shadow-2xs shrink-0"
                   title="2 Dakikada Hızlı Teklif Sihirbazını Aç"
                 >
-                  <Sparkles className="w-3 h-3" />
-                  <span>Hızlı Teklif</span>
+                  <Sparkles className="w-3 h-3 shrink-0" />
+                  <span className="hidden xl:inline">Hızlı Teklif</span>
+                  <span className="xl:hidden">Teklif</span>
                 </button>
               )}
 
@@ -148,10 +151,10 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 <button
                   type="button"
                   onClick={onNewProjectClick}
-                  className="p-1 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                  className="p-1 px-1.5 xl:px-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] xl:text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs shrink-0"
                   title="Mevcut çalışmayı arşive alıp sıfırdan yeni bir proje başlatır"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-3 h-3 shrink-0" />
                   <span>Sıfırla</span>
                 </button>
               )}
@@ -161,7 +164,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             {isSwitcherOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsSwitcherOpen(false)} />
-                <div className="absolute left-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 p-2 space-y-1 animate-fade-in text-xs max-h-96 overflow-y-auto">
+                <div className="absolute left-0 top-full mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 p-2 space-y-1 animate-fade-in text-xs max-h-96 overflow-y-auto">
                   <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100">
                     <span className="font-extrabold text-[11px] text-slate-700 uppercase tracking-wider">
                       Kayıtlı Projeler & Teklifler ({historyList.length})
@@ -242,7 +245,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
         </div>
 
         {/* Right Actions: Mode Switch, Theme toggle & local save */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 xl:gap-2 shrink-0">
 
           {/* App Mode Conversion Button (Mobil Lite vs Tam Sürüm) */}
           {onToggleAppMode && (
@@ -250,7 +253,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               id="app-mode-toggle-btn"
               type="button"
               onClick={onToggleAppMode}
-              className={`flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer ${
+              className={`flex items-center gap-1 xl:gap-1.5 p-1.5 xl:px-2.5 xl:py-1.5 rounded-xl border text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer ${
                 appMode === 'lite'
                   ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
                   : isGray
@@ -262,12 +265,12 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               {appMode === 'lite' ? (
                 <>
                   <Monitor className="w-3.5 h-3.5 text-white" />
-                  <span className="hidden sm:inline">Tam Sürüm</span>
+                  <span className="hidden xl:inline">Tam Sürüm</span>
                 </>
               ) : (
                 <>
                   <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="hidden sm:inline">Mobil Lite</span>
+                  <span className="hidden xl:inline">Mobil Lite</span>
                 </>
               )}
             </button>
@@ -279,7 +282,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               id="theme-toggle-btn"
               type="button"
               onClick={onToggleTheme}
-              className={`flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+              className={`flex items-center gap-1 xl:gap-1.5 p-1.5 xl:px-2.5 xl:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
                 isGray
                   ? 'bg-white hover:bg-slate-50 text-slate-800 border-slate-300 shadow-xs'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
@@ -289,12 +292,12 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               {isGray ? (
                 <>
                   <Sun className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="hidden sm:inline">Açık Tema</span>
+                  <span className="hidden xl:inline">Açık</span>
                 </>
               ) : (
                 <>
                   <Palette className="w-3.5 h-3.5 text-slate-600" />
-                  <span className="hidden sm:inline">Gri Tema</span>
+                  <span className="hidden xl:inline">Gri</span>
                 </>
               )}
             </button>
@@ -305,7 +308,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             <button
               type="button"
               onClick={onOpenTransferModal}
-              className={`flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer ${
+              className={`flex items-center gap-1 xl:gap-1.5 p-1.5 xl:px-2.5 xl:py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer ${
                 isGray
                   ? 'bg-white hover:bg-slate-50 text-indigo-700 border-indigo-200'
                   : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200/90'
@@ -313,14 +316,14 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               title="Proje İçe ve Dışa Aktarma Merkezi (JSON / Şablonlar)"
             >
               <FileUp className="w-3.5 h-3.5 text-indigo-600" />
-              <span className="hidden sm:inline">İçe / Dışa Aktar</span>
+              <span className="hidden xl:inline">İçe / Dışa Aktar</span>
             </button>
           ) : (
             <>
               <button
                 type="button"
                 onClick={onExportJson}
-                className={`flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+                className={`flex items-center gap-1 xl:gap-1.5 p-1.5 xl:px-2 xl:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
                   isGray
                     ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
                     : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs'
@@ -328,12 +331,12 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 title="Projeyi Bilgisayara Kaydet (JSON)"
               >
                 <FileDown className="w-3.5 h-3.5 text-indigo-600" />
-                <span className="hidden sm:inline">Dışa Aktar</span>
+                <span className="hidden xl:inline">Dışa Aktar</span>
               </button>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
+                className={`flex items-center gap-1 xl:gap-1.5 p-1.5 xl:px-2 xl:py-1.5 rounded-xl border text-xs font-semibold transition-all active:scale-95 ${
                   isGray
                     ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
                     : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs'
@@ -341,18 +344,18 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 title="Projeyi Bilgisayardan Yükle (JSON)"
               >
                 <FileUp className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="hidden sm:inline">İçe Aktar</span>
+                <span className="hidden xl:inline">İçe Aktar</span>
               </button>
             </>
           )}
           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
 
           {/* User Sign In / Profile and Sync Status */}
-          <div className="flex items-center gap-1 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200/80">
+          <div className="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-1.5 border-l border-slate-200/80">
             {user ? (
               <div className="flex items-center gap-1 sm:gap-2">
-                <div className="flex flex-col text-right hidden md:flex">
-                  <span className="text-[11px] font-black leading-3 max-w-[120px] truncate text-slate-800">
+                <div className="flex flex-col text-right hidden 2xl:flex">
+                  <span className="text-[11px] font-black leading-3 max-w-[110px] truncate text-slate-800">
                     {user.displayName}
                   </span>
                   <span className="text-[9px] text-emerald-600 font-extrabold flex items-center justify-end gap-0.5 mt-0.5">
@@ -370,11 +373,11 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   <button
                     type="button"
                     onClick={onOpenAdminLicenses}
-                    className="flex items-center gap-1 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-extrabold text-xs transition-all active:scale-95 cursor-pointer shadow-xs"
+                    className="flex items-center gap-1 p-1.5 xl:px-2 xl:py-1.5 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-extrabold text-xs transition-all active:scale-95 cursor-pointer shadow-xs"
                     title="Müşteri ve Kullanıcı Lisanslarını Yönet"
                   >
                     <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-                    <span className="hidden sm:inline">Lisans Paneli</span>
+                    <span className="hidden xl:inline">Lisans</span>
                   </button>
                 )}
                 <button
@@ -390,7 +393,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               <button
                 type="button"
                 onClick={signInWithGoogle}
-                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer whitespace-nowrap"
+                className="flex items-center gap-1 px-2 xl:px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer whitespace-nowrap"
                 title="Giriş Yapın ve Projelerinizi Güvenle Bulutta Saklayın"
               >
                 <LogIn className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
