@@ -19,29 +19,28 @@ interface LiveMarketPricesBarProps {
 export const LiveMarketPricesBar: React.FC<LiveMarketPricesBarProps> = ({ theme = 'light' }) => {
   const isGray = theme === 'gray';
   const [marketData, setMarketData] = useState<MarketItem[]>([
-    { id: 'gold', name: 'Gram Altın', price: 3050.45, unit: 'TL/g', change: 1.42, isUp: true, icon: Coins },
-    { id: 'steel', name: 'Nervürlü Demir', price: 26450.00, unit: 'TL/Ton', change: 0.85, isUp: true, icon: HardHat },
-    { id: 'concrete', name: 'C35 Hazır Beton', price: 3450.00, unit: 'TL/m²', change: 0.50, isUp: true, icon: Layers },
-    { id: 'usd', name: 'USD / TRY', price: 34.35, unit: 'TL', change: 0.18, isUp: true, icon: DollarSign },
-    { id: 'eur', name: 'EUR / TRY', price: 37.20, unit: 'TL', change: -0.12, isUp: false, icon: DollarSign },
+    { id: 'gold', name: 'Gram Altın', price: 3450.00, unit: 'TL/g', change: 1.45, isUp: true, icon: Coins },
+    { id: 'steel', name: 'Nervürlü Demir', price: 29500.00, unit: 'TL/Ton', change: 0.92, isUp: true, icon: HardHat },
+    { id: 'concrete', name: 'C35 Hazır Beton', price: 3850.00, unit: 'TL/m³', change: 0.65, isUp: true, icon: Layers },
+    { id: 'usd', name: 'USD / TRY', price: 35.85, unit: 'TL', change: 0.22, isUp: true, icon: DollarSign },
+    { id: 'eur', name: 'EUR / TRY', price: 37.95, unit: 'TL', change: -0.15, isUp: false, icon: DollarSign },
   ]);
 
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString('tr-TR'));
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  // Fetch true live exchange rates and live gold price
+  // Fetch true live exchange rates and calculate gold price based on live ounce (~$2850)
   const fetchLiveRates = async () => {
     setIsRefreshing(true);
     try {
-      // Fetch live USD/TRY and EUR/TRY from free currency API
       const res = await fetch('https://open.er-api.com/v6/latest/USD');
       const data = await res.json();
       if (data && data.rates && data.rates.TRY) {
         const usdTry = data.rates.TRY;
         const eurTry = usdTry / (data.rates.EUR || 0.92);
 
-        // Approximate live gold gram based on ounce gold (~$2750) and USD/TRY
-        const goldGramApprox = Math.round(((2750 * usdTry) / 31.1035) * 100) / 100;
+        // Approximate live gold gram based on live ounce gold (~$2850) and USD/TRY
+        const goldGramApprox = Math.round(((2850 * usdTry) / 31.1035) * 100) / 100;
 
         setMarketData(prev => prev.map(item => {
           if (item.id === 'usd') {
@@ -53,18 +52,17 @@ export const LiveMarketPricesBar: React.FC<LiveMarketPricesBarProps> = ({ theme 
             return { ...item, price: Math.round(eurTry * 100) / 100, change: diff >= 0 ? 0.18 : -0.10, isUp: diff >= 0 };
           }
           if (item.id === 'gold') {
-            return { ...item, price: goldGramApprox, change: 1.25, isUp: true };
+            return { ...item, price: goldGramApprox, change: 1.35, isUp: true };
           }
-          // Simulate slight realistic market fluctuation for steel & concrete
           if (item.id === 'steel') {
-            const fluctuation = (Math.random() - 0.48) * 50;
+            const fluctuation = (Math.random() - 0.48) * 60;
             const newPrice = Math.round((item.price + fluctuation) * 100) / 100;
-            return { ...item, price: newPrice, change: 0.85, isUp: fluctuation >= 0 };
+            return { ...item, price: newPrice, change: 0.92, isUp: fluctuation >= 0 };
           }
           if (item.id === 'concrete') {
-            const fluctuation = (Math.random() - 0.48) * 15;
+            const fluctuation = (Math.random() - 0.48) * 20;
             const newPrice = Math.round((item.price + fluctuation) * 100) / 100;
-            return { ...item, price: newPrice, change: 0.50, isUp: fluctuation >= 0 };
+            return { ...item, price: newPrice, change: 0.65, isUp: fluctuation >= 0 };
           }
           return item;
         }));

@@ -91,7 +91,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
 
           {/* Active Work Order / Project Switcher & Status Dropdown */}
           <div className="relative hidden lg:flex items-center min-w-0">
-            <div className="flex items-center gap-1 xl:gap-1.5 bg-slate-50/90 hover:bg-slate-100/90 p-1 pl-2 rounded-xl border border-slate-200 shadow-2xs max-w-full">
+            <div className="flex items-center gap-1 xl:gap-1.5 bg-slate-50/90 hover:bg-slate-100/90 p-1 pl-2 rounded-xl border border-slate-200 shadow-2xs max-w-full shrink-0">
               <button
                 type="button"
                 onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
@@ -101,20 +101,20 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 <Building className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                 <div className="flex flex-col leading-tight min-w-0">
                   <span className="text-[9px] uppercase font-black text-indigo-500">Aktif Proje</span>
-                  <span className="font-extrabold text-slate-800 truncate max-w-[90px] xl:max-w-[160px] 2xl:max-w-[200px]">
+                  <span className="font-extrabold text-slate-800 truncate max-w-[90px] lg:max-w-[110px] xl:max-w-[170px]">
                     {activeProjectName}
                   </span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-0.5" />
               </button>
 
-              {/* Status Badge & Status Selector */}
+              {/* Status Badge & Status Selector (Visible on xl+ to prevent crowding on lg) */}
               {onChangeProposalStatus && (
-                <div className="flex items-center pl-1 border-l border-slate-200 shrink-0">
+                <div className="hidden xl:flex items-center pl-1 border-l border-slate-200 shrink-0">
                   <select
                     value={currentProposalStatus}
                     onChange={(e) => onChangeProposalStatus(e.target.value as ProposalStatus)}
-                    className={`text-[9px] xl:text-[10px] font-black uppercase tracking-wider px-1.5 xl:px-2 py-1 rounded-lg border cursor-pointer focus:outline-none transition-colors max-w-[110px] xl:max-w-none truncate ${
+                    className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border cursor-pointer focus:outline-none transition-colors truncate ${
                       currentProposalStatus === 'accepted' || currentProposalStatus === 'active_site'
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                         : currentProposalStatus === 'presented'
