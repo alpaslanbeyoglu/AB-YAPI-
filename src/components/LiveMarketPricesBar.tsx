@@ -1,16 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { TrendingUp, TrendingDown, RefreshCw, Activity, DollarSign, Coins, HardHat, Layers } from 'lucide-react';
 import { AppTheme } from '../types';
-
-interface MarketItem {
-  id: string;
-  name: string;
-  price: number;
-  unit: string;
-  change: number; // percentage change
-  isUp: boolean;
-  icon: any;
-}
+import { useMarketData } from '../hooks/useMarketData';
 
 interface LiveMarketPricesBarProps {
   theme?: AppTheme;
@@ -18,69 +9,17 @@ interface LiveMarketPricesBarProps {
 
 export const LiveMarketPricesBar: React.FC<LiveMarketPricesBarProps> = ({ theme = 'light' }) => {
   const isGray = theme === 'gray';
-  const [marketData, setMarketData] = useState<MarketItem[]>([
-    { id: 'gold', name: 'Gram Altın', price: 3450.00, unit: 'TL/g', change: 1.45, isUp: true, icon: Coins },
-    { id: 'steel', name: 'Nervürlü Demir', price: 29500.00, unit: 'TL/Ton', change: 0.92, isUp: true, icon: HardHat },
-    { id: 'concrete', name: 'C35 Hazır Beton', price: 3850.00, unit: 'TL/m³', change: 0.65, isUp: true, icon: Layers },
-    { id: 'usd', name: 'USD / TRY', price: 35.85, unit: 'TL', change: 0.22, isUp: true, icon: DollarSign },
-    { id: 'eur', name: 'EUR / TRY', price: 37.95, unit: 'TL', change: -0.15, isUp: false, icon: DollarSign },
-  ]);
+  const market = useMarketData();
 
-  const [lastUpdated, setLastUpdated] = useState<string>(new Date().toLocaleTimeString('tr-TR'));
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const marketData = [
+    { id: 'gold', name: 'Gram Altın', price: market.GOLD, unit: 'TL/g', change: 1.45, isUp: true, icon: Coins },
+    { id: 'steel', name: 'Nervürlü Demir', price: market.REBAR, unit: 'TL/Ton', change: 0.92, isUp: true, icon: HardHat },
+    { id: 'concrete', name: 'C35 Hazır Beton', price: market.CONCRETE, unit: 'TL/m³', change: 0.65, isUp: true, icon: Layers },
+    { id: 'usd', name: 'USD / TRY', price: market.USD, unit: 'TL', change: 0.22, isUp: true, icon: DollarSign },
+    { id: 'eur', name: 'EUR / TRY', price: market.EUR, unit: 'TL', change: -0.15, isUp: false, icon: DollarSign },
+  ];
 
-  // Fetch true live exchange rates and calculate gold price based on live ounce (~$2850)
-  const fetchLiveRates = async () => {
-    setIsRefreshing(true);
-    try {
-      const res = await fetch('https://open.er-api.com/v6/latest/USD');
-      const data = await res.json();
-      if (data && data.rates && data.rates.TRY) {
-        const usdTry = data.rates.TRY;
-        const eurTry = usdTry / (data.rates.EUR || 0.92);
-
-        // Approximate live gold gram based on live ounce gold (~$2850) and USD/TRY
-        const goldGramApprox = Math.round(((2850 * usdTry) / 31.1035) * 100) / 100;
-
-        setMarketData(prev => prev.map(item => {
-          if (item.id === 'usd') {
-            const diff = Math.round((usdTry - item.price) * 100) / 100;
-            return { ...item, price: Math.round(usdTry * 100) / 100, change: diff >= 0 ? 0.25 : -0.15, isUp: diff >= 0 };
-          }
-          if (item.id === 'eur') {
-            const diff = Math.round((eurTry - item.price) * 100) / 100;
-            return { ...item, price: Math.round(eurTry * 100) / 100, change: diff >= 0 ? 0.18 : -0.10, isUp: diff >= 0 };
-          }
-          if (item.id === 'gold') {
-            return { ...item, price: goldGramApprox, change: 1.35, isUp: true };
-          }
-          if (item.id === 'steel') {
-            const fluctuation = (Math.random() - 0.48) * 60;
-            const newPrice = Math.round((item.price + fluctuation) * 100) / 100;
-            return { ...item, price: newPrice, change: 0.92, isUp: fluctuation >= 0 };
-          }
-          if (item.id === 'concrete') {
-            const fluctuation = (Math.random() - 0.48) * 20;
-            const newPrice = Math.round((item.price + fluctuation) * 100) / 100;
-            return { ...item, price: newPrice, change: 0.65, isUp: fluctuation >= 0 };
-          }
-          return item;
-        }));
-      }
-    } catch (e) {
-      console.warn('Canlı piyasa verileri alınırken ağ hatası, önbellek kullanılıyor:', e);
-    } finally {
-      setIsRefreshing(false);
-      setLastUpdated(new Date().toLocaleTimeString('tr-TR'));
-    }
-  };
-
-  useEffect(() => {
-    fetchLiveRates();
-    // Poll every 30 seconds for live market updates
-    const interval = setInterval(fetchLiveRates, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const lastUpdated = new Date(market.lastUpdated).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
   const formatPrice = (val: number, fraction = 2) => {
     return new Intl.NumberFormat('tr-TR', {
@@ -100,21 +39,14 @@ export const LiveMarketPricesBar: React.FC<LiveMarketPricesBarProps> = ({ theme 
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
           <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-emerald-400">
-            <Activity className="w-3.5 h-3.5" /> Canlı Piyasa & Malzeme Fiyatları (TCMB / Serbest Piyasa)
+            <Activity className="w-3.5 h-3.5" /> Canlı Piyasa & Malzeme Fiyatları (TCMB / Serbest Piyasa - Senkronize)
           </span>
         </div>
         <div className="flex items-center gap-3 text-[10px] text-slate-400">
           <span>Son Güncelleme: <strong className="text-slate-200 font-mono">{lastUpdated}</strong></span>
-          <button
-            type="button"
-            onClick={fetchLiveRates}
-            disabled={isRefreshing}
-            className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 transition font-bold cursor-pointer disabled:opacity-50"
-            title="Piyasa Fiyatlarını Canlı Yenile"
-          >
-            <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin text-emerald-400' : ''}`} />
-            <span>Yenile</span>
-          </button>
+          <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+            Canlı Senkronize
+          </span>
         </div>
       </div>
 

@@ -54,6 +54,7 @@ import {
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { CompanyProfile, CompanyProfilePrintOptions } from '../types';
 import { LiveMarketPricesBar } from './LiveMarketPricesBar';
+import { ExecutiveDashboardHome } from './ExecutiveDashboardHome';
 
 export interface CompanyProfileTabProps {
   theme?: string;
@@ -249,7 +250,22 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
   const proposalProjects = historyList.filter(p => !p.params?.isOfferAccepted);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-10 pb-16">
+      {params && results && (
+        <ExecutiveDashboardHome
+          params={params}
+          results={results}
+          theme={theme as any}
+          onNavigateTab={(tabId) => {
+            if (onSelectProject && historyList && historyList.length > 0) {
+              onSelectProject(historyList[0], tabId);
+            }
+          }}
+          onOpenWizard={() => {
+            if (onNavigateToNewWorkOrder) onNavigateToNewWorkOrder();
+          }}
+        />
+      )}
       {/* ========================================================
           EXECUTIVE CONTRACTOR HUB — MAIN COMPANY DASHBOARD
          ======================================================== */}

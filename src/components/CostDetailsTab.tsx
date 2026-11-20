@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { getSteelTypeName, getConcreteGradeName } from '../utils/calculatorEngine';
+import { useMarketData } from '../hooks/useMarketData';
 
 interface CostDetailsTabProps {
   params: ProjectParams;
@@ -88,14 +89,15 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   const [activeSettingsTab, setActiveSettingsTab] = useState<'kaba' | 'ince' | 'tesisat' | 'resmi' | 'ortak' | 'guvence'>('kaba');
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
 
-  // Live Market Data States (2026 Verified Market Baseline)
-  const [usdTry, setUsdTry] = useState<number>(params.usdRate || 34.5);
-  const [eurTry, setEurTry] = useState<number>(37.8);
+  // Unified Live Market Data Hook
+  const market = useMarketData();
+  const usdTry = market.USD;
+  const eurTry = market.EUR;
   const [isLiveActive, setIsLiveActive] = useState<boolean>(true);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [lastUpdated, setLastUpdated] = useState<string>(new Date(market.lastUpdated).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
   const [isFetchingRates, setIsFetchingRates] = useState<boolean>(false);
-  const [steelPrice, setSteelPrice] = useState<number>(params.priceSteel || 36200);
-  const [concretePrice, setConcretePrice] = useState<number>(params.priceConcrete || 3850);
+  const steelPrice = params.priceSteel || market.REBAR;
+  const concretePrice = params.priceConcrete || market.CONCRETE;
 
   // Simulation states
   const [simBase, setSimBase] = useState<number>(0);
@@ -105,49 +107,13 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
 
   const fetchLiveRates = () => {
     setIsFetchingRates(true);
-    fetch('https://open.er-api.com/v6/latest/USD')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.result === 'success' && data.rates && data.rates.TRY) {
-          const usdRate = data.rates.TRY;
-          const eurRate = usdRate / (data.rates.EUR || 0.92);
-          const freshUsd = Number(usdRate.toFixed(2));
-          const freshEur = Number(eurRate.toFixed(2));
-          setUsdTry(freshUsd);
-          setEurTry(freshEur);
-          setLastUpdated(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
-
-          // Calibrated live market correlations (2026 trends)
-          const baseUsd = 34.0;
-          const fxDelta = (freshUsd - baseUsd) / baseUsd;
-          const freshSteel = Math.max(30000, Math.round(36200 * (1 + fxDelta * 0.75)));
-          const freshConcrete = Math.max(3200, Math.round(3850 * (1 + fxDelta * 0.45)));
-
-          setSteelPrice(freshSteel);
-          setConcretePrice(freshConcrete);
-
-          if (onChangeParams) {
-            onChangeParams({
-              ...params,
-              usdRate: freshUsd,
-              priceSteel: freshSteel,
-              priceConcrete: freshConcrete,
-            });
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn('Canlı kur servisine ulaşılamadı, yerel rayiçler aktif:', err);
-      })
-      .finally(() => {
-        setIsFetchingRates(false);
-      });
+    setLastUpdated(new Date(market.lastUpdated).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+    setTimeout(() => setIsFetchingRates(false), 400);
   };
 
   useEffect(() => {
-    setLastUpdated(new Date().toLocaleDateString('tr-TR'));
-    fetchLiveRates();
-  }, []);
+    setLastUpdated(new Date(market.lastUpdated).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+  }, [market]);
 
   const donutSvgRef = useRef<SVGSVGElement>(null);
   const stackedSvgRef = useRef<SVGSVGElement>(null);

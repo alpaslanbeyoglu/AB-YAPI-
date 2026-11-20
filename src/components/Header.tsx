@@ -20,6 +20,7 @@ interface HeaderProps {
   onNewProjectClick?: () => void;
   onOpenHistoryClick?: () => void;
   onOpenQuickProposal?: () => void;
+  onOpenGuidedWizard?: () => void;
   historyList?: SavedProjectData[];
   onSelectProject?: (project: SavedProjectData) => void;
   currentProposalStatus?: ProposalStatus;
@@ -40,6 +41,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   onNewProjectClick,
   onOpenHistoryClick,
   onOpenQuickProposal,
+  onOpenGuidedWizard,
   historyList = [],
   onSelectProject,
   currentProposalStatus = 'draft',
@@ -132,6 +134,19 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                     <option value="archived">📦 Arşivlendi</option>
                   </select>
                 </div>
+              )}
+
+              {onOpenGuidedWizard && (
+                <button
+                  type="button"
+                  onClick={onOpenGuidedWizard}
+                  className="p-1 px-1.5 xl:px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] xl:text-[11px] font-black flex items-center gap-1 cursor-pointer transition-colors shadow-2xs shrink-0"
+                  title="4 Adımlı Akıllı Rehber Modunu Aç"
+                >
+                  <Sparkles className="w-3 h-3 shrink-0 text-amber-300" />
+                  <span className="hidden xl:inline">4 Adımlı Rehber</span>
+                  <span className="xl:hidden">Rehber</span>
+                </button>
               )}
 
               {onOpenQuickProposal && (

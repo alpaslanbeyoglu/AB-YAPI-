@@ -142,7 +142,7 @@ export const NanoBananaDrawingGenerator: React.FC<NanoBananaDrawingGeneratorProp
     elevatorCount: params.elevatorCount || 1,
     flats: (params as any).flats || [],
     roomType: params.roomType,
-    basementConfig: params.basementConfig,
+    basementConfig: params.basementConfig as any,
     flatDistributionMode: overrideDistribution || params.flatDistributionMode || 'equal',
   });
 

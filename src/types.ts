@@ -204,7 +204,7 @@ export type CantileverDirection = 'open_facades' | 'front_back' | 'front' | 'all
 
 export interface BasementUnit {
   id: string;
-  type: 'commercial_shop' | 'shelter' | 'parking' | 'residential' | 'storage';
+  type: 'commercial_shop' | 'shelter' | 'parking' | 'residential' | 'storage' | 'shop_storage';
   count: number;
   description?: string;
 }

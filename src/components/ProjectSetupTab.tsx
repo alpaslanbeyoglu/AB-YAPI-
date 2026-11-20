@@ -1912,6 +1912,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                                     className="flex-1 text-[10px] font-bold bg-transparent outline-none border-b border-indigo-50"
                                   >
                                     <option value="commercial_shop">🏪 İşyeri (B.B.)</option>
+                                    <option value="shop_storage">📦 Zemin Dükkan Deposu (Bodrum)</option>
                                     <option value="residential">🏠 Konut (B.B.)</option>
                                     <option value="shelter">🛡️ Sığınak</option>
                                     <option value="parking">🚗 Otopark</option>
@@ -1964,11 +1965,17 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         <input
                           type="checkbox"
                           checked={!!params.hasGroundFloorShop}
-                          onChange={(e) => onChangeParams({
-                            ...params,
-                            hasGroundFloorShop: e.target.checked,
-                            shopCount: e.target.checked ? params.shopCount || 1 : 0
-                          })}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            const footprintResult = calculateFootprint(params.footprintInputMode, params);
+                            const baseArea = params.baseBuildArea || footprintResult.area || 100;
+                            onChangeParams({
+                              ...params,
+                              hasGroundFloorShop: isChecked,
+                              shopCount: isChecked ? params.shopCount || 1 : 0,
+                              shopArea: isChecked ? (params.shopArea && params.shopArea > 0 ? params.shopArea : baseArea) : params.shopArea
+                            });
+                          }}
                           className="w-4 h-4 text-amber-600 rounded-md cursor-pointer"
                         />
                         <span className="uppercase tracking-tight">🏪 Zemin Dükkan</span>
@@ -2014,7 +2021,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           </div>
                         </div>
                         <div className="flex items-center justify-between pt-2 border-t border-amber-100/60">
-                          <span className="text-[10px] font-bold text-amber-900/70">Ortalama Dükkan Alanı:</span>
+                          <div>
+                            <span className="text-[10px] font-bold text-amber-900/70 block">Ortalama Dükkan (Brüt):</span>
+                            <span className="text-[9px] text-emerald-700 font-bold block font-mono">
+                              Net Tahmini: ~{Math.round((params.shopArea || 80) * 0.82)} m² (%82)
+                            </span>
+                          </div>
                           <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-amber-200">
                             <input
                               type="number"

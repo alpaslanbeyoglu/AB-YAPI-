@@ -30,6 +30,7 @@ import { LiteMobileView } from './components/LiteMobileView';
 import { ProjectTransferModal } from './components/ProjectTransferModal';
 import { ProjectLifecycleBar } from './components/ProjectLifecycleBar';
 import { QuickProposalModal } from './components/QuickProposalModal';
+import { GuidedWizardModal } from './components/GuidedWizardModal';
 
 // Resilient lazy loader for secondary tabs that retries once on network hiccups
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -137,6 +138,7 @@ export default function App() {
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isProjectTransferOpen, setIsProjectTransferOpen] = useState(false);
   const [isQuickProposalOpen, setIsQuickProposalOpen] = useState(false);
+  const [isGuidedWizardOpen, setIsGuidedWizardOpen] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     try {
@@ -1314,6 +1316,7 @@ export default function App() {
               onNewProjectClick={() => handleStartNewProject()}
               onOpenHistoryClick={() => setActiveTab('gecmis')}
               onOpenQuickProposal={() => setIsQuickProposalOpen(true)}
+              onOpenGuidedWizard={() => setIsGuidedWizardOpen(true)}
               historyList={historyList}
               onSelectProject={(proj) => handleLoadProject(proj, activeTab)}
               currentProposalStatus={params.proposalStatus || (params.isOfferAccepted ? 'accepted' : 'draft')}
@@ -1687,6 +1690,14 @@ export default function App() {
         showNotification('success', 'Hızlı teklif başarıyla oluşturuldu ve çalışma alanına aktarıldı!');
         setActiveTab('teklif');
       }}
+      theme={theme}
+    />
+
+    <GuidedWizardModal
+      isOpen={isGuidedWizardOpen}
+      onClose={() => setIsGuidedWizardOpen(false)}
+      params={params}
+      onChangeParams={updateCalculatorParams}
       theme={theme}
     />
 
