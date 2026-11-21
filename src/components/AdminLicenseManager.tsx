@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Timestamp } from 'firebase/firestore';
 import { useFirebaseSync, LicenseInfo } from '../context/FirebaseSyncContext';
 import { 
   ShieldCheck, 
@@ -85,7 +86,7 @@ export const AdminLicenseManager: React.FC = () => {
         name: name.trim() || undefined,
         company: company.trim() || undefined,
         status,
-        expiresAt: isoExpiresAt,
+        expiresAt: Timestamp.fromDate(new Date(isoExpiresAt)),
         createdAt: new Date().toISOString()
       };
 
@@ -217,7 +218,8 @@ export const AdminLicenseManager: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {filteredLicenses.map((lic) => {
-                  const isExpired = new Date(lic.expiresAt) < new Date();
+                  const expiresAtDate = lic.expiresAt instanceof Timestamp ? lic.expiresAt.toDate() : new Date(lic.expiresAt);
+                  const isExpired = expiresAtDate < new Date();
                   const isSuspended = lic.status === 'suspended';
                   
                   return (
@@ -235,7 +237,7 @@ export const AdminLicenseManager: React.FC = () => {
                       <td className="py-4 px-4">
                         <div className={`flex items-center gap-1.5 font-medium ${isExpired ? 'text-rose-600 font-bold' : 'text-slate-600'}`}>
                           <Calendar className="h-3.5 w-3.5" />
-                          <span>{new Date(lic.expiresAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                          <span>{expiresAtDate.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                           {isExpired && <span className="text-[10px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-100">Süresi Doldu</span>}
                         </div>
                       </td>
@@ -272,7 +274,7 @@ export const AdminLicenseManager: React.FC = () => {
                               setName(lic.name || '');
                               setCompany(lic.company || '');
                               setStatus(lic.status);
-                              setExpiresAt(new Date(lic.expiresAt).toISOString().split('T')[0]);
+                              setExpiresAt(expiresAtDate.toISOString().split('T')[0]);
                               setShowAddModal(true);
                             }}
                             className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 rounded-lg transition-colors"
