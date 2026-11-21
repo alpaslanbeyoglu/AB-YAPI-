@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { authenticatedApiFetch } from '../lib/api';
 import {
   Download,
   Copy,
@@ -1102,7 +1103,7 @@ export const SocialMediaStudio: React.FC<SocialMediaStudioProps> = ({
     if (isGeneratingCaption) return;
     setIsGeneratingCaption(true);
     try {
-      const response = await fetch('/api/generate-social-caption', {
+      const response = await authenticatedApiFetch('/api/generate-social-caption', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
