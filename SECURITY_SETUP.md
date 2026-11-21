@@ -12,7 +12,7 @@ The API now verifies Firebase ID tokens with the Firebase Admin SDK and checks t
 
 ## Firestore rules deployment
 
-Publish the updated `firestore.rules` to the same named Firestore database configured above. Confirm the rules are deployed before releasing the frontend. Users can access only their own user documents and only while their license status is active. Only the verified administrator account `alpaslan.beyoglu@gmail.com` can list or modify license documents.
+Publish the updated `firestore.rules` to the same named Firestore database configured above. Confirm the rules are deployed before releasing the frontend. Users can access only their own user documents and only while their license is active and its expiry is a Firestore Timestamp in the future. The Admin License panel now writes expiry values as Firestore Timestamps; re-save each existing license once in the admin panel after deploying these rules to migrate legacy ISO-string expiry values. Only the verified administrator account `alpaslan.beyoglu@gmail.com` can list or modify license documents.
 
 ## Authentication setup
 
