@@ -16,7 +16,9 @@ service cloud.firestore {
         && request.auth.token.email_verified == true
         && request.auth.token.email is string
         && exists(/databases/$(database)/documents/licenses/$(request.auth.token.email))
-        && get(/databases/$(database)/documents/licenses/$(request.auth.token.email)).data.status == 'active';
+        && get(/databases/$(database)/documents/licenses/$(request.auth.token.email)).data.status == 'active'
+        && get(/databases/$(database)/documents/licenses/$(request.auth.token.email)).data.expiresAt is timestamp
+        && get(/databases/$(database)/documents/licenses/$(request.auth.token.email)).data.expiresAt > request.time;
     }
 
     match /licenses/{email} {
