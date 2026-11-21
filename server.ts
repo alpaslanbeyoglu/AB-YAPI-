@@ -47,8 +47,8 @@ async function requireFirebaseUser(req: express.Request, res: express.Response, 
       const licenseSnapshot = await getFirestore(adminApp, databaseId)
         .collection("licenses").doc(normalizedEmail).get();
       const license = licenseSnapshot.data();
-      const expiresAt = license?.expiresAt ? new Date(license.expiresAt).getTime() : 0;
-      if (license?.status !== "active" || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      const expiresAt = license?.expiresAt?.toDate?.();
+      if (license?.status !== "active" || !(expiresAt instanceof Date) || expiresAt.getTime() <= Date.now()) {
         return res.status(403).json({ error: "Aktif bir AB Yapı lisansı bulunamadı." });
       }
     }
