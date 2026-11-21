@@ -30,7 +30,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^6.0.0",
+    "@firebase/rules-unit-testing": "^5.0.0",
     "@types/d3": "^7.4.3",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
