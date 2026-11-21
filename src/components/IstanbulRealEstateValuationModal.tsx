@@ -50,6 +50,38 @@ export const IstanbulRealEstateValuationModal: React.FC<IstanbulRealEstateValuat
 }) => {
   if (!isOpen) return null;
 
+  return (
+    <IstanbulRealEstateValuationModalContent
+      onClose={onClose}
+      params={params}
+      flats={flats}
+      onUpdateFlats={onUpdateFlats}
+      onUpdateParams={onUpdateParams}
+      totalConstructionCost={totalConstructionCost}
+      theme={theme}
+    />
+  );
+};
+
+interface IstanbulRealEstateValuationModalContentProps {
+  onClose: () => void;
+  params: ProjectParams;
+  flats: FlatItem[];
+  onUpdateFlats: (updatedFlats: FlatItem[]) => void;
+  onUpdateParams?: (updatedParams: Partial<ProjectParams>) => void;
+  totalConstructionCost?: number;
+  theme?: AppTheme;
+}
+
+const IstanbulRealEstateValuationModalContent: React.FC<IstanbulRealEstateValuationModalContentProps> = ({
+  onClose,
+  params,
+  flats,
+  onUpdateFlats,
+  onUpdateParams,
+  totalConstructionCost = 0,
+  theme = 'light',
+}) => {
   const isGray = theme === 'gray';
 
   // Selected District & Street Tier State

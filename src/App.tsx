@@ -1261,30 +1261,47 @@ export default function App() {
     tabs: tabsConfig.filter(t => t.category === cat.id && t.visible && (activeTab !== 'profile' || t.category !== 'project_studio')).sort((a, b) => a.order - b.order)
   }));
 
+  const handleRootErrorReset = () => {
+    setIsProjectTransferOpen(false);
+    setIsQuickProposalOpen(false);
+    setIsGuidedWizardOpen(false);
+    setIsMenuSettingsOpen(false);
+    setIsAdminLicensesOpen(false);
+  };
+
   // If mobile Lite mode is active, render the dedicated LiteMobileView
   if (appMode === 'lite') {
     return (
-      <Suspense fallback={<TabLoadingSkeleton theme={theme} title="Mobil Lite Sürüm Hazırlanıyor..." />}>
-        <LiteMobileView
-          params={liteParams}
-          results={liteResults}
-          onChangeParams={updateLiteCalculatorParams}
-          onSwitchToFull={() => {
-            setAppMode('full');
-            try {
-              localStorage.removeItem('ab_yapi_mode');
-            } catch (e) {}
-          }}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onQuickSave={handleQuickSave}
-          onOpenTransferModal={() => setIsProjectTransferOpen(true)}
-        />
-      </Suspense>
+      <ErrorBoundary
+        fallbackTitle="Mobil Görünümde Bir Sorun Oluştu"
+        onReset={handleRootErrorReset}
+      >
+        <Suspense fallback={<TabLoadingSkeleton theme={theme} title="Mobil Lite Sürüm Hazırlanıyor..." />}>
+          <LiteMobileView
+            params={liteParams}
+            results={liteResults}
+            onChangeParams={updateLiteCalculatorParams}
+            onSwitchToFull={() => {
+              setAppMode('full');
+              try {
+                localStorage.removeItem('ab_yapi_mode');
+              } catch (e) {}
+            }}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onQuickSave={handleQuickSave}
+            onOpenTransferModal={() => setIsProjectTransferOpen(true)}
+          />
+        </Suspense>
+      </ErrorBoundary>
     );
   }
 
   return (
+    <ErrorBoundary
+      fallbackTitle="Uygulama Arayüzünde Bir Sorun Oluştu"
+      onReset={handleRootErrorReset}
+    >
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-indigo-500/30 selection:text-indigo-800 w-full max-w-full overflow-x-clip ${
         isGray ? 'bg-slate-100 text-slate-900' : 'bg-[#fafafa] text-slate-900'
@@ -1849,5 +1866,6 @@ export default function App() {
     )}
 
     </div>
+    </ErrorBoundary>
   );
 }

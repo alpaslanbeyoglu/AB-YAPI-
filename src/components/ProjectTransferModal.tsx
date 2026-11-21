@@ -44,6 +44,38 @@ export const ProjectTransferModal: React.FC<ProjectTransferModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  return (
+    <ProjectTransferModalContent
+      onClose={onClose}
+      currentParams={currentParams}
+      currentBuildingModelParams={currentBuildingModelParams}
+      onImportProject={onImportProject}
+      onExportProject={onExportProject}
+      historyList={historyList}
+      theme={theme}
+    />
+  );
+};
+
+interface ProjectTransferModalContentProps {
+  onClose: () => void;
+  currentParams: ProjectParams;
+  currentBuildingModelParams?: BuildingModelParams;
+  onImportProject: (data: { params: ProjectParams; buildingModelParams?: BuildingModelParams; historyList?: SavedProjectData[] }) => void;
+  onExportProject: (includeHistory?: boolean) => void;
+  historyList?: SavedProjectData[];
+  theme?: AppTheme;
+}
+
+const ProjectTransferModalContent: React.FC<ProjectTransferModalContentProps> = ({
+  onClose,
+  currentParams,
+  currentBuildingModelParams,
+  onImportProject,
+  onExportProject,
+  historyList = [],
+  theme = 'light',
+}) => {
   const isGray = theme === 'gray';
   const fileInputRef = useRef<HTMLInputElement>(null);
 

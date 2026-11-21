@@ -39,6 +39,29 @@ export const GuidedWizardModal: React.FC<GuidedWizardModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  return (
+    <GuidedWizardModalContent
+      onClose={onClose}
+      params={params}
+      onChangeParams={onChangeParams}
+      theme={theme}
+    />
+  );
+};
+
+interface GuidedWizardModalContentProps {
+  onClose: () => void;
+  params: ProjectParams;
+  onChangeParams: (newParams: ProjectParams) => void;
+  theme?: AppTheme;
+}
+
+const GuidedWizardModalContent: React.FC<GuidedWizardModalContentProps> = ({
+  onClose,
+  params,
+  onChangeParams,
+  theme = 'light',
+}) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [formData, setFormData] = useState<ProjectParams>({ ...params });
 

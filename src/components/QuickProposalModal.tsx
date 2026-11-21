@@ -18,6 +18,26 @@ export const QuickProposalModal: React.FC<QuickProposalModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  return (
+    <QuickProposalModalContent
+      onClose={onClose}
+      onApplyProposal={onApplyProposal}
+      theme={theme}
+    />
+  );
+};
+
+interface QuickProposalModalContentProps {
+  onClose: () => void;
+  onApplyProposal: (newParams: Partial<ProjectParams>) => void;
+  theme?: AppTheme;
+}
+
+const QuickProposalModalContent: React.FC<QuickProposalModalContentProps> = ({
+  onClose,
+  onApplyProposal,
+  theme = 'light',
+}) => {
   const [customerName, setCustomerName] = useState('');
   const [projectAddress, setProjectAddress] = useState('İstanbul, Kadıköy, 120 Ada 5 Parsel');
   const [landArea, setLandArea] = useState<number>(450);
