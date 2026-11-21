@@ -26,7 +26,7 @@ function getFirebaseAdminAuth() {
 
 async function requireFirebaseUser(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authorization = req.header("authorization") || "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match) return res.status(401).json({ error: "Güvenli oturum gerekli. Lütfen yeniden giriş yapın." });
 
   try {
