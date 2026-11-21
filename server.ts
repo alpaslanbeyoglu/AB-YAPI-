@@ -16,7 +16,7 @@ app.use(express.json({ limit: "2mb" }));
 // Fail closed: privileged AI routes require a valid Firebase ID token.
 // On Cloud Run / Google Cloud, Application Default Credentials are provided by the runtime.
 function getFirebaseAdminAuth() {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const projectId = process.env.FIREBASE_PROJECT_ID || "gen-lang-client-0638260382";
   if (!projectId) throw new Error("FIREBASE_PROJECT_ID is not configured.");
   const adminApp = getApps().length
     ? getApp()
