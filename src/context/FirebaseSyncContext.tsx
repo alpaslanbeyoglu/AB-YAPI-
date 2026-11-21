@@ -4,7 +4,6 @@ import {
   onAuthStateChanged, 
   signInWithPopup, 
   signInWithRedirect,
-  signInAnonymously,
   getRedirectResult,
   signOut as firebaseSignOut, 
   GoogleAuthProvider 
@@ -82,13 +81,13 @@ export type AuthUser = {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  emailVerified: boolean;
 };
 
 interface FirebaseSyncContextType {
   user: AuthUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
-  signInAsAdmin: (passcode: string) => boolean;
   signOut: () => Promise<void>;
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   isAuthInitialized: boolean;
@@ -155,17 +154,7 @@ export function sanitizeForFirestore<T>(data: T): T {
 }
 
 export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    try {
-      const cached = localStorage.getItem('ab_yapi_auth_session');
-      if (cached) {
-        return JSON.parse(cached);
-      }
-    } catch (e) {
-      console.warn("Failed to load cached auth session:", e);
-    }
-    return null;
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthInitialized, setIsAuthInitialized] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
@@ -174,7 +163,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [isLicensed, setIsLicensed] = useState<boolean>(false);
   const [licenseLoading, setLicenseLoading] = useState<boolean>(false);
   const [licenseInfo, setLicenseInfo] = useState<LicenseInfo | null>(null);
-  const isAdmin = user ? (user.email?.toLowerCase() === 'alpaslan.beyoglu@gmail.com') : false;
+  const isAdmin = Boolean(user?.emailVerified && user.email?.toLowerCase() === 'alpaslan.beyoglu@gmail.com');
 
   // Test Connection
   useEffect(() => {
@@ -203,23 +192,11 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
+          emailVerified: firebaseUser.emailVerified,
         };
         setUser(u);
-        try {
-          localStorage.setItem('ab_yapi_auth_session', JSON.stringify(u));
-        } catch (e) {}
       } else {
-        // If not in firebase, check if we have a locally saved dev session
-        const cached = localStorage.getItem('ab_yapi_auth_session');
-        if (cached) {
-          try {
-            setUser(JSON.parse(cached));
-          } catch (e) {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
+        setUser(null);
       }
       setIsAuthInitialized(true);
       setLoading(false);
@@ -237,16 +214,16 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return;
       }
 
-      // Admin (Alpaslan) always has active license and bypasses check
+      // Only the authenticated, email-verified administrator receives the admin license bypass.
       const userEmail = user.email ? user.email.toLowerCase().trim() : '';
-      if (userEmail === 'alpaslan.beyoglu@gmail.com' || user.uid === 'admin_alpaslan_beyoglu') {
+      if (user.emailVerified && userEmail === 'alpaslan.beyoglu@gmail.com') {
         setIsLicensed(true);
         setLicenseLoading(false);
         setLicenseInfo({
-          email: user.email || 'alpaslan.beyoglu@gmail.com',
+          email: userEmail,
           status: 'active',
           expiresAt: '2099-12-31T23:59:59.000Z',
-          name: 'Alpaslan Beyoğlu',
+          name: 'AB Yapı Yönetim',
           company: 'Admin',
           createdAt: new Date().toISOString()
         });
@@ -285,40 +262,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     checkLicense();
   }, [user]);
 
-  const activateDirectAdminSession = async () => {
-    try {
-      if (!auth.currentUser) {
-        await signInAnonymously(auth).catch(() => {});
-      }
-    } catch (e) {}
-
-    const adminUser: AuthUser = {
-      uid: auth.currentUser?.uid || 'admin_alpaslan_beyoglu',
-      email: 'alpaslan.beyoglu@gmail.com',
-      displayName: 'Alpaslan Beyoğlu',
-      photoURL: null
-    };
-    setUser(adminUser);
-    setIsLicensed(true);
-    setLicenseLoading(false);
-    setLoading(false);
-    setLicenseInfo({
-      email: 'alpaslan.beyoglu@gmail.com',
-      status: 'active',
-      expiresAt: '2099-12-31T23:59:59.000Z',
-      name: 'Alpaslan Beyoğlu',
-      company: 'AB Yapı Yönetim',
-      createdAt: new Date().toISOString()
-    });
-    try {
-      localStorage.setItem('ab_yapi_auth_session', JSON.stringify(adminUser));
-    } catch (e) {}
-  };
-
   const signInWithGoogle = async () => {
-    // On iOS/Android standalone Home Screen Web Apps (PWA), mobile browsers, or Cloud Run preview URLs,
-    // signInWithPopup opens an isolated SFSafariViewController to firebaseapp.com/__/auth/handler
-    // which fails with "The requested action is invalid." due to storage partitioning.
     const isStandalonePWA =
       typeof window !== 'undefined' &&
       (window.matchMedia?.('(display-mode: standalone)')?.matches ||
@@ -326,86 +270,20 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const isMobileDevice =
       typeof navigator !== 'undefined' &&
       /iphone|ipad|ipod|android|mobile|wv/i.test(navigator.userAgent);
-    const isPreviewOrIframe =
-      typeof window !== 'undefined' &&
-      (window.self !== window.top ||
-        window.location.hostname.endsWith('.run.app') ||
-        window.location.hostname === 'localhost');
+    const isEmbedded =
+      typeof window !== 'undefined' && window.self !== window.top;
 
-    if (isStandalonePWA || isMobileDevice || isPreviewOrIframe) {
-      await activateDirectAdminSession();
+    // Redirect is more reliable than popups in mobile browsers and embedded previews.
+    if (isStandalonePWA || isMobileDevice || isEmbedded) {
+      await signInWithRedirect(auth, googleProvider);
       return;
     }
 
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error: any) {
-      console.warn("Firebase Google Sign-In popup restricted, engaging direct admin fallback:", error);
-      await activateDirectAdminSession();
-    }
-  };
-
-  const verifyAdminPasscode = (passcode: string): boolean => {
-    const trimmed = passcode.trim();
-    if (!trimmed) return false;
-    
-    // Direct match for standard admin passcodes
-    if (trimmed === '1987' || trimmed.toLowerCase() === 'admin' || trimmed === 'ab2026') {
-      return true;
-    }
-
-    // Check environment variable if configured
-    const envPin = (import.meta.env.VITE_ADMIN_PIN || '').trim();
-    if (envPin && trimmed === envPin) {
-      return true;
-    }
-    
-    // Secure Hash comparison for custom generated hashes
-    let hash = 0;
-    const lower = trimmed.toLowerCase();
-    for (let i = 0; i < lower.length; i++) {
-      hash = (hash << 5) - hash + lower.charCodeAt(i);
-      hash |= 0;
-    }
-    const hexHash = hash.toString(16);
-    const ALLOWED_PIN_HASHES = ['170ef5', '58a2d1f', '-40d0ea36'];
-    return ALLOWED_PIN_HASHES.includes(hexHash);
-  };
-
-  const signInAsAdmin = (passcode: string): boolean => {
-    // Admin Master Access for Alpaslan Beyoğlu
-    if (verifyAdminPasscode(passcode)) {
-      const adminUser: AuthUser = {
-        uid: 'admin_alpaslan_beyoglu',
-        email: 'alpaslan.beyoglu@gmail.com',
-        displayName: 'Alpaslan Beyoğlu',
-        photoURL: null
-      };
-      setUser(adminUser);
-      setIsLicensed(true);
-      setLicenseLoading(false);
-      setLoading(false);
-      setLicenseInfo({
-        email: 'alpaslan.beyoglu@gmail.com',
-        status: 'active',
-        expiresAt: '2099-12-31T23:59:59.000Z',
-        name: 'Alpaslan Beyoğlu',
-        company: 'AB Yapı Yönetim',
-        createdAt: new Date().toISOString()
-      });
-      try {
-        localStorage.setItem('ab_yapi_auth_session', JSON.stringify(adminUser));
-      } catch (e) {}
-      return true;
-    }
-    return false;
+    await signInWithPopup(auth, googleProvider);
   };
 
   const signOut = async () => {
     try {
-      try {
-        localStorage.removeItem('ab_yapi_auth_session');
-      } catch (e) {}
       setUser(null);
       setIsLicensed(false);
       setLicenseInfo(null);
@@ -416,19 +294,7 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const getFirebaseUserId = async (): Promise<string | null> => {
-    if (auth.currentUser) {
-      return auth.currentUser.uid;
-    }
-    if (user) {
-      try {
-        const cred = await signInAnonymously(auth);
-        return cred.user.uid;
-      } catch (err) {
-        console.warn("signInAnonymously fallback error:", err);
-        return user.uid;
-      }
-    }
-    return null;
+    return auth.currentUser?.uid || null;
   };
 
   // Pushes a single project and its associated construction state to the cloud
@@ -681,7 +547,6 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       user,
       loading,
       signInWithGoogle,
-      signInAsAdmin,
       signOut,
       syncStatus,
       isAuthInitialized,
