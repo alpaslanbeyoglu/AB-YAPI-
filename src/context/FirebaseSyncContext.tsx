@@ -15,7 +15,8 @@ import {
   getDocs, 
   deleteDoc,
   getDoc,
-  getDocFromServer
+  getDocFromServer,
+  Timestamp
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { SavedProjectData, CompanyProfile } from '../types';
@@ -70,7 +71,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 export interface LicenseInfo {
   email: string;
   status: 'active' | 'suspended';
-  expiresAt: string; // ISO String
+  expiresAt: string | Timestamp;
   name?: string;
   company?: string;
   createdAt: string;
@@ -237,7 +238,8 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         if (docSnap.exists()) {
           const data = docSnap.data() as LicenseInfo;
-          const isNotExpired = new Date(data.expiresAt) > new Date();
+          const expiresAtDate = data.expiresAt instanceof Timestamp ? data.expiresAt.toDate() : new Date(data.expiresAt);
+          const isNotExpired = expiresAtDate > new Date();
           const isActive = data.status === 'active';
 
           if (isActive && isNotExpired) {
