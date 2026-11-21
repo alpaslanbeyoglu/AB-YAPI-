@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { authenticatedApiFetch } from '../lib/api';
 import {
   Sparkles,
   Download,
@@ -362,7 +363,7 @@ export const NanoBananaDrawingGenerator: React.FC<NanoBananaDrawingGeneratorProp
         projectData: projectDataPayload,
       };
 
-      const res = await fetch('/api/generate-blueprint-drawing', {
+      const res = await authenticatedApiFetch('/api/generate-blueprint-drawing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
