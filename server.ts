@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { applicationDefault, getApp, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 import { generateArchitecturalSvgDrawing } from "./src/utils/architecturalSvgEngine";
 
 dotenv.config();
@@ -31,9 +32,27 @@ async function requireFirebaseUser(req: express.Request, res: express.Response, 
 
   try {
     const decoded = await getFirebaseAdminAuth().verifyIdToken(match[1], true);
-    if (!decoded.uid || decoded.firebase?.sign_in_provider === "anonymous") {
-      return res.status(403).json({ error: "Anonim oturumlar bu işlem için yetkili değildir." });
+    if (!decoded.uid || decoded.firebase?.sign_in_provider === "anonymous" || decoded.email_verified !== true || !decoded.email) {
+      return res.status(403).json({ error: "Doğrulanmış bir Google/Firebase hesabı gerekli." });
     }
+
+    const normalizedEmail = decoded.email.toLowerCase().trim();
+    const isAdmin = normalizedEmail === "alpaslan.beyoglu@gmail.com";
+    if (!isAdmin) {
+      const adminApp = getApps().length ? getApp() : initializeApp({
+        credential: applicationDefault(),
+        projectId: process.env.FIREBASE_PROJECT_ID || "gen-lang-client-0638260382",
+      });
+      const databaseId = process.env.FIRESTORE_DATABASE_ID || "ai-studio-abyapi-930a6131-e544-4748-ad41-70a4db7c4e48";
+      const licenseSnapshot = await getFirestore(adminApp, databaseId)
+        .collection("licenses").doc(normalizedEmail).get();
+      const license = licenseSnapshot.data();
+      const expiresAt = license?.expiresAt ? new Date(license.expiresAt).getTime() : 0;
+      if (license?.status !== "active" || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        return res.status(403).json({ error: "Aktif bir AB Yapı lisansı bulunamadı." });
+      }
+    }
+
     (req as any).firebaseUser = decoded;
     return next();
   } catch (error) {
