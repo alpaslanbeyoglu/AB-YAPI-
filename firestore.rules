@@ -31,8 +31,9 @@ service cloud.firestore {
     }
 
     match /users/{userId}/{document=**} {
-      allow read, write: if isVerifiedAdmin()
-        || (isSignedIn() && request.auth.uid == userId && hasActiveLicense());
+      allow read, write: if isSignedIn()
+        && request.auth.uid == userId
+        && (isVerifiedAdmin() || hasActiveLicense());
     }
 
     match /{document=**} {
