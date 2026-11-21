@@ -8,11 +8,8 @@ import {
   Building2, 
   ExternalLink, 
   AlertCircle, 
-  KeyRound, 
   Copy, 
-  Check, 
-  ChevronRight,
-  Sparkles
+  Check
 } from 'lucide-react';
 
 interface LicenseGateProps {
@@ -26,16 +23,12 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
     isLicensed, 
     licenseLoading, 
     signInWithGoogle, 
-    signInAsAdmin,
     signOut 
   } = useFirebaseSync();
 
   const [authError, setAuthError] = useState<string | null>(null);
   const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
   const [copiedDomain, setCopiedDomain] = useState(false);
-  const [showAdminPasscode, setShowAdminPasscode] = useState(false);
-  const [adminPin, setAdminPin] = useState('');
-  const [pinError, setPinError] = useState<string | null>(null);
 
   // Check if running inside an iframe (e.g., AI Studio preview panel)
   const isInsideIframe = typeof window !== 'undefined' && window.self !== window.top;
@@ -68,14 +61,6 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
     }
   };
 
-  const handleAdminPinSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPinError(null);
-    const success = signInAsAdmin(adminPin);
-    if (!success) {
-      setPinError("Geçersiz yönetici erişim kodu. Lütfen tekrar deneyin.");
-    }
-  };
 
   const handleCopyDomain = () => {
     if (currentHostname) {
@@ -182,14 +167,6 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
               <span>Google / Bulut Hesabı ile Giriş Yap</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => signInAsAdmin('1987')}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-all text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 active:scale-[0.98] cursor-pointer"
-            >
-              <Sparkles className="h-4 w-4 shrink-0" />
-              <span>Yönetici Olarak Doğrudan Başlat</span>
-            </button>
 
             {isInsideIframe && (
               <button
@@ -201,53 +178,7 @@ export const LicenseGate: React.FC<LicenseGateProps> = ({ children }) => {
               </button>
             )}
 
-            {/* Quick Admin Master Key Section */}
-            <div className="pt-4 border-t border-slate-100">
-              {!showAdminPasscode ? (
-                <button
-                  type="button"
-                  onClick={() => setShowAdminPasscode(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
-                >
-                  <KeyRound className="h-3.5 w-3.5" />
-                  <span>Yönetici Doğrulama Kodu ile Giriş</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              ) : (
-                <form onSubmit={handleAdminPinSubmit} className="space-y-3 text-left">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <KeyRound className="h-3.5 w-3.5 text-indigo-600" />
-                      Yönetici Şifresi / PIN
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowAdminPasscode(false)}
-                      className="text-[11px] text-slate-400 hover:text-slate-600"
-                    >
-                      Vazgeç
-                    </button>
-                  </div>
-                  <input
-                    type="password"
-                    placeholder="Erişim kodunuzu girin..."
-                    value={adminPin}
-                    onChange={(e) => setAdminPin(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    autoFocus
-                  />
-                  {pinError && (
-                    <p className="text-[11px] text-rose-600 font-medium">{pinError}</p>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs shadow-sm transition-colors cursor-pointer"
-                  >
-                    Yönetici Olarak Başlat (Alpaslan Beyoğlu)
-                  </button>
-                </form>
-              )}
-            </div>
+
           </div>
         </div>
       </div>
