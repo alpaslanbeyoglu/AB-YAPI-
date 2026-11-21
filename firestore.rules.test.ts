@@ -8,7 +8,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
   initializeTestEnvironment,
   assertFails,
@@ -387,7 +387,7 @@ describe('Firestore Security Rules', () => {
     );
   });
 
-  it('8. logoBase64 ve stampBase64 tekil olarak 800.000 karakterin altında olsa bile toplam belge boyutu 1 MiB sınırını aştığında yazma reddedilir', async () => {
+  it('8. logoBase64 ve stampBase64 tekil olarak 800.000 karakterin altında olsa bile toplam belge boyutu 1 MiB sınırını aştığında INVALID_ARGUMENT ile reddedilir', async () => {
     const userADb = testEnv
       .authenticatedContext('uid_a', {
         email: 'user_a@firma.com',
@@ -396,7 +396,7 @@ describe('Firestore Security Rules', () => {
       })
       .firestore();
 
-    await assertFails(
+    await expect(
       setDoc(
         doc(userADb, 'users/uid_a/companyProfiles/prof_combined_over_1mib'),
         VALID_PROFILE({
@@ -404,7 +404,10 @@ describe('Firestore Security Rules', () => {
           stampBase64: 'x'.repeat(600000),
         })
       )
-    );
+    ).rejects.toMatchObject({
+      code: expect.stringMatching(/^invalid[-_]argument$/i),
+      message: expect.stringMatching(/maximum|size|bytes|1,?048,?576|1\s*mib|exceeds|too\s*large/i),
+    });
   });
 
   it('9. Normal kullanıcı kendi companyProfiles belgesini güncelleyebilir ve silebilir', async () => {
