@@ -2,6 +2,8 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
+import { applicationDefault, getApp, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { generateArchitecturalSvgDrawing } from "./src/utils/architecturalSvgEngine";
 
 dotenv.config();
@@ -9,7 +11,66 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "2mb" }));
+
+// Fail closed: privileged AI routes require a valid Firebase ID token.
+// On Cloud Run / Google Cloud, Application Default Credentials are provided by the runtime.
+function getFirebaseAdminAuth() {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  if (!projectId) throw new Error("FIREBASE_PROJECT_ID is not configured.");
+  const adminApp = getApps().length
+    ? getApp()
+    : initializeApp({ credential: applicationDefault(), projectId });
+  return getAuth(adminApp);
+}
+
+async function requireFirebaseUser(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authorization = req.header("authorization") || "";
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  if (!match) return res.status(401).json({ error: "Güvenli oturum gerekli. Lütfen yeniden giriş yapın." });
+
+  try {
+    const decoded = await getFirebaseAdminAuth().verifyIdToken(match[1], true);
+    if (!decoded.uid || decoded.firebase?.sign_in_provider === "anonymous") {
+      return res.status(403).json({ error: "Anonim oturumlar bu işlem için yetkili değildir." });
+    }
+    (req as any).firebaseUser = decoded;
+    return next();
+  } catch (error) {
+    console.warn("Firebase ID token verification failed:", error);
+    return res.status(401).json({ error: "Oturum doğrulanamadı. Lütfen yeniden giriş yapın." });
+  }
+}
+
+// Per-user in-memory rate limiter. Use a shared store (e.g. Redis) when horizontally scaling.
+const apiRequestWindows = new Map<string, { count: number; resetAt: number }>();
+function aiRateLimit(maxRequests: number, windowMs: number) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const uid = (req as any).firebaseUser?.uid as string | undefined;
+    if (!uid) return res.status(401).json({ error: "Kimlik doğrulaması gerekli." });
+    const now = Date.now();
+    const key = `${uid}:${req.path}`;
+    const current = apiRequestWindows.get(key);
+    if (!current || current.resetAt <= now) {
+      apiRequestWindows.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    if (current.count >= maxRequests) {
+      res.setHeader("Retry-After", String(Math.ceil((current.resetAt - now) / 1000)));
+      return res.status(429).json({ error: "Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin." });
+    }
+    current.count += 1;
+    return next();
+  };
+}
+
+// Periodically discard expired limiter buckets to bound memory use.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of apiRequestWindows) {
+    if (value.resetAt <= now) apiRequestWindows.delete(key);
+  }
+}, 60_000).unref();
 
 let aiInstance: GoogleGenAI | null = null;
 
@@ -237,7 +298,7 @@ app.get("/api/health", (req, res) => {
 });
 
 // AI Offer Generator from Text
-app.post("/api/ai-generate-offer", async (req, res) => {
+app.post("/api/ai-generate-offer", requireFirebaseUser, aiRateLimit(10, 60_000), async (req, res) => {
   const { text } = req.body;
   if (!text || typeof text !== 'string') {
     return res.status(400).json({ error: "Geçerli bir metin girişi gereklidir." });
@@ -326,7 +387,7 @@ Lütfen aşağıdaki anahtarlara sahip geçerli bir JSON objesi döndür (Markdo
 });
 
 // AI Social Media Caption Generator Endpoint
-app.post("/api/generate-social-caption", async (req, res) => {
+app.post("/api/generate-social-caption", requireFirebaseUser, aiRateLimit(15, 60_000), async (req, res) => {
   const { projectName, location, templateType, platform, companyName, slogan, additionalInfo } = req.body;
   
   try {
@@ -416,7 +477,7 @@ YAZIM FORMATI VE HEDEF PLATFORM:
 });
 
 // Nano Banana AI Blueprint & Architectural Drawing Generator Endpoint
-app.post("/api/generate-blueprint-drawing", async (req, res) => {
+app.post("/api/generate-blueprint-drawing", requireFirebaseUser, aiRateLimit(4, 60_000), async (req, res) => {
   try {
     const {
       drawingType = "floor_plan",
