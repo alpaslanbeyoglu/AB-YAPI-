@@ -35,6 +35,7 @@ export const AdminLicenseManager: React.FC = () => {
   const [company, setCompany] = useState('');
   const [status, setStatus] = useState<'active' | 'suspended'>('active');
   const [expiresAt, setExpiresAt] = useState('');
+  const [editingCreatedAt, setEditingCreatedAt] = useState<string | null>(null);
 
   // Fetch licenses on mount
   const fetchLicenses = async () => {
@@ -71,6 +72,7 @@ export const AdminLicenseManager: React.FC = () => {
     setCompany('');
     setStatus('active');
     setExpiresAt(formattedDate);
+    setEditingCreatedAt(null);
     setShowAddModal(true);
   };
 
@@ -79,14 +81,16 @@ export const AdminLicenseManager: React.FC = () => {
     if (!email.trim() || !expiresAt) return;
 
     try {
+      const normalizedEmail = email.toLowerCase().trim();
+      const existing = licenses.find(l => l.email.toLowerCase().trim() === normalizedEmail);
       const isoExpiresAt = new Date(expiresAt).toISOString();
       const newLicense: LicenseInfo = {
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         name: name.trim() || undefined,
         company: company.trim() || undefined,
         status,
         expiresAt: isoExpiresAt,
-        createdAt: new Date().toISOString()
+        createdAt: editingCreatedAt || existing?.createdAt || new Date().toISOString()
       };
 
       await createOrUpdateLicense(newLicense);
@@ -273,6 +277,7 @@ export const AdminLicenseManager: React.FC = () => {
                               setCompany(lic.company || '');
                               setStatus(lic.status);
                               setExpiresAt(new Date(lic.expiresAt).toISOString().split('T')[0]);
+                              setEditingCreatedAt(lic.createdAt || null);
                               setShowAddModal(true);
                             }}
                             className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 rounded-lg transition-colors"

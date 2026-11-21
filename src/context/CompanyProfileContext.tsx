@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CompanyProfile, CompanyProfilePrintOptions } from '../types';
 import { useFirebaseSync } from './FirebaseSyncContext';
+import { mergeCompanyProfiles, validateCompanyProfileForCloud } from '../utils/syncKeys';
 
 export const DEFAULT_PRINT_OPTIONS: CompanyProfilePrintOptions = {
   showLogo: true,
@@ -74,6 +75,8 @@ interface CompanyProfileContextType {
   switchProfile: (companyName: string) => void;
   createNewProfile: (newProfile: CompanyProfile) => void;
   deleteProfile: (companyName: string) => void;
+  cloudSyncWarning: string | null;
+  clearCloudSyncWarning: () => void;
 }
 
 const CompanyProfileContext = createContext<CompanyProfileContextType>({
@@ -91,10 +94,14 @@ const CompanyProfileContext = createContext<CompanyProfileContextType>({
   switchProfile: () => {},
   createNewProfile: () => {},
   deleteProfile: () => {},
+  cloudSyncWarning: null,
+  clearCloudSyncWarning: () => {},
 });
 
 export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, saveCompanyProfileToCloud, loadCompanyProfilesFromCloud, deleteCompanyProfileToCloud } = useFirebaseSync();
+  const { user, isLicensed, saveCompanyProfileToCloud, loadCompanyProfilesFromCloud, deleteCompanyProfileToCloud } = useFirebaseSync();
+  const [cloudSyncWarning, setCloudSyncWarning] = useState<string | null>(null);
+  const clearCloudSyncWarning = () => setCloudSyncWarning(null);
 
   // 1. Initialize Active Profile
   const [profile, setProfile] = useState<CompanyProfile>(() => {
@@ -155,52 +162,90 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
     }
   }, [profile, profiles]);
 
-  // Synchronize company profiles on login
+  // Synchronize company profiles on login (timestamp-aware merge)
   useEffect(() => {
+    let cancelled = false;
     const syncWithFirebase = async () => {
-      if (!user) return;
+      if (!user || !isLicensed) return;
       try {
         const cloudProfiles = await loadCompanyProfilesFromCloud();
-        if (cloudProfiles && cloudProfiles.length > 0) {
-          setProfiles(cloudProfiles);
-          const activeExists = cloudProfiles.some(p => p.companyName === profile.companyName);
-          if (activeExists) {
-            const currentActive = cloudProfiles.find(p => p.companyName === profile.companyName)!;
-            setProfile(currentActive);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(currentActive));
-          } else {
-            setProfile(cloudProfiles[0]);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudProfiles[0]));
+        if (cancelled) return;
+
+        const { merged, toUpload } = mergeCompanyProfiles(profiles, cloudProfiles || []);
+        if (merged.length > 0) {
+          setProfiles(merged);
+          const matchedActive = merged.find(p => p.companyName === profile.companyName) || merged[0];
+          setProfile(matchedActive);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(matchedActive));
+            localStorage.setItem(LIST_STORAGE_KEY, JSON.stringify(merged));
+          } catch (e) {}
+        }
+
+        for (const localProf of toUpload) {
+          if (cancelled) return;
+          const validation = validateCompanyProfileForCloud(localProf);
+          if (!validation.valid) {
+            setCloudSyncWarning(
+              validation.reason ||
+                `"${localProf.companyName}" firma profili bulut güvenlik sınırlarıyla uyumlu olmadığı için buluta gönderilmedi.`
+            );
+            continue;
           }
-          localStorage.setItem(LIST_STORAGE_KEY, JSON.stringify(cloudProfiles));
-        } else {
-          // Upload local profiles to cloud to back them up
-          for (const localProf of profiles) {
+          try {
             await saveCompanyProfileToCloud(localProf);
+          } catch (uploadErr) {
+            console.warn('Yerel firma profili buluta aktarılamadı:', localProf.companyName, uploadErr);
           }
         }
       } catch (err) {
-        console.warn("Failed to sync company profiles with Firebase:", err);
+        console.warn('Failed to sync company profiles with Firebase:', err);
       }
     };
     syncWithFirebase();
-  }, [user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isLicensed]);
 
   // Helper to save both state
   const saveAndSync = (updatedActive: CompanyProfile, updatedList: CompanyProfile[]) => {
-    setProfile(updatedActive);
-    setProfiles(updatedList);
+    const stampedActive: CompanyProfile = {
+      ...updatedActive,
+      updatedAt: new Date().toISOString(),
+    };
+    const stampedList = updatedList.map(p =>
+      p.companyName === stampedActive.companyName ? stampedActive : p
+    );
+
+    setProfile(stampedActive);
+    setProfiles(stampedList);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedActive));
-      localStorage.setItem(LIST_STORAGE_KEY, JSON.stringify(updatedList));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stampedActive));
+      localStorage.setItem(LIST_STORAGE_KEY, JSON.stringify(stampedList));
     } catch (e) {
       console.error('Firma profilleri kaydedilemedi:', e);
     }
 
-    if (user) {
-      saveCompanyProfileToCloud(updatedActive).catch(err => 
-        console.warn("Cloud company profile save error:", err)
+    const validation = validateCompanyProfileForCloud(stampedActive);
+    if (!validation.valid) {
+      setCloudSyncWarning(
+        validation.reason ||
+          'Firma profili bulut kurallarıyla uyumlu olmadığı için buluta gönderilmedi.'
       );
+      return;
+    }
+
+    setCloudSyncWarning(null);
+    if (user && isLicensed) {
+      saveCompanyProfileToCloud(stampedActive).catch(err => {
+        console.warn('Cloud company profile save error:', err);
+        setCloudSyncWarning(
+          err instanceof Error
+            ? `Firma profili yerel olarak kaydedildi ancak buluta gönderilemedi: ${err.message}`
+            : 'Firma profili yerel olarak kaydedildi ancak buluta gönderilemedi.'
+        );
+      });
     }
   };
 
@@ -308,7 +353,7 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
     }
     saveAndSync(nextActive, updatedList);
 
-    if (user) {
+    if (user && isLicensed) {
       deleteCompanyProfileToCloud(companyName).catch(err => 
         console.warn("Cloud company profile delete error:", err)
       );
@@ -332,6 +377,8 @@ export const CompanyProfileProvider: React.FC<{ children: React.ReactNode }> = (
         switchProfile,
         createNewProfile,
         deleteProfile,
+        cloudSyncWarning,
+        clearCloudSyncWarning,
       }}
     >
       {children}

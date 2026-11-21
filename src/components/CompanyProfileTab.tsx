@@ -53,6 +53,7 @@ import {
 } from 'lucide-react';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { CompanyProfile, CompanyProfilePrintOptions } from '../types';
+import { FIRESTORE_MEDIA_CHAR_LIMIT } from '../utils/syncKeys';
 import { LiveMarketPricesBar } from './LiveMarketPricesBar';
 import { ExecutiveDashboardHome } from './ExecutiveDashboardHome';
 
@@ -110,10 +111,14 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
     switchProfile,
     createNewProfile,
     deleteProfile,
+    cloudSyncWarning,
+    clearCloudSyncWarning,
   } = useCompanyProfile();
   
   const [formData, setFormData] = useState<CompanyProfile>(profile);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [mediaWarning, setMediaWarning] = useState<string | null>(null);
   
   // Multi-profile state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -131,6 +136,9 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    if (name === 'legalName' || name === 'companyName') {
+      setValidationError(null);
+    }
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -145,7 +153,36 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
   };
 
   const handleSave = () => {
-    updateProfile(formData);
+    const trimmedLegalName = (formData.legalName || '').trim();
+    const trimmedCompanyName = (formData.companyName || '').trim();
+
+    if (!trimmedLegalName) {
+      setValidationError('Tam Ticari Ünvan (Resmî Şirket Adı) boş bırakılamaz. Kaydetmeden önce lütfen şirket unvanını giriniz.');
+      setSaveSuccess(false);
+      return;
+    }
+    if (trimmedLegalName.length > 250) {
+      setValidationError('Tam Ticari Ünvan en fazla 250 karakter olabilir.');
+      setSaveSuccess(false);
+      return;
+    }
+    if (!trimmedCompanyName) {
+      setValidationError('Kısa Firma Adı (Marka) boş bırakılamaz. Kaydetmeden önce lütfen kısa firma adını giriniz.');
+      setSaveSuccess(false);
+      return;
+    }
+    if (trimmedCompanyName.length > 100) {
+      setValidationError('Kısa Firma Adı en fazla 100 karakter olabilir.');
+      setSaveSuccess(false);
+      return;
+    }
+
+    setValidationError(null);
+    updateProfile({
+      ...formData,
+      legalName: trimmedLegalName,
+      companyName: trimmedCompanyName,
+    });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -154,12 +191,19 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        alert('Logo boyutu 2 MB altında olmalıdır.');
+        setMediaWarning('Logo boyutu 2 MB altında olmalıdır.');
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
+        if (base64.length > FIRESTORE_MEDIA_CHAR_LIMIT) {
+          setMediaWarning(
+            `Yüklenen logo görseli (${base64.length.toLocaleString('tr-TR')} karakter) bulut güvenlik sınırını (800.000 karakter) aşıyor. Görsel yalnızca yerel cihazda saklanacak ve buluta gönderilmeyecektir; bulut senkronizasyonu için lütfen daha küçük boyutlu bir görsel yükleyin.`
+          );
+        } else {
+          setMediaWarning(null);
+        }
         setLogo(base64);
         setFormData((prev) => ({ ...prev, logoBase64: base64 }));
       };
@@ -171,12 +215,19 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        alert('Kaşe görseli 2 MB altında olmalıdır.');
+        setMediaWarning('Kaşe görseli 2 MB altında olmalıdır.');
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
+        if (base64.length > FIRESTORE_MEDIA_CHAR_LIMIT) {
+          setMediaWarning(
+            `Yüklenen kaşe/imza görseli (${base64.length.toLocaleString('tr-TR')} karakter) bulut güvenlik sınırını (800.000 karakter) aşıyor. Görsel yalnızca yerel cihazda saklanacak ve buluta gönderilmeyecektir; bulut senkronizasyonu için lütfen daha küçük boyutlu bir görsel yükleyin.`
+          );
+        } else {
+          setMediaWarning(null);
+        }
         setStamp(base64);
         setFormData((prev) => ({ ...prev, stampBase64: base64 }));
       };
@@ -527,6 +578,32 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
         </div>
       </div>
 
+      {validationError && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-rose-800 text-sm font-medium animate-fadeIn">
+          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          <span>{validationError}</span>
+        </div>
+      )}
+
+      {(cloudSyncWarning || mediaWarning) && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start justify-between gap-3 text-amber-900 text-sm font-medium animate-fadeIn">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <span>{mediaWarning || cloudSyncWarning}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setMediaWarning(null);
+              clearCloudSyncWarning();
+            }}
+            className="text-xs font-bold text-amber-700 hover:text-amber-900 shrink-0"
+          >
+            Kapat
+          </button>
+        </div>
+      )}
+
       {saveSuccess && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-800 text-sm font-medium animate-fadeIn">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -738,10 +815,13 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                 <input
                   type="text"
                   name="legalName"
+                  required
                   value={formData.legalName || ''}
                   onChange={handleInputChange}
                   placeholder="Örn: AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-lg text-sm text-slate-900 font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition ${
+                    validationError && !(formData.legalName || '').trim() ? 'border-rose-400 bg-rose-50/40' : 'border-slate-300'
+                  }`}
                 />
               </div>
 
@@ -752,10 +832,13 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                 <input
                   type="text"
                   name="companyName"
+                  required
                   value={formData.companyName || ''}
                   onChange={handleInputChange}
                   placeholder="Örn: AB YAPI"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-lg text-sm text-slate-900 font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition ${
+                    validationError && !(formData.companyName || '').trim() ? 'border-rose-400 bg-rose-50/40' : 'border-slate-300'
+                  }`}
                 />
               </div>
 
@@ -1376,6 +1459,12 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                 )}
               </div>
             </div>
+
+            {validationError && (
+              <div className="p-3 bg-rose-500/20 border border-rose-400/50 rounded-lg text-[11px] text-rose-100 leading-relaxed">
+                {validationError}
+              </div>
+            )}
 
             <button
               type="button"

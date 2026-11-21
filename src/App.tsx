@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import {
   CheckCircle2,
   AlertCircle,
@@ -66,6 +66,7 @@ import { DEFAULT_TABS, TabConfig, TabId, TAB_CATEGORIES } from './config/tabs';
 import { DEFAULT_PARAMS, calculateProject, synchronizeFlats, calculateFlatCount, calculateCantileverDetails, getInitialProjectParams } from './utils/calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS, getInitialBuildingModelParams } from './utils/buildingModelUtils';
 import { calculateFootprint } from './utils/footprintUtils';
+import { mergeProjectLists, shouldApplyCloudActiveState } from './utils/syncKeys';
 import {
   ProjectParams,
   CalculationResult,
@@ -77,6 +78,7 @@ import {
 export default function App() {
   const { 
     user, 
+    isLicensed,
     saveProjectToCloud, 
     loadProjectsFromCloud, 
     deleteProjectFromCloud,
@@ -793,100 +795,210 @@ export default function App() {
     return [];
   });
 
-  // Synchronize calculation history and active state with Firebase on login
+  const isCloudInitialSyncDoneRef = useRef(false);
+  const lastLocalSignatureRef = useRef<string>('');
+
+  // Synchronize calculation history and active state with Firebase on login (with timestamp comparison)
   useEffect(() => {
+    if (!user || !isAuthInitialized || !isLicensed) {
+      isCloudInitialSyncDoneRef.current = false;
+      return;
+    }
+
+    let cancelled = false;
     const syncWithFirebase = async () => {
-      if (!user || !isAuthInitialized) return;
       try {
-        // 1. Sync History
+        // 1. Sync History with savedAt / updatedAt comparison (preserves both local & cloud work)
         const cloudProjects = await loadProjectsFromCloud();
-        if (cloudProjects && cloudProjects.length > 0) {
-          setHistoryList(cloudProjects);
-          localStorage.setItem('ab_yapi_history', JSON.stringify(cloudProjects));
-        } else if (historyList.length > 0) {
-          // Back up local history to cloud if cloud is empty
-          for (const localProj of historyList) {
-            await saveProjectToCloud(localProj);
+        if (cancelled) return;
+
+        const { merged, toUpload } = mergeProjectLists(historyList, cloudProjects || []);
+        setHistoryList(merged);
+        try {
+          localStorage.setItem('ab_yapi_history', JSON.stringify(merged));
+        } catch (e) {}
+
+        for (const projToUpload of toUpload) {
+          if (cancelled) return;
+          try {
+            await saveProjectToCloud(projToUpload);
+          } catch (uploadErr) {
+            console.warn('Yerel proje buluta aktarılamadı:', projToUpload.projectAddress, uploadErr);
           }
         }
 
-        // 2. Sync Active State (Cross-device persistence)
+        // 2. Sync Active State (compare local updatedAt vs cloud updatedAt)
         const cloudActiveState = await loadActiveStateFromCloud();
-        if (cloudActiveState) {
+        if (cancelled) return;
+
+        let localUpdatedAt: string | null = null;
+        try {
+          localUpdatedAt = localStorage.getItem('ab_yapi_active_updated_at');
+        } catch (e) {}
+
+        if (cloudActiveState && shouldApplyCloudActiveState(localUpdatedAt, cloudActiveState.updatedAt)) {
+          const nextParams = cloudActiveState.params || params;
+          const nextModel = cloudActiveState.buildingModel || buildingModelParams;
+          const nextActiveTab = cloudActiveState.uiState?.activeTab || activeTab;
+          const cloudTabsConfig = cloudActiveState.uiState?.tabsConfig;
+
           if (cloudActiveState.params) {
             setParams(cloudActiveState.params);
-            localStorage.setItem('ab_yapi_last_params', JSON.stringify(cloudActiveState.params));
+            try {
+              localStorage.setItem('ab_yapi_last_params', JSON.stringify(cloudActiveState.params));
+            } catch (e) {}
           }
           if (cloudActiveState.buildingModel) {
             setBuildingModelParams(cloudActiveState.buildingModel);
-            localStorage.setItem('ab_yapi_building_model', JSON.stringify(cloudActiveState.buildingModel));
+            try {
+              localStorage.setItem('ab_yapi_building_model', JSON.stringify(cloudActiveState.buildingModel));
+            } catch (e) {}
           }
           if (cloudActiveState.uiState) {
-            const { activeTab: cloudActiveTab, tabsConfig: cloudTabsConfig } = cloudActiveState.uiState;
-            if (cloudActiveTab) {
+            const cloudActiveTab = cloudActiveState.uiState.activeTab;
+            if (cloudActiveTabValid(cloudActiveTab)) {
               setActiveTab(cloudActiveTab);
             }
             if (cloudTabsConfig) {
               setTabsConfig(prev => {
-                return prev.map(defaultTab => {
+                const updatedTabs = prev.map(defaultTab => {
                   const savedTab = cloudTabsConfig.find((t: any) => t.id === defaultTab.id);
-                  return savedTab ? { 
-                    ...defaultTab, 
-                    visible: savedTab.visible ?? defaultTab.visible, 
+                  return savedTab ? {
+                    ...defaultTab,
+                    visible: savedTab.visible ?? defaultTab.visible,
                     order: savedTab.order ?? defaultTab.order,
                     label: savedTab.label ?? defaultTab.label,
                     shortLabel: savedTab.shortLabel ?? defaultTab.shortLabel
                   } : defaultTab;
                 }).sort((a, b) => a.order - b.order);
+                return updatedTabs;
               });
-              localStorage.setItem('ab_yapi_tabs', JSON.stringify(cloudTabsConfig));
+              try {
+                localStorage.setItem('ab_yapi_tabs', JSON.stringify(cloudTabsConfig));
+              } catch (e) {}
             }
           }
+
+          const resolvedTimestamp = cloudActiveState.updatedAt || new Date().toISOString();
+          try {
+            localStorage.setItem('ab_yapi_active_updated_at', resolvedTimestamp);
+          } catch (e) {}
+          lastLocalSignatureRef.current = JSON.stringify({
+            params: nextParams,
+            buildingModelParams: nextModel,
+            activeTab: nextActiveTab,
+          });
+        } else {
+          // Local state is newer (or cloud is empty); back up local active state to cloud
+          const pushTs = localUpdatedAt || new Date().toISOString();
+          try {
+            localStorage.setItem('ab_yapi_active_updated_at', pushTs);
+          } catch (e) {}
+          await saveActiveStateToCloud(
+            params,
+            buildingModelParams,
+            {
+              activeTab,
+              tabsConfig: tabsConfig.map(t => ({
+                id: t.id,
+                visible: t.visible,
+                order: t.order,
+                label: t.label,
+                shortLabel: t.shortLabel
+              }))
+            },
+            pushTs
+          ).catch(err => {
+            console.warn('Yerel aktif durum buluta yüklenemedi:', err);
+          });
         }
       } catch (err) {
-        console.warn("Failed to sync with Firebase:", err);
+        console.warn('Failed to sync with Firebase:', err);
+      } finally {
+        if (!cancelled) {
+          isCloudInitialSyncDoneRef.current = true;
+        }
       }
     };
+
+    function cloudActiveTabValid(tabId: any): tabId is TabId {
+      return typeof tabId === 'string' && DEFAULT_TABS.some(t => t.id === tabId);
+    }
+
     syncWithFirebase();
-  }, [user, isAuthInitialized]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isAuthInitialized, isLicensed]);
 
   // High-performance debounced persistence (Local Storage & Cloud)
   useEffect(() => {
+    const currentSignature = JSON.stringify({ params, buildingModelParams, activeTab });
+    if (!lastLocalSignatureRef.current) {
+      lastLocalSignatureRef.current = currentSignature;
+    }
+
     const timer = setTimeout(() => {
+      const hasChanged = currentSignature !== lastLocalSignatureRef.current;
+      const nowIso = new Date().toISOString();
+
       try {
         localStorage.setItem('ab_yapi_last_params', JSON.stringify(params));
         localStorage.setItem('ab_yapi_building_model', JSON.stringify(buildingModelParams));
         localStorage.setItem('ab_yapi_tabs', JSON.stringify(tabsConfig));
-        
-        if (user && isAuthInitialized) {
-          saveActiveStateToCloud(params, buildingModelParams, {
-            activeTab,
-            tabsConfig: tabsConfig.map(t => ({ 
-              id: t.id, 
-              visible: t.visible, 
-              order: t.order, 
-              label: t.label, 
-              shortLabel: t.shortLabel 
-            }))
-          });
+        if (hasChanged) {
+          localStorage.setItem('ab_yapi_active_updated_at', nowIso);
+          lastLocalSignatureRef.current = currentSignature;
         }
       } catch (e) {}
+
+      if (user && isAuthInitialized && isLicensed && isCloudInitialSyncDoneRef.current && hasChanged) {
+        saveActiveStateToCloud(
+          params,
+          buildingModelParams,
+          {
+            activeTab,
+            tabsConfig: tabsConfig.map(t => ({
+              id: t.id,
+              visible: t.visible,
+              order: t.order,
+              label: t.label,
+              shortLabel: t.shortLabel
+            }))
+          },
+          nowIso
+        ).catch(err => {
+          console.warn('Aktif çalışma bulut senkronizasyonu başarısız oldu:', err);
+        });
+      }
     }, 800);
     return () => clearTimeout(timer);
-  }, [params, buildingModelParams, tabsConfig, activeTab, user, isAuthInitialized]);
+  }, [params, buildingModelParams, tabsConfig, activeTab, user, isAuthInitialized, isLicensed]);
 
   // Flush pending data immediately if page closes
   useEffect(() => {
     const flushData = () => {
       try {
+        const currentSignature = JSON.stringify({ params, buildingModelParams, activeTab });
+        const nextTabs = JSON.stringify(tabsConfig);
+        const prevTabs = localStorage.getItem('ab_yapi_tabs');
+        const hasPendingChanges =
+          (Boolean(lastLocalSignatureRef.current) && currentSignature !== lastLocalSignatureRef.current) ||
+          (prevTabs !== null && prevTabs !== nextTabs);
+
         localStorage.setItem('ab_yapi_last_params', JSON.stringify(params));
         localStorage.setItem('ab_yapi_building_model', JSON.stringify(buildingModelParams));
-        localStorage.setItem('ab_yapi_tabs', JSON.stringify(tabsConfig));
+        localStorage.setItem('ab_yapi_tabs', nextTabs);
+
+        if (hasPendingChanges || !localStorage.getItem('ab_yapi_active_updated_at')) {
+          localStorage.setItem('ab_yapi_active_updated_at', new Date().toISOString());
+          lastLocalSignatureRef.current = currentSignature;
+        }
       } catch (e) {}
     };
     window.addEventListener('beforeunload', flushData);
     return () => window.removeEventListener('beforeunload', flushData);
-  }, [params, buildingModelParams, tabsConfig]);
+  }, [params, buildingModelParams, tabsConfig, activeTab]);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setFeedback({ type, message });
@@ -896,9 +1008,11 @@ export default function App() {
   };
 
   const handleCalculate = () => {
+    const nowIso = new Date().toISOString();
     const newSnapshot: SavedProjectData = {
       version: '1.0.0',
-      savedAt: new Date().toISOString(),
+      savedAt: nowIso,
+      updatedAt: nowIso,
       projectAddress: params.projectAddress,
       params,
       results,
@@ -908,13 +1022,15 @@ export default function App() {
     setHistoryList(updatedHistory);
     try {
       localStorage.setItem('ab_yapi_history', JSON.stringify(updatedHistory));
+      localStorage.setItem('ab_yapi_active_updated_at', nowIso);
     } catch (e) {}
 
     // Back up calculated project to cloud
-    if (user) {
-      saveProjectToCloud(newSnapshot).catch(err => 
-        console.warn("Failed to save calculated project to cloud:", err)
-      );
+    if (user && isLicensed) {
+      saveProjectToCloud(newSnapshot).catch(err => {
+        console.warn('Failed to save calculated project to cloud:', err);
+        showNotification('error', 'Yerel kayıt tamamlandı ancak bulut senkronizasyonu başarısız oldu.');
+      });
     }
     showNotification('success', 'Hesaplama tamamlandı ve tüm tablolar güncellendi!');
   };
@@ -927,9 +1043,11 @@ export default function App() {
   const handleStartNewProject = (customAddress?: string) => {
     // Mevcut projenin adı veya adresi varsa önce arşive al
     if (params.projectAddress || params.projectName) {
+      const nowIso = new Date().toISOString();
       const currentSnapshot: SavedProjectData = {
         version: '1.0.0',
-        savedAt: new Date().toISOString(),
+        savedAt: nowIso,
+        updatedAt: nowIso,
         projectAddress: params.projectAddress || 'Arşiv Proje',
         params,
         results,
@@ -943,8 +1061,10 @@ export default function App() {
         } catch (e) {}
         return updated;
       });
-      if (user) {
-        saveProjectToCloud(currentSnapshot).catch(() => {});
+      if (user && isLicensed) {
+        saveProjectToCloud(currentSnapshot).catch(err => {
+          console.warn('Arşivlenen proje buluta kaydedilemedi:', err);
+        });
       }
     }
 
@@ -1087,8 +1207,11 @@ export default function App() {
     try {
       localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
     } catch (e) {}
-    if (user) {
-      saveProjectToCloud(newProj).catch(() => {});
+    if (user && isLicensed) {
+      saveProjectToCloud(newProj).catch(err => {
+        console.warn('Yeni şantiye buluta kaydedilemedi:', err);
+        showNotification('error', 'Şantiye yerel olarak oluşturuldu ancak buluta kaydedilemedi.');
+      });
     }
     setParams(newProj.params);
     if (newProj.buildingModelParams) {
@@ -1106,9 +1229,11 @@ export default function App() {
       localStorage.removeItem('ab_yapi_history');
     } catch (e) {}
 
-    if (user) {
+    if (user && isLicensed) {
       for (const proj of oldHistory) {
-        deleteProjectFromCloud(proj.projectAddress).catch(() => {});
+        deleteProjectFromCloud(proj.projectAddress).catch(err => {
+          console.warn('Geçmiş projesi buluttan silinemedi:', proj.projectAddress, err);
+        });
       }
     }
     showNotification('success', 'Hesaplama geçmişi temizlendi.');

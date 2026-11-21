@@ -1,14 +1,204 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Admin & License rules
-    match /licenses/{email} {
-      allow read, write: if true;
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // User data & project settings rules
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if true;
+    // --- Hardened Identity & Validation Primitives ---
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null
+        && 'firebase' in request.auth.token
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn()
+        && 'email' in request.auth.token
+        && request.auth.token.email is string
+        && 'email_verified' in request.auth.token
+        && request.auth.token.email_verified == true;
+    }
+
+    // Admin authority strictly verified via server-signed Firebase Custom Claims
+    function isAdmin() {
+      return isVerifiedUser()
+        && (
+          ('admin' in request.auth.token && request.auth.token.admin == true)
+          || ('role' in request.auth.token && request.auth.token.role == 'admin')
+        );
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidEmailId(emailId) {
+      return emailId is string
+        && emailId.size() >= 5
+        && emailId.size() <= 150
+        && emailId == emailId.lower()
+        && emailId.matches('^[^/\\s@]+@[^/\\s@]+\\.[^/\\s@]+$');
+    }
+
+    function optionalStr(data, key, maxLen) {
+      return !(key in data) || data[key] == null || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    function optionalMap(data, key) {
+      return !(key in data) || data[key] == null || data[key] is map;
+    }
+
+    // --- Entity Validation Blueprints ---
+    function isValidLicense(data, emailId) {
+      return data.keys().hasAll(['email', 'status', 'expiresAt', 'createdAt'])
+        && data.keys().hasOnly(['email', 'status', 'expiresAt', 'createdAt', 'name', 'company'])
+        && data.email is string
+        && data.email == emailId
+        && data.status in ['active', 'suspended']
+        && data.expiresAt is string && data.expiresAt.size() >= 10 && data.expiresAt.size() <= 50
+        && data.createdAt is string && data.createdAt.size() >= 10 && data.createdAt.size() <= 50
+        && optionalStr(data, 'name', 150)
+        && optionalStr(data, 'company', 200);
+    }
+
+    function isValidCompanyProfile(data) {
+      return data.keys().hasAll(['companyName', 'legalName'])
+        && data.keys().hasOnly([
+          'companyName', 'legalName', 'slogan', 'tagline',
+          'authorizedPerson', 'authorizedTitle', 'authorizedChamberNo', 'authorizedChamber',
+          'authorizedPerson2', 'authorizedTitle2', 'authorizedChamberNo2', 'authorizedChamber2',
+          'phone', 'email', 'website', 'address',
+          'taxOffice', 'taxNumber', 'tradeRegistryNo', 'mersisNo',
+          'contractorLicenceNo', 'chamberNo', 'iban', 'bankName',
+          'logoBase64', 'stampBase64', 'stampUrl', 'printOptions', 'updatedAt'
+        ])
+        && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 100
+        && data.legalName is string && data.legalName.size() >= 1 && data.legalName.size() <= 250
+        && optionalStr(data, 'slogan', 200)
+        && optionalStr(data, 'tagline', 300)
+        && optionalStr(data, 'authorizedPerson', 100)
+        && optionalStr(data, 'authorizedTitle', 100)
+        && optionalStr(data, 'authorizedChamberNo', 50)
+        && optionalStr(data, 'authorizedChamber', 50)
+        && optionalStr(data, 'authorizedPerson2', 100)
+        && optionalStr(data, 'authorizedTitle2', 100)
+        && optionalStr(data, 'authorizedChamberNo2', 50)
+        && optionalStr(data, 'authorizedChamber2', 50)
+        && optionalStr(data, 'phone', 50)
+        && optionalStr(data, 'email', 100)
+        && optionalStr(data, 'website', 100)
+        && optionalStr(data, 'address', 500)
+        && optionalStr(data, 'taxOffice', 100)
+        && optionalStr(data, 'taxNumber', 50)
+        && optionalStr(data, 'tradeRegistryNo', 100)
+        && optionalStr(data, 'mersisNo', 50)
+        && optionalStr(data, 'contractorLicenceNo', 100)
+        && optionalStr(data, 'chamberNo', 100)
+        && optionalStr(data, 'iban', 100)
+        && optionalStr(data, 'bankName', 150)
+        && optionalStr(data, 'logoBase64', 800000)
+        && optionalStr(data, 'stampBase64', 800000)
+        && optionalStr(data, 'stampUrl', 800000)
+        && optionalMap(data, 'printOptions')
+        && optionalStr(data, 'updatedAt', 50);
+    }
+
+    function isValidProjectSnapshot(data, projectId) {
+      return data.keys().hasAll(['id', 'projectAddress', 'params', 'results'])
+        && data.keys().hasOnly([
+          'id', 'version', 'savedAt', 'updatedAt', 'projectAddress',
+          'params', 'results', 'buildingModelParams', 'construction'
+        ])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128 && data.id == projectId
+        && data.projectAddress is string && data.projectAddress.size() >= 1 && data.projectAddress.size() <= 300
+        && data.params is map
+        && data.results is map
+        && optionalStr(data, 'version', 30)
+        && optionalStr(data, 'savedAt', 50)
+        && optionalStr(data, 'updatedAt', 50)
+        && optionalMap(data, 'buildingModelParams')
+        && optionalMap(data, 'construction');
+    }
+
+    function isValidActiveState(data) {
+      return data.keys().hasAll(['params', 'updatedAt'])
+        && data.keys().hasOnly(['params', 'buildingModel', 'uiState', 'updatedAt'])
+        && data.params is map
+        && data.updatedAt is string && data.updatedAt.size() >= 10 && data.updatedAt.size() <= 50
+        && optionalMap(data, 'buildingModel')
+        && optionalMap(data, 'uiState');
+    }
+
+    // --- Collection Rules ---
+
+    // SaaS Licenses: Customer may ONLY get their own verified email license doc; Admin manages CRUD/list
+    match /licenses/{email} {
+      allow get: if isAdmin()
+        || (isVerifiedUser() && isValidEmailId(email) && request.auth.token.email.lower() == email);
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidEmailId(email)
+        && isValidLicense(incoming(), email);
+      allow update: if isAdmin()
+        && isValidEmailId(email)
+        && isValidLicense(incoming(), email)
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidEmailId(email);
+    }
+
+    // User Private Workspace (Strict Owner-Only PII & Project Data Isolation)
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /companyProfiles/{profileId} {
+        allow get: if isOwner(userId) && isValidId(profileId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && isValidId(profileId)
+          && isValidCompanyProfile(incoming());
+        allow update: if isOwner(userId)
+          && isValidId(profileId)
+          && isValidCompanyProfile(incoming());
+        allow delete: if isOwner(userId) && isValidId(profileId);
+      }
+
+      match /projects/{projectId} {
+        allow get: if isOwner(userId) && isValidId(projectId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && isValidId(projectId)
+          && isValidProjectSnapshot(incoming(), projectId);
+        allow update: if isOwner(userId)
+          && isValidId(projectId)
+          && isValidProjectSnapshot(incoming(), projectId)
+          && incoming().id == existing().id;
+        allow delete: if isOwner(userId) && isValidId(projectId);
+      }
+
+      match /settings/{settingId} {
+        allow get: if isOwner(userId) && settingId == 'activeState';
+        allow list: if false;
+        allow create, update: if isOwner(userId)
+          && settingId == 'activeState'
+          && isValidActiveState(incoming());
+        allow delete: if isOwner(userId) && settingId == 'activeState';
+      }
     }
   }
 }

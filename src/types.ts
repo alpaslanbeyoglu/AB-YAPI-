@@ -53,6 +53,7 @@ export interface CompanyProfile {
   stampBase64?: string;         // Yüklenen dijital kaşe ve imza görseli (Base64 dataURL formatında)
   stampUrl?: string;            // Alias
   printOptions?: CompanyProfilePrintOptions; // Çıktılarda hangi alanların görüneceği tercihleri
+  updatedAt?: string;           // Bulut/yerel tarih karşılaştırması için ISO zaman damgası
 }
 
 export type FootprintInputMode = 'directArea' | 'dimensions' | 'customFacades' | 'lShape' | 'polygonDraw';
@@ -670,6 +671,7 @@ export interface UnitBreakdownSummary {
 export interface SavedProjectData {
   version: string;
   savedAt: string;
+  updatedAt?: string;
   projectAddress: string;
   params: ProjectParams;
   results: CalculationResult;

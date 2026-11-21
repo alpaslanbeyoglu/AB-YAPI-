@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { resolveProjectProgressKeys } from '../utils/syncKeys';
 import { 
   Building2, 
   ShieldCheck, 
@@ -748,7 +749,10 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 if (onUpdateParam) {
                   onUpdateParam('isOfferAccepted', true);
                 }
-                const safeAddr = (params.projectAddress || 'default_project').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+                const safeAddr = resolveProjectProgressKeys({
+                  projectAddress: params.projectAddress,
+                  projectName: params.projectName,
+                }).primaryKey;
                 try {
                   localStorage.setItem('ab_yapi_progress_' + safeAddr + '_offer_accepted', 'true');
                 } catch (e) {}

@@ -1,25 +1,36 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  User, 
-  onAuthStateChanged, 
-  signInWithPopup, 
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+  User,
+  onIdTokenChanged,
+  signInWithPopup,
   signInWithRedirect,
-  signInAnonymously,
   getRedirectResult,
-  signOut as firebaseSignOut, 
-  GoogleAuthProvider 
+  signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDocs, 
+import {
+  collection,
+  doc,
+  setDoc,
+  getDocs,
   deleteDoc,
   getDoc,
-  getDocFromServer
+  getDocFromServer,
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { SavedProjectData, CompanyProfile } from '../types';
+import {
+  getSafeProjectKey,
+  getLegacySafeProjectKey,
+  getSafeProfileKey,
+  getLegacySafeProfileKey,
+  resolveProjectProgressKeys,
+  getLocalProgressItemByKeys,
+  validateCompanyProfileForCloud,
+  FIRESTORE_DOC_BYTE_LIMIT,
+  getUtf8ByteSize,
+} from '../utils/syncKeys';
+
+export { getSafeProjectKey, getSafeProfileKey };
 
 export enum OperationType {
   CREATE = 'create',
@@ -44,10 +55,10 @@ interface FirestoreErrorInfo {
       providerId?: string | null;
       email?: string | null;
     }[];
-  }
+  };
 }
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -56,14 +67,15 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
     },
     operationType,
-    path
-  }
+    path,
+  };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
@@ -84,13 +96,23 @@ export type AuthUser = {
   photoURL: string | null;
 };
 
+export interface CloudActiveState {
+  params: any;
+  buildingModel: any;
+  uiState: any;
+  updatedAt?: string;
+}
+
 interface FirebaseSyncContextType {
   user: AuthUser | null;
   loading: boolean;
+  authError: string | null;
+  clearAuthError: () => void;
   signInWithGoogle: () => Promise<void>;
-  signInAsAdmin: (passcode: string) => boolean;
+  refreshAuthClaims: () => Promise<boolean>;
   signOut: () => Promise<void>;
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  lastSyncError: string | null;
   isAuthInitialized: boolean;
   // Projects sync
   saveProjectToCloud: (project: SavedProjectData) => Promise<void>;
@@ -100,11 +122,16 @@ interface FirebaseSyncContextType {
   saveCompanyProfileToCloud: (profile: CompanyProfile) => Promise<void>;
   loadCompanyProfilesFromCloud: () => Promise<CompanyProfile[]>;
   deleteCompanyProfileToCloud: (companyName: string) => Promise<void>;
-  
+
   // Active state sync (for cross-device persistence of the current working project)
-  saveActiveStateToCloud: (params: any, buildingModel: any, uiState: any) => Promise<void>;
-  loadActiveStateFromCloud: () => Promise<{ params: any; buildingModel: any; uiState: any } | null>;
-  
+  saveActiveStateToCloud: (
+    params: any,
+    buildingModel: any,
+    uiState: any,
+    updatedAt?: string
+  ) => Promise<void>;
+  loadActiveStateFromCloud: () => Promise<CloudActiveState | null>;
+
   // Licensing & SaaS
   isLicensed: boolean;
   licenseLoading: boolean;
@@ -116,14 +143,6 @@ interface FirebaseSyncContextType {
 }
 
 const FirebaseSyncContext = createContext<FirebaseSyncContextType | null>(null);
-
-export const getSafeProjectKey = (address: string) => {
-  return (address || 'default_project').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-};
-
-export const getSafeProfileKey = (name: string) => {
-  return (name || 'default_profile').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-};
 
 /**
  * Recursively cleans and removes `undefined` properties or converts `undefined` array items to null
@@ -154,102 +173,176 @@ export function sanitizeForFirestore<T>(data: T): T {
   return clean as T;
 }
 
+async function resolveAdminClaim(firebaseUser: User): Promise<boolean> {
+  try {
+    const tokenResult = await firebaseUser.getIdTokenResult();
+    return tokenResult?.claims?.admin === true || tokenResult?.claims?.role === 'admin';
+  } catch (err) {
+    console.warn('ID token claims check failed:', err);
+    return false;
+  }
+}
+
 export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    try {
-      const cached = localStorage.getItem('ab_yapi_auth_session');
-      if (cached) {
-        return JSON.parse(cached);
-      }
-    } catch (e) {
-      console.warn("Failed to load cached auth session:", e);
-    }
-    return null;
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthInitialized, setIsAuthInitialized] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Licensing States
+  // Licensing & Custom Claim States
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isLicensed, setIsLicensed] = useState<boolean>(false);
   const [licenseLoading, setLicenseLoading] = useState<boolean>(false);
   const [licenseInfo, setLicenseInfo] = useState<LicenseInfo | null>(null);
-  const isAdmin = user ? (user.email?.toLowerCase() === 'alpaslan.beyoglu@gmail.com') : false;
 
-  // Test Connection
+  const clearAuthError = useCallback(() => setAuthError(null), []);
+
+  // Remove any legacy local auth cache from earlier builds to prevent client-side session spoofing
+  useEffect(() => {
+    try {
+      localStorage.removeItem('ab_yapi_auth_session');
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
+  // Test Connection on boot
   useEffect(() => {
     async function testConnection() {
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error('Please check your Firebase configuration.');
         }
       }
     }
     testConnection();
   }, []);
 
-  // Monitor Auth Changes
+  // Monitor Auth & ID Token / Custom Claims Changes
   useEffect(() => {
-    getRedirectResult(auth).catch((err) => {
-      console.warn("Redirect sign-in result check:", err);
+    let active = true;
+
+    getRedirectResult(auth).catch((err: any) => {
+      if (!active) return;
+      console.warn('Redirect sign-in result check:', err);
+      if (err?.code === 'auth/unauthorized-domain') {
+        setAuthError(
+          'Firebase alan adı yetkilendirme hatası (auth/unauthorized-domain). Bu alan adını Firebase Console Authorized Domains listesine ekleyin.'
+        );
+      } else if (err?.message) {
+        setAuthError(`Google yönlendirme girişi tamamlanamadı: ${err.message}`);
+      }
     });
 
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        const u: AuthUser = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
-        };
-        setUser(u);
-        try {
-          localStorage.setItem('ab_yapi_auth_session', JSON.stringify(u));
-        } catch (e) {}
-      } else {
-        // If not in firebase, check if we have a locally saved dev session
-        const cached = localStorage.getItem('ab_yapi_auth_session');
-        if (cached) {
-          try {
-            setUser(JSON.parse(cached));
-          } catch (e) {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
+      if (!active) return;
+
+      if (!firebaseUser) {
+        setUser(null);
+        setIsAdmin(false);
+        setIsLicensed(false);
+        setLicenseInfo(null);
+        setIsAuthInitialized(true);
+        setLoading(false);
+        return;
       }
+
+      // Reject legacy anonymous sessions so only verified Google accounts can access cloud data
+      if (firebaseUser.isAnonymous) {
+        try {
+          await firebaseSignOut(auth);
+        } catch {
+          // Ignore sign-out error
+        }
+        if (!active) return;
+        setUser(null);
+        setIsAdmin(false);
+        setIsLicensed(false);
+        setLicenseInfo(null);
+        setIsAuthInitialized(true);
+        setLoading(false);
+        return;
+      }
+
+      if (!firebaseUser.emailVerified || !firebaseUser.email) {
+        setAuthError(
+          'E-posta adresiniz doğrulanmamış. Güvenlik nedeniyle yalnızca doğrulanmış Google hesapları kabul edilmektedir.'
+        );
+        try {
+          await firebaseSignOut(auth);
+        } catch {
+          // Ignore
+        }
+        if (!active) return;
+        setUser(null);
+        setIsAdmin(false);
+        setIsLicensed(false);
+        setLicenseInfo(null);
+        setIsAuthInitialized(true);
+        setLoading(false);
+        return;
+      }
+
+      const hasAdminClaim = await resolveAdminClaim(firebaseUser);
+      if (!active) return;
+
+      const verifiedUser: AuthUser = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName,
+        photoURL: firebaseUser.photoURL,
+      };
+      setUser(verifiedUser);
+      setIsAdmin(hasAdminClaim);
+      setAuthError(null);
       setIsAuthInitialized(true);
       setLoading(false);
     });
-    return unsubscribe;
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
-  // Monitor License Status when user changes
+  // Monitor License Status when verified user or custom admin claim changes
   useEffect(() => {
+    let active = true;
     const checkLicense = async () => {
-      if (!user) {
+      if (!user || !auth.currentUser || auth.currentUser.isAnonymous || !auth.currentUser.emailVerified) {
+        if (!active) return;
         setIsLicensed(false);
         setLicenseLoading(false);
         setLicenseInfo(null);
         return;
       }
 
-      // Admin (Alpaslan) always has active license and bypasses check
-      const userEmail = user.email ? user.email.toLowerCase().trim() : '';
-      if (userEmail === 'alpaslan.beyoglu@gmail.com' || user.uid === 'admin_alpaslan_beyoglu') {
+      // Verified Firebase Custom Claim admin has guaranteed active license
+      if (isAdmin) {
+        if (!active) return;
         setIsLicensed(true);
         setLicenseLoading(false);
         setLicenseInfo({
-          email: user.email || 'alpaslan.beyoglu@gmail.com',
+          email: user.email || '',
           status: 'active',
           expiresAt: '2099-12-31T23:59:59.000Z',
-          name: 'Alpaslan Beyoğlu',
-          company: 'Admin',
-          createdAt: new Date().toISOString()
+          name: user.displayName || 'Yönetici',
+          company: 'AB Yapı Yönetim',
+          createdAt: new Date().toISOString(),
         });
+        return;
+      }
+
+      const userEmail = user.email ? user.email.toLowerCase().trim() : '';
+      if (!userEmail) {
+        if (!active) return;
+        setIsLicensed(false);
+        setLicenseLoading(false);
+        setLicenseInfo(null);
         return;
       }
 
@@ -257,201 +350,121 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       try {
         const docRef = doc(db, 'licenses', userEmail);
         const docSnap = await getDoc(docRef);
+        if (!active) return;
 
         if (docSnap.exists()) {
           const data = docSnap.data() as LicenseInfo;
           const isNotExpired = new Date(data.expiresAt) > new Date();
           const isActive = data.status === 'active';
 
-          if (isActive && isNotExpired) {
-            setIsLicensed(true);
-            setLicenseInfo(data);
-          } else {
-            setIsLicensed(false);
-            setLicenseInfo(data);
-          }
+          setIsLicensed(isActive && isNotExpired);
+          setLicenseInfo(data);
         } else {
           setIsLicensed(false);
           setLicenseInfo(null);
         }
       } catch (error) {
-        console.error("Error checking license:", error);
+        console.error('Error checking license:', error);
+        if (!active) return;
         setIsLicensed(false);
       } finally {
-        setLicenseLoading(false);
+        if (active) {
+          setLicenseLoading(false);
+        }
       }
     };
 
     checkLicense();
-  }, [user]);
-
-  const activateDirectAdminSession = async () => {
-    try {
-      if (!auth.currentUser) {
-        await signInAnonymously(auth).catch(() => {});
-      }
-    } catch (e) {}
-
-    const adminUser: AuthUser = {
-      uid: auth.currentUser?.uid || 'admin_alpaslan_beyoglu',
-      email: 'alpaslan.beyoglu@gmail.com',
-      displayName: 'Alpaslan Beyoğlu',
-      photoURL: null
+    return () => {
+      active = false;
     };
-    setUser(adminUser);
-    setIsLicensed(true);
-    setLicenseLoading(false);
-    setLoading(false);
-    setLicenseInfo({
-      email: 'alpaslan.beyoglu@gmail.com',
-      status: 'active',
-      expiresAt: '2099-12-31T23:59:59.000Z',
-      name: 'Alpaslan Beyoğlu',
-      company: 'AB Yapı Yönetim',
-      createdAt: new Date().toISOString()
-    });
-    try {
-      localStorage.setItem('ab_yapi_auth_session', JSON.stringify(adminUser));
-    } catch (e) {}
-  };
+  }, [user, isAdmin]);
+
+  const refreshAuthClaims = useCallback(async (): Promise<boolean> => {
+    const current = auth.currentUser;
+    if (!current || current.isAnonymous || !current.emailVerified) {
+      setIsAdmin(false);
+      return false;
+    }
+    const tokenResult = await current.getIdTokenResult(true);
+    const hasAdmin = tokenResult?.claims?.admin === true || tokenResult?.claims?.role === 'admin';
+    setIsAdmin(hasAdmin);
+    return hasAdmin;
+  }, []);
 
   const signInWithGoogle = async () => {
-    // On iOS/Android standalone Home Screen Web Apps (PWA), mobile browsers, or Cloud Run preview URLs,
-    // signInWithPopup opens an isolated SFSafariViewController to firebaseapp.com/__/auth/handler
-    // which fails with "The requested action is invalid." due to storage partitioning.
-    const isStandalonePWA =
-      typeof window !== 'undefined' &&
-      (window.matchMedia?.('(display-mode: standalone)')?.matches ||
-        (window.navigator as any)?.standalone === true);
-    const isMobileDevice =
-      typeof navigator !== 'undefined' &&
-      /iphone|ipad|ipod|android|mobile|wv/i.test(navigator.userAgent);
-    const isPreviewOrIframe =
-      typeof window !== 'undefined' &&
-      (window.self !== window.top ||
-        window.location.hostname.endsWith('.run.app') ||
-        window.location.hostname === 'localhost');
+    setAuthError(null);
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-    if (isStandalonePWA || isMobileDevice || isPreviewOrIframe) {
-      await activateDirectAdminSession();
-      return;
-    }
+    const isInsideIframe = typeof window !== 'undefined' && window.self !== window.top;
 
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
-      console.warn("Firebase Google Sign-In popup restricted, engaging direct admin fallback:", error);
-      await activateDirectAdminSession();
-    }
-  };
+      const code = error?.code || '';
+      const canFallbackToRedirect =
+        !isInsideIframe &&
+        (code === 'auth/popup-blocked' ||
+          code === 'auth/operation-not-supported-in-this-environment');
 
-  const verifyAdminPasscode = (passcode: string): boolean => {
-    const trimmed = passcode.trim();
-    if (!trimmed) return false;
-    
-    // Direct match for standard admin passcodes
-    if (trimmed === '1987' || trimmed.toLowerCase() === 'admin' || trimmed === 'ab2026') {
-      return true;
+      if (canFallbackToRedirect) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+      throw error;
     }
-
-    // Check environment variable if configured
-    const envPin = (import.meta.env.VITE_ADMIN_PIN || '').trim();
-    if (envPin && trimmed === envPin) {
-      return true;
-    }
-    
-    // Secure Hash comparison for custom generated hashes
-    let hash = 0;
-    const lower = trimmed.toLowerCase();
-    for (let i = 0; i < lower.length; i++) {
-      hash = (hash << 5) - hash + lower.charCodeAt(i);
-      hash |= 0;
-    }
-    const hexHash = hash.toString(16);
-    const ALLOWED_PIN_HASHES = ['170ef5', '58a2d1f', '-40d0ea36'];
-    return ALLOWED_PIN_HASHES.includes(hexHash);
-  };
-
-  const signInAsAdmin = (passcode: string): boolean => {
-    // Admin Master Access for Alpaslan Beyoğlu
-    if (verifyAdminPasscode(passcode)) {
-      const adminUser: AuthUser = {
-        uid: 'admin_alpaslan_beyoglu',
-        email: 'alpaslan.beyoglu@gmail.com',
-        displayName: 'Alpaslan Beyoğlu',
-        photoURL: null
-      };
-      setUser(adminUser);
-      setIsLicensed(true);
-      setLicenseLoading(false);
-      setLoading(false);
-      setLicenseInfo({
-        email: 'alpaslan.beyoglu@gmail.com',
-        status: 'active',
-        expiresAt: '2099-12-31T23:59:59.000Z',
-        name: 'Alpaslan Beyoğlu',
-        company: 'AB Yapı Yönetim',
-        createdAt: new Date().toISOString()
-      });
-      try {
-        localStorage.setItem('ab_yapi_auth_session', JSON.stringify(adminUser));
-      } catch (e) {}
-      return true;
-    }
-    return false;
   };
 
   const signOut = async () => {
     try {
       try {
         localStorage.removeItem('ab_yapi_auth_session');
-      } catch (e) {}
+      } catch {
+        // Ignore
+      }
       setUser(null);
+      setIsAdmin(false);
       setIsLicensed(false);
       setLicenseInfo(null);
+      setAuthError(null);
       await firebaseSignOut(auth);
     } catch (error) {
-      console.error("Sign-Out Error:", error);
+      console.error('Sign-Out Error:', error);
     }
   };
 
-  const getFirebaseUserId = async (): Promise<string | null> => {
-    if (auth.currentUser) {
-      return auth.currentUser.uid;
+  const getFirebaseUserId = (): string | null => {
+    const current = auth.currentUser;
+    if (!current || current.isAnonymous || !current.emailVerified) {
+      return null;
     }
-    if (user) {
-      try {
-        const cred = await signInAnonymously(auth);
-        return cred.user.uid;
-      } catch (err) {
-        console.warn("signInAnonymously fallback error:", err);
-        return user.uid;
-      }
-    }
-    return null;
+    return current.uid;
   };
 
-  // Pushes a single project and its associated construction state to the cloud
+  // Pushes a single project, its 3D buildingModelParams, and construction state to the cloud
   const saveProjectToCloud = async (project: SavedProjectData) => {
-    const userId = await getFirebaseUserId();
+    const userId = getFirebaseUserId();
     if (!userId || !isLicensed) {
-      console.warn("Cloud sync skipped: No active authenticated session.");
       return;
     }
     setSyncStatus('syncing');
+    setLastSyncError(null);
+    const progressKeys = resolveProjectProgressKeys({
+      projectAddress: project.projectAddress,
+      projectName: project.params?.projectName,
+    });
+    const safeKey = progressKeys.primaryKey;
+
     try {
-      const safeKey = getSafeProjectKey(project.projectAddress);
-      
-      // Attempt to load associated construction progress details from localStorage to bundle them
       let construction: any = null;
       try {
-        const stages = localStorage.getItem(`ab_yapi_progress_${safeKey}_stages`);
-        const logs = localStorage.getItem(`ab_yapi_progress_${safeKey}_logs`);
-        const offerAccepted = localStorage.getItem(`ab_yapi_progress_${safeKey}_offer_accepted`);
-        const contractDate = localStorage.getItem(`ab_yapi_progress_${safeKey}_contract_date`);
-        const targetDate = localStorage.getItem(`ab_yapi_progress_${safeKey}_target_date`);
-        const subcontractors = localStorage.getItem(`ab_yapi_progress_${safeKey}_subcontractors`);
-        const notifHistory = localStorage.getItem(`ab_yapi_progress_${safeKey}_notif_history`);
+        const stages = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'stages');
+        const logs = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'logs');
+        const offerAccepted = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'offer_accepted');
+        const contractDate = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'contract_date');
+        const targetDate = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'target_date');
+        const subcontractors = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'subcontractors');
+        const notifHistory = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'notif_history');
 
         construction = {
           stages: stages ? JSON.parse(stages) : null,
@@ -460,36 +473,48 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
           contractDate: contractDate || null,
           plannedCompletionDate: targetDate || null,
           subcontractors: subcontractors ? JSON.parse(subcontractors) : null,
-          notifHistory: notifHistory ? JSON.parse(notifHistory) : null
+          notifHistory: notifHistory ? JSON.parse(notifHistory) : null,
         };
       } catch (err) {
-        console.warn("Failed to gather construction states for cloud sync:", err);
+        console.warn('Failed to gather construction states for cloud sync:', err);
       }
 
+      const nowIso = new Date().toISOString();
       const docRef = doc(db, 'users', userId, 'projects', safeKey);
       const payload = sanitizeForFirestore({
         id: safeKey,
         version: project.version || '1.0.0',
-        savedAt: project.savedAt || new Date().toISOString(),
-        projectAddress: project.projectAddress || 'Varsayılan Proje',
+        savedAt: project.savedAt || nowIso,
+        updatedAt: project.updatedAt || project.savedAt || nowIso,
+        projectAddress: (project.projectAddress || 'Varsayılan Proje').slice(0, 300),
         params: project.params || {},
         results: project.results || {},
-        construction: construction || null
+        buildingModelParams: project.buildingModelParams || null,
+        construction: construction || null,
       });
 
-      await setDoc(docRef, payload, { merge: true });
+      const payloadBytes = getUtf8ByteSize(JSON.stringify(payload));
+      if (payloadBytes > FIRESTORE_DOC_BYTE_LIMIT) {
+        throw new Error(
+          `Proje verisi (şantiye fotoğrafları dahil) Firestore 1 MB belge sınırını aşıyor (${payloadBytes.toLocaleString('tr-TR')} byte). Lütfen ekli fotoğraf boyutlarını küçültün veya sadeleştirin.`
+        );
+      }
 
+      await setDoc(docRef, payload);
       setSyncStatus('synced');
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'users/' + userId + '/projects');
+      setSyncStatus('error');
+      setLastSyncError(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.WRITE, `users/${userId}/projects/${safeKey}`);
     }
   };
 
-  // Loads all projects from cloud and hydrates localStorage to preserve app state
+  // Loads all projects from cloud and hydrates localStorage safely
   const loadProjectsFromCloud = async (): Promise<SavedProjectData[]> => {
-    const userId = await getFirebaseUserId();
+    const userId = getFirebaseUserId();
     if (!userId || !isLicensed) return [];
     setSyncStatus('syncing');
+    setLastSyncError(null);
     try {
       const colRef = collection(db, 'users', userId, 'projects');
       const snapshot = await getDocs(colRef);
@@ -498,73 +523,109 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       snapshot.forEach((docSnapshot) => {
         const data = docSnapshot.data();
         const project: SavedProjectData = {
-          version: data.version,
-          savedAt: data.savedAt,
+          version: data.version || '1.0.0',
+          savedAt: data.savedAt || new Date().toISOString(),
+          updatedAt: data.updatedAt || data.savedAt,
           projectAddress: data.projectAddress,
           params: data.params,
-          results: data.results
+          results: data.results,
+          buildingModelParams: data.buildingModelParams || undefined,
         };
         cloudProjects.push(project);
 
-        // Hydrate local storage for construction trackers belonging to this project
         if (data.construction) {
-          const safeKey = docSnapshot.id;
-          const { stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, notifHistory } = data.construction;
-          
-          if (stages) localStorage.setItem(`ab_yapi_progress_${safeKey}_stages`, JSON.stringify(stages));
-          if (logs) localStorage.setItem(`ab_yapi_progress_${safeKey}_logs`, JSON.stringify(logs));
-          if (isOfferAccepted !== null) localStorage.setItem(`ab_yapi_progress_${safeKey}_offer_accepted`, JSON.stringify(isOfferAccepted));
-          if (contractDate) localStorage.setItem(`ab_yapi_progress_${safeKey}_contract_date`, contractDate);
-          if (plannedCompletionDate) localStorage.setItem(`ab_yapi_progress_${safeKey}_target_date`, plannedCompletionDate);
-          if (subcontractors) localStorage.setItem(`ab_yapi_progress_${safeKey}_subcontractors`, JSON.stringify(subcontractors));
-          if (notifHistory) localStorage.setItem(`ab_yapi_progress_${safeKey}_notif_history`, JSON.stringify(notifHistory));
+          const safeKey = resolveProjectProgressKeys({
+            projectAddress: data.projectAddress,
+            projectName: data.params?.projectName,
+            fallbackId: docSnapshot.id,
+          }).primaryKey;
+          const {
+            stages,
+            logs,
+            isOfferAccepted,
+            contractDate,
+            plannedCompletionDate,
+            subcontractors,
+            notifHistory,
+          } = data.construction;
+
+          try {
+            if (stages) localStorage.setItem(`ab_yapi_progress_${safeKey}_stages`, JSON.stringify(stages));
+            if (logs) localStorage.setItem(`ab_yapi_progress_${safeKey}_logs`, JSON.stringify(logs));
+            if (isOfferAccepted !== null && isOfferAccepted !== undefined) {
+              localStorage.setItem(`ab_yapi_progress_${safeKey}_offer_accepted`, JSON.stringify(isOfferAccepted));
+            }
+            if (contractDate) localStorage.setItem(`ab_yapi_progress_${safeKey}_contract_date`, contractDate);
+            if (plannedCompletionDate) localStorage.setItem(`ab_yapi_progress_${safeKey}_target_date`, plannedCompletionDate);
+            if (subcontractors) localStorage.setItem(`ab_yapi_progress_${safeKey}_subcontractors`, JSON.stringify(subcontractors));
+            if (notifHistory) localStorage.setItem(`ab_yapi_progress_${safeKey}_notif_history`, JSON.stringify(notifHistory));
+          } catch (storageErr) {
+            console.warn('Failed to hydrate local construction progress:', storageErr);
+          }
         }
       });
 
-      // Sort by savedAt descending
       cloudProjects.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
 
       setSyncStatus('synced');
       return cloudProjects;
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'users/' + userId + '/projects');
-      return [];
+      setSyncStatus('error');
+      setLastSyncError(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.LIST, `users/${userId}/projects`);
     }
   };
 
   const deleteProjectFromCloud = async (projectAddress: string) => {
-    const userId = await getFirebaseUserId();
+    const userId = getFirebaseUserId();
     if (!userId || !isLicensed) return;
     setSyncStatus('syncing');
+    setLastSyncError(null);
     const safeKey = getSafeProjectKey(projectAddress);
+    const legacyKey = getLegacySafeProjectKey(projectAddress).slice(0, 128);
     try {
-      const docRef = doc(db, 'users', userId, 'projects', safeKey);
-      await deleteDoc(docRef);
+      await deleteDoc(doc(db, 'users', userId, 'projects', safeKey));
+      if (legacyKey && legacyKey !== safeKey && /^[a-zA-Z0-9_-]{1,128}$/.test(legacyKey)) {
+        await deleteDoc(doc(db, 'users', userId, 'projects', legacyKey)).catch(() => {});
+      }
       setSyncStatus('synced');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'users/' + userId + '/projects/' + safeKey);
+      setSyncStatus('error');
+      setLastSyncError(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.DELETE, `users/${userId}/projects/${safeKey}`);
     }
   };
 
   const saveCompanyProfileToCloud = async (profile: CompanyProfile) => {
-    const userId = await getFirebaseUserId();
+    const userId = getFirebaseUserId();
     if (!userId || !isLicensed) return;
     setSyncStatus('syncing');
+    setLastSyncError(null);
     const safeKey = getSafeProfileKey(profile.companyName);
     try {
       const docRef = doc(db, 'users', userId, 'companyProfiles', safeKey);
-      const payload = sanitizeForFirestore(profile);
-      await setDoc(docRef, payload, { merge: true });
+      const payload = sanitizeForFirestore({
+        ...profile,
+        updatedAt: profile.updatedAt || new Date().toISOString(),
+      });
+      const validation = validateCompanyProfileForCloud(payload);
+      if (!validation.valid) {
+        throw new Error(validation.reason || 'Firma profili bulut güvenlik kurallarıyla uyumlu değil.');
+      }
+      await setDoc(docRef, payload);
       setSyncStatus('synced');
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'users/' + userId + '/companyProfiles/' + safeKey);
+      setSyncStatus('error');
+      setLastSyncError(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.WRITE, `users/${userId}/companyProfiles/${safeKey}`);
     }
   };
 
   const loadCompanyProfilesFromCloud = async (): Promise<CompanyProfile[]> => {
-    const userId = await getFirebaseUserId();
+    const userId = getFirebaseUserId();
     if (!userId || !isLicensed) return [];
     setSyncStatus('syncing');
+    setLastSyncError(null);
     try {
       const colRef = collection(db, 'users', userId, 'companyProfiles');
       const snapshot = await getDocs(colRef);
@@ -577,44 +638,61 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setSyncStatus('synced');
       return profiles;
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'users/' + userId + '/companyProfiles');
-      return [];
+      setSyncStatus('error');
+      setLastSyncError(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.LIST, `users/${userId}/companyProfiles`);
     }
   };
 
   const deleteCompanyProfileToCloud = async (companyName: string) => {
-    const userId = await getFirebaseUserId();
+    const userId = getFirebaseUserId();
     if (!userId || !isLicensed) return;
     setSyncStatus('syncing');
+    setLastSyncError(null);
     const safeKey = getSafeProfileKey(companyName);
+    const legacyKey = getLegacySafeProfileKey(companyName).slice(0, 128);
     try {
-      const docRef = doc(db, 'users', userId, 'companyProfiles', safeKey);
-      await deleteDoc(docRef);
+      await deleteDoc(doc(db, 'users', userId, 'companyProfiles', safeKey));
+      if (legacyKey && legacyKey !== safeKey && /^[a-zA-Z0-9_-]{1,128}$/.test(legacyKey)) {
+        await deleteDoc(doc(db, 'users', userId, 'companyProfiles', legacyKey)).catch(() => {});
+      }
       setSyncStatus('synced');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'users/' + userId + '/companyProfiles/' + safeKey);
+      setSyncStatus('error');
+      setLastSyncError(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.DELETE, `users/${userId}/companyProfiles/${safeKey}`);
     }
   };
 
-  const saveActiveStateToCloud = async (params: any, buildingModel: any, uiState: any) => {
-    const userId = await getFirebaseUserId();
+  const saveActiveStateToCloud = async (
+    params: any,
+    buildingModel: any,
+    uiState: any,
+    updatedAt?: string
+  ) => {
+    const userId = getFirebaseUserId();
     if (!userId || !isLicensed) return;
+    setSyncStatus('syncing');
+    setLastSyncError(null);
     try {
       const docRef = doc(db, 'users', userId, 'settings', 'activeState');
       const payload = sanitizeForFirestore({
-        params,
-        buildingModel,
-        uiState,
-        updatedAt: new Date().toISOString()
+        params: params || {},
+        buildingModel: buildingModel || null,
+        uiState: uiState || null,
+        updatedAt: updatedAt || new Date().toISOString(),
       });
-      await setDoc(docRef, payload, { merge: true });
+      await setDoc(docRef, payload);
+      setSyncStatus('synced');
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'users/' + userId + '/settings/activeState');
+      setSyncStatus('error');
+      setLastSyncError(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.WRITE, `users/${userId}/settings/activeState`);
     }
   };
 
-  const loadActiveStateFromCloud = async (): Promise<{ params: any; buildingModel: any; uiState: any } | null> => {
-    const userId = await getFirebaseUserId();
+  const loadActiveStateFromCloud = async (): Promise<CloudActiveState | null> => {
+    const userId = getFirebaseUserId();
     if (!userId || !isLicensed) return null;
     try {
       const docRef = doc(db, 'users', userId, 'settings', 'activeState');
@@ -624,18 +702,23 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return {
           params: data.params,
           buildingModel: data.buildingModel,
-          uiState: data.uiState
+          uiState: data.uiState,
+          updatedAt: data.updatedAt,
         };
       }
+      return null;
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, 'users/' + userId + '/settings/activeState');
+      setSyncStatus('error');
+      setLastSyncError(error instanceof Error ? error.message : String(error));
+      handleFirestoreError(error, OperationType.GET, `users/${userId}/settings/activeState`);
     }
-    return null;
   };
 
-  // Admin Licensing Operations
+  // Admin Licensing Operations (strictly verified via Firebase custom claim `admin`)
   const getAllLicenses = async (): Promise<LicenseInfo[]> => {
-    if (!isAdmin) return [];
+    if (!isAdmin || !auth.currentUser) {
+      throw new Error('Yetkisiz işlem: Lisans listesi için yönetici custom claim yetkisi gereklidir.');
+    }
     try {
       const colRef = collection(db, 'licenses');
       const snapshot = await getDocs(colRef);
@@ -646,63 +729,73 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
       return licenses;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'licenses');
-      return [];
     }
   };
 
   const createOrUpdateLicense = async (licenseData: LicenseInfo) => {
-    if (!isAdmin) return;
+    if (!isAdmin || !auth.currentUser) {
+      throw new Error('Yetkisiz işlem: Lisans düzenleme için yönetici custom claim yetkisi gereklidir.');
+    }
     try {
       const emailLower = licenseData.email.toLowerCase().trim();
       const docRef = doc(db, 'licenses', emailLower);
       const payload = sanitizeForFirestore({
-        ...licenseData,
-        email: emailLower
+        email: emailLower,
+        status: licenseData.status,
+        expiresAt: licenseData.expiresAt,
+        createdAt: licenseData.createdAt || new Date().toISOString(),
+        name: licenseData.name || null,
+        company: licenseData.company || null,
       });
-      await setDoc(docRef, payload, { merge: true });
+      await setDoc(docRef, payload);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'licenses/' + licenseData.email);
+      handleFirestoreError(error, OperationType.WRITE, `licenses/${licenseData.email}`);
     }
   };
 
   const deleteLicense = async (email: string) => {
-    if (!isAdmin) return;
+    if (!isAdmin || !auth.currentUser) {
+      throw new Error('Yetkisiz işlem: Lisans silme için yönetici custom claim yetkisi gereklidir.');
+    }
     try {
       const emailLower = email.toLowerCase().trim();
       const docRef = doc(db, 'licenses', emailLower);
       await deleteDoc(docRef);
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'licenses/' + email);
+      handleFirestoreError(error, OperationType.DELETE, `licenses/${email}`);
     }
   };
 
   return (
-    <FirebaseSyncContext.Provider value={{
-      user,
-      loading,
-      signInWithGoogle,
-      signInAsAdmin,
-      signOut,
-      syncStatus,
-      isAuthInitialized,
-      saveProjectToCloud,
-      loadProjectsFromCloud,
-      deleteProjectFromCloud,
-      saveCompanyProfileToCloud,
-      loadCompanyProfilesFromCloud,
-      deleteCompanyProfileToCloud,
-      saveActiveStateToCloud,
-      loadActiveStateFromCloud,
-      
-      // Licensing & Admin
-      isLicensed,
-      licenseLoading,
-      licenseInfo,
-      isAdmin,
-      getAllLicenses,
-      createOrUpdateLicense,
-      deleteLicense
-    }}>
+    <FirebaseSyncContext.Provider
+      value={{
+        user,
+        loading,
+        authError,
+        clearAuthError,
+        signInWithGoogle,
+        refreshAuthClaims,
+        signOut,
+        syncStatus,
+        lastSyncError,
+        isAuthInitialized,
+        saveProjectToCloud,
+        loadProjectsFromCloud,
+        deleteProjectFromCloud,
+        saveCompanyProfileToCloud,
+        loadCompanyProfilesFromCloud,
+        deleteCompanyProfileToCloud,
+        saveActiveStateToCloud,
+        loadActiveStateFromCloud,
+        isLicensed,
+        licenseLoading,
+        licenseInfo,
+        isAdmin,
+        getAllLicenses,
+        createOrUpdateLicense,
+        deleteLicense,
+      }}
+    >
       {children}
     </FirebaseSyncContext.Provider>
   );

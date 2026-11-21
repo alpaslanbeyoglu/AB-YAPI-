@@ -71,6 +71,7 @@ import {
 import { calculateProject, DEFAULT_PARAMS } from '../utils/calculatorEngine';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { useFirebaseSync } from '../context/FirebaseSyncContext';
+import { resolveProjectProgressKeys, getLocalProgressItemByKeys } from '../utils/syncKeys';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { Logo } from './Logo';
 
@@ -383,11 +384,17 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   const cardBg = isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200';
   const printDocRef = useRef<HTMLDivElement>(null);
 
-  // Storage key based on project address/name to support multi-project persistence
-  const safeProjectKey = useMemo(() => {
-    const addr = params.projectName || params.projectAddress || 'default_project';
-    return 'ab_yapi_progress_' + addr.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-  }, [params.projectName, params.projectAddress]);
+  // Storage key anchored on canonical projectAddress with backward-compatible fallback keys (Turkish-safe)
+  const progressKeys = useMemo(
+    () =>
+      resolveProjectProgressKeys({
+        projectAddress: params.projectAddress,
+        projectName: params.projectName,
+      }),
+    [params.projectAddress, params.projectName]
+  );
+  const safeSlugKey = progressKeys.primaryKey;
+  const safeProjectKey = 'ab_yapi_progress_' + safeSlugKey;
 
   // Project Duration in Months
   const totalMonths = useMemo(() => {
@@ -409,7 +416,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   // Main State
   const [stages, setStages] = useState<ConstructionStage[]>(() => {
     try {
-      const saved = localStorage.getItem(safeProjectKey + '_stages');
+      const saved = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'stages');
       if (saved) {
         const parsed: ConstructionStage[] = JSON.parse(saved);
         return parsed.map(s => ({
@@ -453,7 +460,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   // Logs (Weekly & Monthly Reports)
   const [logs, setLogs] = useState<ConstructionProgressLog[]>(() => {
     try {
-      const saved = localStorage.getItem(safeProjectKey + '_logs');
+      const saved = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'logs');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
 
@@ -474,7 +481,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
 
   const [contractDate, setContractDate] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem(safeProjectKey + '_contract_date');
+      const saved = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'contract_date');
       if (saved) return saved;
     } catch (e) {}
     return new Date().toISOString().slice(0, 10);
@@ -482,7 +489,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
 
   const [plannedCompletionDate, setPlannedCompletionDate] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem(safeProjectKey + '_target_date');
+      const saved = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'target_date');
       if (saved) return saved;
     } catch (e) {}
     return defaultDates.endDateStr;
@@ -523,7 +530,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   // Subcontractor State
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>(() => {
     try {
-      const saved = localStorage.getItem(safeProjectKey + '_subcontractors');
+      const saved = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'subcontractors');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return DEFAULT_SUBCONTRACTORS.map(sub => ({
@@ -541,7 +548,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       lastLoadedKeyRef.current = safeProjectKey;
 
       try {
-        const savedStages = localStorage.getItem(safeProjectKey + '_stages');
+        const savedStages = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'stages');
         if (savedStages) {
           const parsed: ConstructionStage[] = JSON.parse(savedStages);
           setStages(parsed.map(s => ({
@@ -576,7 +583,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
           setStages(cleanStages);
         }
 
-        const savedLogs = localStorage.getItem(safeProjectKey + '_logs');
+        const savedLogs = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'logs');
         if (savedLogs) {
           const parsed: ConstructionProgressLog[] = JSON.parse(savedLogs);
           setLogs(parsed.map(l => ({
@@ -590,7 +597,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
           setLogs([]);
         }
 
-        const savedSubs = localStorage.getItem(safeProjectKey + '_subcontractors');
+        const savedSubs = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'subcontractors');
         setSubcontractors(savedSubs ? JSON.parse(savedSubs) : DEFAULT_SUBCONTRACTORS.map(sub => ({
           ...sub,
           progressPercent: 0,
@@ -599,19 +606,19 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
           notes: ''
         })));
 
-        const savedNotif = localStorage.getItem(safeProjectKey + '_notif_history');
+        const savedNotif = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'notif_history');
         setNotificationHistory(savedNotif ? JSON.parse(savedNotif) : []);
 
-        const savedContract = localStorage.getItem(safeProjectKey + '_contract_date');
+        const savedContract = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'contract_date');
         if (savedContract) setContractDate(savedContract);
 
-        const savedTarget = localStorage.getItem(safeProjectKey + '_target_date');
+        const savedTarget = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'target_date');
         if (savedTarget) setPlannedCompletionDate(savedTarget);
       } catch (err) {
         console.error("Proje verisi yüklenirken hata:", err);
       }
     }
-  }, [safeProjectKey, totalMonths]);
+  }, [safeProjectKey, progressKeys, totalMonths]);
 
   // Selected subcontractor for viewing/editing details
   const [selectedSubcontractorId, setSelectedSubcontractorId] = useState<string | null>(null);
@@ -716,7 +723,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     text: string;
   }>>(() => {
     try {
-      const saved = localStorage.getItem(safeProjectKey + '_notif_history');
+      const saved = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'notif_history');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return [];
@@ -748,19 +755,26 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   useEffect(() => {
     if (!user) return;
     const timer = setTimeout(() => {
+      const matchingSaved = savedProjects.find(sp => sp.projectAddress === params.projectAddress);
+      const nowIso = new Date().toISOString();
       const currentSnapshot: SavedProjectData = {
         version: '1.0.0',
-        savedAt: new Date().toISOString(),
+        savedAt: matchingSaved?.savedAt || nowIso,
+        updatedAt: nowIso,
         projectAddress: params.projectAddress,
         params,
         results,
+        buildingModelParams: matchingSaved?.buildingModelParams,
       };
-      saveProjectToCloud(currentSnapshot).catch(err => 
-        console.warn("Cloud construction progress sync error:", err)
-      );
+      saveProjectToCloud(currentSnapshot).catch(err => {
+        console.warn("Cloud construction progress sync error:", err);
+        if (err instanceof Error && err.message.includes('1 MB belge sınırını')) {
+          showToast(err.message, 'info');
+        }
+      });
     }, 1500); // 1.5 seconds debounce
     return () => clearTimeout(timer);
-  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, user]);
+  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, safeProjectKey, user]);
 
   // Overall progress calculation (weighted sum of stages)
   const overallProgress = useMemo(() => {
@@ -1098,7 +1112,12 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     };
 
     // Pre-initialize clean 0% stages in localStorage for this new site
-    const newKey = 'ab_yapi_progress_' + (cleanName || newSiteAddress).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    const newKey =
+      'ab_yapi_progress_' +
+      resolveProjectProgressKeys({
+        projectAddress: newSiteAddress.trim(),
+        projectName: cleanName,
+      }).primaryKey;
     const startDate = new Date();
     const totalDays = months * 30;
     const freshStages = DEFAULT_STAGE_DEFINITIONS.map((def, idx) => {
@@ -1160,8 +1179,12 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
 
     if (savedProjects && savedProjects.length > 0) {
       savedProjects.forEach(sp => {
-        const spAddr = sp.params.projectName || sp.projectAddress || '';
-        const spKey = 'ab_yapi_progress_' + spAddr.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+        const spKeys = resolveProjectProgressKeys({
+          projectAddress: sp.projectAddress,
+          projectName: sp.params?.projectName,
+        });
+        const spSlug = spKeys.primaryKey;
+        const spKey = 'ab_yapi_progress_' + spSlug;
         if (spKey === safeProjectKey) {
           currentItem.rawProject = sp;
           return;
@@ -1170,7 +1193,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
         let spProgress = 0;
         let spActiveStageName = '1. Proje & Ruhsat';
         try {
-          const spStagesStr = localStorage.getItem(spKey + '_stages');
+          const spStagesStr = getLocalProgressItemByKeys(spKeys.candidateKeys, 'stages');
           if (spStagesStr) {
             const spStages: ConstructionStage[] = JSON.parse(spStagesStr);
             const wSum = spStages.reduce((acc, s) => acc + (s.progressPercent * (s.weightPercent || 1)), 0);
@@ -1183,13 +1206,13 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
 
         let spSubsCount = 0;
         try {
-          const spSubsStr = localStorage.getItem(spKey + '_subcontractors');
+          const spSubsStr = getLocalProgressItemByKeys(spKeys.candidateKeys, 'subcontractors');
           if (spSubsStr) {
             spSubsCount = JSON.parse(spSubsStr).length;
           }
         } catch (e) {}
 
-        const targetDate = localStorage.getItem(spKey + '_target_date') || defaultDates.endDateStr;
+        const targetDate = getLocalProgressItemByKeys(spKeys.candidateKeys, 'target_date') || defaultDates.endDateStr;
         const targetMs = new Date(targetDate).getTime();
         const nowMs = Date.now();
         const remDays = Math.max(0, Math.ceil((targetMs - nowMs) / (1000 * 60 * 60 * 24)));

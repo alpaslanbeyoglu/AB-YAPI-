@@ -1,17 +1,36 @@
 {
   "entities": {
-    "CompanyProfile": {
-      "title": "Company Profile",
-      "description": "Company legal, branding and contact information.",
+    "License": {
+      "title": "License",
+      "description": "SaaS customer access license keyed by lowercase verified email address.",
       "type": "object",
       "properties": {
-        "companyName": { "type": "string", "maxLength": 100 },
-        "legalName": { "type": "string", "maxLength": 250 },
+        "email": { "type": "string", "minLength": 5, "maxLength": 150 },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "expiresAt": { "type": "string", "minLength": 10, "maxLength": 50 },
+        "createdAt": { "type": "string", "minLength": 10, "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 150 },
+        "company": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["email", "status", "expiresAt", "createdAt"]
+    },
+    "CompanyProfile": {
+      "title": "Company Profile",
+      "description": "Company legal, branding, and contact information owned strictly by the authenticated user.",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "legalName": { "type": "string", "minLength": 1, "maxLength": 250 },
         "slogan": { "type": "string", "maxLength": 200 },
         "tagline": { "type": "string", "maxLength": 300 },
         "authorizedPerson": { "type": "string", "maxLength": 100 },
         "authorizedTitle": { "type": "string", "maxLength": 100 },
         "authorizedChamberNo": { "type": "string", "maxLength": 50 },
+        "authorizedChamber": { "type": "string", "maxLength": 50 },
+        "authorizedPerson2": { "type": "string", "maxLength": 100 },
+        "authorizedTitle2": { "type": "string", "maxLength": 100 },
+        "authorizedChamberNo2": { "type": "string", "maxLength": 50 },
+        "authorizedChamber2": { "type": "string", "maxLength": 50 },
         "phone": { "type": "string", "maxLength": 50 },
         "email": { "type": "string", "maxLength": 100 },
         "website": { "type": "string", "maxLength": 100 },
@@ -24,38 +43,60 @@
         "chamberNo": { "type": "string", "maxLength": 100 },
         "iban": { "type": "string", "maxLength": 100 },
         "bankName": { "type": "string", "maxLength": 150 },
-        "logoBase64": { "type": "string", "maxLength": 2000000 },
-        "stampBase64": { "type": "string", "maxLength": 2000000 }
+        "logoBase64": { "type": "string", "maxLength": 800000 },
+        "stampBase64": { "type": "string", "maxLength": 800000 },
+        "stampUrl": { "type": "string", "maxLength": 800000 },
+        "printOptions": { "type": "object" },
+        "updatedAt": { "type": "string", "maxLength": 50 }
       },
       "required": ["companyName", "legalName"]
     },
     "ProjectSnapshot": {
       "title": "Project Snapshot",
-      "description": "Calculation and construction data of a specific construction project.",
+      "description": "Calculation, 3D model, owner PII (T.C. kimlik), and construction progress data scoped strictly to the owning user.",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "version": { "type": "string", "maxLength": 30 },
         "savedAt": { "type": "string", "maxLength": 50 },
-        "projectAddress": { "type": "string", "maxLength": 300 },
+        "updatedAt": { "type": "string", "maxLength": 50 },
+        "projectAddress": { "type": "string", "minLength": 1, "maxLength": 300 },
         "params": { "type": "object" },
         "results": { "type": "object" },
         "buildingModelParams": { "type": "object" },
         "construction": { "type": "object" }
       },
       "required": ["id", "projectAddress", "params", "results"]
+    },
+    "ActiveState": {
+      "title": "Active State",
+      "description": "Currently open workspace parameters, 3D building model, and tab UI layout scoped strictly to the owning user.",
+      "type": "object",
+      "properties": {
+        "params": { "type": "object" },
+        "buildingModel": { "type": "object" },
+        "uiState": { "type": "object" },
+        "updatedAt": { "type": "string", "minLength": 10, "maxLength": 50 }
+      },
+      "required": ["params", "updatedAt"]
     }
   },
   "firestore": {
+    "/licenses/{email}": {
+      "schema": "License",
+      "description": "SaaS license records; single-doc get allowed for matching verified email owner, full CRUD/list strictly restricted to custom-claim admin."
+    },
     "/users/{userId}/companyProfiles/{profileId}": {
       "schema": "CompanyProfile",
-      "description": "User specific company profiles."
+      "description": "Owner-only company profiles containing tax, IBAN, and branding PII."
     },
     "/users/{userId}/projects/{projectId}": {
       "schema": "ProjectSnapshot",
-      "description": "User specific construction and calculation projects."
+      "description": "Owner-only saved construction projects including buildingModelParams and owner T.C. kimlik numbers."
     },
     "/users/{userId}/settings/activeState": {
-      "description": "User specific active project state for cross-device sync."
+      "schema": "ActiveState",
+      "description": "Owner-only active working state for cross-device synchronization."
     }
   }
 }

@@ -373,9 +373,21 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                   <span className="text-[11px] font-black leading-3 max-w-[110px] truncate text-slate-800">
                     {user.displayName}
                   </span>
-                  <span className="text-[9px] text-emerald-600 font-extrabold flex items-center justify-end gap-0.5 mt-0.5">
+                  <span
+                    className={`text-[9px] font-extrabold flex items-center justify-end gap-0.5 mt-0.5 ${
+                      syncStatus === 'error'
+                        ? 'text-rose-600'
+                        : syncStatus === 'syncing'
+                        ? 'text-amber-600'
+                        : 'text-emerald-600'
+                    }`}
+                  >
                     <Cloud className="w-2.5 h-2.5" />
-                    Bulut Senkronize
+                    {syncStatus === 'error'
+                      ? 'Bulut Hatası'
+                      : syncStatus === 'syncing'
+                      ? 'Kaydediliyor...'
+                      : 'Bulut Senkronize'}
                   </span>
                 </div>
                 <img
