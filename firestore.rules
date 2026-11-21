@@ -1,14 +1,43 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Admin & License rules
-    match /licenses/{email} {
-      allow read, write: if true;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // User data & project settings rules
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if true;
+    function isVerifiedAdmin() {
+      return isSignedIn()
+        && request.auth.token.email == 'alpaslan.beyoglu@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    function hasActiveLicense() {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && exists(/databases/$(database)/documents/licenses/$(request.auth.token.email))
+        && get(/databases/$(database)/documents/licenses/$(request.auth.token.email)).data.status == 'active'
+        && get(/databases/$(database)/documents/licenses/$(request.auth.token.email)).data.expiresAt is timestamp
+        && get(/databases/$(database)/documents/licenses/$(request.auth.token.email)).data.expiresAt > request.time;
+    }
+
+    match /licenses/{email} {
+      allow get: if isVerifiedAdmin()
+        || (isSignedIn()
+          && request.auth.token.email_verified == true
+          && request.auth.token.email == email);
+      allow list: if isVerifiedAdmin();
+      allow create, update, delete: if isVerifiedAdmin();
+    }
+
+    match /users/{userId}/{document=**} {
+      allow read, write: if isSignedIn()
+        && request.auth.uid == userId
+        && (isVerifiedAdmin() || hasActiveLicense());
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

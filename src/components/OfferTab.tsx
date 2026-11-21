@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { authenticatedApiFetch } from '../lib/api';
 import { 
   Building2, 
   ShieldCheck, 
@@ -265,7 +266,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
     setAiError(null);
 
     try {
-      const res = await fetch('/api/ai-generate-offer', {
+      const res = await authenticatedApiFetch('/api/ai-generate-offer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: aiPromptText }),
