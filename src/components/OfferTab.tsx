@@ -607,15 +607,28 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     }
   };
 
-  const handleSelectNamingPreset = (presetId: 'standard_prestij' | 'klasik_konfor' | 'gumus_altin' | 'temel_akilli' | 'custom') => {
-    if (onUpdateParam) {
-      const preset = DUAL_OFFER_NAMING_PRESETS.find(p => p.id === presetId);
-      onUpdateParam('offerNamingPreset', presetId);
-      if (presetId !== 'custom' && preset) {
-        onUpdateParam('baseOfferTitle', preset.baseTitle);
-        onUpdateParam('plusOfferTitle', preset.plusTitle);
+  const applyParamsPatch = (patch: Partial<ProjectParams>) => {
+    if (onUpdateAllParams) {
+      onUpdateAllParams(patch);
+    } else if (onUpdateParam) {
+      for (const [k, v] of Object.entries(patch)) {
+        onUpdateParam(k as keyof ProjectParams, v);
       }
     }
+  };
+
+  const handleSelectNamingPreset = (presetId: 'standard_prestij' | 'klasik_konfor' | 'gumus_altin' | 'temel_akilli' | 'custom') => {
+    const preset = DUAL_OFFER_NAMING_PRESETS.find(p => p.id === presetId);
+    const patch: Partial<ProjectParams> = {
+      offerNamingPreset: presetId,
+      ...(presetId !== 'custom' && preset
+        ? {
+            baseOfferTitle: preset.baseTitle,
+            plusOfferTitle: preset.plusTitle,
+          }
+        : {}),
+    };
+    applyParamsPatch(patch);
   };
 
   const handleTogglePlusFeature = (
@@ -886,7 +899,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     }
   };
 
-  const currentStatus: ProposalStatus = params.proposalStatus || 'draft';
+  const currentStatus: ProposalStatus =
+    params.proposalStatus || (params.isOfferAccepted ? 'accepted' : 'draft');
   const currentStatusMeta =
     OFFER_STATUS_OPTIONS.find((s) => s.value === currentStatus) || OFFER_STATUS_OPTIONS[0];
 
@@ -1582,10 +1596,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (onUpdateParam) {
-                                    onUpdateParam('customInflationNoticeTitle', undefined);
-                                    onUpdateParam('customInflationNoticeText', undefined);
-                                  }
+                                  applyParamsPatch({
+                                    customInflationNoticeTitle: undefined,
+                                    customInflationNoticeText: undefined,
+                                  });
                                 }}
                                 className="text-xs text-indigo-600 hover:underline cursor-pointer"
                               >
@@ -2404,21 +2418,19 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (onUpdateAllParams) {
-                  onUpdateAllParams({
-                    showIntroPresentation: false,
-                    showCompanyHistory: false,
-                    showTechnicalSummary: true,
-                    showQualityStandards: false,
-                    showInnovativeOptions: false,
-                    showDualOfferMatrix: params.offerPresentationMode === 'dual',
-                    showFinancialSummary: true,
-                    showPaymentTimeline: true,
-                    showInflationGuaranteeNotice: true,
-                    showLegalTaahhut: false,
-                    showContractorSignature: true,
-                  });
-                }
+                applyParamsPatch({
+                  showIntroPresentation: false,
+                  showCompanyHistory: false,
+                  showTechnicalSummary: true,
+                  showQualityStandards: false,
+                  showInnovativeOptions: false,
+                  showDualOfferMatrix: params.offerPresentationMode === 'dual',
+                  showFinancialSummary: true,
+                  showPaymentTimeline: true,
+                  showInflationGuaranteeNotice: true,
+                  showLegalTaahhut: false,
+                  showContractorSignature: true,
+                });
               }}
               className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer"
             >
@@ -2877,10 +2889,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   type="text"
                   value={params.baseOfferTitle || dualData.baseTitle}
                   onChange={(e) => {
-                    if (onUpdateParam) {
-                      onUpdateParam('baseOfferTitle', e.target.value);
-                      onUpdateParam('offerNamingPreset', 'custom');
-                    }
+                    applyParamsPatch({
+                      baseOfferTitle: e.target.value,
+                      offerNamingPreset: 'custom',
+                    });
                   }}
                   className="w-full text-xs font-semibold px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-500 focus:outline-none bg-slate-50 focus:bg-white transition-all text-slate-900"
                   placeholder="Örn: Standart (Baz) Paket"
@@ -2893,10 +2905,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   type="text"
                   value={params.plusOfferTitle || dualData.plusTitle}
                   onChange={(e) => {
-                    if (onUpdateParam) {
-                      onUpdateParam('plusOfferTitle', e.target.value);
-                      onUpdateParam('offerNamingPreset', 'custom');
-                    }
+                    applyParamsPatch({
+                      plusOfferTitle: e.target.value,
+                      offerNamingPreset: 'custom',
+                    });
                   }}
                   className="w-full text-xs font-semibold px-3 py-2 border border-purple-200 rounded-xl focus:border-purple-500 focus:outline-none bg-purple-50/40 focus:bg-white transition-all text-purple-950 font-bold"
                   placeholder="Örn: Prestij Plus Paket"

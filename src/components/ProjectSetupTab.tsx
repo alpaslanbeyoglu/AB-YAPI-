@@ -113,7 +113,7 @@ import { BuildingModelParams, SavedProjectData } from '../types';
 
 interface ProjectSetupTabProps {
   params: ProjectParams;
-  onChangeParams: (newParams: ProjectParams) => void;
+  onChangeParams: (newParams: ProjectParams | Partial<ProjectParams>) => void;
   theme?: AppTheme;
   onNext: () => void;
   onNavigateToModel?: () => void;
@@ -4284,8 +4284,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 <OfferTab
                   params={params}
                   results={results}
-                  onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
-                  onUpdateAllParams={(partial) => onChangeParams({ ...params, ...partial })}
+                  onUpdateParam={(k, v) => onChangeParams({ [k]: v })}
+                  onUpdateAllParams={(partial) => onChangeParams(partial)}
                   onNavigateToSurec={() => goToStage(9)}
                   onSaveOffer={onCalculate || onQuickSave}
                   onNavigateToContract={() => setStage8SubView('contract')}
@@ -4299,7 +4299,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 <ContractTab
                   params={params}
                   results={results}
-                  onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
+                  onUpdateParam={(k, v) => onChangeParams({ [k]: v })}
                   theme={theme}
                 />
               )}
@@ -4317,7 +4317,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               onAddNewProject={onAddNewConstructionProject}
               onDeleteProject={onDeleteHistoryProject}
               onSaveCurrentProject={onCalculate || onQuickSave}
-              onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
+              onUpdateParam={(k, v) => onChangeParams({ [k]: v })}
+              onUpdateAllParams={(partial) => onChangeParams(partial)}
               onNavigateToOffer={() =>
                 goToStage(8, undefined, { stage8SubView: 'offer' })
               }

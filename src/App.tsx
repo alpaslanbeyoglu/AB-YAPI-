@@ -71,6 +71,16 @@ import { DEFAULT_BUILDING_PARAMS, getInitialBuildingModelParams } from './utils/
 import { calculateFootprint } from './utils/footprintUtils';
 import { mergeProjectLists, shouldApplyCloudActiveState } from './utils/syncKeys';
 import {
+  applyCalculatorParamsUpdate,
+  applyBuildingModelUpdateToProjectParams,
+  buildOfferAcceptanceTransitionPatch,
+  buildProposalStatusChangePatch,
+  resolveEffectiveOfferAccepted,
+  resolveEffectiveProposalStatus,
+  sanitizeContractorFlatIds,
+  syncFlatsContractorShareFlags,
+} from './utils/workflowConsistencyUtils';
+import {
   ProjectParams,
   CalculationResult,
   SavedProjectData,
@@ -415,285 +425,112 @@ export default function App() {
 
   // Keep Building Model and Calculator synchronized LIVE bidirectionally
   const updateCalculatorParams = (newParamsOrUpdates: ProjectParams | Partial<ProjectParams>) => {
-    const newParams: ProjectParams = {
-      ...params,
-      ...newParamsOrUpdates,
-    };
-    // 1. Determine activeBaseArea: Keep user's explicit manual entry if provided (> 0)
-    const footprintResult = calculateFootprint(newParams.footprintInputMode, newParams);
-    let activeBaseArea = newParams.baseBuildArea;
-    if (!activeBaseArea || activeBaseArea <= 0) {
-      activeBaseArea = footprintResult.area;
-    }
+    setParams((prevParams) => {
+      const sanitizedParams = applyCalculatorParamsUpdate(prevParams, newParamsOrUpdates);
 
-    const cantileverInfo = calculateCantileverDetails(newParams, activeBaseArea, footprintResult);
-    const upperFloorArea = cantileverInfo.upperFloorArea;
+      const resFloors = sanitizedParams.hasGroundFloorShop
+        ? Math.max(0, sanitizedParams.floorCount - 1)
+        : sanitizedParams.floorCount;
+      const totalFlats = sanitizedParams.flatCount;
 
-    const resFloors = newParams.hasGroundFloorShop
-      ? Math.max(0, newParams.floorCount - 1)
-      : newParams.floorCount;
+      // Live Sync from Proje Künyesi / Hesap to Building Model:
+      setBuildingModelParams((prevModel) => {
+        const fpSync = calculateFootprint(
+          sanitizedParams.footprintInputMode || prevModel.footprintInputMode || 'directArea',
+          sanitizedParams
+        );
+        const isDirectMode =
+          !sanitizedParams.footprintInputMode || sanitizedParams.footprintInputMode === 'directArea';
 
-    const roofType = newParams.roofType || 'gable';
-    const isMansard = roofType === 'mansard';
-    const isDuplex = roofType === 'duplex';
-    const flatsPerFloor = newParams.flatsPerFloor || 2;
-    const normalFloorFlats = resFloors * flatsPerFloor;
+        let newW = isDirectMode
+          ? fpSync.effectiveWidth
+          : sanitizedParams.facadeWidth || prevModel.facadeWidth;
+        let newD = isDirectMode
+          ? fpSync.effectiveDepth
+          : sanitizedParams.facadeDepth || prevModel.facadeDepth;
+        let newBackW = isDirectMode
+          ? fpSync.effectiveWidth
+          : sanitizedParams.backFacadeLength !== undefined
+          ? sanitizedParams.backFacadeLength
+          : prevModel.backFacadeLength ?? newW;
+        let newLeftD = isDirectMode
+          ? fpSync.effectiveDepth
+          : sanitizedParams.leftFacadeLength !== undefined
+          ? sanitizedParams.leftFacadeLength
+          : prevModel.leftFacadeLength ?? newD;
 
-    // KURAL:
-    // 1) Mansart çatı tek seçildiğinde çatı katında ekstra bağımsız bölüm(ler) oluşur ve hesaplara dahil edilir.
-    // 2) Mansart çatı + dubleks seçilirse tek bağımsız bölüm olarak kabul edilir (ekstra daire eklenmez).
-    const totalFlats = calculateFlatCount(newParams);
+        const nextModel: BuildingModelParams = {
+          ...prevModel,
+          footprintInputMode: sanitizedParams.footprintInputMode || prevModel.footprintInputMode,
+          facadeWidth: newW,
+          facadeDepth: newD,
+          backFacadeLength: newBackW,
+          leftFacadeLength: newLeftD,
+          baseBuildArea: sanitizedParams.baseBuildArea,
+          customFacadeCount: sanitizedParams.customFacadeCount || prevModel.customFacadeCount,
+          customFacades: sanitizedParams.customFacades || prevModel.customFacades,
+          lShapeFrontMain: sanitizedParams.lShapeFrontMain || prevModel.lShapeFrontMain,
+          lShapeDepthMain: sanitizedParams.lShapeDepthMain || prevModel.lShapeDepthMain,
+          lShapeRecessFront: sanitizedParams.lShapeRecessFront || prevModel.lShapeRecessFront,
+          lShapeRecessDepth: sanitizedParams.lShapeRecessDepth || prevModel.lShapeRecessDepth,
+          floorCount: sanitizedParams.floorCount,
+          floorHeight: sanitizedParams.floorHeight || prevModel.floorHeight || 2.90,
+          elevatorCount: sanitizedParams.elevatorCount !== undefined ? sanitizedParams.elevatorCount : prevModel.elevatorCount,
+          flatsPerFloor: sanitizedParams.flatsPerFloor || Math.max(1, Math.round(totalFlats / Math.max(1, resFloors))),
+          hasGroundFloorShop: !!sanitizedParams.hasGroundFloorShop,
+          hasBasementShop: sanitizedParams.hasBasementShop !== undefined ? sanitizedParams.hasBasementShop : prevModel.hasBasementShop,
+          basementPurpose: sanitizedParams.basementPurpose !== undefined ? sanitizedParams.basementPurpose : prevModel.basementPurpose,
+          basementShopCount: sanitizedParams.basementShopCount !== undefined ? sanitizedParams.basementShopCount : prevModel.basementShopCount,
+          shopLocation: sanitizedParams.shopLocation !== undefined ? sanitizedParams.shopLocation : prevModel.shopLocation,
+          basementConfig: sanitizedParams.basementConfig !== undefined ? sanitizedParams.basementConfig : prevModel.basementConfig,
+          shopCount: sanitizedParams.shopCount || 1,
+          shopHeight: sanitizedParams.shopHeight || 3.8,
+          contractorFlatIds: sanitizedParams.contractorFlatIds,
+          showContractorShare3D: sanitizedParams.showContractorShare3D,
+          contractorShareRate: sanitizedParams.contractorShareRate,
+          projectModel: sanitizedParams.projectModel,
+          flatCount: totalFlats,
+          roomType: sanitizedParams.roomType || prevModel.roomType,
+          hasCantilever: sanitizedParams.hasCantilever,
+          cantileverDepth: sanitizedParams.cantileverDepth,
+          cantileverDirection: sanitizedParams.cantileverDirection,
+          facadeCantilevers: sanitizedParams.facadeCantilevers || prevModel.facadeCantilevers,
+          roofType: sanitizedParams.roofType || prevModel.roofType,
+          wallColor: sanitizedParams.wallColor || prevModel.wallColor,
+          roofColor: sanitizedParams.roofColor || prevModel.roofColor,
+          accentColor: sanitizedParams.accentColor || prevModel.accentColor,
+          frameColor: sanitizedParams.frameColor || prevModel.frameColor,
+          slabColor: sanitizedParams.slabColor || prevModel.slabColor,
+          basementCount: sanitizedParams.basementCount !== undefined ? sanitizedParams.basementCount : prevModel.basementCount,
+          facadeStyle: sanitizedParams.facadeStyle || prevModel.facadeStyle,
+          balconyDepth: sanitizedParams.balconyDepth !== undefined ? sanitizedParams.balconyDepth : prevModel.balconyDepth,
+          polygonPoints: sanitizedParams.polygonPoints || prevModel.polygonPoints,
+          facadeConfigs: sanitizedParams.facadeConfigs || prevModel.facadeConfigs,
+          mainEntranceFacadeIndex: sanitizedParams.mainEntranceFacadeIndex !== undefined ? sanitizedParams.mainEntranceFacadeIndex : prevModel.mainEntranceFacadeIndex,
+          flats: sanitizedParams.flats || prevModel.flats,
+        };
 
-    const roofAtticArea = isDuplex
-      ? Math.round(upperFloorArea * 0.65 * 100) / 100
-      : isMansard
-      ? Math.round(upperFloorArea * 0.70 * 100) / 100
-      : 0;
+        return nextModel;
+      });
 
-    const synchronizedFlats = synchronizeFlats(
-      newParams.flats,
-      totalFlats,
-      activeBaseArea,
-      newParams.floorCount,
-      newParams.transformationStatus,
-      roofType,
-      flatsPerFloor,
-      newParams.mansardFlatCount,
-      roofAtticArea,
-      newParams.hasGroundFloorShop,
-      newParams.shopCount || 1,
-      upperFloorArea,
-      newParams.basementPurpose,
-      newParams.basementShopCount || 1,
-      newParams.basementCount !== undefined ? newParams.basementCount : 1,
-      newParams.basementConfig
-    );
-
-    const sanitizedContractorIds = (newParams.contractorFlatIds || []).filter(
-      (id) => id <= totalFlats
-    );
-
-    const sanitizedParams: ProjectParams = {
-      ...newParams,
-      baseBuildArea: activeBaseArea,
-      flatCount: totalFlats,
-      flats: synchronizedFlats,
-      contractorFlatIds: sanitizedContractorIds,
-    };
-
-    setParams(sanitizedParams);
-
-    // Live Sync from Proje Künyesi / Hesap to Building Model:
-    setBuildingModelParams((prevModel) => {
-      const fpSync = calculateFootprint(
-        sanitizedParams.footprintInputMode || prevModel.footprintInputMode || 'directArea',
-        sanitizedParams
-      );
-      const isDirectMode =
-        !sanitizedParams.footprintInputMode || sanitizedParams.footprintInputMode === 'directArea';
-
-      let newW = isDirectMode
-        ? fpSync.effectiveWidth
-        : sanitizedParams.facadeWidth || prevModel.facadeWidth;
-      let newD = isDirectMode
-        ? fpSync.effectiveDepth
-        : sanitizedParams.facadeDepth || prevModel.facadeDepth;
-      let newBackW = isDirectMode
-        ? fpSync.effectiveWidth
-        : sanitizedParams.backFacadeLength !== undefined
-        ? sanitizedParams.backFacadeLength
-        : prevModel.backFacadeLength ?? newW;
-      let newLeftD = isDirectMode
-        ? fpSync.effectiveDepth
-        : sanitizedParams.leftFacadeLength !== undefined
-        ? sanitizedParams.leftFacadeLength
-        : prevModel.leftFacadeLength ?? newD;
-
-      const nextModel: BuildingModelParams = {
-        ...prevModel,
-        footprintInputMode: sanitizedParams.footprintInputMode || prevModel.footprintInputMode,
-        facadeWidth: newW,
-        facadeDepth: newD,
-        backFacadeLength: newBackW,
-        leftFacadeLength: newLeftD,
-        baseBuildArea: sanitizedParams.baseBuildArea,
-        customFacadeCount: sanitizedParams.customFacadeCount || prevModel.customFacadeCount,
-        customFacades: sanitizedParams.customFacades || prevModel.customFacades,
-        lShapeFrontMain: sanitizedParams.lShapeFrontMain || prevModel.lShapeFrontMain,
-        lShapeDepthMain: sanitizedParams.lShapeDepthMain || prevModel.lShapeDepthMain,
-        lShapeRecessFront: sanitizedParams.lShapeRecessFront || prevModel.lShapeRecessFront,
-        lShapeRecessDepth: sanitizedParams.lShapeRecessDepth || prevModel.lShapeRecessDepth,
-        floorCount: sanitizedParams.floorCount,
-        floorHeight: sanitizedParams.floorHeight || prevModel.floorHeight || 2.90,
-        elevatorCount: sanitizedParams.elevatorCount !== undefined ? sanitizedParams.elevatorCount : prevModel.elevatorCount,
-        flatsPerFloor: sanitizedParams.flatsPerFloor || Math.max(1, Math.round(totalFlats / Math.max(1, resFloors))),
-        hasGroundFloorShop: !!sanitizedParams.hasGroundFloorShop,
-        hasBasementShop: sanitizedParams.hasBasementShop !== undefined ? sanitizedParams.hasBasementShop : prevModel.hasBasementShop,
-        basementPurpose: sanitizedParams.basementPurpose !== undefined ? sanitizedParams.basementPurpose : prevModel.basementPurpose,
-        basementShopCount: sanitizedParams.basementShopCount !== undefined ? sanitizedParams.basementShopCount : prevModel.basementShopCount,
-        shopLocation: sanitizedParams.shopLocation !== undefined ? sanitizedParams.shopLocation : prevModel.shopLocation,
-        basementConfig: sanitizedParams.basementConfig !== undefined ? sanitizedParams.basementConfig : prevModel.basementConfig,
-        shopCount: sanitizedParams.shopCount || 1,
-        shopHeight: sanitizedParams.shopHeight || 3.8,
-        contractorFlatIds: sanitizedParams.contractorFlatIds,
-        showContractorShare3D: sanitizedParams.showContractorShare3D,
-        contractorShareRate: sanitizedParams.contractorShareRate,
-        projectModel: sanitizedParams.projectModel,
-        flatCount: totalFlats,
-        roomType: sanitizedParams.roomType || prevModel.roomType,
-        hasCantilever: sanitizedParams.hasCantilever,
-        cantileverDepth: sanitizedParams.cantileverDepth,
-        cantileverDirection: sanitizedParams.cantileverDirection,
-        facadeCantilevers: sanitizedParams.facadeCantilevers || prevModel.facadeCantilevers,
-        roofType: sanitizedParams.roofType || prevModel.roofType,
-        wallColor: sanitizedParams.wallColor || prevModel.wallColor,
-        roofColor: sanitizedParams.roofColor || prevModel.roofColor,
-        accentColor: sanitizedParams.accentColor || prevModel.accentColor,
-        frameColor: sanitizedParams.frameColor || prevModel.frameColor,
-        slabColor: sanitizedParams.slabColor || prevModel.slabColor,
-        basementCount: sanitizedParams.basementCount !== undefined ? sanitizedParams.basementCount : prevModel.basementCount,
-        facadeStyle: sanitizedParams.facadeStyle || prevModel.facadeStyle,
-        balconyDepth: sanitizedParams.balconyDepth !== undefined ? sanitizedParams.balconyDepth : prevModel.balconyDepth,
-        polygonPoints: sanitizedParams.polygonPoints || prevModel.polygonPoints,
-        facadeConfigs: sanitizedParams.facadeConfigs || prevModel.facadeConfigs,
-        mainEntranceFacadeIndex: sanitizedParams.mainEntranceFacadeIndex !== undefined ? sanitizedParams.mainEntranceFacadeIndex : prevModel.mainEntranceFacadeIndex,
-        flats: sanitizedParams.flats || prevModel.flats,
-      };
-
-      return nextModel;
+      return sanitizedParams;
     });
   };
 
   // Live Sync from Building Model to Calculator: Synchronize all shared/matching data instantly
   const updateBuildingModelParams = (updates: Partial<BuildingModelParams>) => {
-    // 1. Update 3D Building Model state
-    setBuildingModelParams((prevModel) => {
-      const nextModel: BuildingModelParams = { ...prevModel, ...updates };
-      return nextModel;
-    });
-
-    // 2. Synchronize all matching parameters live to Calculator (ProjectParams)
+    // 1. Synchronize all matching parameters live to Calculator (ProjectParams)
     setParams((prev) => {
-      const mergedForFootprint: ProjectParams = {
-        ...prev,
-        footprintInputMode: updates.footprintInputMode !== undefined ? updates.footprintInputMode : prev.footprintInputMode,
-        facadeWidth: updates.facadeWidth !== undefined ? updates.facadeWidth : prev.facadeWidth,
-        facadeDepth: updates.facadeDepth !== undefined ? updates.facadeDepth : prev.facadeDepth,
-        backFacadeLength: updates.backFacadeLength !== undefined ? updates.backFacadeLength : prev.backFacadeLength,
-        leftFacadeLength: updates.leftFacadeLength !== undefined ? updates.leftFacadeLength : prev.leftFacadeLength,
-        customFacadeCount: updates.customFacadeCount !== undefined ? updates.customFacadeCount : prev.customFacadeCount,
-        customFacades: updates.customFacades !== undefined ? updates.customFacades : prev.customFacades,
-        lShapeFrontMain: updates.lShapeFrontMain !== undefined ? updates.lShapeFrontMain : prev.lShapeFrontMain,
-        lShapeDepthMain: updates.lShapeDepthMain !== undefined ? updates.lShapeDepthMain : prev.lShapeDepthMain,
-        lShapeRecessFront: updates.lShapeRecessFront !== undefined ? updates.lShapeRecessFront : prev.lShapeRecessFront,
-        lShapeRecessDepth: updates.lShapeRecessDepth !== undefined ? updates.lShapeRecessDepth : prev.lShapeRecessDepth,
-        polygonPoints: updates.polygonPoints !== undefined ? updates.polygonPoints : prev.polygonPoints,
-      };
+      const nextParams = applyBuildingModelUpdateToProjectParams(prev, updates);
 
-      let activeBaseArea = prev.baseBuildArea;
-      if (updates.baseBuildArea !== undefined && updates.baseBuildArea > 0) {
-        activeBaseArea = updates.baseBuildArea;
-      } else if (
-        updates.facadeWidth !== undefined ||
-        updates.facadeDepth !== undefined ||
-        updates.customFacades !== undefined ||
-        updates.lShapeFrontMain !== undefined ||
-        updates.lShapeDepthMain !== undefined ||
-        updates.lShapeRecessFront !== undefined ||
-        updates.lShapeRecessDepth !== undefined ||
-        updates.polygonPoints !== undefined
-      ) {
-        const footprintResult = calculateFootprint(mergedForFootprint.footprintInputMode, mergedForFootprint);
-        activeBaseArea = footprintResult.area;
-      }
-
-      const nextFloorCount = updates.floorCount !== undefined ? updates.floorCount : prev.floorCount;
-      const nextFlatsPerFloor = updates.flatsPerFloor !== undefined ? updates.flatsPerFloor : (prev.flatsPerFloor || 2);
-      const nextHasShop = updates.hasGroundFloorShop !== undefined ? updates.hasGroundFloorShop : (prev.hasGroundFloorShop || false);
-      const nextShopCount = updates.shopCount !== undefined ? updates.shopCount : (prev.shopCount || 1);
-      const nextBasementCount = updates.basementCount !== undefined ? updates.basementCount : (prev.basementCount !== undefined ? prev.basementCount : 1);
-      const nextBasementPurpose = updates.basementPurpose !== undefined ? updates.basementPurpose : prev.basementPurpose;
-      const nextBasementShopCount = updates.basementShopCount !== undefined ? updates.basementShopCount : (prev.basementShopCount || 1);
-      const nextBasementConfig = updates.basementConfig !== undefined ? updates.basementConfig : prev.basementConfig;
-      const roofType = updates.roofType !== undefined ? updates.roofType : (prev.roofType || 'gable');
-      const isMansard = roofType === 'mansard';
-      const isDuplex = roofType === 'duplex';
-      const nextMansardFlatCount = updates.mansardFlatCount !== undefined ? updates.mansardFlatCount : prev.mansardFlatCount;
-
-      const calcParamsMerged: ProjectParams = {
-        ...prev,
+      // 2. Update 3D Building Model state with validated contractorFlatIds & synchronized flats
+      setBuildingModelParams((prevModel) => ({
+        ...prevModel,
         ...updates,
-        baseBuildArea: activeBaseArea,
-        floorCount: nextFloorCount,
-        flatsPerFloor: nextFlatsPerFloor,
-        hasGroundFloorShop: nextHasShop,
-        shopCount: nextShopCount,
-        roofType: roofType,
-        mansardFlatCount: nextMansardFlatCount,
-        basementCount: nextBasementCount,
-        basementPurpose: nextBasementPurpose,
-        basementShopCount: nextBasementShopCount,
-        basementConfig: nextBasementConfig,
-      };
-
-      let nextFlatCount = calculateFlatCount(calcParamsMerged);
-      if (
-        updates.flatCount !== undefined &&
-        updates.flatCount > 0 &&
-        updates.floorCount === undefined &&
-        updates.flatsPerFloor === undefined &&
-        updates.hasGroundFloorShop === undefined &&
-        updates.roofType === undefined &&
-        updates.mansardFlatCount === undefined &&
-        updates.shopCount === undefined &&
-        updates.basementCount === undefined
-      ) {
-        nextFlatCount = updates.flatCount;
-      }
-
-      const footprintResult = calculateFootprint(mergedForFootprint.footprintInputMode, mergedForFootprint);
-      const cantileverInfo = calculateCantileverDetails(calcParamsMerged, activeBaseArea, footprintResult);
-      const upperFloorArea = cantileverInfo.upperFloorArea;
-
-      const roofAtticArea = isDuplex
-        ? Math.round(upperFloorArea * 0.65 * 100) / 100
-        : isMansard
-        ? Math.round(upperFloorArea * 0.70 * 100) / 100
-        : 0;
-
-      const synchronizedFlats = synchronizeFlats(
-        prev.flats,
-        nextFlatCount,
-        activeBaseArea,
-        nextFloorCount,
-        prev.transformationStatus,
-        roofType,
-        nextFlatsPerFloor,
-        nextMansardFlatCount,
-        roofAtticArea,
-        nextHasShop,
-        nextShopCount,
-        upperFloorArea,
-        nextBasementPurpose,
-        nextBasementShopCount,
-        nextBasementCount,
-        nextBasementConfig
-      );
-
-      const sanitizedContractorIds = (updates.contractorFlatIds ?? prev.contractorFlatIds ?? []).filter(
-        (id) => id <= nextFlatCount
-      );
-
-      const nextParams: ProjectParams = {
-        ...prev,
-        ...updates,
-        baseBuildArea: activeBaseArea,
-        floorCount: nextFloorCount,
-        flatCount: nextFlatCount,
-        flatsPerFloor: nextFlatsPerFloor,
-        flats: synchronizedFlats,
-        contractorFlatIds: sanitizedContractorIds,
-      };
+        flatCount: nextParams.flatCount,
+        flats: nextParams.flats,
+        contractorFlatIds: nextParams.contractorFlatIds,
+      }));
 
       return nextParams;
     });
@@ -738,9 +575,20 @@ export default function App() {
           next.basementCount !== undefined ? next.basementCount : 1,
           next.basementConfig || prev.basementConfig
         );
-        // Keep contractor IDs valid
-        next.contractorFlatIds = (next.contractorFlatIds || prev.contractorFlatIds || []).filter(
-          (id) => id <= nextCount
+        // Keep contractor IDs valid and synchronized with flat flags
+        next.contractorFlatIds = sanitizeContractorFlatIds(
+          next.contractorFlatIds || prev.contractorFlatIds,
+          nextCount
+        );
+        next.flats = syncFlatsContractorShareFlags(next.flats, next.contractorFlatIds);
+      } else if (modelUpdates.contractorFlatIds !== undefined) {
+        next.contractorFlatIds = sanitizeContractorFlatIds(
+          modelUpdates.contractorFlatIds,
+          next.flatCount
+        );
+        next.flats = syncFlatsContractorShareFlags(
+          next.flats || prev.flats,
+          next.contractorFlatIds
         );
       }
 
@@ -1550,12 +1398,8 @@ const handleQuickSave = () => {
               onOpenHistoryClick={() => setActiveTab('gecmis')}
               historyList={historyList}
               onSelectProject={(proj) => handleLoadProject(proj, activeTab)}
-              currentProposalStatus={params.proposalStatus || (params.isOfferAccepted ? 'accepted' : 'draft')}
+              currentProposalStatus={resolveEffectiveProposalStatus(params)}
               onChangeProposalStatus={(newStatus) => {
-                const isAccepted =
-                  newStatus === 'accepted' ||
-                  newStatus === 'contracted' ||
-                  newStatus === 'active_site';
                 const statusLabels: Record<string, string> = {
                   draft: 'Taslak',
                   in_review: 'İncelemede',
@@ -1566,10 +1410,10 @@ const handleQuickSave = () => {
                   active_site: 'Aktif Şantiye',
                   archived: 'Arşivlendi',
                 };
-                updateCalculatorParams({
-                  proposalStatus: newStatus,
-                  isOfferAccepted: isAccepted,
+                const statusPatch = buildProposalStatusChangePatch(params, newStatus, {
+                  note: `Durum "${statusLabels[newStatus] || newStatus}" olarak güncellendi`,
                 });
+                updateCalculatorParams(statusPatch);
                 if (newStatus === 'active_site') {
                   showNotification('success', 'Şantiye süreci başlatıldı.');
                   setActiveTab('surec');
@@ -1661,9 +1505,10 @@ const handleQuickSave = () => {
               <ProjectLifecycleBar
                 activeTab={activeTab}
                 onNavigate={setActiveTab}
-                isOfferAccepted={params.isOfferAccepted ?? false}
+                isOfferAccepted={resolveEffectiveOfferAccepted(params)}
                 onToggleOfferAccepted={(val) => {
-                  updateCalculatorParams({ isOfferAccepted: val });
+                  const patch = buildOfferAcceptanceTransitionPatch(params, val);
+                  updateCalculatorParams(patch);
                   if (val) {
                     showNotification('success', 'Teklif kabul edildi olarak işaretlendi. Şantiye süreci başlatıldı!');
                   } else {
@@ -1834,6 +1679,7 @@ const handleQuickSave = () => {
               }}
               onSaveCurrentProject={handleCalculate}
               onUpdateParam={(key, val) => updateCalculatorParams({ [key]: val })}
+              onUpdateAllParams={updateCalculatorParams}
               onNavigateToOffer={() => setActiveTab('teklif')}
               onNavigateToContract={() => setActiveTab('sozlesme')}
             />
@@ -1843,7 +1689,7 @@ const handleQuickSave = () => {
             <ContractTab
               params={params}
               results={results}
-              onUpdateParam={(key, val) => updateCalculatorParams({ ...params, [key]: val })}
+              onUpdateParam={(key, val) => updateCalculatorParams({ [key]: val })}
               theme={theme}
             />
           )}

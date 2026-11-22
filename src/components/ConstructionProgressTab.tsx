@@ -72,6 +72,14 @@ import { calculateProject, DEFAULT_PARAMS } from '../utils/calculatorEngine';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { useFirebaseSync } from '../context/FirebaseSyncContext';
 import { resolveProjectProgressKeys, getLocalProgressItemByKeys } from '../utils/syncKeys';
+import {
+  buildOfferAcceptanceTransitionPatch,
+  resolveEffectiveOfferAccepted,
+} from '../utils/workflowConsistencyUtils';
+import {
+  appendOfferStatusHistory,
+  buildInitializedOfferMeta,
+} from '../utils/customerOfferBoundary';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { Logo } from './Logo';
 
@@ -82,6 +90,7 @@ interface ConstructionProgressTabProps {
   onNavigateToOffer?: () => void;
   onNavigateToContract?: () => void;
   onUpdateParam?: (key: keyof ProjectParams, value: any) => void;
+  onUpdateAllParams?: (updates: Partial<ProjectParams>) => void;
   savedProjects?: SavedProjectData[];
   onSelectProject?: (project: SavedProjectData) => void;
   onAddNewProject?: (newProject: SavedProjectData) => void;
@@ -372,6 +381,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   onNavigateToOffer,
   onNavigateToContract,
   onUpdateParam,
+  onUpdateAllParams,
   savedProjects = [],
   onSelectProject,
   onAddNewProject,
@@ -410,7 +420,8 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     return { startDateStr, endDateStr };
   }, [totalMonths]);
 
-  // Ref to track project key and avoid cross-project state overwrite
+  // Track which project key the current in-memory state belongs to so we never overwrite a newly selected project's localStorage with the previous project's state
+  const [activeLoadedKey, setActiveLoadedKey] = useState<string>(safeProjectKey);
   const lastLoadedKeyRef = useRef<string>(safeProjectKey);
 
   // Main State
@@ -467,12 +478,22 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     return [];
   });
 
-  // Project Info State - Syncs with params.isOfferAccepted
-  const isOfferAccepted = params.isOfferAccepted ?? false;
+  // Project Info State - Syncs bidirectionally with params.isOfferAccepted & params.proposalStatus
+  const isOfferAccepted = resolveEffectiveOfferAccepted(params);
 
   const setIsOfferAccepted = (val: boolean) => {
-    if (onUpdateParam) {
-      onUpdateParam('isOfferAccepted', val);
+    const compName = profile.companyName || 'AB YAPI';
+    const patch = buildOfferAcceptanceTransitionPatch(params, val, {
+      companyName: compName,
+    });
+    if (onUpdateAllParams) {
+      onUpdateAllParams(patch);
+    } else if (onUpdateParam) {
+      onUpdateParam('isOfferAccepted', patch.isOfferAccepted);
+      onUpdateParam('proposalStatus', patch.proposalStatus);
+      if (patch.offerMeta) {
+        onUpdateParam('offerMeta', patch.offerMeta);
+      }
     }
     try {
       localStorage.setItem(safeProjectKey + '_offer_accepted', JSON.stringify(val));
@@ -610,15 +631,17 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
         setNotificationHistory(savedNotif ? JSON.parse(savedNotif) : []);
 
         const savedContract = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'contract_date');
-        if (savedContract) setContractDate(savedContract);
+        setContractDate(savedContract || defaultDates.startDateStr);
 
         const savedTarget = getLocalProgressItemByKeys(progressKeys.candidateKeys, 'target_date');
-        if (savedTarget) setPlannedCompletionDate(savedTarget);
+        setPlannedCompletionDate(savedTarget || defaultDates.endDateStr);
       } catch (err) {
         console.error("Proje verisi yüklenirken hata:", err);
+      } finally {
+        setActiveLoadedKey(safeProjectKey);
       }
     }
-  }, [safeProjectKey, progressKeys, totalMonths]);
+  }, [safeProjectKey, progressKeys, totalMonths, defaultDates.startDateStr, defaultDates.endDateStr]);
 
   // Selected subcontractor for viewing/editing details
   const [selectedSubcontractorId, setSelectedSubcontractorId] = useState<string | null>(null);
@@ -732,15 +755,17 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [shareSuccess, setShareSuccess] = useState<boolean>(false);
 
-  // Save history to localStorage
+  // Save history to localStorage (only when state is synchronized to current safeProjectKey)
   useEffect(() => {
+    if (activeLoadedKey !== safeProjectKey) return;
     try {
       localStorage.setItem(safeProjectKey + '_notif_history', JSON.stringify(notificationHistory));
     } catch (e) {}
-  }, [notificationHistory, safeProjectKey]);
+  }, [notificationHistory, safeProjectKey, activeLoadedKey]);
 
-  // Save to LocalStorage whenever state changes
+  // Save to LocalStorage whenever state changes (guarded against cross-project write during key change)
   useEffect(() => {
+    if (activeLoadedKey !== safeProjectKey) return;
     try {
       localStorage.setItem(safeProjectKey + '_stages', JSON.stringify(stages));
       localStorage.setItem(safeProjectKey + '_logs', JSON.stringify(logs));
@@ -749,11 +774,11 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       localStorage.setItem(safeProjectKey + '_target_date', plannedCompletionDate);
       localStorage.setItem(safeProjectKey + '_subcontractors', JSON.stringify(subcontractors));
     } catch (e) {}
-  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, safeProjectKey]);
+  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, safeProjectKey, activeLoadedKey]);
 
   // Debounced cloud sync for construction progress details to avoid rapid Firestore writes
   useEffect(() => {
-    if (!user) return;
+    if (!user || activeLoadedKey !== safeProjectKey) return;
     const timer = setTimeout(() => {
       const matchingSaved = savedProjects.find(sp => sp.projectAddress === params.projectAddress);
       const nowIso = new Date().toISOString();
@@ -774,7 +799,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       });
     }, 1500); // 1.5 seconds debounce
     return () => clearTimeout(timer);
-  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, safeProjectKey, user]);
+  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, safeProjectKey, activeLoadedKey, user]);
 
   // Overall progress calculation (weighted sum of stages)
   const overallProgress = useMemo(() => {
@@ -1080,7 +1105,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     const fPerFloor = Number(newSiteFlatsPerFloor) || 2;
     const totalFlats = flCount * fPerFloor;
 
-    const newParams: ProjectParams = {
+    const baseNewParams: ProjectParams = {
       ...DEFAULT_PARAMS,
       projectName: cleanName,
       projectAddress: newSiteAddress.trim(),
@@ -1090,6 +1115,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       flatsPerFloor: fPerFloor,
       flatCount: totalFlats,
       isOfferAccepted: true,
+      proposalStatus: 'active_site',
       flats: Array.from({ length: totalFlats }, (_, i) => ({
         id: i + 1,
         name: `Kat Maliki ${i + 1}`,
@@ -1099,6 +1125,23 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
         downPayment: 0,
         useTransformationCredit: false,
       })),
+    };
+
+    const compName = profile.companyName || 'AB YAPI';
+    const initialOfferMeta = appendOfferStatusHistory(
+      {
+        ...baseNewParams,
+        offerMeta: buildInitializedOfferMeta(baseNewParams, compName),
+      },
+      compName,
+      'draft',
+      'active_site',
+      'Yeni şantiye oluşturuldu ve süreç başlatıldı'
+    );
+
+    const newParams: ProjectParams = {
+      ...baseNewParams,
+      offerMeta: initialOfferMeta,
     };
 
     const calculated = calculateProject(newParams);
@@ -1120,6 +1163,10 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       }).primaryKey;
     const startDate = new Date();
     const totalDays = months * 30;
+    const startIso = startDate.toISOString().slice(0, 10);
+    const targetIso = new Date(startDate.getTime() + totalDays * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
     const freshStages = DEFAULT_STAGE_DEFINITIONS.map((def, idx) => {
       const startDayOffset = Math.floor((idx / DEFAULT_STAGE_DEFINITIONS.length) * totalDays);
       const stageDuration = Math.max(20, Math.floor((def.weightPercent / 100) * totalDays * 1.3));
@@ -1141,6 +1188,9 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       localStorage.setItem(newKey + '_stages', JSON.stringify(freshStages));
       localStorage.setItem(newKey + '_logs', JSON.stringify([]));
       localStorage.setItem(newKey + '_subcontractors', JSON.stringify([]));
+      localStorage.setItem(newKey + '_offer_accepted', JSON.stringify(true));
+      localStorage.setItem(newKey + '_contract_date', startIso);
+      localStorage.setItem(newKey + '_target_date', targetIso);
     } catch (e) {}
 
     if (onAddNewProject) {
