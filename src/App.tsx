@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Settings2,
-  Smartphone,
   Menu as MenuIcon,
   ChevronLeft,
   ChevronRight,
@@ -231,14 +230,9 @@ export default function App() {
     }));
   };
 
-  // App mode: 'full' (standart tam sürüm) or 'lite' (kullanıcı isterse geçebileceği hafif sürüm)
-  // Kullanıcı isteği doğrultusunda sayfa ilk yüklemede daima 'full' (tam) sürüm olarak açılır.
+  // App mode: 'full' (standart tam sürüm)
+  // Kullanıcı isteği doğrultusunda uygulama hem mobil hem masaüstü cihazlarda daima 'full' (tam) sürüm olarak açılır.
   const [appMode, setAppMode] = useState<'full' | 'lite'>('full');
-
-  const toggleAppMode = () => {
-    const next = appMode === 'full' ? 'lite' : 'full';
-    setAppMode(next);
-  };
 
   const handleSaveTabs = (newTabs: TabConfig[]) => {
     setTabsConfig(newTabs);
@@ -1427,17 +1421,7 @@ export default function App() {
           </div>
 
           {/* Sidebar Collapse Quick Actions Footer */}
-          {sidebarOpen && (
-            <div className="p-3 border-t border-slate-100 shrink-0 space-y-1">
-              <button
-                onClick={toggleAppMode}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-black text-indigo-700 hover:bg-indigo-50 bg-indigo-50/40 border border-indigo-100/50 transition-all cursor-pointer"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Mobil Sürüm</span>
-              </button>
-            </div>
-          )}
+
         </aside>
 
         {/* RIGHT CONTENT BODY COLUMN */}
@@ -1451,8 +1435,6 @@ export default function App() {
               theme={theme}
               onToggleTheme={toggleTheme}
               onNavigateToCompletedProjects={() => setActiveTab('tamamlanan')}
-              appMode={appMode}
-              onToggleAppMode={toggleAppMode}
               onOpenAdminLicenses={() => setIsAdminLicensesOpen(true)}
               activeProjectName={params.projectName || params.projectAddress || 'Varsayılan Şantiye'}
               onNewProjectClick={() => handleStartNewProject()}
@@ -1522,20 +1504,7 @@ export default function App() {
                   </div>
                 ))}
                 
-                {/* Quick Mobile Lite Mode Switch Button */}
-                <button
-                  type="button"
-                  onClick={toggleAppMode}
-                  title="Mobil Lite Sürüme Geç"
-                  className={`self-end mb-0.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 border cursor-pointer active:scale-95 ${
-                    isGray
-                      ? 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border-indigo-200 shadow-xs'
-                      : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 shadow-xs'
-                  }`}
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="hidden sm:inline">Mobil Lite</span>
-                </button>
+
 
                 <button
                   type="button"

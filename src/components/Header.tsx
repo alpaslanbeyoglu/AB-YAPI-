@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Save, Sun, Palette, Printer, FileDown, FileUp, Smartphone, Monitor, LogIn, LogOut, Cloud, ShieldCheck, Building, Plus, ChevronDown, Check, Clock, HardHat, CheckCircle2, Sparkles } from 'lucide-react';
+import { Save, Sun, Palette, Printer, FileDown, FileUp, LogIn, LogOut, Cloud, ShieldCheck, Building, Plus, ChevronDown, Check, Clock, HardHat, CheckCircle2, Sparkles } from 'lucide-react';
 import { Logo } from './Logo';
 import { AppTheme } from '../types';
 import { useFirebaseSync } from '../context/FirebaseSyncContext';
@@ -13,8 +13,6 @@ interface HeaderProps {
   theme?: AppTheme;
   onToggleTheme?: () => void;
   onNavigateToCompletedProjects?: () => void;
-  appMode?: 'full' | 'lite';
-  onToggleAppMode?: () => void;
   onOpenAdminLicenses?: () => void;
   activeProjectName?: string;
   onNewProjectClick?: () => void;
@@ -34,8 +32,6 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   theme = 'light',
   onToggleTheme,
   onNavigateToCompletedProjects,
-  appMode = 'full',
-  onToggleAppMode,
   onOpenAdminLicenses,
   activeProjectName,
   onNewProjectClick,
@@ -85,11 +81,6 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           <div className="hidden sm:block shrink-0">
             <Logo size="md" theme={theme} className="max-w-full" />
           </div>
-          {appMode === 'lite' && (
-            <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black bg-indigo-600 text-white shadow-xs shrink-0">
-              LİTE
-            </span>
-          )}
 
           {/* Active Work Order / Project Switcher & Status Dropdown */}
           <div className="relative hidden lg:flex items-center min-w-0">
@@ -262,34 +253,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
         {/* Right Actions: Mode Switch, Theme toggle & local save */}
         <div className="flex items-center gap-1 xl:gap-2 shrink-0">
 
-          {/* App Mode Conversion Button (Mobil Lite vs Tam Sürüm) */}
-          {onToggleAppMode && (
-            <button
-              id="app-mode-toggle-btn"
-              type="button"
-              onClick={onToggleAppMode}
-              className={`flex items-center gap-1 xl:gap-1.5 p-1.5 xl:px-2.5 xl:py-1.5 rounded-xl border text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer ${
-                appMode === 'lite'
-                  ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
-                  : isGray
-                  ? 'bg-white hover:bg-slate-50 text-indigo-700 border-indigo-200'
-                  : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200'
-              }`}
-              title={appMode === 'lite' ? 'Masaüstü / Tam Sürüme Geç' : 'Mobil Lite Sürüme Geç'}
-            >
-              {appMode === 'lite' ? (
-                <>
-                  <Monitor className="w-3.5 h-3.5 text-white" />
-                  <span className="hidden xl:inline">Tam Sürüm</span>
-                </>
-              ) : (
-                <>
-                  <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="hidden xl:inline">Mobil Lite</span>
-                </>
-              )}
-            </button>
-          )}
+
           
           {/* Light / Gray Theme Toggle Button (No Dark Theme) */}
           {onToggleTheme && (
