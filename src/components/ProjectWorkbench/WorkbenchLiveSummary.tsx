@@ -9,7 +9,8 @@ import {
   ShieldAlert,
   CheckCircle2,
   AlertTriangle,
-  Percent,
+  Clock,
+  Layers,
 } from 'lucide-react';
 
 interface WorkbenchLiveSummaryProps {
@@ -29,17 +30,26 @@ export const WorkbenchLiveSummary: React.FC<WorkbenchLiveSummaryProps> = ({
 
   const totalArea = results.totalArea || 0;
   const baseArea = results.baseArea || params.baseBuildArea || 0;
-  const totalCost = results.grandTotal || 0;
-  // Estimate revenue based on grandTotal and contractor share / profit markup (approx 35% margin)
-  const totalRevenue = totalCost * 1.35;
-  const netProfit = totalRevenue - totalCost;
-  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 35;
+  const subTotalCost = results.subTotalCost || 0;
+  const grandTotal = results.grandTotal || 0;
+  const profitAmount = results.profitAmount || 0;
   const flatCount = results.flatCount || 0;
+  const grossCostPerSqM = results.grossCostPerSqM || 0;
+  const netCostPerSqM = results.netCostPerSqM || 0;
+  const finalMonths = results.finalMonths || 0;
 
-  // Real data warnings
+  const taksPercent =
+    params.landArea && params.landArea > 0 ? (baseArea / params.landArea) * 100 : 0;
+  const kaksRatio =
+    params.landArea && params.landArea > 0 ? totalArea / params.landArea : 0;
+
+  // Real data warnings from actual ProjectParams and CalculationResult
   const warnings: string[] = [];
+  if (!params.projectName || !params.projectName.trim()) {
+    warnings.push('Müşteri / Proje adı henüz tanımlanmadı.');
+  }
   if (!params.landArea || params.landArea <= 0) {
-    warnings.push('Arsa alanı henüz girilmedi.');
+    warnings.push('Arsa alanı henüz girilmedi (TAKS/KAKS hesaplanamıyor).');
   }
   if (!params.baseBuildArea || params.baseBuildArea <= 0) {
     warnings.push('Zemin taban oturum alanı girilmedi.');
@@ -47,8 +57,11 @@ export const WorkbenchLiveSummary: React.FC<WorkbenchLiveSummaryProps> = ({
   if (!params.floorCount || params.floorCount <= 0) {
     warnings.push('Kat adedi tanımlanmadı.');
   }
-  if (profitMargin < 15 && totalRevenue > 0) {
-    warnings.push('Kâr marjı %15 altında. Maliyet veya birim satış fiyatını gözden geçirin.');
+  if (taksPercent > 65) {
+    warnings.push(`TAKS oranı (%${taksPercent.toFixed(1)}) yüksek görünüyor; imar sınırını kontrol edin.`);
+  }
+  if (params.projectModel === 'contractorShare' && !(params.contractorFlatIds?.length) && !(params.contractorShareRate > 0)) {
+    warnings.push('Kat karşılığı modunda müteahhit paylaşım oranı veya dairesi seçilmedi.');
   }
 
   return (
@@ -59,11 +72,11 @@ export const WorkbenchLiveSummary: React.FC<WorkbenchLiveSummaryProps> = ({
           Canlı Hesaplama Özeti
         </h3>
         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-          Anlık Senkronize
+          Canlı Motor
         </span>
       </div>
 
-      {/* Key Metrics Grid */}
+      {/* Key Metrics Grid - 100% fed by calculateProject(params) */}
       <div className="grid grid-cols-2 gap-2.5">
         <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 space-y-1">
           <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
@@ -87,54 +100,68 @@ export const WorkbenchLiveSummary: React.FC<WorkbenchLiveSummaryProps> = ({
 
         <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 space-y-1">
           <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-            <DollarSign className="w-3 h-3 text-red-500" />
-            <span>Toplam Maliyet</span>
+            <DollarSign className="w-3 h-3 text-rose-500" />
+            <span>Net Yapım Maliyeti</span>
           </div>
-          <div className="text-xs font-black font-mono text-slate-900 truncate" title={`${totalCost.toLocaleString('tr-TR')} TL`}>
-            {totalCost > 0 ? `${(totalCost / 1_000_000).toFixed(2)} M ₺` : '0 ₺'}
+          <div className="text-xs font-black font-mono text-slate-900 truncate" title={`${Math.round(subTotalCost).toLocaleString('tr-TR')} TL`}>
+            {subTotalCost > 0 ? `${(subTotalCost / 1_000_000).toFixed(2)} M ₺` : '0 ₺'}
+          </div>
+          <div className="text-[10px] font-mono text-slate-500">
+            {Math.round(netCostPerSqM).toLocaleString('tr-TR')} ₺/m²
           </div>
         </div>
 
         <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/60 space-y-1">
           <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-            <TrendingUp className="w-3 h-3 text-blue-500" />
-            <span>Toplam Hasılat</span>
+            <TrendingUp className="w-3 h-3 text-indigo-600" />
+            <span>Hedef Teklif Bedeli</span>
           </div>
-          <div className="text-xs font-black font-mono text-slate-900 truncate" title={`${totalRevenue.toLocaleString('tr-TR')} TL`}>
-            {totalRevenue > 0 ? `${(totalRevenue / 1_000_000).toFixed(2)} M ₺` : '0 ₺'}
+          <div className="text-xs font-black font-mono text-indigo-900 truncate" title={`${Math.round(grandTotal).toLocaleString('tr-TR')} TL`}>
+            {grandTotal > 0 ? `${(grandTotal / 1_000_000).toFixed(2)} M ₺` : '0 ₺'}
+          </div>
+          <div className="text-[10px] font-mono text-indigo-600">
+            {Math.round(grossCostPerSqM).toLocaleString('tr-TR')} ₺/m²
           </div>
         </div>
       </div>
 
-      {/* Profitability Bar */}
+      {/* Profit & Zoning Summary */}
       <div className="p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-200/80 space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-bold text-indigo-950 flex items-center gap-1">
-            <Percent className="w-3.5 h-3.5 text-indigo-600" />
-            Tahmini Net Kâr Marjı
-          </span>
+          <span className="font-bold text-indigo-950">Müteahhit Kâr Payı</span>
           <span className="font-mono font-black text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
-            %{profitMargin.toFixed(1)}
+            {profitAmount > 0 ? `${(profitAmount / 1_000_000).toFixed(2)} M ₺` : '0 ₺'}
           </span>
         </div>
-        <div className="w-full bg-indigo-200/50 rounded-full h-2 overflow-hidden">
-          <div
-            className="bg-indigo-600 h-full rounded-full transition-all duration-500"
-            style={{ width: `${Math.min(100, Math.max(0, profitMargin))}%` }}
-          ></div>
-        </div>
-        <div className="flex items-center justify-between text-[10px] text-indigo-950 font-medium">
-          <span>Net Kâr:</span>
-          <span className="font-mono font-bold">{(netProfit / 1_000_000).toFixed(2)} M ₺</span>
-        </div>
+        {params.landArea && params.landArea > 0 ? (
+          <div className="flex items-center justify-between text-[11px] text-indigo-950 font-medium pt-1 border-t border-indigo-200/60">
+            <span>TAKS: <strong className="font-mono">%{taksPercent.toFixed(1)}</strong></span>
+            <span>Emsal: <strong className="font-mono">{kaksRatio.toFixed(2)}</strong></span>
+          </div>
+        ) : null}
       </div>
 
-      {/* Unit Counts */}
-      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-        <span className="font-bold text-slate-700">Bağımsız Bölüm (Birlik):</span>
-        <span className="font-mono font-black text-indigo-600 bg-white px-2 py-1 rounded border border-slate-200">
-          {flatCount} Adet
-        </span>
+      {/* Unit & Timeline Summary */}
+      <div className="space-y-2">
+        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+          <span className="font-bold text-slate-700 flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-slate-500" />
+            Bağımsız Bölüm:
+          </span>
+          <span className="font-mono font-black text-indigo-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+            {flatCount} Adet
+          </span>
+        </div>
+
+        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+          <span className="font-bold text-slate-700 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-slate-500" />
+            Teslim Süresi:
+          </span>
+          <span className="font-mono font-black text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+            {finalMonths} Ay
+          </span>
+        </div>
       </div>
 
       {/* Warnings & Alerts */}
@@ -147,7 +174,7 @@ export const WorkbenchLiveSummary: React.FC<WorkbenchLiveSummaryProps> = ({
         {warnings.length === 0 ? (
           <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Tüm kritik parametreler tam ve tutarlı.</span>
+            <span>Temel proje verileri ve hesaplamalar tutarlı.</span>
           </div>
         ) : (
           <div className="space-y-1.5">

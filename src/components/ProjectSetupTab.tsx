@@ -85,6 +85,13 @@ import { TabId } from '../config/tabs';
 import { WorkbenchHeader } from './ProjectWorkbench/WorkbenchHeader';
 import { WorkbenchSidebar } from './ProjectWorkbench/WorkbenchSidebar';
 import { WorkbenchLiveSummary } from './ProjectWorkbench/WorkbenchLiveSummary';
+import { CostDetailsTab } from './CostDetailsTab';
+import { BuildingModelTab } from './BuildingModelTab';
+import { OwnersTab } from './OwnersTab';
+import { OfferTab } from './OfferTab';
+import { ConstructionProgressTab } from './ConstructionProgressTab';
+import { getInitialBuildingModelParams } from '../utils/buildingModelUtils';
+import { BuildingModelParams, SavedProjectData } from '../types';
 
 interface ProjectSetupTabProps {
   params: ProjectParams;
@@ -99,6 +106,15 @@ interface ProjectSetupTabProps {
   onNavigateToTab?: (tabId: TabId) => void;
   onQuickSave?: () => void;
   onNavigateToSite?: () => void;
+  buildingModelParams?: BuildingModelParams;
+  onUpdateBuildingModelParams?: (updates: Partial<BuildingModelParams>) => void;
+  onSyncModelToCalculator?: (modelUpdates: Partial<ProjectParams>) => void;
+  onCalculate?: () => void;
+  savedProjects?: SavedProjectData[];
+  onSelectProjectForProgress?: (project: SavedProjectData) => void;
+  onAddNewConstructionProject?: (newProject: SavedProjectData) => void;
+  onDeleteHistoryProject?: (address: string) => void;
+  onNavigateToContract?: () => void;
 }
 
 export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
@@ -114,6 +130,15 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   onNavigateToTab,
   onQuickSave,
   onNavigateToSite,
+  buildingModelParams: propBuildingModelParams,
+  onUpdateBuildingModelParams,
+  onSyncModelToCalculator,
+  onCalculate,
+  savedProjects,
+  onSelectProjectForProgress,
+  onAddNewConstructionProject,
+  onDeleteHistoryProject,
+  onNavigateToContract,
 }) => {
   const isGray = theme === 'gray';
   const textTitle = isGray ? 'text-gray-100' : 'text-slate-900';
@@ -162,6 +187,24 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
   // Interactive Scenario Flow States
   const [wizardMode, setWizardMode] = useState<boolean>(true);
+  const [workbenchStage, setWorkbenchStage] = useState<number>(() => {
+    if (requestedStep === 1) return 1;
+    if (requestedStep === 3) return 4;
+    return 1;
+  });
+  const [internalBuildingModelParams, setInternalBuildingModelParams] = useState<BuildingModelParams>(() => {
+    return getInitialBuildingModelParams();
+  });
+  const activeBuildingModelParams = propBuildingModelParams || internalBuildingModelParams;
+  const handleUpdateBuildingModel =
+    onUpdateBuildingModelParams ||
+    ((updates: Partial<BuildingModelParams>) =>
+      setInternalBuildingModelParams((prev) => ({ ...prev, ...updates })));
+  const isProjectSaved = useMemo(
+    () => Boolean(savedProjects && savedProjects.some((p) => p.projectAddress === params.projectAddress)),
+    [savedProjects, params.projectAddress]
+  );
+
   const [activeStepState, setActiveStepState] = useState<number>(requestedStep || 2);
   const activeStep = requestedStep !== undefined ? requestedStep : activeStepState;
 
@@ -266,6 +309,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   useEffect(() => {
     if (requestedStep !== undefined) {
       setActiveStepState(requestedStep);
+      if (requestedStep === 1) setWorkbenchStage(1);
+      else if (requestedStep === 2) setWorkbenchStage((prev) => (prev === 2 || prev === 3 ? prev : 2));
+      else if (requestedStep === 3) setWorkbenchStage(4);
     }
   }, [requestedStep]);
   const [activeScenario, setActiveScenario] = useState<number | null>(null);
@@ -816,32 +862,39 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
         params={params}
         results={results}
         theme={theme}
+        isProjectSaved={isProjectSaved}
         onOpenTransferModal={onOpenTransferModal}
-        onExportPdf={() => exportSchematic('pdf')}
-        onQuickSave={onQuickSave}
-        onNavigateToSite={onNavigateToSite}
+        onExportPdf={() => {
+          setWorkbenchStage(8);
+        }}
+        onQuickSave={onQuickSave || onCalculate}
+        onNavigateToSite={() => setWorkbenchStage(9)}
       />
 
-      {/* 2. Ana Çalışma Masası Grid Düzeni (Sol: Navigasyon, Orta: Form Sihirbazı, Sağ: Canlı Özet) */}
+      {/* 2. Ana Çalışma Masası Grid Düzeni (Sol: Navigasyon, Orta: Form Sihirbazı ve Modüller, Sağ: Canlı Özet) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Sol Bölüm: Aşamalar ve Gezinme (3 Sütun) */}
         <div className="lg:col-span-3 lg:sticky lg:top-6">
           <WorkbenchSidebar
-            activeStep={activeStep}
-            onSelectStep={setActiveStep}
+            activeWorkbenchStage={workbenchStage}
+            onSelectWorkbenchStage={(stage) => {
+              setWorkbenchStage(stage);
+              if (stage === 1) setActiveStep(1);
+              else if (stage === 2 || stage === 3) setActiveStep(2);
+              else if (stage === 4) setActiveStep(3);
+            }}
             params={params}
             results={results}
+            isProjectSaved={isProjectSaved}
             theme={theme}
-            onNavigateToTab={onNavigateToTab}
           />
         </div>
 
-        {/* Orta Bölüm: Mevcut Proje Giriş Alanları & Adımlar (6 Sütun) */}
+        {/* Orta Bölüm: Mevcut Proje Giriş Alanları & Entegre Modüller (6 Sütun) */}
         <div className="lg:col-span-6 space-y-6 min-w-0">
-
-      {wizardMode && activeStep === 1 && (
-        <div className="space-y-6">
-          <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-6 animate-fade-in`}>
+          {workbenchStage === 1 && (
+      <div className="space-y-6">
+        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-6 animate-fade-in`}>
             <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
               <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 font-bold">
                 <Home className="w-5 h-5" />
@@ -1062,10 +1115,13 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
               <button
                 type="button"
-                onClick={() => setActiveStep(2)}
+                onClick={() => {
+                  setActiveStep(2);
+                  setWorkbenchStage(2);
+                }}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
               >
-                <span>2. Adıma Devam Et (Yeni Bina Tasarımı)</span>
+                <span>2. Aşamaya Geç (Arsa & Mevcut Yapı)</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -1074,7 +1130,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       )}
 
       {/* 2. BÖLÜM: PARSEL ALANI & YAPI GEOMETRİSİ (POLİGON & ÖLÇÜLER) */}
-      {(!wizardMode || activeStep === 2) && (
+      {(workbenchStage === 2 || workbenchStage === 3) && (
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-6 animate-fade-in`}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
@@ -2135,17 +2191,23 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => setActiveStep(1)}
+              onClick={() => {
+                setActiveStep(1);
+                setWorkbenchStage(1);
+              }}
               className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <span>← 1. Adıma Dön (Mevcut Durum)</span>
+              <span>← 1. Aşamaya Dön (Müşteri & Proje)</span>
             </button>
             <button
               type="button"
-              onClick={() => setActiveStep(3)}
+              onClick={() => {
+                setActiveStep(3);
+                setWorkbenchStage(4);
+              }}
               className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
             >
-              <span>3. Adıma Devam Et (Daire Matrisi & Kat Dağılımı)</span>
+              <span>4. Aşamaya Devam Et (Daire Matrisi & Kat Dağılımı)</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -2154,7 +2216,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       )}
 
       {/* 3. BÖLÜM: KAT BAZLI BAĞIMSIZ BÖLÜM ŞEMASI & DAİRE DAĞILIMI */}
-      {(!wizardMode || activeStep === 3) && (
+      {workbenchStage === 4 && (
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-4 animate-fade-in`}>
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
@@ -2180,9 +2242,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               {wizardMode && (
                 <button
                   type="button"
-                  onClick={() => setActiveStep(2)}
+                  onClick={() => {
+                    setActiveStep(2);
+                    setWorkbenchStage(2);
+                  }}
                   className="px-3 py-1 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  title="2. Adıma dönerek parametreleri düzenle"
+                  title="2. Aşamaya dönerek parametreleri düzenle"
                 >
                   <Edit2 className="w-3 h-3" />
                   <span>Ölçüleri Düzenle</span>
@@ -3949,29 +4014,105 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           <div className="pt-4 border-t border-slate-100">
             <ZoningAuditPanel params={params} theme={theme} />
           </div>
-
-          {/* 3. Adım Navigasyon Butonları */}
-          <div className="pt-6 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setActiveStep(2)}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <span>← 2. Adıma Dön (Ölçüleri Düzenle)</span>
-            </button>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onNavigateToModel || onNext}
-                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
-              >
-                <span>2. Adıma Devam Et (3D Yapı & Dış Cephe Tasarımı)</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
         </div>
       )}
+
+          {workbenchStage === 5 && (
+            <CostDetailsTab
+              params={params}
+              results={results}
+              theme={theme}
+              onChangeParams={onChangeParams}
+              onCalculate={onCalculate}
+            />
+          )}
+
+          {workbenchStage === 6 && (
+            <BuildingModelTab
+              params={activeBuildingModelParams}
+              onUpdateParams={handleUpdateBuildingModel}
+              onSyncWithCalculator={onSyncModelToCalculator}
+              onNavigateToSetup={() => {
+                setWorkbenchStage(2);
+                setActiveStep(2);
+              }}
+              onNavigateToCost={() => setWorkbenchStage(5)}
+              onNavigateToOwners={() => setWorkbenchStage(7)}
+              theme={theme}
+            />
+          )}
+
+          {workbenchStage === 7 && (
+            <OwnersTab
+              params={params}
+              results={results}
+              onChangeParams={onChangeParams}
+              onCalculate={onCalculate}
+              theme={theme}
+            />
+          )}
+
+          {workbenchStage === 8 && (
+            <OfferTab
+              params={params}
+              results={results}
+              onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
+              onUpdateAllParams={(partial) => onChangeParams({ ...params, ...partial })}
+              onNavigateToSurec={() => setWorkbenchStage(9)}
+              theme={theme}
+            />
+          )}
+
+          {workbenchStage === 9 && (
+            <ConstructionProgressTab
+              params={params}
+              results={results}
+              theme={theme}
+              savedProjects={savedProjects}
+              onSelectProject={onSelectProjectForProgress}
+              onAddNewProject={onAddNewConstructionProject}
+              onDeleteProject={onDeleteHistoryProject}
+              onSaveCurrentProject={onCalculate || onQuickSave}
+              onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
+              onNavigateToOffer={() => setWorkbenchStage(8)}
+              onNavigateToContract={onNavigateToContract}
+            />
+          )}
+
+          {/* Universal Stage Navigation Footer */}
+          <div className="pt-4 border-t border-slate-200/80 flex items-center justify-between bg-white/90 backdrop-blur-md p-4 rounded-2xl border shadow-xs mt-6">
+            <button
+              type="button"
+              disabled={workbenchStage <= 1}
+              onClick={() => {
+                const next = Math.max(1, workbenchStage - 1);
+                setWorkbenchStage(next);
+                if (next === 1) setActiveStep(1);
+                else if (next === 2 || next === 3) setActiveStep(2);
+                else if (next === 4) setActiveStep(3);
+              }}
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed"
+            >
+              <span>← Önceki Aşama</span>
+            </button>
+            <div className="text-xs font-black text-indigo-950 font-mono bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-200">
+              Aşama {workbenchStage} / 9
+            </div>
+            <button
+              type="button"
+              disabled={workbenchStage >= 9}
+              onClick={() => {
+                const next = Math.min(9, workbenchStage + 1);
+                setWorkbenchStage(next);
+                if (next === 1) setActiveStep(1);
+                else if (next === 2 || next === 3) setActiveStep(2);
+                else if (next === 4) setActiveStep(3);
+              }}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:cursor-not-allowed"
+            >
+              <span>Sonraki Aşama →</span>
+            </button>
+          </div>
         </div>
 
         {/* Sağ Bölüm: Canlı Hesaplama Özeti ve Uyarılar (3 Sütun) */}

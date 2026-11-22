@@ -1656,8 +1656,20 @@ const handleQuickSave = () => {
               requestedStep={requestedSetupStep}
               onStepChange={setRequestedSetupStep}
               onNavigateToTab={setActiveTab}
-              onQuickSave={handleQuickSave}
+              onQuickSave={handleCalculate}
               onNavigateToSite={() => setActiveTab('surec')}
+              buildingModelParams={buildingModelParams}
+              onUpdateBuildingModelParams={updateBuildingModelParams}
+              onSyncModelToCalculator={handleSyncModelToCalculator}
+              onCalculate={handleCalculate}
+              savedProjects={historyList}
+              onSelectProjectForProgress={handleLoadProjectForProgress}
+              onAddNewConstructionProject={handleAddNewConstructionProject}
+              onDeleteHistoryProject={(address) => {
+                const idx = historyList.findIndex(p => p.projectAddress === address);
+                if (idx !== -1) handleDeleteHistoryItem(idx);
+              }}
+              onNavigateToContract={() => setActiveTab('sozlesme')}
             />
           )}
 
