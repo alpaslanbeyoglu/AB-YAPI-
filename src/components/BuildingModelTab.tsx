@@ -3037,32 +3037,24 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         {/* Workflow Adım Geçiş Butonları */}
         <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            {onNavigateToCost ? (
-              <button
-                type="button"
-                onClick={onNavigateToCost}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <span>← 5. Aşama: Maliyet & Fiyat</span>
-              </button>
-            ) : onNavigateToSetup ? (
+            {onNavigateToSetup && (
               <button
                 type="button"
                 onClick={onNavigateToSetup}
                 className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <span>← Proje Kurulumu</span>
+                <span>← 2. / 3. Aşama: Parsel & Mimari</span>
               </button>
-            ) : null}
+            )}
           </div>
           <div className="flex items-center gap-2.5 ml-auto flex-wrap">
-            {onNavigateToOffer && (
+            {onNavigateToCost && (
               <button
                 type="button"
-                onClick={onNavigateToOffer}
-                className="px-4 py-2.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold rounded-xl flex items-center gap-1.5 text-xs transition-all cursor-pointer"
+                onClick={onNavigateToCost}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <span>8. Teklif & Sunuma Geç</span>
+                <span>6. Aşama: Maliyet & Fizibilite</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}
@@ -3070,9 +3062,19 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               <button
                 type="button"
                 onClick={onNavigateToOwners}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-xs sm:text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
+                className="px-4 py-2.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold rounded-xl flex items-center gap-1.5 text-xs transition-all cursor-pointer"
               >
                 <span>7. Aşama: Malik Paylaşımı</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onNavigateToOffer && (
+              <button
+                type="button"
+                onClick={onNavigateToOffer}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-xs sm:text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
+              >
+                <span>8. Aşama: Teklif & Sözleşme</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             )}

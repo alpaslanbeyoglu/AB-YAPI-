@@ -28,6 +28,12 @@ import { ProjectSetupTab } from './components/ProjectSetupTab';
 import { LiteMobileView } from './components/LiteMobileView';
 import { ProjectTransferModal } from './components/ProjectTransferModal';
 import { ProjectLifecycleBar } from './components/ProjectLifecycleBar';
+import {
+  evaluateWorkbenchProject,
+  WorkbenchNavigationRequest,
+  WorkbenchStageNavigationOptions,
+  isStage6CostFocusField,
+} from './components/ProjectWorkbench/WorkbenchLiveSummary';
 
 // Resilient lazy loader for secondary tabs that retries once on network hiccups
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -134,6 +140,8 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<TabId>('profile');
   const [requestedSetupStep, setRequestedSetupStep] = useState<number | undefined>(1);
+  const [workbenchNavRequest, setWorkbenchNavRequest] = useState<WorkbenchNavigationRequest | null>(null);
+  const workbenchNavNonceRef = useRef<number>(0);
   const [isProjectFlowOpen, setIsProjectFlowOpen] = useState<boolean>(false);
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isProjectTransferOpen, setIsProjectTransferOpen] = useState(false);
@@ -154,57 +162,8 @@ export default function App() {
     } catch (e) {}
   };
 
-  const handleSummaryChipNavigate = (itemId: string) => {
-    let targetTab: TabId = 'kurulum';
-    let targetId = '';
-    let setupStep: number | undefined = undefined;
-
-    switch (itemId) {
-      case 'taban-alani':
-        targetTab = 'kurulum';
-        setupStep = 1;
-        targetId = 'projectBaseAreaInput';
-        break;
-      case 'cikmali-taban':
-        targetTab = 'kurulum';
-        setupStep = 3;
-        targetId = 'facade-cantilever-controls';
-        break;
-      case 'kat-bolum':
-        targetTab = 'kurulum';
-        setupStep = 3;
-        targetId = 'minimalFloorCountInput';
-        break;
-      case 'toplam-insaat':
-        targetTab = 'kurulum';
-        setupStep = 3;
-        break;
-      case 'birim-satis':
-        targetTab = 'kurulum';
-        setupStep = 3;
-        break;
-      case 'net-maliyet':
-        targetTab = 'maliyet';
-        targetId = 'cost-details-header';
-        break;
-      case 'hedef-bedel':
-        targetTab = 'kurulum';
-        setupStep = 3;
-        break;
-      case 'teslim-suresi':
-        targetTab = 'kurulum';
-        setupStep = 3;
-        break;
-      default:
-        break;
-    }
-
-    if (setupStep !== undefined) {
-      setRequestedSetupStep(setupStep);
-    }
-    setActiveTab(targetTab);
-
-    // Smooth scroll and pulse highlight
+  const focusElementById = (targetId?: string) => {
+    if (!targetId) return;
     setTimeout(() => {
       const element = document.getElementById(targetId);
       if (element) {
@@ -218,6 +177,85 @@ export default function App() {
         }, 2500);
       }
     }, 120);
+  };
+
+  const navigateToWorkbenchStage = (
+    stage: number,
+    focusFieldId?: string,
+    options?: WorkbenchStageNavigationOptions
+  ) => {
+    const normalized = Math.min(9, Math.max(1, stage));
+    workbenchNavNonceRef.current += 1;
+    const stage6SubView =
+      options?.stage6SubView ??
+      (normalized === 6 && isStage6CostFocusField(focusFieldId) ? 'cost' : undefined);
+    setRequestedSetupStep(normalized);
+    setWorkbenchNavRequest({
+      step: normalized,
+      focusFieldId,
+      stage6SubView,
+      stage8SubView: options?.stage8SubView,
+      nonce: workbenchNavNonceRef.current,
+    });
+    setActiveTab('kurulum');
+  };
+
+  const handleSummaryChipNavigate = (itemId: string) => {
+    let targetTab: TabId = 'kurulum';
+    let targetId = '';
+    let setupStep: number | undefined = undefined;
+
+    switch (itemId) {
+      case 'taban-alani':
+        targetTab = 'kurulum';
+        setupStep = 2;
+        targetId = 'projectBaseAreaInput';
+        break;
+      case 'cikmali-taban':
+        targetTab = 'kurulum';
+        setupStep = 3;
+        targetId = 'stage3CantileverCard';
+        break;
+      case 'kat-bolum':
+        targetTab = 'kurulum';
+        setupStep = 3;
+        targetId = 'minimalFloorCountInput';
+        break;
+      case 'toplam-insaat':
+        targetTab = 'kurulum';
+        setupStep = 3;
+        targetId = 'minimalFloorCountInput';
+        break;
+      case 'birim-satis':
+        targetTab = 'kurulum';
+        setupStep = 6;
+        targetId = 'stage3UnitPriceInput';
+        break;
+      case 'net-maliyet':
+        targetTab = 'maliyet';
+        targetId = 'cost-details-container';
+        break;
+      case 'hedef-bedel':
+        targetTab = 'kurulum';
+        setupStep = 6;
+        targetId = 'stage6CostParamsCard';
+        break;
+      case 'teslim-suresi':
+        targetTab = 'kurulum';
+        setupStep = 6;
+        targetId = 'stage6DurationSelect';
+        break;
+      default:
+        break;
+    }
+
+    if (targetTab === 'kurulum' && setupStep !== undefined) {
+      navigateToWorkbenchStage(setupStep, targetId || undefined);
+      return;
+    }
+
+    setActiveTab(targetTab);
+    focusElementById(targetId);
   };
 
   const activateProjectTabs = () => {
@@ -1694,6 +1732,10 @@ const handleQuickSave = () => {
               onOpenTransferModal={() => setIsProjectTransferOpen(true)}
               theme={theme}
               requestedStep={requestedSetupStep}
+              navigationRequest={workbenchNavRequest}
+              onConsumeNavigationRequest={(nonce) =>
+                setWorkbenchNavRequest((prev) => (prev && prev.nonce === nonce ? null : prev))
+              }
               onStepChange={setRequestedSetupStep}
               onNavigateToTab={setActiveTab}
               onQuickSave={handleCalculate}
@@ -1724,7 +1766,10 @@ const handleQuickSave = () => {
               landArea={params.landArea}
               onUpdateParams={updateBuildingModelParams}
               onSyncWithCalculator={handleSyncModelToCalculator}
-              onNavigateToSetup={() => setActiveTab('kurulum')}
+              onNavigateToSetup={() => {
+                setRequestedSetupStep(2);
+                setActiveTab('kurulum');
+              }}
               onNavigateToCost={() => setActiveTab('maliyet')}
               onNavigateToOwners={() => setActiveTab('malikler')}
               onNavigateToOffer={() => setActiveTab('teklif')}
@@ -1748,7 +1793,10 @@ const handleQuickSave = () => {
               results={results}
               onChangeParams={updateCalculatorParams}
               onCalculate={handleCalculate}
-              onNavigateToUnits={() => setActiveTab('kurulum')}
+              onNavigateToUnits={() => {
+                setRequestedSetupStep(3);
+                setActiveTab('kurulum');
+              }}
               onNavigateToCost={() => setActiveTab('maliyet')}
               onNavigateToOffer={() => setActiveTab('teklif')}
               theme={theme}
@@ -1764,6 +1812,10 @@ const handleQuickSave = () => {
               onNavigateToSurec={() => setActiveTab('surec')}
               onSaveOffer={handleCalculate}
               onNavigateToContract={() => setActiveTab('sozlesme')}
+              evaluation={evaluateWorkbenchProject(params, results, historyList.some((h) => h.projectAddress === params.projectAddress))}
+              onSelectWorkbenchStage={(stage, focusFieldId) => {
+                navigateToWorkbenchStage(stage, focusFieldId);
+              }}
               theme={theme}
             />
           )}
@@ -1822,12 +1874,18 @@ const handleQuickSave = () => {
                 handleLoadProject(project, (targetTab as TabId) || 'kurulum');
               }}
               onNavigateToNewWorkOrder={() => handleStartNewProject()}
-              onContinueActiveProject={(targetTab, setupStep) => {
+              onContinueActiveProject={(targetTab, setupStep, focusFieldId) => {
                 activateProjectTabs();
+                const resolvedTab = (targetTab as TabId) || 'kurulum';
+                if (resolvedTab === 'kurulum' && setupStep !== undefined) {
+                  navigateToWorkbenchStage(setupStep, focusFieldId);
+                  return;
+                }
                 if (setupStep !== undefined) {
                   setRequestedSetupStep(setupStep);
                 }
-                setActiveTab((targetTab as TabId) || 'kurulum');
+                setActiveTab(resolvedTab);
+                focusElementById(focusFieldId);
               }}
               onNavigateToArchive={() => setActiveTab('gecmis')}
               onNavigateToPortfolio={() => setActiveTab('tamamlanan')}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ProjectParams, CalculationResult, AppTheme } from '../../types';
-import { WorkbenchEvaluation } from './WorkbenchLiveSummary';
+import { WorkbenchEvaluation, WorkbenchStageNavigationOptions } from './WorkbenchLiveSummary';
 import { FileUp, Save, FileText, CheckCircle2, Clock, ArrowRight, MapPin, AlertCircle, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 
 interface WorkbenchHeaderProps {
@@ -12,7 +12,11 @@ interface WorkbenchHeaderProps {
   evaluation?: WorkbenchEvaluation;
   isFlowOpen?: boolean;
   onToggleFlow?: () => void;
-  onSelectStage?: (stage: number, focusFieldId?: string) => void;
+  onSelectStage?: (
+    stage: number,
+    focusFieldId?: string,
+    options?: WorkbenchStageNavigationOptions
+  ) => void;
   onOpenTransferModal?: () => void;
   onExportPdf?: () => void;
   onQuickSave?: () => void;
@@ -106,7 +110,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
                   if (firstCritical) {
                     onSelectStage?.(firstCritical.stage, firstCritical.focusFieldId);
                   } else {
-                    onSelectStage?.(8);
+                    onSelectStage?.(8, undefined, { stage8SubView: 'offer' });
                   }
                 }}
                 className={`px-2 py-0.5 text-[11px] font-bold rounded-md border flex items-center gap-1 shrink-0 cursor-pointer transition-colors ${
@@ -148,9 +152,9 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             <span className="text-slate-300">•</span>
             <button
               type="button"
-              onClick={() => onSelectStage?.(1, 'projectLandAreaInput')}
+              onClick={() => onSelectStage?.(2, 'projectLandAreaInput')}
               className="hover:text-indigo-600 transition-colors cursor-pointer"
-              title="Arsa alanını düzenle (1. Aşama)"
+              title="Arsa ve imar analizine git (2. Aşama)"
             >
               Arsa: <strong className="text-slate-900 font-mono">{(params.landArea || 0).toLocaleString('tr-TR')} m²</strong>
             </button>
@@ -159,25 +163,25 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               type="button"
               onClick={() => onSelectStage?.(3, 'minimalFloorCountInput')}
               className="hover:text-indigo-600 transition-colors cursor-pointer"
-              title="Yapı tasarımına git (3. Aşama)"
+              title="Mimari tasarıma git (3. Aşama)"
             >
               İnşaat: <strong className="text-slate-900 font-mono">{Math.round(results.totalArea || 0).toLocaleString('tr-TR')} m²</strong>
             </button>
             <span className="text-slate-300">•</span>
             <button
               type="button"
-              onClick={() => onSelectStage?.(4)}
+              onClick={() => onSelectStage?.(3, 'stage3FlatsMatrixSection')}
               className="hover:text-indigo-600 transition-colors cursor-pointer"
-              title="Kat ve daire matrisine git (4. Aşama)"
+              title="Kat ve daire matrisine git (3. Aşama)"
             >
               Bölüm: <strong className="text-slate-900 font-mono">{results.flatCount || 0} Adet</strong>
             </button>
             <span className="text-slate-300">•</span>
             <button
               type="button"
-              onClick={() => onSelectStage?.(5)}
+              onClick={() => onSelectStage?.(6, 'stage6CostParamsCard')}
               className="hover:text-indigo-600 transition-colors cursor-pointer"
-              title="Maliyet analizine git (5. Aşama)"
+              title="Maliyet ve fizibiliteye git (6. Aşama)"
             >
               Teklif Bedeli: <strong className="text-indigo-700 font-mono">{Math.round(results.grandTotal || 0).toLocaleString('tr-TR')} ₺</strong>
             </button>

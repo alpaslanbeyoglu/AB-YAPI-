@@ -29,6 +29,50 @@ export interface StageEvaluation {
   issueCount: number;
 }
 
+export type Stage6SubView = 'cost' | 'admin_report';
+export type Stage8SubView = 'offer' | 'contract';
+
+export interface WorkbenchStageNavigationOptions {
+  stage6SubView?: Stage6SubView;
+  stage8SubView?: Stage8SubView;
+}
+
+export interface WorkbenchNavigationRequest extends WorkbenchStageNavigationOptions {
+  step: number;
+  focusFieldId?: string;
+  nonce: number;
+}
+
+export const STAGE6_COST_FOCUS_FIELD_IDS = [
+  'stage3UnitPriceInput',
+  'stage6CostParamsCard',
+  'stage6DurationSelect',
+] as const;
+
+export function isStage6CostFocusField(focusFieldId?: string): boolean {
+  return Boolean(
+    focusFieldId &&
+      (STAGE6_COST_FOCUS_FIELD_IDS as readonly string[]).includes(focusFieldId)
+  );
+}
+
+export function resolveStage6SubViewForNavigation(
+  current: Stage6SubView,
+  options?: { focusFieldId?: string; explicitSubView?: Stage6SubView }
+): Stage6SubView {
+  if (options?.explicitSubView) return options.explicitSubView;
+  if (isStage6CostFocusField(options?.focusFieldId)) return 'cost';
+  return current;
+}
+
+export function resolveStage8SubViewForNavigation(
+  current: Stage8SubView,
+  explicitSubView?: Stage8SubView
+): Stage8SubView {
+  if (explicitSubView) return explicitSubView;
+  return current;
+}
+
 export interface WorkbenchEvaluation {
   stages: Record<number, StageEvaluation>;
   issues: WorkbenchIssue[];
@@ -74,7 +118,7 @@ export function evaluateWorkbenchProject(
 
   const issues: WorkbenchIssue[] = [];
 
-  // 1. Aşama: Müşteri & Arsa Temel Kontrolleri (Zorunlu)
+  // 1. Aşama: Müşteri ve Proje Tanımlama (Zorunlu)
   if (!hasName) {
     issues.push({
       id: 'missing-name',
@@ -95,12 +139,14 @@ export function evaluateWorkbenchProject(
       message: 'Proje adresi (ada/parsel) eksik',
     });
   }
+
+  // 2. Aşama: Arsa ve İmar Analizi (Zorunlu)
   if (!hasLandArea) {
     issues.push({
       id: 'missing-land',
       severity: 'critical',
-      stage: 1,
-      stageLabel: '1. Aşama',
+      stage: 2,
+      stageLabel: '2. Aşama',
       focusFieldId: 'projectLandAreaInput',
       message: 'Arsa alanı girilmedi (TAKS/KAKS hesaplanamıyor)',
     });
@@ -109,8 +155,8 @@ export function evaluateWorkbenchProject(
     issues.push({
       id: 'missing-base',
       severity: 'critical',
-      stage: 1,
-      stageLabel: '1. Aşama',
+      stage: 2,
+      stageLabel: '2. Aşama',
       focusFieldId: 'projectBaseAreaInput',
       message: 'Taban oturum alanı girilmedi',
     });
@@ -118,8 +164,8 @@ export function evaluateWorkbenchProject(
     issues.push({
       id: 'base-exceeds-land',
       severity: 'critical',
-      stage: 1,
-      stageLabel: '1. Aşama',
+      stage: 2,
+      stageLabel: '2. Aşama',
       focusFieldId: 'projectBaseAreaInput',
       message: `Taban oturumu (${Math.round(baseArea)} m²) arsa alanından (${Math.round(landArea)} m²) büyük`,
     });
@@ -127,8 +173,8 @@ export function evaluateWorkbenchProject(
     issues.push({
       id: 'high-taks',
       severity: 'warning',
-      stage: 1,
-      stageLabel: '1. Aşama',
+      stage: 2,
+      stageLabel: '2. Aşama',
       focusFieldId: 'projectBaseAreaInput',
       message: `TAKS oranı (%${taksPercent.toFixed(1)}) yüksek — imar sınırını doğrulayın`,
     });
@@ -149,7 +195,7 @@ export function evaluateWorkbenchProject(
     });
   }
 
-  // 3. Aşama: Kat, Daire ve Mevzuat Sınırları (ZoningAuditPanel kurallarıyla uyumlu)
+  // 3. Aşama: Mimari Tasarım ve Yapılandırma (Kat, Daire, Matris ve Mevzuat Sınırları)
   if (!hasFloorCount) {
     issues.push({
       id: 'missing-floors',
@@ -230,52 +276,57 @@ export function evaluateWorkbenchProject(
       });
     }
 
+    // 6. Aşama: Manuel m² Birim Fiyat Kontrolü (Maliyet ve Fizibilite)
     if (params.manualFlatUnitPrice !== undefined && params.manualFlatUnitPrice > 0 && params.manualFlatUnitPrice < 8000) {
       issues.push({
         id: 'low-manual-unit-price',
         severity: 'warning',
-        stage: 3,
-        stageLabel: '3. Aşama',
+        stage: 6,
+        stageLabel: '6. Aşama',
         focusFieldId: 'stage3UnitPriceInput',
         message: `Manuel m² birim fiyatı (${params.manualFlatUnitPrice.toLocaleString('tr-TR')} ₺) olağandışı düşük`,
       });
     }
   }
 
-  // 4. Aşama: Bağımsız Bölüm Dağılımı
+  // 3. Aşama: Bağımsız Bölüm Dağılımı & Daire Matrisi
   if (!hasFlats) {
     issues.push({
       id: 'missing-flats',
       severity: 'critical',
-      stage: 4,
-      stageLabel: '4. Aşama',
+      stage: 3,
+      stageLabel: '3. Aşama',
+      focusFieldId: 'minimalFlatsPerFloorInput',
       message: 'Bağımsız bölüm matrisi oluşturulmadı',
     });
   } else if (!flatsAligned) {
     issues.push({
       id: 'flats-mismatch',
       severity: 'critical',
-      stage: 4,
-      stageLabel: '4. Aşama',
+      stage: 3,
+      stageLabel: '3. Aşama',
+      focusFieldId: 'stage3FlatsMatrixSection',
       message: `Bölüm matrisi (${params.flats.length}) kat planıyla (${results.flatCount}) uyuşmuyor`,
     });
   } else if (hasZeroAreaFlat) {
     issues.push({
       id: 'zero-area-flat',
       severity: 'warning',
-      stage: 4,
-      stageLabel: '4. Aşama',
+      stage: 3,
+      stageLabel: '3. Aşama',
+      focusFieldId: 'stage3FlatsMatrixSection',
       message: 'Metrekaresi sıfır olan bağımsız bölüm mevcut',
     });
   }
 
-  // 5. Aşama: Maliyet & Metraj
+  // 6. Aşama: Maliyet ve Fizibilite
   if (!hasCosts) {
     issues.push({
       id: 'missing-costs',
       severity: 'critical',
-      stage: 5,
-      stageLabel: '5. Aşama',
+      stage: 6,
+      stageLabel: '6. Aşama',
+      focusFieldId: 'stage6CostParamsCard',
       message: 'İnşaat maliyeti ve teklif bedeli hesaplanamıyor',
     });
   }
@@ -400,47 +451,40 @@ export function evaluateWorkbenchProject(
   const criticalIssues = issues.filter((i) => i.severity === 'critical');
   const isOfferReady = criticalIssues.length === 0 && hasCosts && flatsAligned;
 
-  // 9 Aşamanın Gerçek Veri Durumları
+  // 9 Aşamanın Gerçek Veri Durumları (Yeni 1–9 Sıralaması)
+  // 1. Müşteri ve Proje Tanımlama
   const stage1Status: StageStatus =
-    hasName && hasAddress && hasLandArea && hasBaseArea && !footprintExceedsLand
-      ? taksHigh
-        ? 'needs_check'
-        : 'completed'
-      : hasName || hasAddress || hasLandArea || hasBaseArea
+    hasName && hasAddress
+      ? 'completed'
+      : hasName || hasAddress
       ? 'in_progress'
       : 'incomplete';
 
-  const stage2Status: StageStatus = hasAnyIssueInStage(2) || taksHigh
-    ? 'needs_check'
-    : hasBaseArea && (hasPolygon || hasExistingBuildings)
-    ? 'completed'
-    : hasBaseArea
-    ? 'in_progress'
-    : 'incomplete';
+  // 2. Arsa ve İmar Analizi
+  const stage2Status: StageStatus =
+    !hasLandArea && !hasBaseArea
+      ? 'incomplete'
+      : footprintExceedsLand
+      ? 'needs_check'
+      : !hasLandArea || !hasBaseArea
+      ? 'in_progress'
+      : hasAnyIssueInStage(2)
+      ? 'needs_check'
+      : 'completed';
 
+  // 3. Mimari Tasarım ve Yapılandırma
   const stage3Status: StageStatus = hasCriticalInStage(3)
-    ? hasFloorCount || hasFlatsPerFloor
+    ? hasFloorCount || hasFlatsPerFloor || hasFlats
       ? 'in_progress'
       : 'incomplete'
     : hasAnyIssueInStage(3)
     ? 'needs_check'
-    : hasBaseArea && hasFloors
+    : hasBaseArea && hasFloors && flatsAligned
     ? 'completed'
     : 'incomplete';
 
-  const stage4Status: StageStatus = !hasFlats
-    ? 'incomplete'
-    : hasAnyIssueInStage(4)
-    ? 'needs_check'
-    : 'completed';
-
-  const stage5Status: StageStatus = !hasCosts
-    ? 'incomplete'
-    : !hasLandArea
-    ? 'needs_check'
-    : 'completed';
-
-  const stage6Status: StageStatus =
+  // 4. 3D Tasarım ve Görselleştirme
+  const stage4Status: StageStatus =
     !hasBaseArea || !hasFloors
       ? 'incomplete'
       : footprintExceedsLand || !hasLandArea
@@ -449,6 +493,24 @@ export function evaluateWorkbenchProject(
       ? 'completed'
       : 'in_progress';
 
+  // 5. Teknik Şartname ve Metraj
+  const stage5Status: StageStatus =
+    !hasBaseArea || !hasFloors || !hasCosts
+      ? 'incomplete'
+      : hasAnyIssueInStage(5)
+      ? 'needs_check'
+      : hasCosts && hasFlats
+      ? 'completed'
+      : 'in_progress';
+
+  // 6. Maliyet ve Fizibilite
+  const stage6Status: StageStatus = !hasCosts
+    ? 'incomplete'
+    : hasAnyIssueInStage(6) || !hasLandArea
+    ? 'needs_check'
+    : 'completed';
+
+  // 7. Malik Paylaşımı ve Ticari Model
   const stage7Status: StageStatus = isContractorShare
     ? hasCriticalInStage(7)
       ? 'incomplete'
@@ -461,22 +523,24 @@ export function evaluateWorkbenchProject(
     ? 'in_progress'
     : 'incomplete';
 
+  // 8. Teklif ve Sözleşme
   const stage8Status: StageStatus = isOfferReady
     ? 'completed'
     : hasCosts && hasFlats
     ? 'needs_check'
     : 'incomplete';
 
+  // 9. Proje ve Şantiye Yönetimi
   const stage9Status: StageStatus =
     isProjectSaved && isOfferReady ? 'completed' : isOfferReady || hasCosts ? 'in_progress' : 'incomplete';
 
   const stages: Record<number, StageEvaluation> = {
     1: { id: 1, status: stage1Status, isOptional: false, issueCount: issueCountByStage(1) },
-    2: { id: 2, status: stage2Status, isOptional: true, issueCount: issueCountByStage(2) },
+    2: { id: 2, status: stage2Status, isOptional: false, issueCount: issueCountByStage(2) },
     3: { id: 3, status: stage3Status, isOptional: false, issueCount: issueCountByStage(3) },
-    4: { id: 4, status: stage4Status, isOptional: false, issueCount: issueCountByStage(4) },
-    5: { id: 5, status: stage5Status, isOptional: false, issueCount: issueCountByStage(5) },
-    6: { id: 6, status: stage6Status, isOptional: true, issueCount: issueCountByStage(6) },
+    4: { id: 4, status: stage4Status, isOptional: true, issueCount: issueCountByStage(4) },
+    5: { id: 5, status: stage5Status, isOptional: true, issueCount: issueCountByStage(5) },
+    6: { id: 6, status: stage6Status, isOptional: false, issueCount: issueCountByStage(6) },
     7: { id: 7, status: stage7Status, isOptional: !isContractorShare, issueCount: issueCountByStage(7) },
     8: { id: 8, status: stage8Status, isOptional: false, issueCount: issueCountByStage(8) },
     9: { id: 9, status: stage9Status, isOptional: true, issueCount: issueCountByStage(9) },
@@ -510,7 +574,11 @@ interface WorkbenchLiveSummaryProps {
   activeStage?: number;
   isProjectSaved?: boolean;
   evaluation?: WorkbenchEvaluation;
-  onSelectStage?: (stage: number, focusFieldId?: string) => void;
+  onSelectStage?: (
+    stage: number,
+    focusFieldId?: string,
+    options?: WorkbenchStageNavigationOptions
+  ) => void;
 }
 
 export const WorkbenchLiveSummary: React.FC<WorkbenchLiveSummaryProps> = ({
@@ -714,7 +782,7 @@ export const WorkbenchLiveSummary: React.FC<WorkbenchLiveSummaryProps> = ({
       {activeStage !== 8 && onSelectStage && (
         <button
           type="button"
-          onClick={() => onSelectStage(8)}
+          onClick={() => onSelectStage(8, undefined, { stage8SubView: 'offer' })}
           className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer active:scale-98 ${
             evaluation.isOfferReady
               ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-600/20'
@@ -726,7 +794,7 @@ export const WorkbenchLiveSummary: React.FC<WorkbenchLiveSummaryProps> = ({
             <span>
               {evaluation.isOfferReady
                 ? 'Müşteri Teklifine Geç (Hazır)'
-                : 'Teklif Önizlemesine Geç (8. Aşama)'}
+                : 'Teklif ve Sözleşmeye Geç (8. Aşama)'}
             </span>
           </span>
           <ArrowRight className="w-3.5 h-3.5" />

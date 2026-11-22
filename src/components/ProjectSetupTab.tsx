@@ -90,7 +90,14 @@ import {
 import { TabId } from '../config/tabs';
 import { WorkbenchHeader } from './ProjectWorkbench/WorkbenchHeader';
 import { WorkbenchSidebar } from './ProjectWorkbench/WorkbenchSidebar';
-import { WorkbenchLiveSummary, evaluateWorkbenchProject } from './ProjectWorkbench/WorkbenchLiveSummary';
+import {
+  WorkbenchLiveSummary,
+  evaluateWorkbenchProject,
+  WorkbenchNavigationRequest,
+  WorkbenchStageNavigationOptions,
+  resolveStage6SubViewForNavigation,
+  resolveStage8SubViewForNavigation,
+} from './ProjectWorkbench/WorkbenchLiveSummary';
 import { CostDetailsTab } from './CostDetailsTab';
 import { BuildingModelTab } from './BuildingModelTab';
 import { OwnersTab } from './OwnersTab';
@@ -113,6 +120,8 @@ interface ProjectSetupTabProps {
   onNavigateToOwners?: () => void;
   onOpenTransferModal?: () => void;
   requestedStep?: number;
+  navigationRequest?: WorkbenchNavigationRequest | null;
+  onConsumeNavigationRequest?: (nonce: number) => void;
   onStepChange?: (step: number) => void;
   onNavigateToTab?: (tabId: TabId) => void;
   onQuickSave?: () => void;
@@ -139,6 +148,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   onNavigateToOwners,
   onOpenTransferModal,
   requestedStep,
+  navigationRequest,
+  onConsumeNavigationRequest,
   onStepChange,
   onNavigateToTab,
   onQuickSave,
@@ -323,12 +334,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     if (onStepChange) onStepChange(step);
   };
 
-  useEffect(() => {
-    if (requestedStep !== undefined && requestedStep >= 1 && requestedStep <= 9) {
-      setActiveStepState(requestedStep);
-      setWorkbenchStage(requestedStep);
-    }
-  }, [requestedStep]);
   const [activeScenario, setActiveScenario] = useState<number | null>(null);
   const [showExistingForm, setShowExistingForm] = useState<boolean>(false);
   const [showComfortOptions, setShowComfortOptions] = useState<boolean>(true);
@@ -337,22 +342,78 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const [stage8SubView, setStage8SubView] = useState<'offer' | 'contract'>('offer');
   const [equalizeSuccessToast, setEqualizeSuccessToast] = useState<string | null>(null);
 
-  const goToStage = (stage: number, focusFieldId?: string) => {
+  const focusDomTarget = (focusFieldId?: string, highlight = false) => {
+    if (!focusFieldId) return;
+    window.setTimeout(() => {
+      const el = document.getElementById(focusFieldId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (highlight) {
+          el.classList.add('ring-4', 'ring-indigo-500/60', 'ring-offset-2', 'transition-all', 'duration-700');
+          window.setTimeout(() => {
+            el.classList.remove('ring-4', 'ring-indigo-500/60', 'ring-offset-2');
+          }, 2500);
+        }
+        if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+          el.focus();
+        }
+      }
+    }, 80);
+  };
+
+  useEffect(() => {
+    if (requestedStep !== undefined && requestedStep >= 1 && requestedStep <= 9) {
+      setActiveStepState(requestedStep);
+      setWorkbenchStage(requestedStep);
+    }
+  }, [requestedStep]);
+
+  useEffect(() => {
+    if (!navigationRequest) return;
+    const normalized = Math.min(9, Math.max(1, navigationRequest.step));
+    setActiveStepState(normalized);
+    setWorkbenchStage(normalized);
+
+    if (normalized === 6) {
+      setStage6SubView((prev) =>
+        resolveStage6SubViewForNavigation(prev, {
+          focusFieldId: navigationRequest.focusFieldId,
+          explicitSubView: navigationRequest.stage6SubView,
+        })
+      );
+    } else if (normalized === 8) {
+      setStage8SubView((prev) =>
+        resolveStage8SubViewForNavigation(prev, navigationRequest.stage8SubView)
+      );
+    }
+
+    focusDomTarget(navigationRequest.focusFieldId, true);
+    onConsumeNavigationRequest?.(navigationRequest.nonce);
+  }, [navigationRequest, onConsumeNavigationRequest]);
+
+  const goToStage = (
+    stage: number,
+    focusFieldId?: string,
+    options?: WorkbenchStageNavigationOptions
+  ) => {
     const normalized = Math.min(9, Math.max(1, stage));
     setWorkbenchStage(normalized);
     setActiveStep(normalized);
 
-    if (focusFieldId) {
-      window.setTimeout(() => {
-        const el = document.getElementById(focusFieldId);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
-            el.focus();
-          }
-        }
-      }, 60);
+    if (normalized === 6) {
+      setStage6SubView((prev) =>
+        resolveStage6SubViewForNavigation(prev, {
+          focusFieldId,
+          explicitSubView: options?.stage6SubView,
+        })
+      );
+    } else if (normalized === 8) {
+      setStage8SubView((prev) =>
+        resolveStage8SubViewForNavigation(prev, options?.stage8SubView)
+      );
     }
+
+    focusDomTarget(focusFieldId, false);
   };
 
   const workbenchEvaluation = useMemo(
@@ -912,7 +973,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
         onToggleFlow={handleToggleFlow}
         onSelectStage={goToStage}
         onOpenTransferModal={onOpenTransferModal}
-        onExportPdf={() => goToStage(8)}
+        onExportPdf={() => goToStage(8, undefined, { stage8SubView: 'offer' })}
         onQuickSave={onQuickSave || onCalculate}
         onNavigateToSite={() => goToStage(9)}
       />
@@ -1952,7 +2013,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   </div>
 
                   {/* Konsol Çıkma Grubu */}
-                  <div className={`p-3.5 rounded-xl border transition-all ${
+                  <div id="stage3CantileverCard" className={`p-3.5 rounded-xl border transition-all ${
                     !!params.hasCantilever
                       ? 'bg-emerald-50/20 border-emerald-200 shadow-3xs ring-1 ring-emerald-50'
                       : 'bg-slate-50/50 border-slate-200 opacity-80'
@@ -2076,7 +2137,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           </div>
 
           {/* BAĞIMSIZ BÖLÜM VE KAT BAZLI DAĞILIM ŞEMASI */}
-          <div className="space-y-4">
+          <div id="stage3FlatsMatrixSection" className="space-y-4">
             {params.projectModel === 'contractorShare' && (
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-200">
                 <div className="flex items-center gap-3">
@@ -2912,7 +2973,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           onNavigateToSetup={() => goToStage(2)}
           onNavigateToCost={() => goToStage(6)}
           onNavigateToOwners={() => goToStage(7)}
-          onNavigateToOffer={() => goToStage(8)}
+          onNavigateToOffer={() => goToStage(8, undefined, { stage8SubView: 'offer' })}
           workbenchVisualizationMode={true}
           theme={theme}
         />
@@ -3926,7 +3987,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               {stage6SubView === 'cost' && (
                 <>
                   {/* Yapı Sınıfı, Teslim Süresi ve Birim m² Maliyet Parametre Şeridi */}
-                  <div className={`${bgCard} rounded-2xl p-4 border shadow-xs`}>
+                  <div id="stage6CostParamsCard" className={`${bgCard} rounded-2xl p-4 border shadow-xs`}>
                     <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
                       <div className="flex items-center gap-2">
                         <Sliders className="w-4 h-4 text-indigo-600" />
@@ -3962,6 +4023,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         </label>
                         <div className="flex items-center gap-1.5">
                           <select
+                            id="stage6DurationSelect"
                             value={params.durationOption || 'auto'}
                             onChange={(e) => onChangeParams({ ...params, durationOption: e.target.value as any })}
                             className="flex-1 text-xs font-bold px-2.5 py-2 rounded-lg border bg-white border-slate-200"
@@ -4173,7 +4235,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 onCalculate={onCalculate}
                 onNavigateToUnits={() => goToStage(3)}
                 onNavigateToCost={() => goToStage(6)}
-                onNavigateToOffer={() => goToStage(8)}
+                onNavigateToOffer={() => goToStage(8, undefined, { stage8SubView: 'offer' })}
                 theme={theme}
               />
             </div>
@@ -4256,14 +4318,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               onDeleteProject={onDeleteHistoryProject}
               onSaveCurrentProject={onCalculate || onQuickSave}
               onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
-              onNavigateToOffer={() => {
-                setStage8SubView('offer');
-                goToStage(8);
-              }}
-              onNavigateToContract={() => {
-                setStage8SubView('contract');
-                goToStage(8);
-              }}
+              onNavigateToOffer={() =>
+                goToStage(8, undefined, { stage8SubView: 'offer' })
+              }
+              onNavigateToContract={() =>
+                goToStage(8, undefined, { stage8SubView: 'contract' })
+              }
             />
           )}
         </div>

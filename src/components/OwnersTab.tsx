@@ -1359,7 +1359,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                 onClick={onNavigateToUnits}
                 className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
               >
-                4. Bölüm Matrisi
+                3. Bölüm Matrisi
               </button>
             )}
             {onNavigateToCost && (
@@ -1368,7 +1368,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                 onClick={onNavigateToCost}
                 className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
               >
-                5. Maliyet
+                6. Maliyet
               </button>
             )}
             {onCalculate && (
@@ -1387,7 +1387,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                 onClick={onNavigateToOffer}
                 className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shadow-sm transition-all cursor-pointer"
               >
-                <span>8. Teklife Geç</span>
+                <span>8. Teklif & Sözleşme</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}

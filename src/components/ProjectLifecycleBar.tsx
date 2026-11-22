@@ -49,54 +49,54 @@ export const ProjectLifecycleBar: React.FC<ProjectLifecycleBarProps> = ({
 
   const stages: LifecycleStage[] = [
     {
-      id: 'design',
+      id: 'setup',
       number: 1,
-      label: '1. Kurulum & 3D Tasarım',
-      shortLabel: '1. Kurulum & 3D',
+      label: '1. Kurulum & İmar',
+      shortLabel: '1. Kurulum & İmar',
       targetTab: 'kurulum',
-      matchingTabs: ['kurulum', 'model'],
+      matchingTabs: ['kurulum'],
       icon: Compass,
-      description: 'Proje kurulumu, 2D ölçüler ve 3D dış cephe tasarımı',
+      description: 'Müşteri tanımı, arsa/imar analizi ve mimari yapılandırma',
     },
     {
-      id: 'crm',
+      id: 'design3d',
       number: 2,
-      label: '2. Malikler & Finansal Analiz',
-      shortLabel: '2. Malikler & Maliyet',
-      targetTab: 'malikler',
-      matchingTabs: ['malikler', 'maliyet', 'raporlar'],
-      icon: Users,
-      description: 'Daire sahipleri (CRM), metrajlı maliyet analizi ve yönetici raporu',
+      label: '2. 3D Tasarım & Görsel',
+      shortLabel: '2. 3D Tasarım',
+      targetTab: 'model',
+      matchingTabs: ['model'],
+      icon: Box,
+      description: '3D bina modeli, dış cephe, AI render ve güneşlenme analizi',
     },
     {
-      id: 'specs',
+      id: 'specsCost',
       number: 3,
-      label: '3. Şartname & Teklif Mektubu',
-      shortLabel: '3. Şartname & Teklif',
-      targetTab: 'sartname',
-      matchingTabs: ['sartname', 'teklif'],
-      icon: FileSpreadsheet,
-      description: 'Teknik şartname standartları ve resmi PDF teklif çıktısı',
+      label: '3. Şartname & Maliyet',
+      shortLabel: '3. Şartname & Maliyet',
+      targetTab: 'maliyet',
+      matchingTabs: ['sartname', 'maliyet', 'raporlar'],
+      icon: BarChart3,
+      description: 'Teknik şartname, metraj cetveli, maliyet analizi ve yönetici raporu',
     },
     {
-      id: 'contract',
+      id: 'ownersOffer',
       number: 4,
-      label: '4. Yapım Sözleşmesi',
-      shortLabel: '4. Sözleşme',
-      targetTab: 'sozlesme',
-      matchingTabs: ['sozlesme'],
-      icon: ScrollText,
-      description: 'Kat karşılığı veya taahhüt yapım sözleşmesi metni & maddeleri',
+      label: '4. Malik, Teklif & Sözleşme',
+      shortLabel: '4. Malik & Teklif',
+      targetTab: 'teklif',
+      matchingTabs: ['malikler', 'teklif', 'sozlesme'],
+      icon: FileText,
+      description: 'Malik paylaşımı (CRM), müşteri teklifi ve yapım sözleşmesi',
     },
     {
       id: 'construction',
       number: 5,
-      label: '5. Canlı Şantiye & İcra',
+      label: '5. Proje & Şantiye',
       shortLabel: '5. Şantiye',
       targetTab: 'surec',
       matchingTabs: ['surec'],
       icon: HardHat,
-      description: 'İnşaat aşamaları, taşeron hakedişleri ve malik bildirimleri',
+      description: 'Şantiye süreci, taşeron hakedişleri ve malik bildirimleri',
     },
   ];
 
@@ -117,7 +117,7 @@ export const ProjectLifecycleBar: React.FC<ProjectLifecycleBarProps> = ({
           {stages.map((stage, idx) => {
             const Icon = stage.icon;
             const isCurrent = stage.matchingTabs.includes(activeTab);
-            const isPassed = activeStageIndex > idx || (idx <= 2 && isOfferAccepted);
+            const isPassed = activeStageIndex > idx || (idx <= 3 && isOfferAccepted);
 
             return (
               <React.Fragment key={stage.id}>

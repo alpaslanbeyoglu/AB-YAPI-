@@ -61,7 +61,7 @@ export interface CompanyProfileTabProps {
   historyList?: SavedProjectData[];
   onNavigateToNewWorkOrder?: () => void;
   onOpenQuickProposal?: () => void;
-  onContinueActiveProject?: (targetTab?: string, setupStep?: number) => void;
+  onContinueActiveProject?: (targetTab?: string, setupStep?: number, focusFieldId?: string) => void;
   onNavigateToArchive?: () => void;
   onNavigateToPortfolio?: () => void;
   onNavigateToCRM?: () => void;
@@ -146,15 +146,15 @@ const formatShortDate = (iso?: string): string => {
   return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const mapIssueToTarget = (issue: WorkbenchIssue): { tab: string; setupStep?: number } => {
-  if (issue.stage === 5) return { tab: 'maliyet' };
-  if (issue.stage === 6) return { tab: 'model' };
-  if (issue.stage === 7) return { tab: 'malikler' };
-  if (issue.stage === 8) return { tab: 'teklif' };
-  if (issue.stage === 9) return { tab: 'surec' };
-  if (issue.stage === 1) return { tab: 'kurulum', setupStep: 1 };
-  if (issue.stage === 4) return { tab: 'kurulum', setupStep: 3 };
-  return { tab: 'kurulum', setupStep: 2 };
+export const mapIssueToTarget = (
+  issue: WorkbenchIssue
+): { tab: string; setupStep?: number; focusFieldId?: string } => {
+  const normalizedStage = Math.min(9, Math.max(1, Math.round(issue.stage || 1)));
+  return {
+    tab: 'kurulum',
+    setupStep: normalizedStage,
+    focusFieldId: issue.focusFieldId,
+  };
 };
 
 export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
@@ -1025,7 +1025,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                           <button
                             key={issue.id}
                             type="button"
-                            onClick={() => onContinueActiveProject?.(target.tab, target.setupStep)}
+                            onClick={() => onContinueActiveProject?.(target.tab, target.setupStep, target.focusFieldId)}
                             className="w-full py-2.5 first:pt-1 last:pb-0 flex items-start justify-between gap-2.5 text-left group cursor-pointer"
                           >
                             <div className="flex items-start gap-2 min-w-0">
@@ -1061,7 +1061,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                           type="button"
                           onClick={() => {
                             const firstTarget = mapIssueToTarget(activeWarningIssues[0]);
-                            onContinueActiveProject?.(firstTarget.tab, firstTarget.setupStep);
+                            onContinueActiveProject?.(firstTarget.tab, firstTarget.setupStep, firstTarget.focusFieldId);
                           }}
                           className="w-full text-left text-xs text-amber-700 hover:text-amber-800 flex items-center justify-between gap-2 pt-2 border-t border-slate-100 cursor-pointer"
                         >
