@@ -1029,9 +1029,47 @@ export default function App() {
     showNotification('success', 'Hesaplama tamamlandı ve tüm tablolar güncellendi!');
   };
 
-  const handleQuickSave = () => {
-    handleCalculate();
+ 
+const handleQuickSave = () => {
+  const nowIso = new Date().toISOString();
+
+  const existingProject = historyList.find(
+    p => p.projectAddress === liteParams.projectAddress
+  );
+
+  const newSnapshot: SavedProjectData = {
+    version: '1.0.0',
+    savedAt: existingProject?.savedAt || nowIso,
+    updatedAt: nowIso,
+    projectAddress: liteParams.projectAddress,
+    params: liteParams,
+    results: liteResults,
+    buildingModelParams: existingProject?.buildingModelParams || buildingModelParams,
   };
+
+  const updatedHistory = [
+    newSnapshot,
+    ...historyList.filter(p => p.projectAddress !== liteParams.projectAddress).slice(0, 19),
+  ];
+
+  setHistoryList(updatedHistory);
+
+  try {
+    localStorage.setItem('ab_yapi_history', JSON.stringify(updatedHistory));
+    localStorage.setItem('ab_yapi_lite_params', JSON.stringify(liteParams));
+    localStorage.setItem('ab_yapi_active_updated_at', nowIso);
+  } catch (e) {}
+
+  if (user && isLicensed) {
+    saveProjectToCloud(newSnapshot).catch(err => {
+      console.warn('Failed to save mobile project to cloud:', err);
+      showNotification('error', 'Yerel kayıt tamamlandı ancak bulut senkronizasyonu başarısız oldu.');
+    });
+  }
+
+  showNotification('success', 'Mobil proje başarıyla kaydedildi!');
+};
+
 
   // Sıfırdan Yeni Proje / İş Emri Başlatma (Mevcut olanı arşive güvenle kaydedip tertemiz sıfırlar)
   const handleStartNewProject = (customAddress?: string) => {
@@ -1505,7 +1543,7 @@ export default function App() {
                 ))}
                 
 
-
+ 
                 <button
                   type="button"
                   onClick={() => setIsMenuSettingsOpen(true)}

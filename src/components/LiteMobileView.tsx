@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getLocalProgressItemByKeys, resolveProjectProgressKeys } from '../utils/syncKeys';
 import {
   Calculator,
   HardHat,
@@ -79,13 +80,26 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
   const [ownerSearch, setOwnerSearch] = useState('');
   const [ownerFilter, setOwnerFilter] = useState<'all' | 'signed' | 'pending' | 'contractor'>('all');
 
-  // Project safe key for localStorage stages & logs
-  const safeProjectKey = (params.projectAddress || 'default_project').replace(/[^a-zA-Z0-9]/g, '_');
+ // Desktop and mobile share the same canonical construction progress keys.
+const progressKeys = useMemo(
+  () => resolveProjectProgressKeys({
+    projectAddress: params.projectAddress,
+    projectName: params.projectName,
+  }),
+  [params.projectAddress, params.projectName]
+);
 
+const stageStorageKey = `ab_yapi_progress_${progressKeys.primaryKey}_stages`;
+const logStorageKey = `ab_yapi_progress_${progressKeys.primaryKey}_logs`;
+
+// Previous mobile keys are retained for backward-compatible migration.
+const legacyMobileKey = (params.projectAddress || 'default_project').replace(/[^a-zA-Z0-9]/g, '_');
   // Stages State (synced with full version)
   const [stages, setStages] = useState<ConstructionStage[]>(() => {
     try {
-      const saved = localStorage.getItem(safeProjectKey + '_construction_stages');
+     const saved =
+  getLocalProgressItemByKeys(progressKeys.candidateKeys, 'stages') ??
+  localStorage.getItem(legacyMobileKey + '_construction_stages');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
 
@@ -124,7 +138,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
         return s;
       });
       try {
-        localStorage.setItem(safeProjectKey + '_construction_stages', JSON.stringify(next));
+        localStorage.setItem(stageStorageKey, JSON.stringify(next));
       } catch (e) {}
       return next;
     });
@@ -180,7 +194,9 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
   const handleSaveQuickNote = () => {
     if (!quickNote.trim()) return;
     try {
-      const savedLogs = localStorage.getItem(safeProjectKey + '_construction_logs');
+      const savedLogs =
+  getLocalProgressItemByKeys(progressKeys.candidateKeys, 'logs') ??
+  localStorage.getItem(legacyMobileKey + '_construction_logs');
       const logs = savedLogs ? JSON.parse(savedLogs) : [];
       const newLog: ConstructionProgressLog = {
         id: 'log_' + Date.now(),
@@ -197,7 +213,7 @@ export const LiteMobileView: React.FC<LiteMobileViewProps> = ({
         photoUrls: fieldPhoto ? [fieldPhoto] : undefined
       };
       logs.unshift(newLog);
-      localStorage.setItem(safeProjectKey + '_construction_logs', JSON.stringify(logs));
+      localStorage.setItem(logStorageKey, JSON.stringify(logs));
       setQuickNote('');
       setFieldPhoto(null);
       setNoteSaved(true);
