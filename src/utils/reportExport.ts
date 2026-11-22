@@ -1,4 +1,8 @@
 import { ProjectParams, CalculationResult, CompanyProfile } from '../types';
+import {
+  resolveContractAnnexOwnerInfo,
+  resolveContractProposalNumber,
+} from './workflowConsistencyUtils';
 
 export function generateOfferHtml(
   params: ProjectParams,
@@ -654,12 +658,18 @@ export function generateContractHtml(
       ? '6306 SAYILI KANUN KAPSAMINDA KENTSEL DÖNÜŞÜM BİNA YAPIM SÖZLEŞMESİ'
       : 'ÖZ KAYNAKLI BİNA YAPIM VE TAAHHÜT SÖZLEŞMESİ';
 
+  const proposalNumber = resolveContractProposalNumber(params, compName);
+
   const flatRows = res.flatResults
     .map(
       (f, idx) => {
-        const landShareStr = f.landShareNumerator && params.totalLandShareDenominator
-          ? `${f.landShareNumerator}/${params.totalLandShareDenominator}`
-          : `1/${res.flatResults.length}`;
+        const resolvedOwner = resolveContractAnnexOwnerInfo(f, params, idx);
+        const landShareStr =
+          resolvedOwner.landShareText && resolvedOwner.landShareText !== '-'
+            ? resolvedOwner.landShareText
+            : f.landShareNumerator && params.totalLandShareDenominator
+            ? `${f.landShareNumerator}/${params.totalLandShareDenominator}`
+            : `1/${res.flatResults.length}`;
 
         const floorNo = f.floorNumber !== undefined 
           ? f.floorNumber 
@@ -668,12 +678,16 @@ export function generateContractHtml(
 
         const unitTitle = f.flatType === 'basement_shop'
           ? `🏬 Bodrum İşyeri ${f.id}`
+          : f.flatType === 'basement_flat'
+          ? `🏠 Bodrum Daire ${f.id}`
           : f.flatType === 'shop' 
           ? `🏪 Dükkan ${f.id}` 
           : (f.flatType === 'mansard' ? `🏚️ Daire ${f.id} (Mansart)` : `🏠 Daire ${f.id}`);
 
         const unitTypeBadge = f.flatType === 'basement_shop'
           ? 'Bodrum İşyeri'
+          : f.flatType === 'basement_flat'
+          ? 'Bodrum Dairesi'
           : f.flatType === 'shop' 
           ? 'Ticari Dükkan' 
           : (f.flatType === 'mansard' ? 'Mansart Katı' : f.flatType === 'duplex' ? 'Çatı Dubleksi' : 'Konut');
@@ -684,8 +698,8 @@ export function generateContractHtml(
         ${unitTitle}
         <div style="font-size:9px;color:#64748b;font-weight:normal;">${floorText}</div>
       </td>
-      <td style="padding:6px 8px;border:1px solid #cbd5e1;">${f.name}</td>
-      <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;">${f.tc}</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;">${resolvedOwner.ownerName}</td>
+      <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;">${resolvedOwner.ownerTc}</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:9.5px;color:#475569;">${unitTypeBadge}</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;font-family:monospace;text-align:center;">${landShareStr}</td>
       <td style="padding:6px 8px;border:1px solid #cbd5e1;">${f.area} m²</td>
@@ -749,7 +763,7 @@ export function generateContractHtml(
       ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
       <div>
         <h2 style="margin:0;color:#0f172a;text-align:left;font-size:14px;">${contractTitle}</h2>
-        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;">Düzenleme Tarihi: ${new Date().toLocaleDateString('tr-TR')} | Belge No: ${compName}-2026/SÖZ-01</p>
+        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;">Düzenleme Tarihi: ${new Date().toLocaleDateString('tr-TR')} | Teklif No: ${proposalNumber} | Belge No: ${compName}-2026/SÖZ-01</p>
       </div>
     </div>
   </div>

@@ -71,9 +71,14 @@ import {
 import { calculateProject, DEFAULT_PARAMS } from '../utils/calculatorEngine';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { useFirebaseSync } from '../context/FirebaseSyncContext';
-import { resolveProjectProgressKeys, getLocalProgressItemByKeys } from '../utils/syncKeys';
+import {
+  resolveProjectProgressKeys,
+  getLocalProgressItemByKeys,
+  setLocalProgressItemByKeys,
+} from '../utils/syncKeys';
 import {
   buildOfferAcceptanceTransitionPatch,
+  resolveContractProposalNumber,
   resolveEffectiveOfferAccepted,
 } from '../utils/workflowConsistencyUtils';
 import {
@@ -394,14 +399,48 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   const cardBg = isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200';
   const printDocRef = useRef<HTMLDivElement>(null);
 
+  const proposalNumber = useMemo(
+    () => resolveContractProposalNumber(params, profile.companyName),
+    [params, profile.companyName]
+  );
+
+  const matchingSavedAddresses = useMemo(() => {
+    const pName = (params.projectName || '').trim().toLocaleLowerCase('tr-TR');
+    const pNum = (params.offerMeta?.proposalNumber || '').trim();
+    return savedProjects
+      .filter((sp) => {
+        const spName = (sp.params?.projectName || '').trim().toLocaleLowerCase('tr-TR');
+        const spNum = (sp.params?.offerMeta?.proposalNumber || '').trim();
+        if (pNum && spNum && pNum === spNum) return true;
+        if (
+          pName &&
+          spName &&
+          pName === spName &&
+          pName !== 'müşteri / proje adı belirtilmedi' &&
+          pName !== 'proje adı belirtilmedi'
+        ) {
+          return true;
+        }
+        return false;
+      })
+      .map((sp) => sp.projectAddress || sp.params?.projectAddress);
+  }, [savedProjects, params.projectName, params.offerMeta?.proposalNumber]);
+
   // Storage key anchored on canonical projectAddress with backward-compatible fallback keys (Turkish-safe)
   const progressKeys = useMemo(
     () =>
       resolveProjectProgressKeys({
         projectAddress: params.projectAddress,
         projectName: params.projectName,
+        proposalNumber: params.offerMeta?.proposalNumber,
+        additionalCandidateAddresses: matchingSavedAddresses,
       }),
-    [params.projectAddress, params.projectName]
+    [
+      params.projectAddress,
+      params.projectName,
+      params.offerMeta?.proposalNumber,
+      matchingSavedAddresses,
+    ]
   );
   const safeSlugKey = progressKeys.primaryKey;
   const safeProjectKey = 'ab_yapi_progress_' + safeSlugKey;
@@ -758,23 +797,36 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
   // Save history to localStorage (only when state is synchronized to current safeProjectKey)
   useEffect(() => {
     if (activeLoadedKey !== safeProjectKey) return;
-    try {
-      localStorage.setItem(safeProjectKey + '_notif_history', JSON.stringify(notificationHistory));
-    } catch (e) {}
-  }, [notificationHistory, safeProjectKey, activeLoadedKey]);
+    setLocalProgressItemByKeys(
+      safeSlugKey,
+      progressKeys.candidateKeys.slice(1),
+      'notif_history',
+      JSON.stringify(notificationHistory)
+    );
+  }, [notificationHistory, safeProjectKey, safeSlugKey, progressKeys.candidateKeys, activeLoadedKey]);
 
   // Save to LocalStorage whenever state changes (guarded against cross-project write during key change)
   useEffect(() => {
     if (activeLoadedKey !== safeProjectKey) return;
-    try {
-      localStorage.setItem(safeProjectKey + '_stages', JSON.stringify(stages));
-      localStorage.setItem(safeProjectKey + '_logs', JSON.stringify(logs));
-      localStorage.setItem(safeProjectKey + '_offer_accepted', JSON.stringify(isOfferAccepted));
-      localStorage.setItem(safeProjectKey + '_contract_date', contractDate);
-      localStorage.setItem(safeProjectKey + '_target_date', plannedCompletionDate);
-      localStorage.setItem(safeProjectKey + '_subcontractors', JSON.stringify(subcontractors));
-    } catch (e) {}
-  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, safeProjectKey, activeLoadedKey]);
+    const mirrorKeys = progressKeys.candidateKeys.slice(1);
+    setLocalProgressItemByKeys(safeSlugKey, mirrorKeys, 'stages', JSON.stringify(stages));
+    setLocalProgressItemByKeys(safeSlugKey, mirrorKeys, 'logs', JSON.stringify(logs));
+    setLocalProgressItemByKeys(safeSlugKey, mirrorKeys, 'offer_accepted', JSON.stringify(isOfferAccepted));
+    setLocalProgressItemByKeys(safeSlugKey, mirrorKeys, 'contract_date', contractDate);
+    setLocalProgressItemByKeys(safeSlugKey, mirrorKeys, 'target_date', plannedCompletionDate);
+    setLocalProgressItemByKeys(safeSlugKey, mirrorKeys, 'subcontractors', JSON.stringify(subcontractors));
+  }, [
+    stages,
+    logs,
+    isOfferAccepted,
+    contractDate,
+    plannedCompletionDate,
+    subcontractors,
+    safeProjectKey,
+    safeSlugKey,
+    progressKeys.candidateKeys,
+    activeLoadedKey,
+  ]);
 
   // Debounced cloud sync for construction progress details to avoid rapid Firestore writes
   useEffect(() => {
@@ -1835,6 +1887,10 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                 Teklif Değerlendirme Aşamasında
               </button>
             )}
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+              <FileText className="w-3.5 h-3.5 text-indigo-600" />
+              Teklif No: {proposalNumber}
+            </span>
             <span className="text-xs text-slate-400 font-medium">
               Sözleşme Süresi: {totalMonths} Ay ({totalMonths * 30} Gün)
             </span>
@@ -1989,6 +2045,33 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
             <span>Kat: {results.floorStructure?.shortLabel || `${params.floorCount} Kat`}</span>
           </div>
         </div>
+      </div>
+
+      {/* Y-8: TEKLİF NUMARASI VE ÖZEL SÖZLEŞME ŞARTLARI / NOTLARI ÖZET ŞERİDİ */}
+      <div className={`${cardBg} rounded-2xl border p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs`}>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-800 border border-indigo-200 font-mono font-bold">
+            <FileText className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <span>Teklif No: {proposalNumber}</span>
+          </div>
+          <div className="text-slate-600 font-medium">
+            <span className="font-bold text-slate-800">Sözleşme Özel Şartları / Notları: </span>
+            <span className="text-slate-700">
+              {params.customContractNotes && params.customContractNotes.trim()
+                ? params.customContractNotes.trim()
+                : 'Özel sözleşme notu belirtilmedi (Standart teknik ve idari şartname hükümleri geçerlidir).'}
+            </span>
+          </div>
+        </div>
+        {onNavigateToContract && (
+          <button
+            type="button"
+            onClick={onNavigateToContract}
+            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline shrink-0 cursor-pointer"
+          >
+            Sözleşme Metnini Gör →
+          </button>
+        )}
       </div>
 
       {/* SUB-TAB NAVIGATOR (print:hidden) */}
@@ -3934,6 +4017,19 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                   <span className="text-slate-400 text-[10px] block">Hedef Teslim</span>
                   <span className="font-bold text-slate-800">{plannedCompletionDate}</span>
                 </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div>
+                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mr-1.5">Teklif Numarası:</span>
+                  <span className="font-mono font-bold text-indigo-700">{proposalNumber}</span>
+                </div>
+                {params.customContractNotes && params.customContractNotes.trim() && (
+                  <div className="text-slate-700">
+                    <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mr-1.5">Sözleşme Özel Notları:</span>
+                    <span className="font-medium">{params.customContractNotes.trim()}</span>
+                  </div>
+                )}
               </div>
             </div>
 

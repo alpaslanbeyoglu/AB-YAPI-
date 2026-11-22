@@ -6,6 +6,10 @@ import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
+import {
+  resolveContractAnnexOwnerInfo,
+  resolveContractProposalNumber,
+} from '../utils/workflowConsistencyUtils';
 
 interface ContractTabProps {
   params: ProjectParams;
@@ -32,6 +36,8 @@ export const ContractTab: React.FC<ContractTabProps> = ({
   const showFirstAuthChamber = profile.printOptions?.showFirstAuthorizedChamber !== false && !!(profile.authorizedChamberNo || profile.authorizedChamber);
   const showSecondAuth = profile.printOptions?.showSecondAuthorized === true && !!profile.authorizedPerson2;
   const showSecondAuthChamber = profile.printOptions?.showSecondAuthorizedChamber !== false && !!(profile.authorizedChamberNo2 || profile.authorizedChamber2);
+
+  const proposalNumber = resolveContractProposalNumber(params, profile.companyName);
 
   const contractTitle =
     params.projectModel === 'contractorShare'
@@ -208,7 +214,7 @@ export const ContractTab: React.FC<ContractTabProps> = ({
               {highlightText(contractTitle)}
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
-              Tarih: {results.calculatedAt} | Belge No: {profile.companyName}-{new Date().getFullYear()}/SÖZ-01
+              Tarih: {results.calculatedAt} | Teklif No: {highlightText(proposalNumber)} | Belge No: {profile.companyName}-{new Date().getFullYear()}/SÖZ-01
             </p>
           </div>
         </div>
@@ -495,10 +501,14 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {results.flatResults.map((f) => {
-                    const landShareStr = f.landShareNumerator && params.totalLandShareDenominator
-                      ? `${f.landShareNumerator}/${params.totalLandShareDenominator}`
-                      : `1/${results.flatResults.length}`;
+                  {results.flatResults.map((f, idx) => {
+                    const resolvedOwner = resolveContractAnnexOwnerInfo(f, params, idx);
+                    const landShareStr =
+                      resolvedOwner.landShareText && resolvedOwner.landShareText !== '-'
+                        ? resolvedOwner.landShareText
+                        : f.landShareNumerator && params.totalLandShareDenominator
+                        ? `${f.landShareNumerator}/${params.totalLandShareDenominator}`
+                        : `1/${results.flatResults.length}`;
 
                     const floorText = f.floorNumber !== undefined 
                       ? (f.floorNumber === 0 ? 'Zemin Kat' : f.floorNumber < 0 ? `${Math.abs(f.floorNumber)}. Bodrum Kat` : `${f.floorNumber}. Kat`)
@@ -506,6 +516,8 @@ export const ContractTab: React.FC<ContractTabProps> = ({
 
                     const unitTitle = f.flatType === 'basement_shop'
                       ? `🏬 Bodrum İşyeri ${f.id}`
+                      : f.flatType === 'basement_flat'
+                      ? `🏠 Bodrum Daire ${f.id}`
                       : f.flatType === 'shop'
                       ? `🏪 Dükkan ${f.id}`
                       : f.flatType === 'mansard'
@@ -514,6 +526,8 @@ export const ContractTab: React.FC<ContractTabProps> = ({
 
                     const unitTypeBadge = f.flatType === 'basement_shop'
                       ? 'Bodrum İşyeri'
+                      : f.flatType === 'basement_flat'
+                      ? 'Bodrum Dairesi'
                       : f.flatType === 'shop'
                       ? 'Ticari Dükkan'
                       : f.flatType === 'mansard'
@@ -531,8 +545,8 @@ export const ContractTab: React.FC<ContractTabProps> = ({
                           <div>{unitTitle}</div>
                           <div className="text-[10px] text-slate-500 font-normal">{floorText}</div>
                         </td>
-                        <td className="p-2.5 text-slate-900">{highlightText(f.name)}</td>
-                        <td className="p-2.5 text-slate-500 font-mono">{highlightText(f.tc)}</td>
+                        <td className="p-2.5 text-slate-900">{highlightText(resolvedOwner.ownerName)}</td>
+                        <td className="p-2.5 text-slate-500 font-mono">{highlightText(resolvedOwner.ownerTc)}</td>
                         <td className="p-2.5 text-slate-600 font-medium">
                           <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 border border-slate-200">
                             {unitTypeBadge}

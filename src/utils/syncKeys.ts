@@ -89,50 +89,194 @@ const GENERIC_PROJECT_NAMES = new Set([
   'varsayılan proje',
   'yeni kentsel dönüşüm projesi',
   'mevcut şantiye',
+  'müşteri',
+  'musteri',
+  'proje adı belirtilmedi',
+  'proje adi belirtilmedi',
+  'müşteri / proje adı belirtilmedi',
+  'musteri / proje adi belirtilmedi',
 ]);
+
+const PROGRESS_ALIAS_STORAGE_KEY = 'ab_yapi_progress_key_aliases_v1';
+const inMemoryIdentityAddressAliases = new Map<string, Set<string>>();
+
+function normalizeIdentityToken(value?: string | null): string {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return '';
+  if (GENERIC_PROJECT_NAMES.has(trimmed.toLocaleLowerCase('tr-TR'))) return '';
+  const key = getSafeProjectKey(trimmed);
+  return key && key !== 'default_project' ? key : '';
+}
+
+function readPersistedAliasMap(): Record<string, string[]> {
+  try {
+    if (typeof localStorage === 'undefined') return {};
+    const raw = localStorage.getItem(PROGRESS_ALIAS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function registerIdentityAddressAliases(identityTokens: string[], addressVariants: string[]): void {
+  const validIdentities = identityTokens.filter(Boolean);
+  const validAddresses = addressVariants.filter((k) => k && k !== 'default_project');
+  if (validIdentities.length === 0 || validAddresses.length === 0) return;
+
+  const persisted = readPersistedAliasMap();
+  let changed = false;
+
+  for (const idToken of validIdentities) {
+    let memSet = inMemoryIdentityAddressAliases.get(idToken);
+    if (!memSet) {
+      memSet = new Set<string>(persisted[idToken] || []);
+      inMemoryIdentityAddressAliases.set(idToken, memSet);
+    }
+    for (const addrKey of validAddresses) {
+      if (!memSet.has(addrKey)) {
+        memSet.add(addrKey);
+        changed = true;
+      }
+    }
+    persisted[idToken] = Array.from(memSet);
+  }
+
+  if (changed) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(PROGRESS_ALIAS_STORAGE_KEY, JSON.stringify(persisted));
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+}
+
+function getRegisteredAddressAliases(identityTokens: string[]): string[] {
+  const validIdentities = identityTokens.filter(Boolean);
+  if (validIdentities.length === 0) return [];
+  const persisted = readPersistedAliasMap();
+  const result: string[] = [];
+
+  for (const idToken of validIdentities) {
+    const memSet = inMemoryIdentityAddressAliases.get(idToken);
+    if (memSet) {
+      for (const k of memSet) {
+        if (k && !result.includes(k)) result.push(k);
+      }
+    }
+    const storedList = persisted[idToken];
+    if (Array.isArray(storedList)) {
+      for (const k of storedList) {
+        if (k && !result.includes(k)) result.push(k);
+      }
+    }
+  }
+  return result;
+}
 
 /**
  * Resolves a single canonical progress key anchored on projectAddress (matching Firestore
  * `users/{uid}/projects/{projectId}`), while returning ordered backward-compatible fallback
- * keys (legacy address key and previous non-generic projectName keys) for non-destructive reads.
+ * keys (legacy address key, projectName keys, proposalNumber keys, and previously associated
+ * address keys for the same project identity) so changing projectAddress never loses progress data.
  */
 export function resolveProjectProgressKeys(input: {
   projectAddress?: string | null;
   projectName?: string | null;
+  proposalNumber?: string | null;
+  previousAddress?: string | null;
+  additionalCandidateAddresses?: readonly (string | null | undefined)[];
   fallbackId?: string | null;
 }): ProjectProgressKeyInfo {
   const addr = (input.projectAddress || '').trim();
   const name = (input.projectName || '').trim();
+  const proposalNo = (input.proposalNumber || '').trim();
+  const prevAddr = (input.previousAddress || '').trim();
   const fallbackId = (input.fallbackId || '').trim();
-
-  const canonicalIdentity = addr || name || fallbackId || 'default_project';
-  const primaryKey = getSafeProjectKey(canonicalIdentity);
-  const legacyAddressKey = getLegacySafeProjectKey(canonicalIdentity);
-
-  const candidateKeys: string[] = [primaryKey];
-  if (legacyAddressKey && legacyAddressKey !== primaryKey) {
-    candidateKeys.push(legacyAddressKey);
-  }
 
   const normalizedName = name.toLocaleLowerCase('tr-TR');
   const normalizedAddr = addr.toLocaleLowerCase('tr-TR');
-  if (
-    name &&
-    normalizedName !== normalizedAddr &&
-    !GENERIC_PROJECT_NAMES.has(normalizedName)
-  ) {
-    const safeNameKey = getSafeProjectKey(name);
-    const legacyNameKey = getLegacySafeProjectKey(name);
-    if (!candidateKeys.includes(safeNameKey)) {
-      candidateKeys.push(safeNameKey);
+  const hasMeaningfulName = Boolean(name) && !GENERIC_PROJECT_NAMES.has(normalizedName);
+
+  const canonicalIdentity =
+    addr || (hasMeaningfulName ? name : '') || proposalNo || fallbackId || 'default_project';
+  const primaryKey = getSafeProjectKey(canonicalIdentity);
+  const legacyAddressKey = getLegacySafeProjectKey(canonicalIdentity);
+
+  const candidateKeys: string[] = [];
+  const pushUnique = (k: string) => {
+    if (k && !candidateKeys.includes(k)) {
+      candidateKeys.push(k);
     }
-    if (legacyNameKey && !candidateKeys.includes(legacyNameKey)) {
-      candidateKeys.push(legacyNameKey);
+  };
+
+  const pushVariants = (rawVal?: string | null) => {
+    const trimmed = (rawVal || '').trim();
+    if (!trimmed) return;
+    pushUnique(getSafeProjectKey(trimmed));
+    pushUnique(getLegacySafeProjectKey(trimmed));
+  };
+
+  pushUnique(primaryKey);
+  if (legacyAddressKey && legacyAddressKey !== primaryKey) {
+    pushUnique(legacyAddressKey);
+  }
+
+  const identityTokens: string[] = [];
+
+  if (hasMeaningfulName) {
+    if (normalizedName !== normalizedAddr) {
+      pushVariants(name);
+    }
+    const normName = normalizeIdentityToken(name);
+    if (normName) identityTokens.push(normName);
+  }
+
+  if (proposalNo) {
+    pushVariants(proposalNo);
+    const normProposal = normalizeIdentityToken(proposalNo);
+    if (normProposal) identityTokens.push(normProposal);
+  }
+
+  if (fallbackId) {
+    pushUnique(fallbackId);
+    pushVariants(fallbackId);
+    const normFallback = normalizeIdentityToken(fallbackId);
+    if (normFallback) identityTokens.push(normFallback);
+  }
+
+  if (prevAddr) {
+    pushVariants(prevAddr);
+  }
+
+  if (Array.isArray(input.additionalCandidateAddresses)) {
+    for (const extraAddr of input.additionalCandidateAddresses) {
+      pushVariants(extraAddr);
     }
   }
 
-  if (fallbackId && !candidateKeys.includes(fallbackId)) {
-    candidateKeys.push(fallbackId);
+  // Link and retrieve any previous address keys registered for this project identity
+  if (identityTokens.length > 0) {
+    const knownAliases = getRegisteredAddressAliases(identityTokens);
+    for (const aliasKey of knownAliases) {
+      pushUnique(aliasKey);
+    }
+
+    const currentAddressVariants: string[] = [];
+    if (addr) {
+      currentAddressVariants.push(getSafeProjectKey(addr), getLegacySafeProjectKey(addr));
+    }
+    if (prevAddr) {
+      currentAddressVariants.push(getSafeProjectKey(prevAddr), getLegacySafeProjectKey(prevAddr));
+    }
+    registerIdentityAddressAliases(identityTokens, currentAddressVariants);
+  }
+
+  if (candidateKeys.length === 0) {
+    candidateKeys.push('default_project');
   }
 
   return {
@@ -143,7 +287,7 @@ export function resolveProjectProgressKeys(input: {
 }
 
 export function getLocalProgressItemByKeys(
-  candidateKeys: string[],
+  candidateKeys: readonly string[],
   suffix: string
 ): string | null {
   try {
@@ -158,6 +302,26 @@ export function getLocalProgressItemByKeys(
     // Ignore storage access errors
   }
   return null;
+}
+
+export function setLocalProgressItemByKeys(
+  primaryKey: string,
+  mirrorKeys: readonly string[],
+  suffix: string,
+  value: string
+): void {
+  try {
+    if (primaryKey) {
+      localStorage.setItem(`ab_yapi_progress_${primaryKey}_${suffix}`, value);
+    }
+    for (const mKey of mirrorKeys) {
+      if (mKey && mKey !== 'default_project' && mKey !== primaryKey) {
+        localStorage.setItem(`ab_yapi_progress_${mKey}_${suffix}`, value);
+      }
+    }
+  } catch {
+    // Ignore storage access errors
+  }
 }
 
 export function getLocalProgressItem(

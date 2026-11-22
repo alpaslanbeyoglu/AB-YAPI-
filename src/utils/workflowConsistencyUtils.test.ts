@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { DEFAULT_PARAMS, calculateProject } from './calculatorEngine';
 import { DEFAULT_BUILDING_PARAMS } from './buildingModelUtils';
 import { DUAL_OFFER_NAMING_PRESETS } from './dualOfferUtils';
-import { resolveProjectProgressKeys, getLocalProgressItemByKeys } from './syncKeys';
+import {
+  resolveProjectProgressKeys,
+  getLocalProgressItemByKeys,
+  setLocalProgressItemByKeys,
+} from './syncKeys';
 import {
   applyCalculatorParamsUpdate,
   applyBuildingModelUpdateToProjectParams,
@@ -11,13 +15,18 @@ import {
   buildKitchenAndDoorTakeoffItems,
   buildOfferAcceptanceTransitionPatch,
   buildProposalStatusChangePatch,
+  calculateProjectZoningRatios,
   computeTakeoffCategoryTotals,
+  equalizeFloorAreasPreservingManualValues,
   formatSpecificationBasementSummary,
   formatSpecificationUnitLabels,
   getSelectedSpecificationComfortFeatures,
   getSpecificationComfortFeatures,
   loadProjectScopedOffer3DPreview,
   OFFER_3D_PREVIEW_GLOBAL_STORAGE_KEY,
+  preserveExistingFlatsOnSynchronize,
+  resolveContractAnnexOwnerInfo,
+  resolveContractProposalNumber,
   resolveEffectiveOfferAccepted,
   resolveEffectiveProposalStatus,
   saveProjectScopedOffer3DPreview,
@@ -25,6 +34,8 @@ import {
   SPECIFICATION_EMPTY_COMFORT_MESSAGE,
   syncProjectParamsToBuildingModel,
 } from './workflowConsistencyUtils';
+import { generateContractHtml } from './reportExport';
+import { calculatePolygonArea } from './footprintUtils';
 import type { ProjectParams } from '../types';
 
 function createSampleProject(overrides: Partial<ProjectParams> = {}): ProjectParams {
@@ -1002,6 +1013,254 @@ describe('FAZ 3 / UYGULAMA 2B: Bağımsız Denetim Tutarsızlık Düzeltmeleri R
       expect(syncedOnLoad.flatCount).toBe(legacySavedParams.flatCount);
     });
   });
+
+  describe('FAZ 3 / UYGULAMA 3 (Y-5–Y-8) Veri Tutarlılığı Testleri', () => {
+    describe('Y-5: Mimari Parametrelerin ve Manuel Daire Verilerinin Korunması', () => {
+      it('Yeni bağımsız bölüm eklenirken (kat artışı veya zemin dükkan eklenmesi) mevcut dairelerin manuel alan, arsa payı ve malik verileri korunur', () => {
+        let state = createSampleProject({
+          floorCount: 3,
+          flatsPerFloor: 2,
+          hasGroundFloorShop: false,
+        });
+        expect(state.flats).toHaveLength(6);
+
+        // Kullanıcı 1. ve 2. dairede manuel alan, arsa payı ve malik bilgisi tanımlasın
+        const customFlats = state.flats.map((f, idx) =>
+          idx === 0
+            ? {
+                ...f,
+                name: 'Ahmet Yılmaz',
+                tc: '12345678901',
+                ownerId: 'owner-ahmet',
+                area: 138,
+                landShareNumerator: 1750,
+                manualUnitPrice: 31500,
+              }
+            : idx === 1
+            ? {
+                ...f,
+                name: 'Ayşe Kaya',
+                tc: '23456789012',
+                ownerId: 'owner-ayse',
+                area: 112,
+                landShareNumerator: 1420,
+              }
+            : f
+        );
+        state = applyCalculatorParamsUpdate(state, { flats: customFlats });
+
+        // Kat sayısı 3 -> 4 yapılarak 2 yeni bağımsız bölüm eklensin
+        state = applyCalculatorParamsUpdate(state, { floorCount: 4 });
+        expect(state.flats).toHaveLength(8);
+        expect(state.flats[0].name).toBe('Ahmet Yılmaz');
+        expect(state.flats[0].area).toBe(138);
+        expect(state.flats[0].landShareNumerator).toBe(1750);
+        expect(state.flats[0].ownerId).toBe('owner-ahmet');
+        expect(state.flats[0].manualUnitPrice).toBe(31500);
+        expect(state.flats[1].name).toBe('Ayşe Kaya');
+        expect(state.flats[1].area).toBe(112);
+        expect(state.flats[1].landShareNumerator).toBe(1420);
+
+        // Zemin kata dükkan eklendiğinde de konutların manuel verileri ezilmez
+        state = applyCalculatorParamsUpdate(state, {
+          hasGroundFloorShop: true,
+          shopCount: 1,
+        });
+        const ahmetFlat = state.flats.find((f) => f.ownerId === 'owner-ahmet');
+        const ayseFlat = state.flats.find((f) => f.ownerId === 'owner-ayse');
+        expect(ahmetFlat).toBeDefined();
+        expect(ahmetFlat?.area).toBe(138);
+        expect(ahmetFlat?.landShareNumerator).toBe(1750);
+        expect(ayseFlat?.area).toBe(112);
+        expect(ayseFlat?.landShareNumerator).toBe(1420);
+      });
+
+      it('Kat alanı eşitleme işlemi kullanıcının manuel özelleştirdiği arsa paylarını (landShareNumerator) ezmez', () => {
+        let state = createSampleProject({
+          floorCount: 3,
+          flatsPerFloor: 2,
+          baseBuildArea: 200,
+        });
+        const customFlats = state.flats.map((f, idx) =>
+          idx === 0
+            ? { ...f, area: 125, landShareNumerator: 2450 } // Manuel özel arsa payı (125*10=1250'den farklı)
+            : f
+        );
+        state = applyCalculatorParamsUpdate(state, { flats: customFlats });
+
+        const equalized = equalizeFloorAreasPreservingManualValues(state, {
+          preserveManualAreas: false,
+          preserveManualLandShares: true,
+        });
+        // 1. dairenin alanı kat ortalamasına eşitlenirken manuel arsa payı (2450) korunur
+        expect(equalized[0].landShareNumerator).toBe(2450);
+      });
+    });
+
+    describe('Y-6: KAKS Hesaplaması ve Poligon/Arsa Geometrisi Senkronizasyonu', () => {
+      it('polygonDraw modunda poligon noktaları değiştiğinde baseBuildArea ve KAKS/TAKS oranları senkronize güncellenir', () => {
+        let state = createSampleProject({
+          landArea: 500,
+          floorCount: 5,
+          footprintInputMode: 'polygonDraw',
+          hasCantilever: true,
+          cantileverDepth: 1.5,
+          cantileverDirection: 'front',
+        });
+
+        // 20m x 12m = 240 m² dikdörtgen poligon
+        const poly240 = [
+          { x: 0, y: 0 },
+          { x: 20, y: 0 },
+          { x: 20, y: 12 },
+          { x: 0, y: 12 },
+        ];
+        state = applyCalculatorParamsUpdate(state, { polygonPoints: poly240 });
+        expect(state.baseBuildArea).toBe(240);
+
+        const calcResults = calculateProject(state);
+        const ratios = calculateProjectZoningRatios(state, calcResults);
+
+        // TAKS = 240 / 500 = %48.0
+        expect(ratios.baseArea).toBe(240);
+        expect(ratios.taksPercent).toBeCloseTo(48, 2);
+        // KAKS konsol çıkma dahil gerçek toplam inşaat alanı / arsa alanına eşit olmalı
+        expect(ratios.totalConstructionArea).toBeCloseTo(calcResults.totalArea, 2);
+        expect(ratios.kaksRatio).toBeCloseTo(calcResults.totalArea / 500, 4);
+      });
+
+      it('polygonDraw modunda baseBuildArea güncellendiğinde poligon geometrisi yeni taban alanına ölçeklenir', () => {
+        let state = createSampleProject({
+          footprintInputMode: 'polygonDraw',
+          polygonPoints: [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 10, y: 10 },
+            { x: 0, y: 10 },
+          ],
+          baseBuildArea: 100,
+        });
+
+        state = applyCalculatorParamsUpdate(state, { baseBuildArea: 225 });
+        expect(state.baseBuildArea).toBe(225);
+        expect(calculatePolygonArea(state.polygonPoints!)).toBeCloseTo(225, 1);
+      });
+    });
+
+    describe('Y-7: Sözleşme Teklif Numarası ve Ek-1 Malik Bilgileri (landowners Fallback)', () => {
+      it('Sözleşme belgesinde teklif numarası yer alır ve Ek-1 tablosunda ownerId bulunamadığında landowners verisi kullanılır', () => {
+        const state = createSampleProject({
+          offerMeta: {
+            proposalNumber: 'ABY-2026-8842',
+            createdAt: '2026-04-01T10:00:00.000Z',
+            validUntil: '2026-04-16T10:00:00.000Z',
+            validityDays: 15,
+            currentVersion: 1,
+            statusHistory: [],
+          },
+          landowners: [
+            {
+              id: 'real-owner-1',
+              name: 'Mustafa Demir',
+              tcOrTaxNo: '44556677880',
+              phone: '0532 111 22 33',
+              landShareNumerator: 320,
+              landShareDenominator: 1000,
+            },
+            {
+              id: 'real-owner-2',
+              name: 'Zeynep Çelik',
+              tcOrTaxNo: '99887766554',
+              phone: '0533 444 55 66',
+              landShareNumerator: 280,
+              landShareDenominator: 1000,
+            },
+          ],
+        });
+
+        // Dairelerin ownerId değeri silinmiş veya geçersiz ('stale-id') bırakılmış olsun
+        state.flats[0] = {
+          ...state.flats[0],
+          ownerId: 'non-existent-owner-id',
+          name: 'Kat Maliki 1',
+          tc: '10000000001',
+        };
+        state.flats[1] = {
+          ...state.flats[1],
+          ownerId: undefined,
+          name: 'Kat Maliki 2',
+          tc: '10000000002',
+        };
+
+        const results = calculateProject(state);
+
+        expect(resolveContractProposalNumber(state, 'AB YAPI')).toBe('ABY-2026-8842');
+
+        const owner1Info = resolveContractAnnexOwnerInfo(results.flatResults[0], state, 0);
+        expect(owner1Info.ownerName).toBe('Mustafa Demir');
+        expect(owner1Info.ownerTc).toBe('44556677880');
+        expect(owner1Info.landShareText).toBe('320/1000');
+
+        const owner2Info = resolveContractAnnexOwnerInfo(results.flatResults[1], state, 1);
+        expect(owner2Info.ownerName).toBe('Zeynep Çelik');
+        expect(owner2Info.ownerTc).toBe('99887766554');
+        expect(owner2Info.landShareText).toBe('280/1000');
+
+        const html = generateContractHtml(state, results);
+        expect(html).toContain('ABY-2026-8842');
+        expect(html).toContain('Mustafa Demir');
+        expect(html).toContain('44556677880');
+        expect(html).toContain('320/1000');
+      });
+    });
+
+    describe('Y-8: projectAddress Değiştiğinde Şantiye Kayıtlarının Korunması', () => {
+      beforeEach(() => {
+        localStorage.clear();
+      });
+
+      it('Proje adresi değiştiğinde resolveProjectProgressKeys eski şantiye kayıtlarını kaybettirmez, ancak farklı projeleri birbirinden izole tutar', () => {
+        const initialKeys = resolveProjectProgressKeys({
+          projectAddress: 'Kadıköy Moda Mah. 10 Ada 2 Parsel',
+          projectName: 'Moda Sahil Konakları',
+          proposalNumber: 'ABY-2026-9901',
+        });
+
+        // İlk adres anahtarına şantiye verisi kaydedilsin
+        setLocalProgressItemByKeys(
+          initialKeys.primaryKey,
+          initialKeys.candidateKeys.slice(1),
+          'stages',
+          JSON.stringify([{ id: 'stage_1', progressPercent: 85 }])
+        );
+
+        // Kullanıcı aynı projenin adresini güncellesin
+        const updatedAddressKeys = resolveProjectProgressKeys({
+          projectAddress: 'Kadıköy Caferağa Mah. 10 Ada 2 Parsel (Yeni Adres)',
+          projectName: 'Moda Sahil Konakları',
+          proposalNumber: 'ABY-2026-9901',
+        });
+
+        const recoveredStages = getLocalProgressItemByKeys(
+          updatedAddressKeys.candidateKeys,
+          'stages'
+        );
+        expect(recoveredStages).not.toBeNull();
+        expect(JSON.parse(recoveredStages!)[0].progressPercent).toBe(85);
+
+        // Tamamen farklı bir projeye geçildiğinde eski projenin şantiye verisi karışmaz (K-2 koruması)
+        const otherProjectKeys = resolveProjectProgressKeys({
+          projectAddress: 'Beşiktaş Levent Mah. 55 Ada 9 Parsel',
+          projectName: 'Levent Kule',
+          proposalNumber: 'ABY-2026-7700',
+        });
+        expect(
+          getLocalProgressItemByKeys(otherProjectKeys.candidateKeys, 'stages')
+        ).toBeNull();
+      });
+    });
+  });
 });
+
 
 

@@ -110,6 +110,10 @@ import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
 import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel';
 import { getInitialBuildingModelParams } from '../utils/buildingModelUtils';
 import { BuildingModelParams, SavedProjectData } from '../types';
+import {
+  calculateProjectZoningRatios,
+  equalizeFloorAreasPreservingManualValues,
+} from '../utils/workflowConsistencyUtils';
 
 interface ProjectSetupTabProps {
   params: ProjectParams;
@@ -446,93 +450,33 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     const baseArea = params.baseBuildArea || footprintResult.area;
     const cantileverInfo = calculateCantileverDetails(params, baseArea, footprintResult);
     const upperFloorArea = cantileverInfo.upperFloorArea;
-    const roofType = params.roofType || 'gable';
-    const isMansard = roofType === 'mansard';
-    const isDuplex = roofType === 'duplex';
-    const floorCount = Math.max(1, params.floorCount || 5);
     const flatsPerFloor = Math.max(1, params.flatsPerFloor || 2);
-    const hasShop = !!params.hasGroundFloorShop;
-    const shopCount = hasShop ? Math.max(1, params.shopCount || 1) : 0;
-    
-    const roofAtticArea = isDuplex
-      ? Math.round(upperFloorArea * 0.65 * 100) / 100
-      : isMansard
-      ? Math.round(upperFloorArea * 0.70 * 100) / 100
-      : 0;
-
     const totalFlats = calculateFlatCount(params);
-
-    const rebalancedFlats = synchronizeFlats(
-      params.flats,
-      totalFlats,
-      baseArea,
-      floorCount,
-      params.transformationStatus,
-      roofType,
-      flatsPerFloor,
-      params.mansardFlatCount,
-      roofAtticArea,
-      hasShop,
-      shopCount,
-      upperFloorArea,
-      params.basementPurpose,
-      params.basementShopCount || 1,
-      params.basementCount !== undefined ? params.basementCount : 1,
-      params.basementConfig
-    );
-
-    const shopAvg = shopCount > 0 ? parseFloat((baseArea / shopCount).toFixed(2)) : 0;
     const upperFlatAvg = parseFloat((upperFloorArea / flatsPerFloor).toFixed(2));
-    const groundResFlatAvg = parseFloat((baseArea / flatsPerFloor).toFixed(2));
-    const mansardFlats = rebalancedFlats.filter((f) => f.flatType === 'mansard');
-    const mansardCount = mansardFlats.length > 0 ? mansardFlats.length : (params.mansardFlatCount || flatsPerFloor);
-    const mansardAreaShare = mansardCount > 0 && roofAtticArea > 0
-      ? parseFloat((roofAtticArea / mansardCount).toFixed(2))
-      : parseFloat(((upperFloorArea * 0.70) / Math.max(1, flatsPerFloor)).toFixed(2));
-    const duplexAddArea = isDuplex && roofAtticArea > 0
-      ? parseFloat((roofAtticArea / Math.min(flatsPerFloor, rebalancedFlats.filter((f) => f.flatType === 'duplex').length || flatsPerFloor)).toFixed(2))
-      : 0;
 
-    const updatedFlats = rebalancedFlats.map((flat) => {
-      let equalArea = upperFlatAvg;
-      if (flat.flatType === 'shop' || flat.flatType === 'basement_shop') {
-        equalArea = shopAvg;
-      } else if (flat.flatType === 'mansard') {
-        equalArea = mansardAreaShare;
-      } else if (flat.flatType === 'duplex') {
-        equalArea = parseFloat((upperFlatAvg + duplexAddArea).toFixed(2));
-      } else if (flat.floorNumber === 0 && !hasShop) {
-        equalArea = groundResFlatAvg;
-      } else {
-        equalArea = upperFlatAvg;
-      }
-
-      return {
-        ...flat,
-        area: equalArea,
-        landShareNumerator: Math.round(equalArea * 10),
-      };
+    const updatedFlats = equalizeFloorAreasPreservingManualValues(params, {
+      preserveManualAreas: false,
+      preserveManualLandShares: true,
     });
 
     const sanitizedContractorIds = (params.contractorFlatIds || []).filter((id) => id <= totalFlats);
 
     onChangeParams({
-      ...params,
       baseBuildArea: baseArea,
       flatCount: totalFlats,
       flats: updatedFlats,
       contractorFlatIds: sanitizedContractorIds,
     });
 
-    setEqualizeSuccessToast(`Tüm kat alanları (${upperFlatAvg} m²/daire) ve ${totalFlats} bağımsız bölümün kat dağılımı tam eşit olarak dengelendi.`);
+    setEqualizeSuccessToast(`Tüm kat alanları (${upperFlatAvg} m²/daire) ve ${totalFlats} bağımsız bölümün kat dağılımı (manuel arsa payları korunarak) dengelendi.`);
     setTimeout(() => setEqualizeSuccessToast(null), 4000);
   };
 
-  // Otomatik Dengeleme: Yapı parametreleri ile daire sayısı veya kat yerleşimleri arasında fark varsa otomatik düzeltir
+  // Y-5: Bağımsız bölüm sayısı değiştiğinde mevcut dairelerin manuel alan ve arsa payı değerlerini ezmeden senkronize et
   const expectedFlatCount = useMemo(() => calculateFlatCount(params), [params]);
   useEffect(() => {
     if (params.flats && params.flats.length !== expectedFlatCount && expectedFlatCount > 0) {
-      handleEqualizeFloorAreas();
+      onChangeParams({ flatCount: expectedFlatCount });
     }
   }, [expectedFlatCount, params.flats?.length]);
 
@@ -875,13 +819,13 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
   const handleBaseAreaInputChange = (valStr: string) => {
     if (valStr === '') {
-      onChangeParams({ ...params, baseBuildArea: 0 });
+      onChangeParams({ baseBuildArea: 0 });
       return;
     }
     const parsed = parseFloat(valStr);
     if (isNaN(parsed) || parsed <= 0) return;
     const patch = buildBaseAreaEditUpdate(params, parsed, activePoints);
-    onChangeParams({ ...params, ...patch });
+    onChangeParams(patch);
     if (!onUpdateBuildingModelParams) {
       setInternalBuildingModelParams((prev) => ({ ...prev, ...patch }));
     }
@@ -921,19 +865,15 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       const rounded = Math.round(currentPolyArea * 10) / 10;
       if (Math.abs((params.baseBuildArea || 0) - rounded) > 0.5) {
         onChangeParams({
-          ...params,
           baseBuildArea: rounded,
         });
       }
     }
-  }, [currentPolyArea, params.footprintInputMode]);
+  }, [currentPolyArea, params.footprintInputMode, params.baseBuildArea]);
 
   const handlePolygonPointsChange = (newPoints: PolygonPoint[]) => {
     const patch = buildPolygonEditUpdate(params, newPoints);
-    onChangeParams({
-      ...params,
-      ...patch,
-    });
+    onChangeParams(patch);
     if (!onUpdateBuildingModelParams) {
       setInternalBuildingModelParams((prev) => ({ ...prev, ...patch }));
     }
@@ -1154,46 +1094,49 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           </div>
 
           {/* Live TAKS & KAKS Hızlı İmar Oranları Çubuğu */}
-          {params.landArea && params.landArea > 0 ? (
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-600">TAKS (Taban Oturum Oranı):</span>
-                  <span className="font-mono font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
-                    %{((params.baseBuildArea / params.landArea) * 100).toFixed(1)}
-                  </span>
+          {params.landArea && params.landArea > 0 ? (() => {
+            const zoningRatios = calculateProjectZoningRatios(params, results);
+            return (
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-600">TAKS (Taban Oturum Oranı):</span>
+                    <span className="font-mono font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+                      %{zoningRatios.taksPercent.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-600">Tahmini KAKS (Emsal):</span>
+                    <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                      {zoningRatios.kaksRatio.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-600">Tahmini KAKS (Emsal):</span>
-                  <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
-                    {(((params.baseBuildArea * (params.floorCount || 5)) / params.landArea)).toFixed(2)}
-                  </span>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] font-bold text-slate-500 mr-1">Hızlı TAKS Seçin:</span>
-                {[25, 30, 35, 40, 50].map((taks) => {
-                  const calculatedBase = Math.round((params.landArea! * taks) / 100);
-                  const isActive = Math.abs((params.baseBuildArea / params.landArea!) * 100 - taks) < 1;
-                  return (
-                    <button
-                      key={taks}
-                      type="button"
-                      onClick={() => handleBaseAreaInputChange(String(calculatedBase))}
-                      className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono transition-all cursor-pointer ${
-                        isActive
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      %{taks} ({calculatedBase}m²)
-                    </button>
-                  );
-                })}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-500 mr-1">Hızlı TAKS Seçin:</span>
+                  {[25, 30, 35, 40, 50].map((taks) => {
+                    const calculatedBase = Math.round((params.landArea! * taks) / 100);
+                    const isActive = Math.abs(zoningRatios.taksPercent - taks) < 1;
+                    return (
+                      <button
+                        key={taks}
+                        type="button"
+                        onClick={() => handleBaseAreaInputChange(String(calculatedBase))}
+                        className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        %{taks} ({calculatedBase}m²)
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ) : null}
+            );
+          })() : null}
 
           {/* Parsel / Taban Şekli Hızlı Geometri Seçimi */}
           <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1246,7 +1189,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               onChangePoints={handlePolygonPointsChange}
               facadeConfigs={params.facadeConfigs || activeBuildingModelParams.facadeConfigs}
               onChangeFacadeConfigs={(configs) => {
-                onChangeParams({ ...params, facadeConfigs: configs });
+                onChangeParams({ facadeConfigs: configs });
                 if (!onUpdateBuildingModelParams) {
                   setInternalBuildingModelParams((prev) => ({ ...prev, facadeConfigs: configs }));
                 }
@@ -1601,11 +1544,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           onChange={(e) => {
                             const val = e.target.value;
                             const parsed = parseInt(val) || 0;
-                            const normalFloors = params.hasGroundFloorShop ? Math.max(1, parsed - 1) : parsed;
                             onChangeParams({
-                              ...params,
                               floorCount: val === '' ? 0 : parsed,
-                              flatCount: val === '' ? 0 : normalFloors * (params.flatsPerFloor || 2),
                             });
                           }}
                           className={`w-full text-xs font-black font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
@@ -1624,7 +1564,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           min={2.5}
                           max={4.5}
                           value={params.floorHeight || 2.9}
-                          onChange={(e) => onChangeParams({ ...params, floorHeight: parseFloat(e.target.value) || 2.9 })}
+                          onChange={(e) => onChangeParams({ floorHeight: parseFloat(e.target.value) || 2.9 })}
                           className={`w-full text-xs font-bold font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
                         />
                       </div>
@@ -1640,7 +1580,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           min="0"
                           max="3.0"
                           value={params.balconyDepth ?? 1.4}
-                          onChange={(e) => onChangeParams({ ...params, balconyDepth: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          onChange={(e) => onChangeParams({ balconyDepth: Math.max(0, parseFloat(e.target.value) || 0) })}
                           className={`w-full text-xs font-bold font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
                         />
                       </div>
@@ -1655,7 +1595,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                             <button
                               key={cnt}
                               type="button"
-                              onClick={() => onChangeParams({ ...params, elevatorCount: cnt })}
+                              onClick={() => onChangeParams({ elevatorCount: cnt })}
                               className={`flex-1 py-1.5 text-[10px] font-bold rounded-md border transition-all ${
                                 (params.elevatorCount ?? 1) === cnt
                                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
@@ -1693,11 +1633,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                             onChange={(e) => {
                               const val = e.target.value;
                               const parsed = parseInt(val) || 0;
-                              const normalFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : (params.floorCount || 5);
                               onChangeParams({
-                                ...params,
                                 flatsPerFloor: val === '' ? 0 : parsed,
-                                flatCount: val === '' ? 0 : normalFloors * parsed,
                               });
                             }}
                             className={`w-full text-xs font-black font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
@@ -1712,7 +1649,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           <select
                             id="minimalRoomTypeSelect"
                             value={params.roomType || '3+1'}
-                            onChange={(e) => onChangeParams({ ...params, roomType: e.target.value as RoomType })}
+                            onChange={(e) => onChangeParams({ roomType: e.target.value as RoomType })}
                             className="w-full text-[11px] font-bold px-2.5 py-1.5 rounded-lg border bg-white border-slate-200"
                           >
                             <option value="1+1">1+1 Stüdyo</option>
@@ -2094,10 +2031,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     title="2D Cephe Ölçüleri ve Yol Yönetimi (3D Model ile Canlı Senkronize)"
                     onUpdateFacades={(res: InteractiveFacadeUpdateResult) => {
                       const patch = buildFacadeEditUpdate(params, res);
-                      onChangeParams({
-                        ...params,
-                        ...patch,
-                      });
+                      onChangeParams(patch);
                       if (!onUpdateBuildingModelParams) {
                         setInternalBuildingModelParams((prev) => ({ ...prev, ...patch }));
                       }
