@@ -436,7 +436,22 @@ export async function exportElementToPdf(
     logging: false,
     backgroundColor: '#ffffff',
     windowWidth: element.scrollWidth || 1200,
-    onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+    onclone: (clonedDoc: Document, clonedElement: HTMLElement) => {
+      // Remove/hide screen-only and internal-only elements so they NEVER leak into customer PDFs
+      const hiddenSelectors = [
+        '.print\\:hidden',
+        '.no-print',
+        '[data-internal-only="true"]',
+      ];
+      for (const selector of hiddenSelectors) {
+        try {
+          clonedDoc.querySelectorAll(selector).forEach((node) => {
+            (node as HTMLElement).style.display = 'none';
+            node.remove();
+          });
+        } catch {}
+      }
+
       // Ensure element in clone is visible with clean white background for print
       clonedElement.style.overflow = 'visible';
       clonedElement.style.maxHeight = 'none';
@@ -528,4 +543,76 @@ export async function exportElementToPdf(
   }
 
   pdf.save(cleanFilename);
+}
+
+/**
+ * Renders a complete standalone HTML string (such as generateOfferHtml output) inside a hidden
+ * isolated iframe and exports it directly to a downloadable A4 PDF file.
+ * Works regardless of which React tab is currently active.
+ */
+export async function exportHtmlToPdf(
+  htmlContent: string,
+  filename: string = 'belge.pdf',
+  options?: PdfExportOptions
+): Promise<void> {
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '-10000px';
+  iframe.style.top = '0';
+  iframe.style.width = '900px';
+  iframe.style.height = '1200px';
+  iframe.style.border = '0';
+  iframe.style.opacity = '0';
+  iframe.style.pointerEvents = 'none';
+  document.body.appendChild(iframe);
+
+  try {
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      throw new Error('PDF oluşturma konteyneri başlatılamadı.');
+    }
+
+    iframeDoc.open();
+    iframeDoc.write(htmlContent);
+    iframeDoc.close();
+
+    // Wait briefly for embedded images/styles to settle
+    await new Promise<void>((resolve) => {
+      const imgs = Array.from(iframeDoc.images || []);
+      if (imgs.length === 0) {
+        setTimeout(resolve, 120);
+        return;
+      }
+      let remaining = imgs.length;
+      const done = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+      };
+      const safetyTimer = setTimeout(resolve, 1500);
+      imgs.forEach((img) => {
+        if (img.complete) {
+          done();
+        } else {
+          img.addEventListener('load', () => { done(); if (remaining <= 0) clearTimeout(safetyTimer); }, { once: true });
+          img.addEventListener('error', () => { done(); if (remaining <= 0) clearTimeout(safetyTimer); }, { once: true });
+        }
+      });
+    });
+
+    const targetBody = iframeDoc.body;
+    if (!targetBody) {
+      throw new Error('PDF içeriği yüklenemedi.');
+    }
+
+    targetBody.style.width = '840px';
+    targetBody.style.padding = '16px';
+    targetBody.style.backgroundColor = '#ffffff';
+
+    await exportElementToPdf(targetBody, filename, options);
+  } finally {
+    if (iframe.parentNode) {
+      iframe.parentNode.removeChild(iframe);
+    }
+  }
 }

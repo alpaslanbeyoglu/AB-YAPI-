@@ -1,151 +1,87 @@
-import { ProjectParams, CalculationResult, CompanyProfile } from '../types';
-import { getAcOptionById } from './acOptions';
-import { computeDualOffer } from './dualOfferUtils';
-import { getCompletedProjectsText } from './completedProjectsData';
+import {
+  ProjectParams,
+  CalculationResult,
+  CompanyProfile,
+  CustomerOfferPayload,
+} from '../types';
+import {
+  buildCustomerOfferPayload,
+  escapeHtml,
+  escapeCssString,
+} from './customerOfferBoundary';
 
-export function generateOfferHtml(
-  params: ProjectParams,
-  res: CalculationResult,
-  showDrawings: boolean = false,
-  companyProfile?: CompanyProfile,
-  uploadedImages?: Array<{ url: string; caption?: string }>
-): string {
-  const isDualOffer = params.offerPresentationMode === 'dual';
-  const dualData = isDualOffer ? computeDualOffer(params) : null;
-  const opts = companyProfile?.printOptions || {};
-  const showLogo = opts.showLogo !== false;
-  const showLegal = opts.showLegalName !== false;
-  const showSlogan = opts.showSlogan !== false;
-  const showTagline = opts.showTagline !== false;
-  const showPhone = opts.showPhone !== false;
-  const showEmail = opts.showEmail !== false;
-  const showWeb = opts.showWebsite !== false;
-  const showAddr = opts.showAddress !== false;
-  const showTax = opts.showTaxInfo !== false;
-  const showBank = opts.showBankInfo !== false;
-  const showFirstAuth = opts.showFirstAuthorized !== false;
-  const showFirstAuthChamber = opts.showFirstAuthorizedChamber !== false;
-  const showSecondAuth = opts.showSecondAuthorized === true && !!companyProfile?.authorizedPerson2;
-  const showSecondAuthChamber = opts.showSecondAuthorizedChamber !== false;
-  const showStamp = opts.showStamp !== false;
+/**
+ * Müşteriye sunulacak resmî teklif HTML belgesini YALNIZCA güvenli CustomerOfferPayload
+ * veri sınırı üzerinden üretir. İç maliyet, kâr, enflasyon tamponu ve şirket içi notlar
+ * bu katmana yapısal olarak erişemez.
+ */
+export function generateOfferHtmlFromPayload(payload: CustomerOfferPayload): string {
+  const {
+    branding,
+    identity,
+    project,
+    sharing,
+    pricing,
+    presentation,
+    innovativeOptions,
+    dualOffer,
+    publicNotes,
+    additionalClauses,
+    attachments,
+  } = payload;
 
-  const compName = companyProfile?.companyName || 'AB YAPI';
-  const compLegal = companyProfile?.legalName || 'AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ.';
-  const compSlogan = companyProfile?.slogan || 'Güvene Yükselen Yapılar';
-  const compTagline = companyProfile?.tagline || 'Kentsel Dönüşüm ve Nitelikli Konut Üretimi';
-  const compAddress = companyProfile?.address || 'Kocamustafapaşa Mah. Orgeneral Abdurrahman Nafiz Gürman Cad. No:42 Fatih / İSTANBUL';
-  const compPhone = companyProfile?.phone || '+90 (212) 585 10 20';
-  const compEmail = companyProfile?.email || 'info@abyapi.com.tr';
-  const compWeb = companyProfile?.website || (companyProfile?.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
-  const compAuth = companyProfile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
-  const compAuthTitle = companyProfile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
-  const compAuthChamber = companyProfile?.authorizedChamberNo || 'İMO-74120';
-  const compAuth2 = companyProfile?.authorizedPerson2 || '';
-  const compAuthTitle2 = companyProfile?.authorizedTitle2 || '';
-  const compAuthChamber2 = companyProfile?.authorizedChamberNo2 || '';
-  const compLogo = companyProfile?.logoBase64 || '';
-  const compStamp = companyProfile?.stampBase64 || '';
-  const compTax = companyProfile?.taxOffice && companyProfile?.taxNumber ? `${companyProfile.taxOffice} - V.No: ${companyProfile.taxNumber}` : '';
-  const compBank = companyProfile?.bankName || '';
-  const compIban = companyProfile?.iban || '';
+  const vis = branding.visibility;
+  const e = escapeHtml;
+  const compNameEsc = e(branding.companyName);
+  const compLegalEsc = e(branding.legalName);
+  const compSloganEsc = e(branding.slogan);
+  const compTaglineEsc = e(branding.tagline);
+  const compAddrEsc = e(branding.address);
+  const compPhoneEsc = e(branding.phone);
+  const compEmailEsc = e(branding.email);
+  const compWebEsc = e(branding.website);
+  const compTaxEsc = e(branding.taxInfo);
+  const compBankEsc = e(branding.bankName);
+  const compIbanEsc = e(branding.iban);
+  const compAuthEsc = e(branding.authorizedPerson);
+  const compAuthTitleEsc = e(branding.authorizedTitle);
+  const compAuthChamberEsc = e(branding.authorizedChamberNo);
+  const compAuth2Esc = e(branding.authorizedPerson2);
+  const compAuthTitle2Esc = e(branding.authorizedTitle2);
+  const compAuthChamber2Esc = e(branding.authorizedChamberNo2);
+  const compLogoEsc = e(branding.logoBase64);
+  const compStampEsc = e(branding.stampBase64);
 
-  const supportText =
-    params.transformationStatus === 'currentSupport'
-      ? 'Yarısı Bizden (875 Bin TL Hibe + 875 Bin TL Kredi Desteği)'
-      : params.transformationStatus === 'futureSupport2027'
-      ? '2027 Kentsel Dönüşüm Kredi Modeli (3 Milyon TL / 180 Ay Vade)'
-      : 'Öz Kaynaklı / Desteksiz Yapım Modeli';
-
-  const isContractorShareModel = params.projectModel === 'contractorShare';
-
-  const proposalNumber = `${compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-${new Date().getFullYear()}-${String(res.flatCount || 10).padStart(3, '0')}`;
-  const proposalDate = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const validityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-  // Categorize unit metrics matching OfferTab
-  const shopUnits = res.flatResults.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop');
-  const normalUnits = res.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'basement_shop' && f.flatType !== 'mansard' && f.flatType !== 'duplex');
-  const mansardUnits = res.flatResults.filter(f => f.flatType === 'mansard' || f.flatType === 'duplex');
-
-  const avgShopArea = shopUnits.length > 0 ? Math.round(shopUnits.reduce((acc, f) => acc + f.area, 0) / shopUnits.length) : 0;
-  const avgNormalArea = normalUnits.length > 0 ? Math.round(normalUnits.reduce((acc, f) => acc + f.area, 0) / normalUnits.length) : Math.round(res.totalArea / (res.flatCount || 1));
-  const avgMansardArea = mansardUnits.length > 0 ? Math.round(mansardUnits.reduce((acc, f) => acc + f.area, 0) / mansardUnits.length) : 0;
-
-  const flatUnitPriceVal = params.manualFlatUnitPrice || res.grossCostPerSqM;
-  const shopUnitPriceVal = params.manualShopUnitPrice || res.grossCostPerSqM;
-
-  // Bağımsız Bölüm Paylaşımı (Arsa Sahibi vs Yüklenici — iç maliyet/kâr bilgisi olmadan)
-  const totalUnitCount = res.flatResults.length;
-  const ownerUnitResults = res.flatResults.filter(f => !f.isContractorShare);
-  const contractorUnitResults = res.flatResults.filter(f => f.isContractorShare);
-  const totalAllocatedArea = res.flatResults.reduce((sum, f) => sum + (f.area || 0), 0);
-  const ownerAllocatedArea = ownerUnitResults.reduce((sum, f) => sum + (f.area || 0), 0);
-  const contractorAllocatedArea = contractorUnitResults.reduce((sum, f) => sum + (f.area || 0), 0);
-  const ownerSharePercent = totalAllocatedArea > 0 ? Math.round((ownerAllocatedArea / totalAllocatedArea) * 100) : 100;
-  const contractorSharePercent = totalAllocatedArea > 0 ? 100 - ownerSharePercent : 0;
-
-  const landAreaVal = params.landArea || 0;
-  const baseAreaVal = res.baseArea || params.baseBuildArea || 0;
-  const taksText = landAreaVal > 0 ? `%${((baseAreaVal / landAreaVal) * 100).toFixed(1)}` : '-';
-  const kaksText = landAreaVal > 0 ? `${(res.totalArea / landAreaVal).toFixed(2)}` : '-';
-
-  const formatUnitTypeLabel = (ft?: string) => {
-    switch (ft) {
-      case 'shop': return 'Zemin Dükkan';
-      case 'basement_shop': return 'Bodrum Dükkan';
-      case 'mansard': return 'Mansart / Çatı';
-      case 'duplex': return 'Çatı Dubleks';
-      case 'basement_flat': return 'Bodrum Daire';
-      default: return 'Konut Dairesi';
-    }
-  };
-
-  const formatFloorLabel = (floorNum?: number, ft?: string) => {
-    if (ft === 'basement_shop' || ft === 'basement_flat') return 'Bodrum Kat';
-    if (ft === 'shop' || floorNum === 0) return 'Zemin Kat';
-    if (floorNum !== undefined && floorNum > 0) return `${floorNum}. Kat`;
-    return 'Normal Kat';
-  };
-
-  const paymentPlanLabel =
-    params.paymentPlanType === 'hybrid'
-      ? 'Karma Ödeme (Peşinat + Ara Ödeme + Taksit)'
-      : params.paymentPlanType === 'stages'
-      ? '5 Aşamalı Fiziki İlerleme Hakedişi'
-      : `Aylık Eşit Taksit (${params.installmentCount || 12} Ay Vade)`;
+  const isDualOffer = presentation.mode === 'dual' && dualOffer !== null;
+  const isContractorShareModel = project.isContractorShareModel;
 
   let introPageHtml = '';
-  if (params.showIntroPresentation) {
-    const introText = params.introExplanation || "1960'lardan bugüne uzanan köklü inşaat tecrübemiz ve üçüncü nesil dinamizmimizle, kentsel dönüşüm projelerimizde hem güvenliği hem de modern konfor standartlarını en üst düzeyde buluşturuyoruz. Sektördeki yarım asrı aşan birikimimizle tasarladığımız bu projede, bütçe dostu akılcı maliyet çözümleri sunarken, en güncel deprem yönetmeliklerine ve güvenli standartlarına tavizsiz şekilde uyuyoruz. Depreme tam dayanıklı mühendislik anlayışımızı, yaşamı kolaylaştıran modern mimari detaylarla harmanlayarak sizler için uzun ömürlü, değerli ve huzurlu yaşam alanları inşa ediyoruz.";
+  if (presentation.showIntroPresentation) {
     introPageHtml = `
   <!-- SUNUM VE GİRİŞ SAYFASI -->
   <div style="page-break-after: always; break-after: page; padding: 24px; border: 1px solid #e2e8f0; border-radius: 20px; margin-bottom: 30px; background: #faf5ff; display: flex; flex-direction: column; justify-content: space-between; min-height: 250mm; box-sizing: border-box;">
     <div>
-      <!-- Logo ve Başlık -->
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b21a8; padding-bottom:15px; margin-bottom:25px;">
         <div style="display:flex; align-items:center; gap:12px;">
-          ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px; max-width:130px; object-fit:contain;" />` : ''}
+          ${vis.showLogo && compLogoEsc ? `<img src="${compLogoEsc}" alt="${compNameEsc}" style="max-height:50px; max-width:130px; object-fit:contain;" />` : ''}
           <div>
-            <span style="font-size:16px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compName}</span>
+            <span style="font-size:16px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compNameEsc}</span>
             <div style="font-size:9px; color:#5b21b6; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; font-family:sans-serif; margin-top:2px;">PROJE ÖNSÖZÜ VE DEĞER SUNUMU</div>
           </div>
         </div>
         <span style="font-size:9.5px; font-weight:bold; padding:4px 10px; background:#f3e8ff; border:1px solid #d8b4fe; color:#6b21a8; border-radius:20px; font-family:sans-serif;">Özel Sunum</span>
       </div>
 
-      <!-- Büyük Görsel / Kapak Havası -->
       <div style="text-align:center; padding:30px 20px; margin-bottom:25px; background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); border-radius:16px; color:#ffffff; box-shadow:0 4px 12px rgba(124, 58, 237, 0.15);">
         <div style="font-size:22px; font-weight:bold; letter-spacing:-0.5px; margin-bottom:8px; font-family:sans-serif;">Geleceği Güvenle İnşa Ediyoruz</div>
-        <div style="font-size:11.5px; opacity:0.9; max-width:500px; margin:0 auto; line-height:1.5; font-family:sans-serif;">${params.projectAddress || 'Belirtilen Adres'} Kentsel Dönüşüm ve Yaşam Projesi Değer Teklifi</div>
+        <div style="font-size:11.5px; opacity:0.9; max-width:500px; margin:0 auto; line-height:1.5; font-family:sans-serif;">${e(project.projectAddress)} Kentsel Dönüşüm ve Yaşam Projesi Değer Teklifi</div>
       </div>
 
-      <!-- Giriş Metni (Neleri Neden Yaptık?) -->
       <div style="background:#ffffff; border:1px solid #ddd6fe; padding:20px; border-radius:16px; box-shadow:0 2px 8px rgba(0,0,0,0.02); margin-bottom:20px;">
         <h2 style="font-size:13px; font-weight:bold; color:#4c1d95; margin-top:0; margin-bottom:10px; border-bottom:1px solid #f3e8ff; padding-bottom:6px; text-transform:uppercase; font-family:sans-serif;">Neleri, Neden ve Nasıl Yapıyoruz?</h2>
-        <p style="font-size:10.5px; color:#334155; line-height:1.6; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${introText}</p>
+        <p style="font-size:10.5px; color:#334155; line-height:1.6; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${e(presentation.introText)}</p>
       </div>
 
-      <!-- Temel Mühendislik Değerleri -->
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
         <div style="background:#ffffff; border:1px solid #e2e8f0; padding:12px; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.01);">
           <strong style="color:#6b21a8; font-size:11px; display:block; margin-bottom:4px; font-family:sans-serif;">🛡️ Deprem Güvenliği Odaklılık</strong>
@@ -158,9 +94,8 @@ export function generateOfferHtml(
       </div>
     </div>
 
-    <!-- Alt Bilgi -->
     <div style="display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:12px; margin-top:20px; font-family:sans-serif;">
-      <span>${compLegal}</span>
+      <span>${compLegalEsc}</span>
       <span>Sayfa I</span>
     </div>
   </div>
@@ -168,58 +103,50 @@ export function generateOfferHtml(
   }
 
   let historyPageHtml = '';
-  if (params.showCompanyHistory) {
-    const historyText = params.companyHistoryText || "1960’lı yıllarda kurucumuz Emin Ahmetbeyoğlu’nun vizyonuyla temelleri atılan inşaat serüvenimiz, yarım asrı aşan tecrübesiyle sektördeki köklü yürüyüşünü sürdürmektedir. İkinci kuşak temsilcilerimiz Faruk Ahmetbeyoğlu ve aile büyüklerimizin öncülüğünde; Laleli, Fatih, Kocamustafapaşa, Silivrikapı, Samatya ve Yedikule gibi İstanbul’un tarihi suriçi bölgelerinde onlarca nitelikli projeye imza atarak şehrin dokusuna kalıcı değerler kattık.\n\n2010’lu yıllarda piyasa dinamiklerindeki değişimleri doğru okuyarak kurumsal yatırımlarımızı sağlık ve tarım gibi stratejik sektörlere de yönlendirdik ve vizyonumuzu daha da genişlettik. Bugün ise edindiğimiz bu çok yönlü kurumsal tecrübe ve artan sektörel talepler doğrultusunda, üçüncü nesil olarak inşaat markamızı çağın gereksinimlerine uygun, dinamik ve yenilikçi bir altyapıyla yeniden yapılandırıyoruz.\n\nGeçmişten aldığımız güven mirasını, geleceğin teknolojileriyle harmanlayarak kaldığımız yerden, daha güçlü bir şekilde üretmeye devam ediyoruz.";
-    const completedProjects = params.companyCompletedProjects || getCompletedProjectsText();
-    const mission = params.companyMission || "Köklerimizden aldığımız tecrübeyi modern mühendislik çözümleriyle birleştirerek; insan odaklı, yapısal güvenliği merkeze alan ve yaşam standartlarını daima yukarı taşıyan projeler üretmektir.";
-    const vision = params.companyVision || "Geleneksel inşaat kültürümüzü modern mimari trendlerle zenginleştirerek, müşterilerimiz için hem yüksek kaliteli hem de bütçe dostu, ulaşılabilir ve akılcı yaşam alanları inşa eden öncü bir marka olmaktır.";
-
-    const projectList = completedProjects.split('\n').filter(p => p.trim().length > 0).map(p => `
+  if (presentation.showCompanyHistory) {
+    const projectList = presentation.completedProjects
+      .map(
+        (p) => `
       <div style="font-size:8px; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; padding:4px 7px; border-radius:6px; font-family:sans-serif; box-sizing:border-box; display:flex; align-items:center; gap:5px; overflow:hidden;">
         <span style="color:#6b21a8; font-weight:bold; font-size:9px; flex-shrink:0;">📍</span>
-        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;">${p.replace(/^\d+[\.\)]\s*/, '')}</span>
+        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;">${e(p)}</span>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
 
     historyPageHtml = `
   <!-- FİRMA GEÇMİŞİ VE KURUMSAL PROFİL SAYFASI -->
   <div style="page-break-after: always; break-after: page; padding: 22px; border: 1px solid #e2e8f0; border-radius: 18px; margin-bottom: 25px; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between; min-height: 240mm; box-sizing: border-box;">
     <div>
-      <!-- Logo ve Başlık -->
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b21a8; padding-bottom:12px; margin-bottom:16px;">
         <div style="display:flex; align-items:center; gap:12px;">
-          ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:46px; max-width:130px; object-fit:contain;" />` : ''}
+          ${vis.showLogo && compLogoEsc ? `<img src="${compLogoEsc}" alt="${compNameEsc}" style="max-height:46px; max-width:130px; object-fit:contain;" />` : ''}
           <div>
-            <span style="font-size:15px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compName}</span>
+            <span style="font-size:15px; font-weight:900; color:#6b21a8; letter-spacing:-0.2px; font-family:sans-serif;">${compNameEsc}</span>
             <div style="font-size:8.5px; color:#5b21b6; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; font-family:sans-serif; margin-top:2px;">KURUMSAL ŞİRKET PROFİLİ & GEÇMİŞİ</div>
           </div>
         </div>
         <span style="font-size:9px; font-weight:bold; padding:4px 10px; background:#f3e8ff; border:1px solid #d8b4fe; color:#6b21a8; border-radius:20px; font-family:sans-serif;">Kurumsal Profil</span>
       </div>
 
-      <!-- Üst Bölüm: Tarihçe (Sol) ve Misyon/Vizyon (Sağ) -->
       <div style="display:grid; grid-template-columns: 1.15fr 0.85fr; gap:14px; margin-bottom:14px; box-sizing: border-box;">
-        <!-- Sol Sütun: Şirket Tarihçesi -->
         <div style="background:#faf5ff; border:1px solid #e9d5ff; padding:14px; border-radius:12px;">
           <h3 style="font-size:11px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:6px; text-transform:uppercase; border-bottom:1px solid #d8b4fe; padding-bottom:4px; font-family:sans-serif;">🏢 Biz Kimiz? Şirket Tarihçemiz</h3>
-          <p style="font-size:9.5px; color:#334155; line-height:1.5; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${historyText}</p>
+          <p style="font-size:9.5px; color:#334155; line-height:1.5; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${e(presentation.companyHistoryText)}</p>
         </div>
 
-        <!-- Sağ Sütun: Misyon, Vizyon & Mühendislik Güvencesi -->
         <div style="display:flex; flex-direction:column; gap:8px; justify-content:space-between;">
-          <!-- Misyonumuz -->
           <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #6b21a8; padding:10px 12px; border-radius:10px;">
             <h3 style="font-size:10.5px; font-weight:bold; color:#5b21b6; margin-top:0; margin-bottom:4px; text-transform:uppercase; font-family:sans-serif;">🎯 Misyonumuz</h3>
-            <p style="font-size:9px; color:#475569; line-height:1.45; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${mission}</p>
+            <p style="font-size:9px; color:#475569; line-height:1.45; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${e(presentation.companyMission)}</p>
           </div>
 
-          <!-- Vizyonumuz -->
           <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #4f46e5; padding:10px 12px; border-radius:10px;">
             <h3 style="font-size:10.5px; font-weight:bold; color:#4f46e5; margin-top:0; margin-bottom:4px; text-transform:uppercase; font-family:sans-serif;">🚀 Vizyonumuz</h3>
-            <p style="font-size:9px; color:#475569; line-height:1.45; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${vision}</p>
+            <p style="font-size:9px; color:#475569; line-height:1.45; margin:0; text-align:justify; white-space:pre-wrap; font-family:sans-serif;">${e(presentation.companyVision)}</p>
           </div>
 
-          <!-- Mühendislik Taahhüt -->
           <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #cbd5e1; padding:8px 10px; border-radius:10px; display:flex; align-items:center; gap:8px;">
             <span style="font-size:16px;">⭐</span>
             <div>
@@ -230,7 +157,6 @@ export function generateOfferHtml(
         </div>
       </div>
 
-      <!-- Alt Bölüm: Tamamlanan Referans Projeler (Sayfaya Tam Yatay Olarak Yayılmış 3 Sütunlu Izgara) -->
       <div style="background:#ffffff; border:1px solid #e2e8f0; padding:12px 14px; border-radius:12px; box-sizing: border-box;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:5px; margin-bottom:8px;">
           <h3 style="font-size:10.5px; font-weight:bold; color:#1e1b4b; margin:0; text-transform:uppercase; font-family:sans-serif;">🏆 Tamamlanan Referans Projeler (İstanbul Geneli)</h3>
@@ -242,32 +168,23 @@ export function generateOfferHtml(
       </div>
     </div>
 
-    <!-- Alt Bilgi -->
     <div style="display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; border-top:1px solid #f1f5f9; padding-top:10px; margin-top:12px; font-family:sans-serif;">
-      <span>${compLegal}</span>
+      <span>${compLegalEsc}</span>
       <span>Sayfa II</span>
     </div>
   </div>
     `;
   }
 
-  // 3. SECTIONS VISIBILITY CONTROL (DEFAULT TO TRUE IF UNDEFINED)
-  const showProposalHeader = params.showProposalHeader !== false;
-  const showVisionCards = params.showVisionCards !== false;
-  const showTechnicalSummary = params.showTechnicalSummary !== false;
-  const showQualityStandards = params.showQualityStandards !== false;
-  const showInnovativeOptions = params.showInnovativeOptions !== false;
-  const showDualOfferMatrix = params.showDualOfferMatrix !== false;
-  const showFinancialSummary = params.showFinancialSummary !== false;
-  const showPaymentTimeline = params.showPaymentTimeline !== false;
-  const showLegalTaahhut = params.showLegalTaahhut !== false;
-  const showContractorSignature = params.showContractorSignature !== false;
+  const footerCssLeft = escapeCssString(
+    `${branding.companyName}${vis.showWebsite && branding.website ? ` • ${branding.website}` : ''} - Teklif No: ${identity.proposalNumber} (v${identity.version})`
+  );
 
   return `<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>${compName} - Bina Yapım ve Kentsel Dönüşüm Teklifi</title>
+  <title>${compNameEsc} - Bina Yapım ve Kentsel Dönüşüm Teklifi (${e(identity.proposalNumber)})</title>
   <style>
     @page {
       size: A4 portrait;
@@ -280,7 +197,7 @@ export function generateOfferHtml(
         font-family: sans-serif;
       }
       @bottom-left {
-        content: "${compName}${showWeb && compWeb ? ` • ${compWeb}` : ''} - Kentsel Dönüşüm Teklifi";
+        content: "${footerCssLeft}";
         font-size: 9px;
         color: #64748b;
         font-family: sans-serif;
@@ -317,54 +234,54 @@ export function generateOfferHtml(
 <body>
   ${introPageHtml}
   ${historyPageHtml}
-  
+
   <!-- HEADER & CORPORATE BRANDING -->
   <div class="avoid-break" style="border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:14px;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;">
       <div style="display:flex;align-items:center;gap:12px;">
-        ${showLogo && compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:54px;max-width:140px;object-fit:contain;" />` : ''}
+        ${vis.showLogo && compLogoEsc ? `<img src="${compLogoEsc}" alt="${compNameEsc}" style="max-height:54px;max-width:140px;object-fit:contain;" />` : ''}
         <div>
-          <div style="font-size:16px;font-weight:bold;color:#0f172a;letter-spacing:-0.2px;">${compName}</div>
-          ${showLegal ? `<div style="font-size:9.5px;font-weight:600;color:#334155;margin-top:1px;">${compLegal}</div>` : ''}
-          ${showSlogan ? `<div style="font-size:9px;color:#64748b;font-style:italic;margin-top:1px;">"${compSlogan}"</div>` : ''}
-          ${showTagline ? `<div style="font-size:8.5px;color:#475569;margin-top:1px;">${compTagline}</div>` : ''}
+          <div style="font-size:16px;font-weight:bold;color:#0f172a;letter-spacing:-0.2px;">${compNameEsc}</div>
+          ${vis.showLegal ? `<div style="font-size:9.5px;font-weight:600;color:#334155;margin-top:1px;">${compLegalEsc}</div>` : ''}
+          ${vis.showSlogan ? `<div style="font-size:9px;color:#64748b;font-style:italic;margin-top:1px;">"${compSloganEsc}"</div>` : ''}
+          ${vis.showTagline ? `<div style="font-size:8.5px;color:#475569;margin-top:1px;">${compTaglineEsc}</div>` : ''}
         </div>
       </div>
       <div style="text-align:right;font-size:9px;color:#475569;line-height:1.4;">
-        ${showAddr && compAddress ? `<div>${compAddress}</div>` : ''}
-        <div>${showPhone && compPhone ? `Tel: ${compPhone}` : ''} ${showEmail && compEmail ? `• E-posta: ${compEmail}` : ''}</div>
-        <div>${showWeb && compWeb ? `Web: <a href="${compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}" target="_blank" style="color:#4338ca;text-decoration:none;font-weight:600;">${compWeb}</a>` : ''} ${showTax && compTax ? `• ${compTax}` : ''}</div>
-        ${showBank && compBank && compIban ? `<div style="font-family:monospace;color:#334155;">${compBank} - IBAN: ${compIban}</div>` : ''}
+        ${vis.showAddress && compAddrEsc ? `<div>${compAddrEsc}</div>` : ''}
+        <div>${vis.showPhone && compPhoneEsc ? `Tel: ${compPhoneEsc}` : ''} ${vis.showEmail && compEmailEsc ? `• E-posta: ${compEmailEsc}` : ''}</div>
+        <div>${vis.showWebsite && compWebEsc ? `Web: <a href="${compWebEsc}" target="_blank" rel="noopener noreferrer" style="color:#4338ca;text-decoration:none;font-weight:600;">${compWebEsc}</a>` : ''} ${vis.showTax && compTaxEsc ? `• ${compTaxEsc}` : ''}</div>
+        ${vis.showBank && compBankEsc && compIbanEsc ? `<div style="font-family:monospace;color:#334155;">${compBankEsc} - IBAN: ${compIbanEsc}</div>` : ''}
       </div>
     </div>
   </div>
 
   <!-- PROPOSAL TITLE & METADATA BAR -->
-  ${showProposalHeader ? `
+  ${presentation.showProposalHeader ? `
   <div class="avoid-break" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <div>
         <span class="badge ${isContractorShareModel ? 'badge-emerald' : 'badge-indigo'}">
-          ${isContractorShareModel ? 'Kat Karşılığı İnşaat ve Bağımsız Bölüm Paylaşım Modeli' : supportText}
+          ${e(isContractorShareModel ? 'Kat Karşılığı İnşaat ve Bağımsız Bölüm Paylaşım Modeli' : project.supportModelTitle)}
         </span>
         <h1 style="font-size:16px;font-weight:bold;color:#0f172a;margin:6px 0 2px 0;">
-          ${params.projectName ? `${params.projectName} — ` : ''}BİNA YAPIM VE KENTSEL DÖNÜŞÜM TEKLİFİ
+          ${project.projectName ? `${e(project.projectName)} — ` : ''}BİNA YAPIM VE KENTSEL DÖNÜŞÜM TEKLİFİ
         </h1>
         <p style="font-size:10px;color:#64748b;margin:0;">
-          ${isContractorShareModel ? 'Kat Karşılığı İnşaat ve Bağımsız Bölüm Paylaşım Teklifi' : 'Anahtar Teslim Bina Yapım ve Hakedişli Finansman Teklifi'} • Adres: <strong>${params.projectAddress || 'Belirtilen Adres'}</strong>
+          ${e(project.modelTitle)} • Adres: <strong>${e(project.projectAddress)}</strong>
         </p>
       </div>
       <div style="text-align:right;font-size:9.5px;line-height:1.4;color:#475569;">
-        <div>Teklif No: <strong style="font-family:monospace;color:#0f172a;">${proposalNumber}</strong></div>
-        <div>Düzenleme Tarihi: <strong>${proposalDate}</strong></div>
-        <div>Geçerlilik: <strong>${validityDate} (30 Gün)</strong></div>
-        ${showFirstAuth ? `<div>Yetkili: <strong>${compAuth}</strong> (${compAuthTitle})</div>` : ''}
+        <div>Teklif No: <strong style="font-family:monospace;color:#0f172a;">${e(identity.proposalNumber)}</strong> <span style="font-size:8.5px;color:#6366f1;font-weight:bold;">(v${identity.version})</span></div>
+        <div>Düzenleme Tarihi: <strong>${e(identity.proposalDateFormatted)}</strong></div>
+        <div>Geçerlilik: <strong>${e(identity.validUntilFormatted)} (${identity.validityDays} Gün)</strong></div>
+        ${vis.showFirstAuth ? `<div>Yetkili: <strong>${compAuthEsc}</strong> (${compAuthTitleEsc})</div>` : ''}
       </div>
     </div>
   </div>` : ''}
 
   <!-- PROJE VİZYON VE YAŞAM DEĞERLERİ (3 CARDS) -->
-  ${showVisionCards ? `
+  ${presentation.showVisionCards ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="grid-3">
       <div class="card-muted" style="border-left:3px solid #4f46e5;">
@@ -389,68 +306,68 @@ export function generateOfferHtml(
   </div>` : ''}
 
   <!-- I. PROJE KÜNYESİ, ARSA VE BİNA ÖZELLİKLERİ -->
-  ${showTechnicalSummary ? `
+  ${presentation.showTechnicalSummary ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">I. Proje Künyesi, Arsa ve Bina Özellikleri</div>
     <div class="grid-4" style="margin-bottom:8px;">
       <div class="card-muted">
         <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Arsa & İmar Alanı</div>
         <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">
-          ${landAreaVal > 0 ? `${landAreaVal.toLocaleString('tr-TR')} m² Arsa` : 'Belirtilmedi'}
+          ${project.landArea > 0 ? `${project.landArea.toLocaleString('tr-TR')} m² Arsa` : 'Belirtilmedi'}
         </div>
         <div class="text-muted" style="font-size:9px;margin-top:2px;">
-          Taban: ${Math.round(baseAreaVal).toLocaleString('tr-TR')} m²${landAreaVal > 0 ? ` • TAKS ${taksText}` : ''}
+          Taban: ${project.baseArea.toLocaleString('tr-TR')} m²${project.landArea > 0 ? ` • TAKS ${e(project.taksText)}` : ''}
         </div>
       </div>
       <div class="card-muted">
         <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Kat & Yapı Düzeni</div>
         <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">
-          ${res.floorStructure?.shortLabel || `Z+${Math.max(0, (params.floorCount || 5) - 1)} Kat`}
+          ${e(project.floorStructureShort)}
         </div>
         <div class="text-muted" style="font-size:9px;margin-top:2px;">
-          ${res.floorStructure?.detailedLabel || `${params.floorCount || 5} Katlı Yapı`}${landAreaVal > 0 ? ` • KAKS ${kaksText}` : ''}
+          ${e(project.floorStructureDetailed)}${project.landArea > 0 ? ` • KAKS ${e(project.kaksText)}` : ''}
         </div>
       </div>
       <div class="card-muted">
         <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Bağımsız Bölüm & Metraj</div>
         <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">
-          ${res.unitBreakdown?.shortLabel || `${res.flatCount} Bağımsız Bölüm`}
+          ${e(project.unitBreakdownShort)}
         </div>
         <div class="text-muted" style="font-size:9px;margin-top:2px;">
-          ${res.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m² Toplam İnşaat Alanı
+          ${project.totalArea.toLocaleString('tr-TR')} m² Toplam İnşaat Alanı
         </div>
       </div>
       <div class="card-muted" style="background:#eef2ff;border-color:#c7d2fe;">
-        <div style="color:#4338ca;font-size:9px;font-weight:bold;text-transform:uppercase;">Teslim & İmalat Bedeli</div>
+        <div style="color:#4338ca;font-size:9px;font-weight:bold;text-transform:uppercase;">Teslim & Birim Teklif</div>
         <div style="font-size:11.5px;font-weight:bold;color:#1e1b4b;margin-top:2px;">
-          ${res.finalMonths} Ay Anahtar Teslim
+          ${project.finalMonths} Ay Anahtar Teslim
         </div>
         <div style="font-size:9px;color:#4338ca;margin-top:1px;">
-          Konut: ~${flatUnitPriceVal.toLocaleString('tr-TR')} ₺/m²${params.hasGroundFloorShop ? ` • Dükkan: ~${shopUnitPriceVal.toLocaleString('tr-TR')} ₺/m²` : ''}
+          Konut: ~${pricing.displayFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²${project.hasGroundFloorShop ? ` • Dükkan: ~${pricing.displayShopUnitPrice.toLocaleString('tr-TR')} ₺/m²` : ''}
         </div>
       </div>
     </div>
   </div>` : ''}
 
   <!-- BAĞIMSIZ BÖLÜM PAYLAŞIMI VE KAT DAĞILIMI -->
-  ${totalUnitCount > 0 ? `
+  ${sharing.totalUnitCount > 0 ? `
   <div style="margin-bottom:14px;">
     <div class="section-header">Bağımsız Bölüm Paylaşımı ve Kat Dağılımı</div>
     <div class="grid-3 avoid-break" style="margin-bottom:8px;">
       <div class="card-muted">
         <div class="text-muted" style="font-size:8.5px;font-weight:bold;text-transform:uppercase;">Toplam Bağımsız Bölüm</div>
-        <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">${totalUnitCount} Bölüm (${Math.round(totalAllocatedArea).toLocaleString('tr-TR')} m²)</div>
+        <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">${sharing.totalUnitCount} Bölüm (${sharing.totalAllocatedArea.toLocaleString('tr-TR')} m²)</div>
       </div>
       <div class="card-muted" style="background:#ecfdf5;border-color:#a7f3d0;">
         <div style="font-size:8.5px;font-weight:bold;text-transform:uppercase;color:#065f46;">Arsa Sahiplerine Ayrılan</div>
-        <div style="font-size:11.5px;font-weight:bold;color:#064e3b;margin-top:2px;">${ownerUnitResults.length} Bölüm • ${Math.round(ownerAllocatedArea).toLocaleString('tr-TR')} m² (%${ownerSharePercent})</div>
+        <div style="font-size:11.5px;font-weight:bold;color:#064e3b;margin-top:2px;">${sharing.ownerUnitsCount} Bölüm • ${sharing.ownerAllocatedArea.toLocaleString('tr-TR')} m² (%${sharing.ownerSharePercent})</div>
       </div>
       <div class="card-muted" style="background:#eef2ff;border-color:#c7d2fe;">
         <div style="font-size:8.5px;font-weight:bold;text-transform:uppercase;color:#3730a3;">Yüklenici Payı (Kat Karşılığı)</div>
-        <div style="font-size:11.5px;font-weight:bold;color:#1e1b4b;margin-top:2px;">${contractorUnitResults.length > 0 ? `${contractorUnitResults.length} Bölüm • ${Math.round(contractorAllocatedArea).toLocaleString('tr-TR')} m² (%${contractorSharePercent})` : 'Tamamı Arsa Sahiplerine Tahsisli'}</div>
+        <div style="font-size:11.5px;font-weight:bold;color:#1e1b4b;margin-top:2px;">${sharing.contractorUnitsCount > 0 ? `${sharing.contractorUnitsCount} Bölüm • ${sharing.contractorAllocatedArea.toLocaleString('tr-TR')} m² (%${sharing.contractorSharePercent})` : 'Tamamı Arsa Sahiplerine Tahsisli'}</div>
       </div>
     </div>
-    ${(params.landowners || []).length > 0 ? `
+    ${sharing.landowners.length > 0 ? `
     <table style="width:100%;border-collapse:collapse;font-size:8.5px;background:#ffffff;border:1px solid #a7f3d0;border-radius:8px;overflow:hidden;margin-bottom:8px;">
       <thead>
         <tr style="background:#ecfdf5;color:#064e3b;border-bottom:1.5px solid #a7f3d0;text-align:left;">
@@ -462,31 +379,18 @@ export function generateOfferHtml(
         </tr>
       </thead>
       <tbody>
-        ${(params.landowners || []).map((owner) => {
-          const den = owner.landShareDenominator || params.totalLandShareDenominator || 1000;
-          const sharePct = owner.sharePercent && owner.sharePercent > 0
-            ? owner.sharePercent
-            : owner.landShareNumerator && den > 0
-            ? Math.round(((owner.landShareNumerator / den) * 100) * 10) / 10
-            : 0;
-          const landM2 = params.landArea && params.landArea > 0
-            ? Math.round(((params.landArea * sharePct) / 100) * 10) / 10
-            : 0;
-          const assignedUnits = (params.flats || []).filter(
-            (fl) => fl.ownerId === owner.id && !(params.contractorFlatIds?.includes(fl.id) || fl.isContractorShare)
-          );
-          const unitsStr = assignedUnits.length > 0
-            ? assignedUnits.map((u) => `No ${u.id} (${Math.round(u.area)} m²)`).join(', ')
-            : 'Belirlenecek';
-          return `
+        ${sharing.landowners
+          .map(
+            (owner) => `
         <tr style="border-bottom:1px solid #e2e8f0;page-break-inside:avoid;">
-          <td style="padding:4px 8px;font-weight:bold;color:#0f172a;">${owner.name}${owner.companyName ? ` (${owner.companyName})` : ''}</td>
-          <td style="padding:4px 8px;text-align:right;font-family:monospace;color:#0f172a;">%${sharePct.toFixed(1)}${landM2 > 0 ? ` (${landM2} m²)` : ''}</td>
-          <td style="padding:4px 8px;color:#475569;">${owner.existingUnitInfo || '—'}</td>
-          <td style="padding:4px 8px;font-family:monospace;font-weight:bold;color:#065f46;">${unitsStr}</td>
-          <td style="padding:4px 8px;color:#475569;">${owner.specialAgreement || '—'}</td>
-        </tr>`;
-        }).join('')}
+          <td style="padding:4px 8px;font-weight:bold;color:#0f172a;">${e(owner.displayName)}</td>
+          <td style="padding:4px 8px;text-align:right;font-family:monospace;color:#0f172a;">%${owner.sharePercent.toFixed(1)}${owner.landShareArea > 0 ? ` (${owner.landShareArea} m²)` : ''}</td>
+          <td style="padding:4px 8px;color:#475569;">${e(owner.existingUnitInfo)}</td>
+          <td style="padding:4px 8px;font-family:monospace;font-weight:bold;color:#065f46;">${e(owner.assignedUnitsSummary)}</td>
+          <td style="padding:4px 8px;color:#475569;">${e(owner.specialAgreement)}</td>
+        </tr>`
+          )
+          .join('')}
       </tbody>
     </table>` : ''}
     <table style="width:100%;border-collapse:collapse;font-size:8.5px;background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">
@@ -501,36 +405,31 @@ export function generateOfferHtml(
         </tr>
       </thead>
       <tbody>
-        ${res.flatResults.map((flat, idx) => {
-          const origFlat = params.flats?.find(f => f.id === flat.id);
-          const linkedOwner = !flat.isContractorShare && origFlat?.ownerId
-            ? (params.landowners || []).find(o => o.id === origFlat.ownerId)
-            : undefined;
-          const rawName = (linkedOwner
-            ? (linkedOwner.companyName ? `${linkedOwner.name} (${linkedOwner.companyName})` : linkedOwner.name)
-            : (flat.name || origFlat?.name || '')).trim();
-          const isPlaceholder = !rawName || /^(kat\s*maliki|malik|daire|bölüm|hak\s*sahibi)\s*\d*$/i.test(rawName);
-          const netAreaVal = Math.round(flat.netArea || flat.area * 0.8);
-          return `
-        <tr style="border-bottom:1px solid #e2e8f0;background:${flat.isContractorShare ? '#f5f3ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc'};page-break-inside:avoid;">
-          <td style="padding:4px 8px;font-weight:bold;color:#0f172a;">Bölüm #${flat.id}${!flat.isContractorShare && !isPlaceholder ? ` — ${rawName}` : ''}</td>
-          <td style="padding:4px 8px;color:#475569;">${formatFloorLabel(origFlat?.floorNumber, flat.flatType)}</td>
-          <td style="padding:4px 8px;color:#334155;">${formatUnitTypeLabel(flat.flatType)}</td>
-          <td style="padding:4px 8px;text-align:right;font-family:monospace;color:#0f172a;">${Math.round(flat.area)} m² / ${netAreaVal} m²</td>
+        ${sharing.units
+          .map((unit, idx) => {
+            const isContractor = unit.allocationType === 'contractor';
+            const isPending = unit.allocationType === 'owner_pending';
+            return `
+        <tr style="border-bottom:1px solid #e2e8f0;background:${isContractor ? '#f5f3ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc'};page-break-inside:avoid;">
+          <td style="padding:4px 8px;font-weight:bold;color:#0f172a;">${e(unit.displayLabel)}</td>
+          <td style="padding:4px 8px;color:#475569;">${e(unit.floorLabel)}</td>
+          <td style="padding:4px 8px;color:#334155;">${e(unit.unitTypeLabel)}</td>
+          <td style="padding:4px 8px;text-align:right;font-family:monospace;color:#0f172a;">${unit.grossArea} m² / ${unit.netArea} m²</td>
           <td style="padding:4px 8px;text-align:center;">
-            <span style="display:inline-block;padding:1.5px 6px;border-radius:10px;font-weight:bold;font-size:8px;background:${flat.isContractorShare ? '#e0e7ff' : isPlaceholder ? '#fef3c7' : '#d1fae5'};color:${flat.isContractorShare ? '#3730a3' : isPlaceholder ? '#92400e' : '#065f46'};">
-              ${flat.isContractorShare ? 'Yüklenici Firma' : isPlaceholder ? 'Arsa Sahibi (Atanacak)' : 'Arsa Sahibi'}
+            <span style="display:inline-block;padding:1.5px 6px;border-radius:10px;font-weight:bold;font-size:8px;background:${isContractor ? '#e0e7ff' : isPending ? '#fef3c7' : '#d1fae5'};color:${isContractor ? '#3730a3' : isPending ? '#92400e' : '#065f46'};">
+              ${e(unit.allocationBadge)}
             </span>
           </td>
-          ${!isContractorShareModel ? `<td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:bold;color:#0f172a;">${flat.isContractorShare ? '—' : `${Math.round(flat.netRemainingDebt || 0).toLocaleString('tr-TR')} ₺`}</td>` : ''}
+          ${!isContractorShareModel ? `<td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:bold;color:#0f172a;">${isContractor ? '—' : `${(unit.netRemainingDebt || 0).toLocaleString('tr-TR')} ₺`}</td>` : ''}
         </tr>`;
-        }).join('')}
+          })
+          .join('')}
       </tbody>
     </table>
   </div>` : ''}
 
   <!-- III. YAPISAL KALİTE VE TEKNİK STANDARTLAR -->
-  ${showQualityStandards ? `
+  ${presentation.showQualityStandards ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">III. Yapısal Kalite ve Teknik Standartlar</div>
     <div class="grid-2">
@@ -546,208 +445,53 @@ export function generateOfferHtml(
           Yüksek dansiteli taşyünü mantolama (İzocam / Knauf veya muadili), Isıcam Konfor serisi çift cam (Şişecam veya muadili) ve ısı yalıtımlı PVC doğramalar (Rehau / Winsa / Pimapen veya muadili) ile 4 mevsim yüksek ısı ve ses tasarrufu.
         </p>
       </div>
-    </div>` : ''}
+    </div>
 
-    <!-- İNOVATİF TEKNOLOJİ VE KONFOR SEÇENEKLERİ (TEK TEKLİF İÇİN) -->
-    ${(!isDualOffer && showInnovativeOptions) ? (() => {
-      const currentAc = getAcOptionById(params.acType || '18k_btu');
-      return `
+    <!-- İNOVATİF TEKNOLOJİ VE KONFOR SEÇENEKLERİ (TEK TEKLİF İÇİN — İÇ MALİYET GÖSTERİLMEZ) -->
+    ${!isDualOffer && presentation.showInnovativeOptions ? `
     <div style="margin-top:10px;background:linear-gradient(135deg, #fdf8ff 0%, #f4f5ff 100%);border:1px solid #e9d5ff;border-radius:12px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
       <div style="font-weight:900;font-size:11px;color:#581c87;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:4px;">
-        ✨ İnovatif Teknoloji ve Konfor Donanımları (Seçenekler)
+        ✨ Teknik Konfor Donanımları ve Kapsam Durumu
       </div>
       <div class="grid-3" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;">
-        <!-- Yerden Isitma -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
+        ${innovativeOptions
+          .map(
+            (opt) => `
+        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:86px;">
           <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🔥 Yerden Isıtma (Sulu)</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasUnderfloorHeating ? '#ecfdf5' : '#f1f5f9'};color:${params.hasUnderfloorHeating ? '#065f46' : '#475569'};border:1px solid ${params.hasUnderfloorHeating ? '#a7f3d0' : '#cbd5e1'}">${params.hasUnderfloorHeating ? 'Dahil' : 'Opsiyonel'}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;margin-bottom:4px;">
+              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">${e(opt.icon)} ${e(opt.title)}${opt.scopeBadge ? ` (${e(opt.scopeBadge)})` : ''}</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;white-space:nowrap;background:${opt.included ? '#ecfdf5' : '#f1f5f9'};color:${opt.included ? '#065f46' : '#475569'};border:1px solid ${opt.included ? '#a7f3d0' : '#cbd5e1'}">${opt.included ? 'Dahil' : 'Opsiyonel'}</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 6px 0;line-height:1.35;">
-              Radyatörlere kıyasla %15-20 yakıt tasarrufu, homojen ısı yayılımı, toz engelleme ve odalarda dekoratif genişlik sunan lüks sulu sistem (Fraenkische / Rehau veya muadili).
+              ${e(opt.description)}
             </p>
           </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.underfloorHeatingCost ? res.underfloorHeatingCost.toLocaleString('tr-TR') : '0'} ₺</span>
+          <div style="font-size:8px;color:${opt.included ? '#065f46' : '#64748b'};border-top:1px solid #f3f4f6;padding-top:4px;font-weight:600;">
+            ${opt.included ? '✓ Teklif kapsamına dahildir' : '○ İsteğe bağlı olarak eklenebilir'}
           </div>
-        </div>
-
-        <!-- Su Aritma -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">💧 Merkezi Su Arıtma</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasWaterFiltration ? '#ecfdf5' : '#f1f5f9'};color:${params.hasWaterFiltration ? '#065f46' : '#475569'};border:1px solid ${params.hasWaterFiltration ? '#a7f3d0' : '#cbd5e1'}">${params.hasWaterFiltration ? 'Dahil' : 'Opsiyonel'}</span>
-            </div>
-            <p style="font-size:8.5px;color:#4b5563;margin:0 0 6px 0;line-height:1.35;">
-              Bina şebeke ana girişine monte edilerek tüm dairelerde klor, kireç, ağır metalleri giderir, tesisat ve beyaz eşyaları kireçten korur (Vipsu / Brita veya muadili).
-            </p>
-          </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.waterFiltrationCost ? res.waterFiltrationCost.toLocaleString('tr-TR') : '0'} ₺</span>
-          </div>
-        </div>
-
-        <!-- Klima & Iklimlendirme -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">❄️ A++ Inverter Klima</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasAcOption ? '#ecfdf5' : '#f1f5f9'};color:${params.hasAcOption ? '#065f46' : '#475569'};border:1px solid ${params.hasAcOption ? '#a7f3d0' : '#cbd5e1'}">${params.hasAcOption ? 'Dahil' : 'Opsiyonel'}</span>
-            </div>
-            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              <strong>${currentAc.shortTitle}</strong> (${currentAc.btu}) - ${currentAc.targetArea} salonlar için A++ inverter iklimlendirme (E.C.A. / Mitsubishi / Daikin veya muadili).
-            </p>
-          </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.acCostTotal ? res.acCostTotal.toLocaleString('tr-TR') : '0'} ₺</span>
-          </div>
-        </div>
-
-        <!-- Termostatik Duş Bataryası -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🚿 Termostatik Duş Bataryası (Konutlar)</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasThermostaticShowerMixer ? '#ecfdf5' : '#f1f5f9'};color:${params.hasThermostaticShowerMixer ? '#065f46' : '#475569'};border:1px solid ${params.hasThermostaticShowerMixer ? '#a7f3d0' : '#cbd5e1'}">${params.hasThermostaticShowerMixer ? 'Dahil' : 'Opsiyonel'}</span>
-            </div>
-            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              38°C emniyet kilitli, haşlanma önleyici termostatik batarya (E.C.A. / Artema / VitrA veya muadili). Yalnızca konut dairelerine uygulanır.
-            </p>
-          </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.thermostaticMixerCost ? res.thermostaticMixerCost.toLocaleString('tr-TR') : '0'} ₺</span>
-          </div>
-        </div>
-
-        <!-- Lineer Duş Süzgeci -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">✨ Lineer Duş Süzgeci (Konutlar)</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasLinearShowerDrain ? '#ecfdf5' : '#f1f5f9'};color:${params.hasLinearShowerDrain ? '#065f46' : '#475569'};border:1px solid ${params.hasLinearShowerDrain ? '#a7f3d0' : '#cbd5e1'}">${params.hasLinearShowerDrain ? 'Dahil' : 'Opsiyonel'}</span>
-            </div>
-            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              304 paslanmaz çelik ızgaralı, çift hazneli koku çekvalfli hemzemin duş kanalı (Hüppe / Geberit veya muadili). Yalnızca konut dairelerine uygulanır.
-            </p>
-          </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.linearDrainCost ? res.linearDrainCost.toLocaleString('tr-TR') : '0'} ₺</span>
-          </div>
-        </div>
-
-        <!-- Nem Sensörlü Sessiz Banyo Fanı -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🌀 Nem Sensörlü Banyo Fanı (Konutlar)</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasBathroomHumidityFan ? '#ecfdf5' : '#f1f5f9'};color:${params.hasBathroomHumidityFan ? '#065f46' : '#475569'};border:1px solid ${params.hasBathroomHumidityFan ? '#a7f3d0' : '#cbd5e1'}">${params.hasBathroomHumidityFan ? 'Dahil' : 'Opsiyonel'}</span>
-            </div>
-            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              Banyo konfor dokunuşu: Otomatik higrostat sensörlü, 25 dB fısıltı sessizliğinde fan (Vortice / E.C.A. veya muadili).
-            </p>
-          </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.bathroomHumidityFanCost ? res.bathroomHumidityFanCost.toLocaleString('tr-TR') : '0'} ₺</span>
-          </div>
-        </div>
-
-        <!-- Fotoselli Mutfak Bataryası -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🫧 Fotoselli Mutfak & Banyo Bataryaları</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasTouchlessKitchenFaucet ? '#ecfdf5' : '#f1f5f9'};color:${params.hasTouchlessKitchenFaucet ? '#065f46' : '#475569'};border:1px solid ${params.hasTouchlessKitchenFaucet ? '#a7f3d0' : '#cbd5e1'}">${params.hasTouchlessKitchenFaucet ? 'Dahil' : 'Opsiyonel'}</span>
-            </div>
-            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              Mutfak ve banyoda temassız kızılötesi sensörlü fotoselli bataryalar (E.C.A. / Artema / VitrA veya muadili).
-            </p>
-          </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.touchlessKitchenFaucetCost ? res.touchlessKitchenFaucetCost.toLocaleString('tr-TR') : '0'} ₺</span>
-          </div>
-        </div>
-
-        <!-- Akıllı Daire Giriş Kapısı Kilidi -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🔑 Motorlu & Biyometrik Akıllı Daire Kapısı Kilidi</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasSmartDoorLock ? '#ecfdf5' : '#f1f5f9'};color:${params.hasSmartDoorLock ? '#065f46' : '#475569'};border:1px solid ${params.hasSmartDoorLock ? '#a7f3d0' : '#cbd5e1'}">${params.hasSmartDoorLock ? 'Dahil' : 'Opsiyonel'}</span>
-            </div>
-            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              DESİ / Kale / Smart veya muadili parmak izli okuyucu, dokunmatik şifreli tuş takımı ve mobil uygulamalı motorlu çelik kapı kilidi.
-            </p>
-          </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.smartDoorLockCost ? res.smartDoorLockCost.toLocaleString('tr-TR') : '0'} ₺</span>
-          </div>
-        </div>
-
-        <!-- Jeneratör Sistemi -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">⚡ Otomatik Transfer Panolu Jeneratör</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasGenerator ? '#ecfdf5' : '#f1f5f9'};color:${params.hasGenerator ? '#065f46' : '#475569'};border:1px solid ${params.hasGenerator ? '#a7f3d0' : '#cbd5e1'}">${params.hasGenerator ? 'Dahil' : 'Opsiyonel'}</span>
-            </div>
-            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              Aksa / Alimar / Teksan veya muadili kabinli dizel jeneratör ve otomatik transfer panosu (ATS). Elektrik kesintisinde asansör, hidrofor ve ortak aydınlatmalar kesintisiz çalışır.
-            </p>
-          </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.generatorCost ? res.generatorCost.toLocaleString('tr-TR') : '0'} ₺</span>
-          </div>
-        </div>
-
-        <!-- Porselen Mutfak Tezgahı -->
-        <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">🍳 12-15mm Lüks Porselen Mutfak Tezgahı</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;background:${params.hasPorcelainCountertop ? '#ecfdf5' : '#f1f5f9'};color:${params.hasPorcelainCountertop ? '#065f46' : '#475569'};border:1px solid ${params.hasPorcelainCountertop ? '#a7f3d0' : '#cbd5e1'}">${params.hasPorcelainCountertop ? 'Dahil' : 'Opsiyonel'}</span>
-            </div>
-            <p style="font-size:8.5px;color:#4b5563;margin:0 0 4px 0;line-height:1.35;">
-              Lamar / Neolith / Belenco veya muadili 1. sınıf 12-15mm porselen plaka tezgah ve alınlık. Sıcağa, yanmaya ve çizilmeye %100 dayanıklı, leke tutmayan lüks yüzey (Konutlar).
-            </p>
-          </div>
-          <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Paket / Donanım Bedeli:</span>
-            <span style="font-weight:bold;color:#6b21a8;">${res.porcelainCountertopCost ? res.porcelainCountertopCost.toLocaleString('tr-TR') : '0'} ₺</span>
-          </div>
-        </div>
+        </div>`
+          )
+          .join('')}
       </div>
     </div>
-    `;
-    })() : ''}
+    ` : ''}
 
     <!-- ÇİFT TEKLİF & SEÇENEK KARŞILAŞTIRMA MATRİSİ (DUAL OFFER İÇİN) -->
-    ${(isDualOffer && dualData && showDualOfferMatrix) ? `
+    ${isDualOffer && dualOffer && presentation.showDualOfferMatrix ? `
     <div style="margin-top:14px;background:#ffffff;border:2px solid #818cf8;border-radius:12px;padding:12px;box-shadow:0 2px 6px rgba(99,102,241,0.08);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1.5px solid #e0e7ff;padding-bottom:6px;">
         <div style="font-weight:900;font-size:11.5px;color:#312e81;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
           📑 İkili Teklif & Paket Karşılaştırma Matrisi (Seçenekli Sunum)
         </div>
-        <span style="font-size:8.5px;font-weight:bold;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:12px;">2 Alternatifli Resmi Teklif</span>
+        <span style="font-size:8.5px;font-weight:bold;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:12px;">2 Alternatifli Resmî Teklif</span>
       </div>
 
-      <!-- SIDE BY SIDE SUMMARY CARDS -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        <!-- BASE OFFER BOX -->
         <div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:10px;padding:10px;display:flex;flex-direction:column;justify-content:space-between;">
           <div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:11px;font-weight:800;color:#1e293b;">1. SEÇENEK: ${dualData.baseTitle}</span>
+              <span style="font-size:11px;font-weight:800;color:#1e293b;">1. SEÇENEK: ${e(dualOffer.baseTitle)}</span>
               <span style="font-size:8px;font-weight:bold;background:#e2e8f0;color:#334155;padding:1px 6px;border-radius:10px;">Temel Standart</span>
             </div>
             <p style="font-size:8.5px;color:#64748b;margin:0 0 8px 0;line-height:1.35;">
@@ -755,117 +499,115 @@ export function generateOfferHtml(
             </p>
             <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:8px;margin-bottom:8px;">
               <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:4px;">
-                <span>Toplam İmalat Bedeli:</span>
-                <strong style="color:#0f172a;font-family:monospace;">${dualData.customerBaseGrandTotal.toLocaleString('tr-TR')} ₺</strong>
+                <span>Toplam Teklif Bedeli:</span>
+                <strong style="color:#0f172a;font-family:monospace;">${dualOffer.customerBaseGrandTotal.toLocaleString('tr-TR')} ₺</strong>
               </div>
               <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:4px;">
                 <span>Daire Başı Ortalama Pay:</span>
-                <strong style="color:#0f172a;font-family:monospace;">${dualData.customerBaseFlatShare.toLocaleString('tr-TR')} ₺</strong>
+                <strong style="color:#0f172a;font-family:monospace;">${dualOffer.customerBaseFlatShare.toLocaleString('tr-TR')} ₺</strong>
               </div>
               <div style="display:flex;justify-content:space-between;font-size:9.5px;color:#0f172a;font-weight:bold;border-top:1px dashed #cbd5e1;padding-top:4px;">
                 <span>Hibe/Kredi Sonrası Net:</span>
-                <span style="color:#16a34a;font-family:monospace;">${dualData.customerBaseNetDebtPerFlat.toLocaleString('tr-TR')} ₺</span>
+                <span style="color:#16a34a;font-family:monospace;">${dualOffer.customerBaseNetDebtPerFlat.toLocaleString('tr-TR')} ₺</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- PLUS OFFER BOX -->
         <div style="background:linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);border:2px solid #8b5cf6;border-radius:10px;padding:10px;display:flex;flex-direction:column;justify-content:space-between;">
           <div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:11px;font-weight:900;color:#5b21b6;">2. SEÇENEK: ✨ ${dualData.plusTitle}</span>
+              <span style="font-size:11px;font-weight:900;color:#5b21b6;">2. SEÇENEK: ✨ ${e(dualOffer.plusTitle)}</span>
               <span style="font-size:8px;font-weight:900;background:#7c3aed;color:#ffffff;padding:1px 6px;border-radius:10px;">Prestij & Konfor</span>
             </div>
             <p style="font-size:8.5px;color:#6d28d9;margin:0 0 8px 0;line-height:1.35;">
-              Yerden ısıtma, su arıtma, A++ klima, termostatik batarya, lineer süzgeç, sessiz banyo fanı ile mutfak eviyesi ve banyo lavabosunda temassız fotoselli batarya paketi.
+              Seçili ileri teknoloji konfor donanımları ile donatılmış üst segment yaşam paketi.
             </p>
             <div style="background:#ffffff;border:1px solid #ddd6fe;border-radius:6px;padding:8px;margin-bottom:8px;">
               <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:4px;">
-                <span>Toplam İmalat Bedeli:</span>
-                <strong style="color:#5b21b6;font-family:monospace;">${dualData.customerPlusGrandTotal.toLocaleString('tr-TR')} ₺</strong>
+                <span>Toplam Teklif Bedeli:</span>
+                <strong style="color:#5b21b6;font-family:monospace;">${dualOffer.customerPlusGrandTotal.toLocaleString('tr-TR')} ₺</strong>
               </div>
               <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:4px;">
                 <span>Daire Başı Ortalama Pay:</span>
-                <strong style="color:#5b21b6;font-family:monospace;">${dualData.customerPlusFlatShare.toLocaleString('tr-TR')} ₺</strong>
+                <strong style="color:#5b21b6;font-family:monospace;">${dualOffer.customerPlusFlatShare.toLocaleString('tr-TR')} ₺</strong>
               </div>
               <div style="display:flex;justify-content:space-between;font-size:9.5px;color:#5b21b6;font-weight:bold;border-top:1px dashed #ddd6fe;padding-top:4px;">
                 <span>Hibe/Kredi Sonrası Net:</span>
-                <span style="color:#7c3aed;font-family:monospace;">${dualData.customerPlusNetDebtPerFlat.toLocaleString('tr-TR')} ₺</span>
+                <span style="color:#7c3aed;font-family:monospace;">${dualOffer.customerPlusNetDebtPerFlat.toLocaleString('tr-TR')} ₺</span>
               </div>
             </div>
           </div>
           <div style="font-size:8.5px;color:#6d28d9;font-weight:bold;text-align:right;">
-            Daire Başı Yatırım Farkı: +${dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
+            Daire Başı Paket Farkı: +${dualOffer.customerFlatDelta.toLocaleString('tr-TR')} ₺
           </div>
         </div>
       </div>
 
-      <!-- DETAILED FEATURE COMPARISON TABLE -->
       <table style="width:100%;border-collapse:collapse;font-size:8.5px;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
         <thead>
           <tr style="background:#f1f5f9;color:#1e293b;border-bottom:1.5px solid #cbd5e1;text-align:left;">
             <th style="padding:5px 8px;width:24%;">Teknik Donanım & Sistem</th>
-            <th style="padding:5px 8px;width:34%;color:#475569;">1. Seçenek: ${dualData.baseTitle}</th>
-            <th style="padding:5px 8px;width:42%;color:#6d28d9;background:#f5f3ff;">2. Seçenek: ${dualData.plusTitle}</th>
+            <th style="padding:5px 8px;width:34%;color:#475569;">1. Seçenek: ${e(dualOffer.baseTitle)}</th>
+            <th style="padding:5px 8px;width:42%;color:#6d28d9;background:#f5f3ff;">2. Seçenek: ${e(dualOffer.plusTitle)}</th>
           </tr>
         </thead>
         <tbody>
-          ${dualData.features.map((f, idx) => `
+          ${dualOffer.features
+            .map(
+              (f, idx) => `
           <tr style="border-bottom:1px solid #e2e8f0;background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
             <td style="padding:5px 8px;font-weight:bold;color:#0f172a;">
-              ${f.icon} ${f.name}
+              ${e(f.icon)} ${e(f.name)}
             </td>
             <td style="padding:5px 8px;color:#475569;">
               <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.baseIncluded ? '#94a3b8' : '#e2e8f0'};margin-right:4px;"></span>
-              ${f.baseSpec}
+              ${e(f.baseSpec)}
             </td>
             <td style="padding:5px 8px;color:#4c1d95;font-weight:600;background:${idx % 2 === 0 ? '#faf5ff' : '#f3e8ff'};">
               <span style="display:inline-block;color:#7c3aed;font-weight:900;margin-right:4px;">✓</span>
-              ${f.plusSpec}
+              ${e(f.plusSpec)}
             </td>
-          </tr>
-          `).join('')}
+          </tr>`
+            )
+            .join('')}
         </tbody>
       </table>
     </div>
     ` : ''}
-  </div>
-  </div>
+  </div>` : ''}
 
   <!-- II. PROJE ÖZETİ VE FİNANSAL ÇERÇEVE -->
-  ${showFinancialSummary ? `
+  ${presentation.showFinancialSummary ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">II. Proje Özeti ve Finansal Çerçeve</div>
     <div class="grid-2" style="align-items:stretch;">
-      <!-- LEFT: KULLANIM VE YAŞAM ALANLARI -->
       <div class="card" style="display:flex;flex-direction:column;justify-content:space-between;">
         <div>
           <div style="font-size:11px;font-weight:bold;color:#0f172a;margin-bottom:8px;">Kullanım ve Yaşam Alanları</div>
           <div style="display:flex;flex-direction:column;gap:6px;">
-            ${shopUnits.length > 0 ? `
+            ${project.shopUnitsCount > 0 ? `
             <div style="background:#f8fafc;padding:6px 10px;border-radius:8px;border:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
               <span style="font-size:10px;font-weight:600;color:#334155;">🏪 Zemin Kat Ticari Dükkanlar:</span>
-              <span style="font-size:10px;font-weight:bold;color:#0f172a;">${shopUnits.length} adet eşit dükkan, yaklaşık ~${avgShopArea} m²</span>
+              <span style="font-size:10px;font-weight:bold;color:#0f172a;">${project.shopUnitsCount} adet dükkan, yaklaşık ~${project.avgShopArea} m²</span>
             </div>` : ''}
             <div style="background:#f8fafc;padding:6px 10px;border-radius:8px;border:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
               <span style="font-size:10px;font-weight:600;color:#334155;">🏢 Modern Yaşam Daireleri:</span>
-              <span style="font-size:10px;font-weight:bold;color:#0f172a;">Kat başına ${params.flatsPerFloor || 2} adet, yaklaşık ~${avgNormalArea} m² brüt alan</span>
+              <span style="font-size:10px;font-weight:bold;color:#0f172a;">Kat başına ${project.flatsPerFloor} adet, yaklaşık ~${project.avgNormalArea} m² brüt alan</span>
             </div>
-            ${mansardUnits.length > 0 ? `
+            ${project.mansardUnitsCount > 0 ? `
             <div style="background:#f8fafc;padding:6px 10px;border-radius:8px;border:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
               <span style="font-size:10px;font-weight:600;color:#334155;">🏚️ Mansart ve Çatı Özel Birimler:</span>
-              <span style="font-size:10px;font-weight:bold;color:#0f172a;">${mansardUnits.length} adet, yaklaşık ~${avgMansardArea} m² brüt alan</span>
+              <span style="font-size:10px;font-weight:bold;color:#0f172a;">${project.mansardUnitsCount} adet, yaklaşık ~${project.avgMansardArea} m² brüt alan</span>
             </div>` : ''}
           </div>
 
-          <!-- İMAR TEŞVİK AVANTAJI CARD -->
           <div style="margin-top:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-left:3px solid #16a34a;border-radius:8px;padding:8px 10px;">
             <div style="font-size:10px;font-weight:bold;color:#166534;margin-bottom:2px;">💎 İmar Teşvik Avantajı ve Finansman Modeli</div>
             <p style="font-size:9px;color:#14532d;margin:0;line-height:1.4;">
-              ${(res.contractorUnitsCount || 0) > 0 
-                ? `Mevcut imar planındaki teşviklerden yararlanılarak kazanılan ${res.contractorUnitsCount} adet bağımsız bölümün mülkiyeti finansman karşılığı olarak yükleniciye devredilmiştir. Bu model sayesinde hak sahiplerinin imalat maliyetleri piyasa rayiçlerinin önemli ölçüde altında belirlenmiştir.`
-                : 'Projede tüm bağımsız bölümler hak sahiplerine tahsis edilmiş olup inşaat maliyeti hakedişli finansman modeliyle karşılanacaktır.'}
+              ${sharing.contractorUnitsCount > 0
+                ? `Mevcut imar planındaki teşviklerden yararlanılarak kazanılan ${sharing.contractorUnitsCount} adet bağımsız bölümün mülkiyeti finansman karşılığı olarak yükleniciye tahsis edilmiştir. Bu model sayesinde hak sahiplerinin finansman yükü azaltılmıştır.`
+                : 'Projede tüm bağımsız bölümler hak sahiplerine tahsis edilmiş olup yapım bedeli belirlenen ödeme planı dahilinde karşılanacaktır.'}
             </p>
           </div>
         </div>
@@ -875,14 +617,13 @@ export function generateOfferHtml(
         </div>
       </div>
 
-      <!-- RIGHT: YATIRIM VE FİNANSMAN ÖZETİ (DARK CARD) -->
       <div class="card-dark" style="display:flex;flex-direction:column;justify-content:space-between;">
         <div>
           <div style="color:#94a3b8;font-size:9.5px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;">
             ${isContractorShareModel ? 'Proje Yapım Hacmi ve Finansman Modeli' : 'Teklif Bedeli ve Finansman Özeti'}
           </div>
           <div style="font-size:20px;font-weight:800;color:#ffffff;margin-top:6px;font-family:monospace;">
-            ${res.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
+            ${pricing.grandTotal.toLocaleString('tr-TR')} ₺
           </div>
           <div style="font-size:9.5px;color:#cbd5e1;margin-top:1px;">
             ${isContractorShareModel ? 'Toplam Tahmini Yapım Değeri (Yüklenici Tarafından Finanse Edilir)' : 'Toplam Anahtar Teslim Teklif Bedeli'}
@@ -891,12 +632,17 @@ export function generateOfferHtml(
           <div style="margin-top:12px;border-top:1px solid #334155;padding-top:10px;display:flex;flex-direction:column;gap:6px;font-size:10px;">
             <div style="display:flex;justify-content:space-between;color:#cbd5e1;">
               <span>Yapım & İmalat Kapsamı (%85):</span>
-              <span style="font-family:monospace;font-weight:bold;color:#ffffff;">${(res.grandTotal * 0.85).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺</span>
+              <span style="font-family:monospace;font-weight:bold;color:#ffffff;">${pricing.constructionScopeAmount.toLocaleString('tr-TR')} ₺</span>
             </div>
             <div style="display:flex;justify-content:space-between;color:#cbd5e1;">
               <span>Proje, Ruhsat ve Müşavirlik (%15):</span>
-              <span style="font-family:monospace;font-weight:bold;color:#ffffff;">${(res.grandTotal * 0.15).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺</span>
+              <span style="font-family:monospace;font-weight:bold;color:#ffffff;">${pricing.permitAndConsultancyAmount.toLocaleString('tr-TR')} ₺</span>
             </div>
+            ${pricing.parkingFeeMode !== 'none' && pricing.parkingFeeActual > 0 ? `
+            <div style="display:flex;justify-content:space-between;color:#93c5fd;font-size:9px;padding-top:4px;border-top:1px dashed #334155;">
+              <span>Otopark Harcı (${pricing.parkingFeeMode === 'included' ? 'Teklife Dahil' : 'Teklif Harici'}):</span>
+              <span style="font-family:monospace;font-weight:bold;">${pricing.parkingFeeActual.toLocaleString('tr-TR')} ₺</span>
+            </div>` : ''}
             ${isContractorShareModel ? `
             <div style="margin-top:4px;padding:6px 8px;background:#064e3b;border:1px solid #059669;border-radius:6px;font-size:9px;color:#d1fae5;">
               ✓ Kat Karşılığı Model: Hak sahiplerinden nakit inşaat bedeli talep edilmez.
@@ -905,21 +651,21 @@ export function generateOfferHtml(
         </div>
 
         <div style="margin-top:12px;padding:8px 10px;background:#1e293b;border-radius:8px;font-size:9px;color:#cbd5e1;border:1px solid #334155;">
-          <strong style="color:#38bdf8;">Finansman Modeli:</strong> ${isContractorShareModel ? `Kat Karşılığı (${ownerUnitResults.length} Malik / ${contractorUnitResults.length} Yüklenici)` : supportText}
+          <strong style="color:#38bdf8;">Finansman Modeli:</strong> ${e(isContractorShareModel ? `Kat Karşılığı (${sharing.ownerUnitsCount} Malik / ${sharing.contractorUnitsCount} Yüklenici)` : project.supportModelTitle)}
         </div>
       </div>
     </div>
   </div>` : ''}
 
   <!-- IV. ÖDEME VE TESLİM TAKVİMİ -->
-  ${showPaymentTimeline ? `
+  ${presentation.showPaymentTimeline ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">IV. Ödeme ve Teslim Takvimi</div>
     <div class="grid-2">
       <div class="card-muted">
         <div style="font-weight:bold;font-size:11px;color:#0f172a;margin-bottom:3px;">📅 Uygulama Süreci</div>
         <p style="font-size:9.5px;color:#475569;margin:0;line-height:1.45;">
-          Belediyeden inşaat ruhsatı onayından itibaren <strong>${res.finalMonths} Ay</strong> içerisinde iskânı alınmış, kat mülkiyeti kurulmuş ve bağımsız bölümleri anahtar teslim olarak hak sahiplerine devredilecektir.
+          Belediyeden inşaat ruhsatı onayından itibaren <strong>${project.finalMonths} Ay</strong> içerisinde iskânı alınmış, kat mülkiyeti kurulmuş ve bağımsız bölümleri anahtar teslim olarak hak sahiplerine devredilecektir.
         </p>
       </div>
       <div class="card-muted">
@@ -927,45 +673,48 @@ export function generateOfferHtml(
         <p style="font-size:9.5px;color:#475569;margin:0;line-height:1.45;">
           ${isContractorShareModel
             ? 'Arsa payı karşılığı modelde kat maliklerinin nakit yapım ödemesi yükümlülüğü yoktur; tüm imalat finansmanı yüklenici tarafından karşılanır.'
-            : `Seçili ödeme planı: <strong>${paymentPlanLabel}</strong>. Ödemeler sözleşmede kararlaştırılan takvim ve fiziki ilerleme seviyelerine paralel olarak şeffaf biçimde yürütülür.`}
+            : `Seçili ödeme planı: <strong>${e(pricing.paymentPlanLabel)}</strong>. Ödemeler sözleşmede kararlaştırılan takvim ve fiziki ilerleme seviyelerine paralel olarak şeffaf biçimde yürütülür.`}
         </p>
       </div>
     </div>
-    ${params.showInflationGuaranteeNotice !== false ? `
+    ${presentation.showInflationGuaranteeNotice ? `
     <div style="margin-top:8px; background:#faf5ff; border:1px solid #e9d5ff; padding:8px 10px; border-radius:6px;">
       <div style="font-weight:bold; font-size:10px; color:#5b21b6; margin-bottom:2px;">
-        ${params.customInflationNoticeTitle || (params.hasInflationBuffer ? '🛡️ Enflasyon Risk Güvencesi (İmalat Bedeline Dahildir)' : '🛡️ Enflasyon ve Vade Farkı Güvencesi (TEFE/TÜFE Farkı Yoktur)')}
+        🛡️ ${e(presentation.inflationNoticeTitle)}
       </div>
       <p style="font-size:8.5px; color:#5b21b6; margin:0; line-height:1.4;">
-        ${params.customInflationNoticeText || (params.hasInflationBuffer ? 'Anlaşma anında belirlenen imalat bedeline enflasyon risk payı dahil edilmiş olup, inşaat süresince kat maliklerinden ayrıca TEFE/TÜFE veya ilave maliyet farkı talep edilmeyecektir.' : 'Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.')}
+        ${e(presentation.inflationNoticeText)}
       </p>
     </div>` : ''}
   </div>` : ''}
 
-  <!-- 5. TEKLİF EKLERİ VE GÖRSELLERİ (IF ANY) -->
-  ${uploadedImages && uploadedImages.length > 0 ? `
+  <!-- 5. TEKLİF EKLERİ VE GÖRSELLERİ -->
+  ${attachments.length > 0 ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">5. Teklif Ekleri ve Görselleri</div>
-    <div style="display:grid;grid-template-columns:${uploadedImages.length === 1 ? '1fr' : '1fr 1fr'};gap:12px;">
-      ${uploadedImages.map((img, idx) => `
+    <div style="display:grid;grid-template-columns:${attachments.length === 1 ? '1fr' : '1fr 1fr'};gap:12px;">
+      ${attachments
+        .map(
+          (img, idx) => `
         <div class="card" style="text-align:center;">
-          <img src="${img.url}" alt="${img.caption || 'Ek Belge'}" style="max-height:240px;max-width:100%;object-fit:contain;border-radius:6px;margin-bottom:6px;" />
-          <div style="font-size:10px;font-weight:bold;color:#334155;">Ek ${idx + 1}: ${img.caption || 'Belge / Görsel'}</div>
-        </div>
-      `).join('')}
+          <img src="${e(img.url)}" alt="${e(img.caption)}" style="max-height:240px;max-width:100%;object-fit:contain;border-radius:6px;margin-bottom:6px;" />
+          <div style="font-size:10px;font-weight:bold;color:#334155;">Ek ${idx + 1}: ${e(img.caption)}</div>
+        </div>`
+        )
+        .join('')}
     </div>
   </div>
   ` : ''}
 
-  <!-- 6. KURUMSAL TAAHHÜTLER VE HUKUKI KORUMA PROTOKOLÜ -->
-  ${showLegalTaahhut ? `
+  <!-- 6. KURUMSAL TAAHHÜTLER VE HUKUKİ KORUMA PROTOKOLÜ -->
+  ${presentation.showLegalTaahhut ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">6. Kurumsal Taahhütler ve Hukuki Koruma Protokolü</div>
     <div class="grid-3">
       <div class="card-muted" style="border-left:3px solid #4f46e5; margin-bottom:8px;">
         <div style="font-weight:bold;font-size:10px;color:#1e1b4b;margin-bottom:2px;">🏛️ Yasal Garanti (TBK m. 478)</div>
         <p style="font-size:8.5px;color:#475569;margin:0;line-height:1.35;">
-          Taşıyıcı karkas sistemde <strong>20 Yıl</strong>, ince işçilik ve cephede <strong>5 Yıl</strong>, mekanik/asansör sistemlerinde <strong>2 Yıl</strong> resmi garanti geçerlidir.
+          Taşıyıcı karkas sistemde <strong>20 Yıl</strong>, ince işçilik ve cephede <strong>5 Yıl</strong>, mekanik/asansör sistemlerinde <strong>2 Yıl</strong> resmî garanti geçerlidir.
         </p>
       </div>
       <div class="card-muted" style="border-left:3px solid #059669; margin-bottom:8px;">
@@ -993,38 +742,36 @@ export function generateOfferHtml(
         </p>
       </div>
       <div class="card-muted" style="border-left:3px solid #db2777; margin-bottom:8px;">
-        <div style="font-weight:bold;font-size:10px;color:#831843;margin-bottom:2px;">📈 Enflasyon & Maliyet Kilidi</div>
+        <div style="font-weight:bold;font-size:10px;color:#831843;margin-bottom:2px;">📈 Fiyat Sabitleme & Süreklilik</div>
         <p style="font-size:8.5px;color:#475569;margin:0;line-height:1.35;">
-          Ödeme planına uyulduğu sürece artışlar maliklere yansıtılamaz. Malik kusurlu gecikmelerinde ise maliyetler revize edilir.
+          Ödeme planına uyulduğu sürece fiyat artışı maliklere yansıtılmaz. Malik kaynaklı gecikmelerde güncel piyasa koşulları esas alınır.
         </p>
       </div>
       <div class="card-muted" style="border-left:3px solid #f59e0b; margin-bottom:8px;">
-        <div style="font-weight:bold;font-size:10px;color:#78350f;margin-bottom:2px;">🛡️ Ödeme Güvenliği & Darboğaz Koruması</div>
+        <div style="font-weight:bold;font-size:10px;color:#78350f;margin-bottom:2px;">🛡️ Ödeme Güvenliği & İş Programı</div>
         <p style="font-size:8.5px;color:#475569;margin:0;line-height:1.35;">
-          Devlet desteği/kredi gecikmelerinde inşaatın durmaması için malikler öz kaynakla finansman sağlamayı, gecikme durumunda müteahhitin işi durdurma yetkisini kabul ederler.
+          Devlet desteği/kredi gecikmelerinde inşaatın aksamaması için tarafların iş programına uygun finansman akışını sürdürmesi esastır.
         </p>
       </div>
     </div>
     <div style="margin-top:4px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:8.5px;color:#64748b;line-height:1.4;">
-      <strong>📌 Mücbir Sebep & Resmi Süreç Bilgilendirmesi:</strong> Belirtilen teslim süresi, belediye yapı ruhsatının kesinleştiği tarihten itibaren başlar. Doğal afetler, resmî kurum (Belediye, Bakanlık vb.) imar onay veya askı süreçleri ve altyapı sağlayıcı kurumların (İSKİ, İGDAŞ, BEDAŞ vb.) resmî onay süreçlerindeki gecikmeler yasal olarak süreye ilave edilir.
+      <strong>📌 Mücbir Sebep & Resmî Süreç Bilgilendirmesi:</strong> Belirtilen teslim süresi, belediye yapı ruhsatının kesinleştiği tarihten itibaren başlar. Doğal afetler, resmî kurum (Belediye, Bakanlık vb.) imar onay veya askı süreçleri ve altyapı sağlayıcı kurumların (İSKİ, İGDAŞ, BEDAŞ vb.) resmî onay süreçlerindeki gecikmeler yasal olarak süreye ilave edilir.
     </div>
   </div>` : ''}
 
   <!-- TEKLİF EK MADDELERİ VE ÖZEL AÇIKLAMALAR -->
-  ${(params.customContractNotes && params.customContractNotes.trim().length > 0) ? `
+  ${publicNotes.length > 0 ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">Proje Açıklamaları ve Özel Notlar</div>
-    <div class="card-muted" style="font-size:9.5px;color:#334155;line-height:1.5;white-space:pre-wrap;">${params.customContractNotes.trim()}</div>
+    <div class="card-muted" style="font-size:9.5px;color:#334155;line-height:1.5;white-space:pre-wrap;">${e(publicNotes)}</div>
   </div>
   ` : ''}
-  ${params.additionalOfferClauses && params.additionalOfferClauses.length > 0 ? `
+  ${additionalClauses.length > 0 ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">Teklif Ek Maddeleri ve Özel Hükümler</div>
     <div class="card-muted">
       <ol style="margin:0;padding-left:16px;font-size:9.5px;color:#334155;line-height:1.45;">
-        ${params.additionalOfferClauses.map(clause => `
-          <li style="margin-bottom:3px;">${clause}</li>
-        `).join('')}
+        ${additionalClauses.map((clause) => `<li style="margin-bottom:3px;">${e(clause)}</li>`).join('')}
       </ol>
     </div>
   </div>
@@ -1043,9 +790,7 @@ export function generateOfferHtml(
         </span>
       </div>
 
-      <!-- BRAND GRID (4 COLUMNS) -->
       <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
-        <!-- BRAND CARD 1: E.C.A. -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#1e3a8a; border-radius:4px;">
@@ -1057,7 +802,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Armatür, Batarya & Isıtma</div>
         </div>
 
-        <!-- BRAND CARD 2: Artema -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 110 30" style="background:#0d9488; border-radius:4px;">
@@ -1068,7 +812,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Banyo & Mutfak Armatürleri</div>
         </div>
 
-        <!-- BRAND CARD 3: VitrA -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#0f172a; border-radius:4px;">
@@ -1080,7 +823,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Vitrifiye, Seramik & Banyo</div>
         </div>
 
-        <!-- BRAND CARD 4: Kale -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#dc2626; border-radius:4px;">
@@ -1091,7 +833,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Seramik, Çelik Kapı & Kilit</div>
         </div>
 
-        <!-- BRAND CARD 5: Rehau -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#e11d48; border-radius:4px;">
@@ -1102,7 +843,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">A Sınıfı Alman PVC Profil</div>
         </div>
 
-        <!-- BRAND CARD 6: Winsa -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#0284c7; border-radius:4px;">
@@ -1113,7 +853,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">PVC Pencere & Kapı Sistemleri</div>
         </div>
 
-        <!-- BRAND CARD 7: Şişecam -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 110 30" style="background:#2563eb; border-radius:4px;">
@@ -1124,7 +863,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Isıcam Konfor Çift Cam</div>
         </div>
 
-        <!-- BRAND CARD 8: Geberit -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#0369a1; border-radius:4px;">
@@ -1135,7 +873,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Gömme Rezervuar & Tesisat</div>
         </div>
 
-        <!-- BRAND CARD 9: Kütahya Seramik -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 120 30" style="background:#4f46e5; border-radius:4px;">
@@ -1146,7 +883,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Porselen & Granit Kaplama</div>
         </div>
 
-        <!-- BRAND CARD 10: Çanakkale Seramik -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 125 30" style="background:#059669; border-radius:4px;">
@@ -1157,7 +893,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Zemin & Duvar Kaplamaları</div>
         </div>
 
-        <!-- BRAND CARD 11: Daikin -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#0284c7; border-radius:4px;">
@@ -1168,7 +903,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Inverter Klima & Soğutma</div>
         </div>
 
-        <!-- BRAND CARD 12: Mitsubishi Electric -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 120 30" style="background:#dc2626; border-radius:4px;">
@@ -1179,7 +913,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">İklimlendirme & Isı Pompası</div>
         </div>
 
-        <!-- BRAND CARD 13: Viessmann -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 120 30" style="background:#ea580c; border-radius:4px;">
@@ -1190,7 +923,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Yoğuşmalı Kombi & Isıtma</div>
         </div>
 
-        <!-- BRAND CARD 14: DESİ -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#15803d; border-radius:4px;">
@@ -1201,7 +933,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Motorlu Akıllı Kilit Sistemleri</div>
         </div>
 
-        <!-- BRAND CARD 15: Somfy -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#b45309; border-radius:4px;">
@@ -1212,7 +943,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Akıllı Ev & İnterkom Sistemleri</div>
         </div>
 
-        <!-- BRAND CARD 16: KONE -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 100 30" style="background:#4338ca; border-radius:4px;">
@@ -1223,7 +953,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Sessiz Otomatik Asansör</div>
         </div>
 
-        <!-- BRAND CARD 17: Aksa Jeneratör -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 110 30" style="background:#0f766e; border-radius:4px;">
@@ -1234,7 +963,6 @@ export function generateOfferHtml(
           <div style="font-size:7.5px; color:#64748b; font-family:sans-serif;">Otomatik Dizel Jeneratör & ATS</div>
         </div>
 
-        <!-- BRAND CARD 18: Lamar Porselen -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
           <div style="height:26px; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
             <svg width="85" height="22" viewBox="0 0 110 30" style="background:#334155; border-radius:4px;">
@@ -1246,7 +974,6 @@ export function generateOfferHtml(
         </div>
       </div>
 
-      <!-- LEGAL DISCLAIMER FOOTER NOTE -->
       <div style="margin-top:10px; padding:8px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:8.5px; color:#1e40af; line-height:1.45; font-family:sans-serif;">
         <strong>📌 Noter Onaylı Şartname Beyanı:</strong> Teklif dosyasında ve şartnamede ismi geçen tüm markalar veya dengi teknik standartlara sahip 1. sınıf TSE / CE / ISO belgeli muadilleri imalat sürecinde yüklenici firma tarafından kullanılacaktır. Marka seçimlerinde stok durumu, tedarik imkanları ve mimari uyum esas alınır.
       </div>
@@ -1254,25 +981,24 @@ export function generateOfferHtml(
   </div>
 
   <!-- 8. YETKİLİ İMZA VE KAŞE PROTOKOLÜ -->
-  ${showContractorSignature ? `
+  ${presentation.showContractorSignature ? `
   <div class="avoid-break" style="margin-top:16px;border-top:2px solid #0f172a;padding-top:14px;">
     <div class="grid-2">
-      <!-- CLIENTS SIGNATURE -->
       <div style="text-align:center;border-right:1px dashed #cbd5e1;padding-right:16px;">
         <div style="font-weight:bold;font-size:11px;color:#0f172a;">ARSA SAHİPLERİ / BİNA YÖNETİMİ</div>
         <div style="color:#64748b;font-size:9.5px;margin:2px 0 6px 0;">Kat Malikleri Kurulu / Temsilci Heyeti</div>
-        
-        ${isDualOffer && dualData ? `
+
+        ${isDualOffer && dualOffer ? `
         <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:5px 8px;margin:0 auto 10px auto;font-size:8.5px;text-align:left;display:inline-block;">
           <strong style="color:#1e293b;display:block;margin-bottom:3px;text-align:center;">Muvafakat Edilen Teklif Paketi:</strong>
           <div style="display:flex;gap:12px;justify-content:center;">
-            <label style="display:flex;align-items:center;gap:3px;color:#334155;cursor:pointer;">
+            <label style="display:flex;align-items:center;gap:3px;color:#334155;">
               <span style="display:inline-block;width:10px;height:10px;border:1.5px solid #64748b;border-radius:2px;"></span>
-              1. Seçenek (${dualData.baseTitle})
+              1. Seçenek (${e(dualOffer.baseTitle)})
             </label>
-            <label style="display:flex;align-items:center;gap:3px;color:#6d28d9;font-weight:bold;cursor:pointer;">
+            <label style="display:flex;align-items:center;gap:3px;color:#6d28d9;font-weight:bold;">
               <span style="display:inline-block;width:10px;height:10px;border:1.5px solid #7c3aed;border-radius:2px;"></span>
-              2. Seçenek (${dualData.plusTitle})
+              2. Seçenek (${e(dualOffer.plusTitle)})
             </label>
           </div>
         </div>
@@ -1282,35 +1008,49 @@ export function generateOfferHtml(
         <div style="color:#64748b;font-size:9px;">(İmza / Tarih / TC)</div>
       </div>
 
-      <!-- CONTRACTOR SIGNATURE -->
       <div style="text-align:center;padding-left:16px;position:relative;">
         <div style="font-weight:bold;font-size:11px;color:#0f172a;">YÜKLENİCİ FİRMA KAŞE / İMZA</div>
-        <div style="font-size:9.5px;color:#475569;margin:2px 0 4px 0;font-weight:600;">${showLegal ? compLegal : compName}</div>
-        
+        <div style="font-size:9.5px;color:#475569;margin:2px 0 4px 0;font-weight:600;">${vis.showLegal ? compLegalEsc : compNameEsc}</div>
+
         <div style="display:flex;justify-content:center;gap:14px;align-items:center;min-height:48px;position:relative;">
-          ${showStamp && compStamp ? `
-            <img src="${compStamp}" alt="Kaşe/İmza" style="max-height:52px;object-fit:contain;position:absolute;z-index:2;opacity:0.9;" />
+          ${vis.showStamp && compStampEsc ? `
+            <img src="${compStampEsc}" alt="Kaşe/İmza" style="max-height:52px;object-fit:contain;position:absolute;z-index:2;opacity:0.9;" />
           ` : ''}
-          ${showFirstAuth ? `
+          ${vis.showFirstAuth ? `
           <div style="position:relative;z-index:1;">
-            <div style="font-weight:bold;color:#0f172a;font-size:10.5px;">${compAuth}</div>
-            <div style="font-size:9px;color:#4338ca;font-weight:600;">${compAuthTitle}</div>
-            ${showFirstAuthChamber && compAuthChamber ? `<div style="font-size:8.5px;color:#64748b;font-family:monospace;">${compAuthChamber}</div>` : ''}
+            <div style="font-weight:bold;color:#0f172a;font-size:10.5px;">${compAuthEsc}</div>
+            <div style="font-size:9px;color:#4338ca;font-weight:600;">${compAuthTitleEsc}</div>
+            ${vis.showFirstAuthChamber && compAuthChamberEsc ? `<div style="font-size:8.5px;color:#64748b;font-family:monospace;">${compAuthChamberEsc}</div>` : ''}
           </div>
           ` : ''}
-          ${showSecondAuth && compAuth2 ? `
+          ${vis.showSecondAuth && compAuth2Esc ? `
           <div style="position:relative;z-index:1;border-left:1px solid #e2e8f0;padding-left:10px;">
-            <div style="font-weight:bold;color:#0f172a;font-size:10.5px;">${compAuth2}</div>
-            <div style="font-size:9px;color:#065f46;font-weight:600;">${compAuthTitle2}</div>
-            ${showSecondAuthChamber && compAuthChamber2 ? `<div style="font-size:8.5px;color:#64748b;font-family:monospace;">${compAuthChamber2}</div>` : ''}
+            <div style="font-weight:bold;color:#0f172a;font-size:10.5px;">${compAuth2Esc}</div>
+            <div style="font-size:9px;color:#065f46;font-weight:600;">${compAuthTitle2Esc}</div>
+            ${vis.showSecondAuthChamber && compAuthChamber2Esc ? `<div style="font-size:8.5px;color:#64748b;font-family:monospace;">${compAuthChamber2Esc}</div>` : ''}
           </div>
           ` : ''}
         </div>
         <div style="height:12px;border-bottom:1px solid #94a3b8;margin:2px 24px 6px 24px;"></div>
-        <div style="color:#64748b;font-size:9px;">Tarih: ${proposalDate}</div>
+        <div style="color:#64748b;font-size:9px;">Tarih: ${e(identity.proposalDateFormatted)} • Teklif No: ${e(identity.proposalNumber)} (v${identity.version})</div>
       </div>
     </div>
   </div>` : ''}
 </body>
 </html>`;
+}
+
+/**
+ * Geriye dönük uyumlu giriş noktası: ProjectParams + CalculationResult'ı önce
+ * güvenli CustomerOfferPayload sınırından geçirir, ardından HTML üretir.
+ */
+export function generateOfferHtml(
+  params: ProjectParams,
+  res: CalculationResult,
+  _showDrawings: boolean = false,
+  companyProfile?: CompanyProfile,
+  uploadedImages?: Array<{ url: string; caption?: string }>
+): string {
+  const payload = buildCustomerOfferPayload(params, res, companyProfile, uploadedImages);
+  return generateOfferHtmlFromPayload(payload);
 }

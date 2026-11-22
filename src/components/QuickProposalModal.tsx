@@ -86,7 +86,7 @@ const QuickProposalModalContent: React.FC<QuickProposalModalContentProps> = ({
       contractorShareRate: contractorShareRate,
       manualMonths: previewResults.finalMonths || 15,
       durationOption: 'manual',
-      proposalStatus: 'presented',
+      proposalStatus: 'draft',
     });
     onClose();
   };

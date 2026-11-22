@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { resolveProjectProgressKeys } from '../utils/syncKeys';
 import { 
   Building2, 
@@ -63,9 +63,17 @@ import {
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { sanitizeCustomerMessageText } from '../utils/textSanitizer';
 import { getAcOptionById } from '../utils/acOptions';
-import { generateOfferHtml } from '../utils/offerReportExport';
+import { generateOfferHtmlFromPayload } from '../utils/offerReportExport';
 import { getCompletedProjectsText } from '../utils/completedProjectsData';
-import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
+import { exportElementToPdf, exportHtmlToPdf, printHtmlContent } from '../utils/pdfExport';
+import {
+  buildCustomerOfferPayload,
+  buildInitializedOfferMeta,
+  computeValidUntilIso,
+  createOfferVersionSnapshot,
+  appendOfferStatusHistory,
+  generateCustomerWhatsAppSummary,
+} from '../utils/customerOfferBoundary';
 import { ReconciliationDiagnosticModal } from './ReconciliationDiagnosticModal';
 import { IstanbulRealEstateValuationModal } from './IstanbulRealEstateValuationModal';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
@@ -137,68 +145,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const [activeControlTab, setActiveControlTab] = useState<'inflation' | 'pricing' | 'payment' | 'features' | 'visibility'>('inflation');
   const [isLiveControlPanelExpanded, setIsLiveControlPanelExpanded] = useState<boolean>(false);
 
-  const generateWhatsAppMessageText = () => {
-    const compName = profile?.companyName || 'AB YAPI';
-    const compAuth = profile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
-    const compAuthTitle = profile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
-    const compPhone = profile?.phone || '+90 (212) 585 10 20';
-    const compEmail = profile?.email || 'info@abyapi.com.tr';
-    const compWeb = profile?.website || (profile?.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
-    const proposalNumber = `${compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-${new Date().getFullYear()}-${String(results.flatCount || 10).padStart(3, '0')}`;
-    const proposalDate = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-    const grandTotalStr = (results.grandTotal || 0).toLocaleString('tr-TR');
-    const perFlatStr = Math.round((results.grandTotal || 0) / (results.flatCount || 1)).toLocaleString('tr-TR');
-    const netDebtStr = (results.flatResults?.[0]?.netRemainingDebt || 0).toLocaleString('tr-TR');
-    const monthlyStr = (results.flatResults?.[0]?.monthlyInstallment || Math.round((results.grandTotal || 0) / (results.flatCount || 1) / (params.installmentCount || 12))).toLocaleString('tr-TR');
-
-    const msg = `🏢 *${compName.toUpperCase()} - KURUMSAL İNŞAAT & KENTSEL DÖNÜŞÜM TEKLİFİ*
-📍 *Proje Adresi:* ${params.projectAddress || 'Belirtilmedi'}
-📄 *Teklif Kodu:* ${proposalNumber} | *Tarih:* ${proposalDate}
-
-📊 *MİMARİ KÜNYE:*
-• Kat Sayısı: Zemin Üstü ${params.floorCount || 5} Kat
-• Bağımsız Bölüm: ${results.flatCount || 10} Adet Daire / Birim
-• Anahtar Teslim Süresi: ${params.manualMonths || 15} Ay
-
-💰 *FİNANSAL TEKLİF ÖZETİ:*
-• Toplam İmalat Bedeli: ${grandTotalStr} ₺
-• Daire Başı Ortalama Pay: ${perFlatStr} ₺
-• State Hibesi/Kredisi Düşülmüş Net Ödeme: *${netDebtStr} ₺ / Daire*
-
-💳 *ÖDEME VE VADE TAKVİMİ:*
-• Ödeme Modeli: ${params.paymentPlanType === 'installments' ? 'Aylık Eşit Taksit' : params.paymentPlanType === 'hybrid' ? 'Peşinat + Taksit' : '5 Aşamalı İlerleme Hakedişi'}
-• Vade / Taksit: ${params.installmentCount || 12} Ay (${monthlyStr} ₺ / Ay)
-
-🛡️ *GÜVENLİK VE TEKNİK TAAHHÜTLER:*
-✓ 2018 Türkiye Bina Deprem Yönetmeliği %100 Uyum
-✓ Radye Jeneral Temel & C35/45 Beton Sınıfı
-✓ 20 Yıl Taşıyıcı Sistem & 5 Yıl İnce İşçilik Garantisi
-${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fiyat Sabit)' : '✓ Sabit Fiyat Garantisi'}
-
-📞 *Detaylı görüşme ve randevu için:*
-👤 ${compAuth} (${compAuthTitle})
-📱 Tel: ${compPhone}
-📧 E-posta: ${compEmail}${compWeb ? `\n🌐 ${compWeb}` : ''}`;
-
-    return sanitizeCustomerMessageText(msg);
-  };
-
-  const handleCopyWhatsApp = () => {
-    const sanitizedMsg = sanitizeCustomerMessageText(generateWhatsAppMessageText());
-    navigator.clipboard.writeText(sanitizedMsg);
-    setWhatsAppCopied(true);
-    setTimeout(() => setWhatsAppCopied(false), 3000);
-  };
-
-  const handleOpenWhatsAppDirect = () => {
-    const rawMsg = generateWhatsAppMessageText();
-    const sanitizedMsg = sanitizeCustomerMessageText(rawMsg);
-    const msg = encodeURIComponent(sanitizedMsg);
-    const cleanPhone = whatsAppRecipientPhone.replace(/[^0-9]/g, '');
-    const url = cleanPhone ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}` : `https://api.whatsapp.com/send?text=${msg}`;
-    window.open(url, '_blank');
-  };
+  // Teklif Sürüm Notu & Bildirim Durumu (Firma İçi)
+  const [versionNoteInput, setVersionNoteInput] = useState<string>('');
+  const [versionSavedNotice, setVersionSavedNotice] = useState<string | null>(null);
 
   const handleSelectPreset = (presetId: string) => {
     const selected = DUAL_OFFER_NAMING_PRESETS.find(p => p.id === presetId);
@@ -743,22 +692,99 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
     }
   };
 
-  const proposalNumber = `${compName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase()}-${new Date().getFullYear()}-${String(results.flatCount || 10).padStart(3, '0')}`;
-  const proposalDate = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const validityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  // Müşteri Teklifi Güvenli Veri Sınırı (CustomerOfferPayload)
+  const customerPayload = useMemo(
+    () => buildCustomerOfferPayload(params, results, profile, uploadedImages),
+    [params, results, profile, uploadedImages]
+  );
+
+  const proposalNumber = customerPayload.identity.proposalNumber;
+  const proposalDate = customerPayload.identity.proposalDateFormatted;
+  const validityDate = customerPayload.identity.validUntilFormatted;
+  const validityDays = customerPayload.identity.validityDays;
+  const offerVersion = customerPayload.identity.version;
+
+  const generateWhatsAppMessageText = () => {
+    return generateCustomerWhatsAppSummary(customerPayload);
+  };
+
+  const handleCopyWhatsApp = () => {
+    const sanitizedMsg = sanitizeCustomerMessageText(generateWhatsAppMessageText());
+    navigator.clipboard.writeText(sanitizedMsg);
+    setWhatsAppCopied(true);
+    setTimeout(() => setWhatsAppCopied(false), 3000);
+  };
+
+  const handleOpenWhatsAppDirect = () => {
+    const sanitizedMsg = sanitizeCustomerMessageText(generateWhatsAppMessageText());
+    const msg = encodeURIComponent(sanitizedMsg);
+    const cleanPhone = whatsAppRecipientPhone.replace(/[^0-9]/g, '');
+    const url = cleanPhone
+      ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`
+      : `https://api.whatsapp.com/send?text=${msg}`;
+    window.open(url, '_blank');
+  };
+
+  const handleUpdateOfferMeta = (updater: (base: ReturnType<typeof buildInitializedOfferMeta>) => ReturnType<typeof buildInitializedOfferMeta>) => {
+    const baseMeta = buildInitializedOfferMeta(params, compName);
+    const updatedMeta = updater(baseMeta);
+    if (onUpdateAllParams) {
+      onUpdateAllParams({ offerMeta: updatedMeta });
+    } else if (onUpdateParam) {
+      onUpdateParam('offerMeta', updatedMeta);
+    }
+  };
+
+  const handleUpdateValidityDays = (days: number) => {
+    const safeDays = Math.max(1, Math.min(365, Math.round(days || 30)));
+    handleUpdateOfferMeta((base) => ({
+      ...base,
+      validityDays: safeDays,
+      validUntil: computeValidUntilIso(base.createdAt, safeDays),
+    }));
+  };
+
+  const handleUpdateInternalNotes = (notes: string) => {
+    handleUpdateOfferMeta((base) => ({
+      ...base,
+      internalNotes: notes,
+    }));
+  };
+
+  const handleSaveOfferVersionSnapshot = () => {
+    const { nextOfferMeta, snapshot } = createOfferVersionSnapshot(
+      params,
+      results,
+      profile,
+      uploadedImages,
+      versionNoteInput
+    );
+    if (onUpdateAllParams) {
+      onUpdateAllParams({ offerMeta: nextOfferMeta });
+    } else if (onUpdateParam) {
+      onUpdateParam('offerMeta', nextOfferMeta);
+    }
+    setVersionNoteInput('');
+    setVersionSavedNotice(`✓ Sürüm v${snapshot.version} (${snapshot.proposalNumber}) oluşturuldu`);
+    setTimeout(() => setVersionSavedNotice(null), 3500);
+  };
 
   const handleExportPdf = async () => {
-    if (!offerDocRef.current) return;
     const safeAddr = (params.projectAddress || 'Proje').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
     const safeName = compName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
-    const fileName = `${safeName}_Resmi_Musteri_Teklifi_${safeAddr}_${new Date().toISOString().slice(0, 10)}.pdf`;
-    await exportElementToPdf(offerDocRef.current, fileName);
+    const fileName = `${safeName}_Teklif_${proposalNumber}_v${offerVersion}_${safeAddr}.pdf`;
+    if (offerDocRef.current && activeSubTab === 'preview') {
+      await exportElementToPdf(offerDocRef.current, fileName);
+      return;
+    }
+    const html = generateOfferHtmlFromPayload(customerPayload);
+    await exportHtmlToPdf(html, fileName);
   };
 
   const handlePrint = () => {
-    const html = generateOfferHtml(params, results, false, profile, uploadedImages);
+    const html = generateOfferHtmlFromPayload(customerPayload);
     const safeName = compName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
-    printHtmlContent(html, `${safeName}_Teklif_${params.projectAddress || 'Proje'}`);
+    printHtmlContent(html, `${safeName}_Teklif_${proposalNumber}_v${offerVersion}`);
   };
 
   // Copy protection side effects only during customer document preview (never block editor inputs)
@@ -778,6 +804,15 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
   const criticalMissingIssues = (evaluation?.issues || []).filter((i) => i.severity === 'critical');
 
   const handleSaveCurrentOffer = () => {
+    // Eksikse kalıcı teklif kimliğini başlat (eski projelerin durumunu değiştirmeden)
+    if (!params.offerMeta?.proposalNumber) {
+      const initializedMeta = buildInitializedOfferMeta(params, compName);
+      if (onUpdateAllParams) {
+        onUpdateAllParams({ offerMeta: initializedMeta });
+      } else if (onUpdateParam) {
+        onUpdateParam('offerMeta', initializedMeta);
+      }
+    }
     if (onSaveOffer) {
       onSaveOffer();
       setOfferSavedNotice(true);
@@ -851,7 +886,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
               <FileSignature className="w-3.5 h-3.5" />
               {activeSubTab === 'contractor_financials' ? 'Şirket İçi Maliyet & Kâr Analizi' : 'Müşteri Teklif Dosyası'}
             </span>
-            <span className="text-xs text-slate-400 font-mono">Ref: {proposalNumber}</span>
+            <span className="text-xs text-slate-400 font-mono">Ref: {proposalNumber} • v{offerVersion}</span>
             {params.projectName && (
               <span className="text-xs font-bold text-slate-700 truncate max-w-[260px]">
                 • {params.projectName}
@@ -860,7 +895,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
           </div>
           <p className="text-xs text-slate-500 mt-1">
             {activeSubTab === 'preview'
-              ? 'Müşteriye sunulacak resmî teklif görünümü. Şirket içi maliyet ve kâr analizleri bu çıktıya dahil edilmez.'
+              ? 'Müşteriye sunulacak resmî teklif görünümü. Şirket içi maliyet, kâr ve iç notlar bu çıktıya kesinlikle dahil edilmez.'
               : 'Proje künyesi, metraj, paylaşım ve ödeme verileri teklif dosyasına otomatik aktarılır.'}
           </p>
         </div>
@@ -892,8 +927,24 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
             <button
               type="button"
               onClick={() => {
-                if (onUpdateParam) {
+                const prevStatus = params.proposalStatus || 'draft';
+                const updatedMeta = appendOfferStatusHistory(
+                  params,
+                  compName,
+                  prevStatus,
+                  'active_site',
+                  'Teklif kabul edildi ve şantiye süreci başlatıldı'
+                );
+                if (onUpdateAllParams) {
+                  onUpdateAllParams({
+                    isOfferAccepted: true,
+                    proposalStatus: 'active_site',
+                    offerMeta: updatedMeta,
+                  });
+                } else if (onUpdateParam) {
                   onUpdateParam('isOfferAccepted', true);
+                  onUpdateParam('proposalStatus', 'active_site');
+                  onUpdateParam('offerMeta', updatedMeta);
                 }
                 const safeAddr = resolveProjectProgressKeys({
                   projectAddress: params.projectAddress,
@@ -914,16 +965,13 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
             type="button"
             onClick={() => {
               setActiveSubTab('contractor_financials');
-              if (params.offerPresentationMode !== 'dual' && onUpdateParam) {
-                onUpdateParam('offerPresentationMode', 'dual');
-              }
               setTimeout(() => {
                 const el = document.getElementById('contractor-financial-reflection-panel');
                 el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }, 60);
             }}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
-            title="Yalnızca şirket içi maliyet ve müteahhit kâr analizini aç (müşteri teklifine yansımaz)"
+            title="Yalnızca şirket içi maliyet, kâr, sürüm ve gizli not analizini aç (müşteri teklifine yansımaz)"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
             <span>🔒 İç Kâr Analizi</span>
@@ -940,8 +988,8 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
           <PrintAndPdfButtons
             onExportPdf={handleExportPdf}
             onPrint={handlePrint}
-            getHtmlContent={() => generateOfferHtml(params, results, false, profile, uploadedImages)}
-            documentTitle={`${compName} - Resmî Teklifname`}
+            getHtmlContent={() => generateOfferHtmlFromPayload(customerPayload)}
+            documentTitle={`${compName} - Resmî Teklifname (${proposalNumber})`}
             theme={theme}
           />
         </div>
@@ -2558,8 +2606,8 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 </label>
               </div>
 
-              {/* MÜŞTERİYE SUNULACAK DAİRE BAŞI PLUS FARKI HIZLI SEÇİCİ */}
-              <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 via-amber-50/50 to-purple-50 rounded-2xl border-2 border-purple-200/80 space-y-3">
+              {/* MÜŞTERİYE SUNULACAK DAİRE BAŞI PLUS FARKI (YALNIZCA MÜŞTERİ FİYATI — İÇ MALİYET VE KÂR YALNIZCA İÇ ANALİZ SEKMESİNDEDİR) */}
+              <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 via-indigo-50/40 to-purple-50 rounded-2xl border-2 border-purple-200/80 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div className="p-1.5 bg-purple-600 text-white rounded-lg shadow-sm">
@@ -2567,473 +2615,57 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                     </div>
                     <div>
                       <span className="text-xs font-black text-slate-900 uppercase tracking-wider block">
-                        Müşteriye Sunulacak Daire Başı Plus Farkı:
+                        Müşteriye Sunulacak Daire Başı Plus Paket Farkı
                       </span>
                       <span className="text-[11px] text-slate-600">
-                        Aşağıdaki butonlara tıklayarak teklifte müşterinin göreceği daire başı farkı tek tıkla belirleyin.
+                        Bu alanda yalnızca müşterinin göreceği paket farkı düzenlenir. Şantiye maliyeti ve kâr analizi güvenlik nedeniyle yalnızca <strong>Şirket İçi Maliyet &amp; Kâr Analizi</strong> sekmesinde yer alır.
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {deltaNotification && (
-                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-600 text-white shadow-sm animate-pulse">
-                        {deltaNotification}
-                      </span>
-                    )}
-                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-purple-600 text-white shadow-sm shrink-0">
-                      Resmî Teklife Yansır
-                    </span>
-                  </div>
-                </div>
-
-                {/* Percentage Preset Buttons */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  {deltaPresets.map((preset) => (
-                    <button
-                      key={`top-${preset.id}`}
-                      type="button"
-                      onClick={() => handleApplyDelta(preset.value, preset.label)}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
-                        preset.isActive
-                          ? 'bg-purple-700 text-white shadow-md shadow-purple-700/30 ring-2 ring-purple-400 scale-[1.02]'
-                          : 'bg-white hover:bg-purple-50 text-slate-700 border border-purple-200 hover:border-purple-300 shadow-sm'
-                      }`}
-                      title={`${preset.label} - Daire Başı ${preset.displayVal.toLocaleString('tr-TR')} ₺`}
-                    >
-                      {preset.isActive ? (
-                        <Check className="w-3.5 h-3.5 text-amber-300 stroke-[3]" />
-                      ) : (
-                        <span className="text-[10px] px-1 py-0.2 rounded bg-purple-100 text-purple-800 font-mono font-bold">
-                          {preset.percentBadge}
-                        </span>
-                      )}
-                      <span>{preset.label}</span>
-                      <span className={`font-mono text-[11px] font-bold ${preset.isActive ? 'text-amber-300' : 'text-purple-700'}`}>
-                        ({preset.displayVal.toLocaleString('tr-TR')} ₺)
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Live Cost & Profit Preview Strip */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-purple-200/60 text-xs">
-                  <div className="p-2 bg-white rounded-xl border border-purple-100">
-                    <span className="text-[10px] text-slate-500 block">Şantiye Maliyeti:</span>
-                    <strong className="text-slate-800 font-mono">{dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺</strong>
-                  </div>
-                  <div className="p-2 bg-purple-100/60 rounded-xl border border-purple-200">
-                    <span className="text-[10px] text-purple-700 font-bold block">Teklif Farkı (Müşteri):</span>
-                    <strong className="text-purple-900 font-mono font-black">+{dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺</strong>
-                  </div>
-                  <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <span className="text-[10px] text-emerald-700 font-bold block">Daire Başı Ek Kârınız:</span>
-                    <strong className="text-emerald-800 font-mono font-black">+{dualData.contractorNetMarginPerFlat.toLocaleString('tr-TR')} ₺</strong>
-                  </div>
-                  <div className="p-2 bg-amber-50 rounded-xl border border-amber-200">
-                    <span className="text-[10px] text-amber-800 font-bold block">Şirket Toplam Ek Kârı:</span>
-                    <strong className="text-amber-900 font-mono font-black">+{dualData.contractorNetTotalProfit.toLocaleString('tr-TR')} ₺</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 4. CONTRACTOR PRIVATE FINANCIAL CONTROL PANEL (Yalnızca Müteahhit Görür - Teklifte/PDF'te Kesinlikle Görünmez) */}
-            <div 
-              id="contractor-financial-reflection-panel"
-              className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white border-2 border-amber-500/40 shadow-2xl space-y-6 scroll-mt-6"
-            >
-              {/* Header */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-800">
-                <div className="flex items-start sm:items-center gap-3">
-                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-500/40 shrink-0">
-                    <ShieldCheck className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="text-sm font-black text-white uppercase tracking-wider">
-                        Yüklenici Finansal Tablosu: Plus Paketin Müteahhite (Bana) Yansıyan Farkı
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
-                        🔒 Gizli (Müşteri Teklifinde ve PDF'te Görünmez)
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-300 mt-1">
-                      Plus paketin şantiye imalat maliyetinize, müşterilerden toplanacak nakit akışına, daire başı net kârınıza ve toplam şirket kazancınıza yansıyan tüm finansal farkları inceleyin.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 self-start lg:self-center">
-                  <span className="text-[11px] text-slate-400 font-mono bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-                    Proje Birim Adedi: <strong className="text-white">{results.flatCount || 1}</strong>
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-purple-600 text-white shadow-sm shrink-0 self-start sm:self-center">
+                    Resmî Teklife Yansır
                   </span>
                 </div>
-              </div>
 
-              {/* 1. DÖRT TEMEL FİNANSAL YANSIMA KARTI (EXECUTIVE OVERVIEW) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                {/* KART 1: Şantiyeye / Bana Ekstra Maliyet */}
-                <div className="p-4 bg-slate-900/90 rounded-2xl border border-rose-500/30 relative overflow-hidden flex flex-col justify-between">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-xl pointer-events-none" />
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-extrabold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <Calculator className="w-3.5 h-3.5 text-rose-400" />
-                        1. Bana (Şantiyeye) Yansıyan Maliyet
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">Çıkan Para</span>
-                    </div>
-                    <div className="text-2xl font-black font-mono text-white mt-1">
-                      {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺
-                      <span className="text-xs font-normal text-slate-400 block mt-0.5">Daire Başı Net İmalat</span>
-                    </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-purple-200">
+                    <span className="text-xs font-bold text-slate-600 whitespace-nowrap">Daire Başı Plus Farkı (₺):</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={5000}
+                      value={params.plusOfferCustomFlatDelta ?? dualData.customerFlatDelta}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const val = raw === '' ? undefined : Math.max(0, Number(raw));
+                        handleApplyDelta(val, 'Özel Müşteri Farkı');
+                      }}
+                      className="w-36 px-2.5 py-1 rounded-lg border border-slate-300 text-right font-mono font-black text-purple-900 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
                   </div>
-                  <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-                    <span className="text-slate-400">Toplam Ek Maliyet:</span>
-                    <strong className="font-mono text-rose-300 font-bold">{dualData.calculatedTotalCostDiff.toLocaleString('tr-TR')} ₺</strong>
-                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSubTab('contractor_financials');
+                      setTimeout(() => {
+                        const el = document.getElementById('contractor-financial-reflection-panel');
+                        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 60);
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>🔒 Şirket İçi Maliyet &amp; Kâr Analizini Aç</span>
+                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                  </button>
                 </div>
 
-                {/* KART 2: Müşteriden Toplanacak Tutar */}
-                <div className="p-4 bg-slate-900/90 rounded-2xl border border-sky-500/30 relative overflow-hidden flex flex-col justify-between">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/5 rounded-full blur-xl pointer-events-none" />
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-extrabold text-sky-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <DollarSign className="w-3.5 h-3.5 text-sky-400" />
-                        2. Müşteriden Alınacak Hasılat
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">Giren Para</span>
-                    </div>
-                    <div className="text-2xl font-black font-mono text-sky-300 mt-1">
-                      {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
-                      <span className="text-xs font-normal text-slate-400 block mt-0.5">Daire Başı Teklif Farkı</span>
-                    </div>
+                {deltaNotification && (
+                  <div className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5">
+                    {deltaNotification}
                   </div>
-                  <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-                    <span className="text-slate-400">Toplam Tahsilat:</span>
-                    <strong className="font-mono text-white font-bold">{dualData.customerTotalCostDiff.toLocaleString('tr-TR')} ₺</strong>
-                  </div>
-                </div>
-
-                {/* KART 3: Müteahhide (Bana) Kalan Net İlave Kâr */}
-                <div className="p-4 bg-slate-900/90 rounded-2xl border border-emerald-500/40 relative overflow-hidden flex flex-col justify-between">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                        3. Bana Kalan Net Ekstra Kâr
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">Cepte Kalan</span>
-                    </div>
-                    <div className="text-2xl font-black font-mono text-emerald-400 mt-1">
-                      {dualData.contractorNetExtraMargin >= 0 ? '+' : ''}{dualData.contractorNetExtraMargin.toLocaleString('tr-TR')} ₺
-                      <span className="text-xs font-normal text-slate-400 block mt-0.5">
-                        Daire Başı: {dualData.unitProfitPerFlat >= 0 ? '+' : ''}{dualData.unitProfitPerFlat.toLocaleString('tr-TR')} ₺
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-                    <span className="text-slate-400">İlave Kâr Marjı:</span>
-                    <strong className="font-mono text-emerald-300 font-bold">+{dualData.contractorMarginPercent}%</strong>
-                  </div>
-                </div>
-
-                {/* KART 4: Toplam Şirket Kârı Değişimi */}
-                <div className="p-4 bg-slate-900/90 rounded-2xl border border-amber-500/40 relative overflow-hidden flex flex-col justify-between">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-extrabold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <Coins className="w-3.5 h-3.5 text-amber-400" />
-                        4. Toplam Proje Kârı Büyümesi
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">Genel Kâr</span>
-                    </div>
-                    <div className="text-2xl font-black font-mono text-amber-300 mt-1">
-                      {dualData.plusProfitAmount.toLocaleString('tr-TR')} ₺
-                      <span className="text-xs font-normal text-slate-400 block mt-0.5">
-                        Baz Kâr: {dualData.baseProfitAmount.toLocaleString('tr-TR')} ₺
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-                    <span className="text-slate-400">Net Kâr Artışınız:</span>
-                    <strong className="font-mono text-emerald-400 font-bold">
-                      +{dualData.profitDiffAmount.toLocaleString('tr-TR')} ₺ ({dualData.profitDiffPercent > 0 ? `+${dualData.profitDiffPercent}%` : 'Aynı'})
-                    </strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. KAT KARŞILIĞI VE MÜTEAHHİT MÜLKİYETİNDEKİ DAİRELERİN ANALİZİ (Varsa) */}
-              {dualData.contractorFlatsCount > 0 && (
-                <div className="p-4 bg-indigo-950/40 rounded-2xl border border-indigo-500/30 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-indigo-200 uppercase tracking-wider flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-indigo-400" />
-                      Kat Karşılığı Analizi: Müteahhidin (Sizin) Dairelerine Yansıyan Finansal Bakiye
-                    </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">
-                      {dualData.contractorFlatsCount} Daire Sizin / {dualData.ownerFlatsCount} Daire Kat Maliklerinin
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
-                    <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">Sizin Dairelerinizin Plus Maliyeti:</span>
-                      <strong className="font-mono text-base text-rose-300 block mt-0.5">
-                        {dualData.contractorOwnFlatsCost.toLocaleString('tr-TR')} ₺
-                      </strong>
-                      <span className="text-[9px] text-slate-400">{dualData.contractorFlatsCount} daire × {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺</span>
-                    </div>
-
-                    <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">Kat Maliklerinden Toplanan Tutar:</span>
-                      <strong className="font-mono text-base text-sky-300 block mt-0.5">
-                        {dualData.collectedFromOwners.toLocaleString('tr-TR')} ₺
-                      </strong>
-                      <span className="text-[9px] text-slate-400">{dualData.ownerFlatsCount} daire × {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺</span>
-                    </div>
-
-                    <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">Nakit Finansman Dengesi:</span>
-                      <strong className={`font-mono text-base block mt-0.5 ${dualData.netContractorBalance >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        {dualData.netContractorBalance >= 0 ? '+' : ''}{dualData.netContractorBalance.toLocaleString('tr-TR')} ₺
-                      </strong>
-                      <span className="text-[9px] text-slate-400">
-                        {dualData.netContractorBalance >= 0 ? 'Malik payları kendi maliyetinizi de karşılıyor' : 'Kendi dairelerinize kalan net yatırım'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] text-indigo-200/90 leading-relaxed pt-1">
-                    💡 <strong>Satış Primi Avantajı:</strong> Mülkiyetinizdeki {dualData.contractorFlatsCount} adet bağımsız bölüme uygulanan Plus donanımlar (yerden ısıtma, klima, merkezi su arıtma, akıllı banyo ve mutfak), dairelerinizin piyasa satış değerini ortalama <strong>+%15-25 artıracak</strong> ve satış hızını katlayacaktır.
-                  </p>
-                </div>
-              )}
-
-              {/* 3. KALEM KALEM ŞANTİYE VE TAŞERON MALİYETLERİ TABLOSU */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-amber-400" />
-                    Bana Yansıyan Plus Kalemleri Maliyet ve Kâr Tablosu
-                  </span>
-                  <span className="text-[10px] text-slate-400">Şantiye Taşeron & Malzeme Birim Fiyatları</span>
-                </div>
-
-                <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/70">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-400 bg-slate-900/90 text-[10px] uppercase font-bold tracking-wider">
-                        <th className="py-2.5 px-3">Plus Donanım Kalemi</th>
-                        <th className="py-2.5 px-3">Uygulama Kapsamı</th>
-                        <th className="py-2.5 px-3 text-right">Şantiye Maliyeti (₺/Daire)</th>
-                        <th className="py-2.5 px-3 text-right">Toplam Ek İmalat (₺)</th>
-                        <th className="py-2.5 px-3 text-right">Müşteriye Sunulan (₺/Daire)</th>
-                        <th className="py-2.5 px-3 text-right">Birim Net Kâr (₺)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-medium">
-                      {dualData.itemizedContractorCosts.map((item) => {
-                        const itemShareOfCustomer = dualData.calculatedAvgCostPerFlatDiff > 0
-                          ? Math.round(dualData.customerFlatDelta * (item.unitCost / dualData.calculatedAvgCostPerFlatDiff))
-                          : item.unitCost;
-                        const itemUnitProfit = itemShareOfCustomer - item.unitCost;
-
-                        return (
-                          <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
-                            <td className="py-2 px-3 text-white font-semibold flex items-center gap-2">
-                              <span>{item.icon}</span>
-                              <span>{item.name}</span>
-                            </td>
-                            <td className="py-2 px-3 text-slate-400 text-[11px]">
-                              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 text-[9.5px]">
-                                {item.scope}
-                              </span>
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono text-slate-300">
-                              {item.unitCost.toLocaleString('tr-TR')} ₺
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono text-indigo-300 font-bold">
-                              {item.totalCost.toLocaleString('tr-TR')} ₺
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono text-sky-300">
-                              {itemShareOfCustomer.toLocaleString('tr-TR')} ₺
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono font-bold">
-                              <span className={itemUnitProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                                {itemUnitProfit >= 0 ? '+' : ''}{itemUnitProfit.toLocaleString('tr-TR')} ₺
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-
-                      {/* Toplam Satırı */}
-                      <tr className="bg-slate-900 border-t-2 border-slate-700 text-white font-bold">
-                        <td className="py-2.5 px-3" colSpan={2}>
-                          GENEL PLUS PAKET TOPLAMI
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-rose-300">
-                          {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-indigo-300">
-                          {dualData.calculatedTotalCostDiff.toLocaleString('tr-TR')} ₺
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-sky-300">
-                          {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-emerald-400">
-                          {dualData.unitProfitPerFlat >= 0 ? '+' : ''}{dualData.unitProfitPerFlat.toLocaleString('tr-TR')} ₺
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* 4. MÜŞTERİYE SUNULACAK DAİRE BAŞI FARK GİRİŞİ & HIZLI KÂR SİMÜLATÖRÜ */}
-              <div className="p-4 sm:p-5 bg-slate-900/90 rounded-2xl border-2 border-amber-400/60 space-y-4 shadow-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <span className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Sliders className="w-4 h-4 text-amber-400" />
-                      Müşteriye Sunulacak Daire Başı Plus Farkını Belirleyin
-                    </span>
-                    <p className="text-[11px] text-slate-300 mt-0.5">
-                      Yüzdelik kâr butonlarına basarak veya özel tutar girerek teklif mektubunda müşterinin göreceği daire başı Plus bedelini belirleyin.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {deltaNotification && (
-                      <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-400 text-slate-950 flex items-center gap-1.5 shadow-sm">
-                        <Check className="w-3.5 h-3.5" />
-                        {deltaNotification}
-                      </span>
-                    )}
-                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-400 text-slate-950 shrink-0">
-                      Teklif Belgesine Yansır
-                    </span>
-                  </div>
-                </div>
-
-                {/* Quick Percentage Presets */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-300 font-bold flex items-center gap-1.5">
-                      <Percent className="w-3.5 h-3.5 text-amber-400" />
-                      Hızlı Kâr Marjı ve Yuvarlama Butonları:
-                    </span>
-                    <span className="text-slate-400 font-mono text-[10px]">
-                      Net Şantiye Maliyeti: <strong className="text-amber-300">{dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺/daire</strong>
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {deltaPresets.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => handleApplyDelta(preset.value, preset.label)}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
-                          preset.isActive
-                            ? 'bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-400/30 ring-2 ring-amber-300 scale-[1.03]'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600'
-                        }`}
-                        title={`${preset.label} - Daire Başı ${preset.displayVal.toLocaleString('tr-TR')} ₺`}
-                      >
-                        {preset.isActive ? (
-                          <Check className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />
-                        ) : (
-                          <span className="text-[10px] px-1 py-0.2 rounded bg-slate-700/80 text-slate-300 font-mono">
-                            {preset.percentBadge}
-                          </span>
-                        )}
-                        <span>{preset.label}</span>
-                        <span className={`font-mono text-[11px] ${preset.isActive ? 'text-slate-950 font-black' : 'text-amber-400'}`}>
-                          ({preset.displayVal.toLocaleString('tr-TR')} ₺)
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Fine-Tuning & Custom Input Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center pt-2 border-t border-slate-800">
-                  <div className="lg:col-span-6 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleStepDelta(-5000)}
-                      className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1 shrink-0 cursor-pointer"
-                      title="5.000 ₺ Azalt"
-                    >
-                      <Minus className="w-3.5 h-3.5 text-amber-400" />
-                      <span>-5.000 ₺</span>
-                    </button>
-
-                    <div className="relative flex-1">
-                      <input
-                        type="number"
-                        min={0}
-                        step={1000}
-                        value={params.plusOfferCustomFlatDelta ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
-                          handleApplyDelta(val, 'Özel Tutar');
-                        }}
-                        placeholder={`Maliyet: ${dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺`}
-                        className="w-full text-base font-black font-mono px-4 py-2.5 rounded-xl border-2 border-amber-400 bg-slate-950 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-inner"
-                      />
-                      <span className="absolute right-3 top-[11px] text-xs font-black text-amber-400 pointer-events-none">
-                        ₺ / Daire
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleStepDelta(5000)}
-                      className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1 shrink-0 cursor-pointer"
-                      title="5.000 ₺ Arttır"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>+5.000 ₺</span>
-                    </button>
-                  </div>
-
-                  <div className="lg:col-span-6 p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <span className="text-slate-400 block text-[10px]">Daire Başı Net İlave Kâr:</span>
-                      <span className={`font-mono text-sm font-black ${dualData.contractorNetMarginPerFlat >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {dualData.contractorNetMarginPerFlat >= 0 ? '+' : ''}{dualData.contractorNetMarginPerFlat.toLocaleString('tr-TR')} ₺
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px]">Toplam Şirket Ek Kârı:</span>
-                      <span className={`font-mono text-sm font-black ${dualData.contractorNetTotalProfit >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
-                        {dualData.contractorNetTotalProfit >= 0 ? '+' : ''}{dualData.contractorNetTotalProfit.toLocaleString('tr-TR')} ₺
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleApplyDelta(undefined, 'Maliyetine Sıfırla')}
-                      className="px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer"
-                      title="Sıfırla ve teknik maliyete dön"
-                    >
-                      Sıfırla (%0)
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Güvenlik & Gizlilik Bildirimi */}
-              <div className="text-[11px] text-slate-400 flex items-center gap-2 pt-2 border-t border-slate-800">
-                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>
-                  <strong>Gizlilik Garantisi:</strong> Yukarıdaki maliyet farkı, şantiye taşeron bedelleri ve yüklenici net kâr rakamları yalnızca sizin ekranınızda görünür. Müşteriye sunulan resmi teklif özetinde, mukavele ekinde ve PDF çıktısında sadece müşteriye sunduğunuz nihai Plus Paket tutarı yer alır.
-                </span>
+                )}
               </div>
             </div>
 
@@ -3492,6 +3124,166 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
             </span>
           </div>
         </div>
+
+        {/* FİRMA İÇİ TEKLİF KİMLİĞİ, SÜRÜM YÖNETİMİ, GİZLİ NOTLAR VE TEŞHİS ARAÇLARI */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5" data-internal-only="true">
+          {/* Sol: Kalıcı Teklif Kimliği, Geçerlilik & Sürüm Geçmişi */}
+          <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-200">
+                  <Hash className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                    Teklif Kimliği, Geçerlilik ve Sürüm Yönetimi
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Kalıcı teklif numarası, geçerlilik süresi ve dondurulmuş müşteri teklif sürümleri
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 font-mono text-[11px] font-black">
+                {proposalNumber} • v{offerVersion}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 uppercase block">Oluşturulma Tarihi</span>
+                <span className="font-mono font-bold text-slate-900">{proposalDate}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 uppercase block">Geçerlilik Bitiş</span>
+                <span className="font-mono font-bold text-emerald-700">{validityDate} ({validityDays} Gün)</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-700 block">Teklif Geçerlilik Süresi (Gün):</label>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[7, 15, 30, 45, 60].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => handleUpdateValidityDays(d)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                      validityDays === d
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {d} Gün
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <label className="text-[11px] font-bold text-slate-700 block">
+                Yeni Sürüm Anlık Görüntüsü Kaydet (Yalnızca Müşteri Çıktısı Saklanır):
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={versionNoteInput}
+                  onChange={(e) => setVersionNoteInput(e.target.value)}
+                  placeholder="Örn: Revize ödeme planı eklendi..."
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveOfferVersionSnapshot}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
+                >
+                  + Sürüm Kaydet
+                </button>
+              </div>
+              {versionSavedNotice && (
+                <div className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
+                  {versionSavedNotice}
+                </div>
+              )}
+
+              {(params.offerMeta?.versions || []).length > 0 && (
+                <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
+                  {[...(params.offerMeta?.versions || [])].reverse().map((v) => (
+                    <div
+                      key={`${v.proposalNumber}-v${v.version}-${v.createdAt}`}
+                      className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px]"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-mono font-bold text-indigo-800">v{v.version}</span>
+                        <span className="text-slate-500 ml-2">{new Date(v.createdAt).toLocaleDateString('tr-TR')}</span>
+                        {v.summaryNote && <span className="text-slate-700 ml-2 truncate">• {v.summaryNote}</span>}
+                      </div>
+                      <span className="font-mono font-bold text-slate-900 shrink-0">
+                        {v.grandTotal.toLocaleString('tr-TR')} ₺
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sağ: Firma İçi Gizli Notlar + Dahili Teşhis Araçları */}
+          <div className="p-5 rounded-3xl bg-white border border-amber-200 shadow-sm space-y-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-amber-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-amber-50 text-amber-700 rounded-xl border border-amber-200">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                      Firma İçi Gizli Notlar (Müşteri Görmez)
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Pazarlık tabanı, malik talepleri ve risk değerlendirmeleri
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-extrabold border border-amber-300">
+                  🔒 PDF &amp; WhatsApp&apos;a Çıkmaz
+                </span>
+              </div>
+
+              <textarea
+                rows={4}
+                value={params.offerMeta?.internalNotes || ''}
+                onChange={(e) => handleUpdateInternalNotes(e.target.value)}
+                placeholder="Örn: Arsa sahipleriyle görüşme notları, kabul edilebilir en düşük kâr marjı, taşeron teklif notları..."
+                className="w-full p-3 rounded-xl border border-amber-200 bg-amber-50/30 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y"
+              />
+            </div>
+
+            {/* Dahili Teşhis ve Değerleme Araçları (Müşteri Teklif Belgesinden Taşındı) */}
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
+                Dahili Analiz ve Mutabakat Araçları
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDiagnosticModalOpen(true)}
+                  className="py-2.5 px-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Scale className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>🔍 Malik Dağılım Mutabakat Teşhisi</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsValuationModalOpen(true)}
+                  className="py-2.5 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Building2 className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>🏢 İstanbul Emlak Piyasa Değerlemesi</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       )}
 
@@ -3702,9 +3494,11 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
             {/* Right: Proposal Document Card */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 min-w-[220px] text-right font-mono text-xs space-y-1 self-start md:self-auto">
               <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">RESMÎ BELGE KÜNYESİ</div>
-              <div className="text-slate-900 font-bold text-sm text-indigo-900">{proposalNumber}</div>
+              <div className="text-slate-900 font-bold text-sm text-indigo-900">
+                {proposalNumber} <span className="text-[11px] text-indigo-600">(v{offerVersion})</span>
+              </div>
               <div className="text-slate-600 text-[11px]">Tarih: <span className="font-semibold text-slate-900">{proposalDate}</span></div>
-              <div className="text-slate-600 text-[11px]">Geçerlilik: <span className="font-semibold text-emerald-700">{validityDate} (30 Gün)</span></div>
+              <div className="text-slate-600 text-[11px]">Geçerlilik: <span className="font-semibold text-emerald-700">{validityDate} ({validityDays} Gün)</span></div>
               {showFirstAuth && <div className="text-slate-500 text-[10px] pt-1 border-t border-slate-200">Yetkili: {compAuth}</div>}
             </div>
           </div>
@@ -4088,11 +3882,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                   </div>
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                    <span className="font-bold text-slate-400">Yatırım Değeri:</span>
-                    <span className="font-black text-purple-700 font-mono">
-                      {params.hasUnderfloorHeating 
-                        ? `${results.underfloorHeatingCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                        : `+${results.underfloorHeatingCost?.toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    <span className="font-bold text-slate-400">Kapsam Durumu:</span>
+                    <span className={`font-bold ${params.hasUnderfloorHeating ? 'text-emerald-700' : 'text-slate-600'}`}>
+                      {params.hasUnderfloorHeating ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                     </span>
                   </div>
                 </div>
@@ -4122,11 +3914,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                   </div>
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                    <span className="font-bold text-slate-400">Yatırım Değeri:</span>
-                    <span className="font-black text-purple-700 font-mono">
-                      {params.hasWaterFiltration 
-                        ? `${results.waterFiltrationCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                        : `+${results.waterFiltrationCost?.toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    <span className="font-bold text-slate-400">Kapsam Durumu:</span>
+                    <span className={`font-bold ${params.hasWaterFiltration ? 'text-emerald-700' : 'text-slate-600'}`}>
+                      {params.hasWaterFiltration ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                     </span>
                   </div>
                 </div>
@@ -4172,18 +3962,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                       </div>
                       
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                        <div>
-                          <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
-                          {params.hasAcOption && (
-                            <span className="text-[9px] text-indigo-700 font-semibold">
-                              {results.acUnitCount || results.flatCount} Ünite × {results.acCostPerFlat?.toLocaleString('tr-TR')} ₺
-                            </span>
-                          )}
-                        </div>
-                        <span className="font-black text-purple-700 font-mono">
-                          {params.hasAcOption 
-                            ? `${results.acCostTotal?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                            : `+${((results.flatCount || 1) * currentAc.avgPricePerFlat).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                        <span className="font-bold text-slate-400">Kapsam Durumu:</span>
+                        <span className={`font-bold ${params.hasAcOption ? 'text-emerald-700' : 'text-slate-600'}`}>
+                          {params.hasAcOption ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                         </span>
                       </div>
                     </div>
@@ -4239,18 +4020,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                   </div>
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                    <div>
-                      <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
-                      {params.hasThermostaticShowerMixer && (
-                        <span className="text-[9px] text-purple-700 font-semibold">
-                          {results.thermostaticMixerUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.thermostaticMixerPricePerFlat || 6500).toLocaleString('tr-TR')} ₺
-                        </span>
-                      )}
-                    </div>
-                    <span className="font-black text-purple-700 font-mono">
-                      {params.hasThermostaticShowerMixer 
-                        ? `${results.thermostaticMixerCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                        : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.thermostaticMixerPricePerFlat || 6500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    <span className="font-bold text-slate-400">Kapsam Durumu:</span>
+                    <span className={`font-bold ${params.hasThermostaticShowerMixer ? 'text-emerald-700' : 'text-slate-600'}`}>
+                      {params.hasThermostaticShowerMixer ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                     </span>
                   </div>
                 </div>
@@ -4289,18 +4061,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                   </div>
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                    <div>
-                      <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
-                      {params.hasLinearShowerDrain && (
-                        <span className="text-[9px] text-teal-700 font-semibold">
-                          {results.linearDrainUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.linearDrainPricePerFlat || 2800).toLocaleString('tr-TR')} ₺
-                        </span>
-                      )}
-                    </div>
-                    <span className="font-black text-purple-700 font-mono">
-                      {params.hasLinearShowerDrain 
-                        ? `${results.linearDrainCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                        : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.linearDrainPricePerFlat || 2800)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    <span className="font-bold text-slate-400">Kapsam Durumu:</span>
+                    <span className={`font-bold ${params.hasLinearShowerDrain ? 'text-emerald-700' : 'text-slate-600'}`}>
+                      {params.hasLinearShowerDrain ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                     </span>
                   </div>
                 </div>
@@ -4339,18 +4102,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                   </div>
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                    <div>
-                      <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
-                      {params.hasBathroomHumidityFan && (
-                        <span className="text-[9px] text-cyan-700 font-semibold">
-                          {results.bathroomHumidityFanUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.bathroomHumidityFanPricePerFlat || 3200).toLocaleString('tr-TR')} ₺
-                        </span>
-                      )}
-                    </div>
-                    <span className="font-black text-purple-700 font-mono">
-                      {params.hasBathroomHumidityFan 
-                        ? `${results.bathroomHumidityFanCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                        : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.bathroomHumidityFanPricePerFlat || 3200)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                    <span className="font-bold text-slate-400">Kapsam Durumu:</span>
+                    <span className={`font-bold ${params.hasBathroomHumidityFan ? 'text-emerald-700' : 'text-slate-600'}`}>
+                      {params.hasBathroomHumidityFan ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                     </span>
                   </div>
                 </div>
@@ -4429,18 +4183,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 </div>
                 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                  <div>
-                    <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
-                    {params.hasTouchlessKitchenFaucet && (
-                      <span className="text-[9px] text-purple-700 font-semibold">
-                        {results.touchlessKitchenFaucetUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.touchlessKitchenFaucetPricePerFlat || 8500).toLocaleString('tr-TR')} ₺
-                      </span>
-                    )}
-                  </div>
-                  <span className="font-black text-purple-700 font-mono">
-                    {params.hasTouchlessKitchenFaucet 
-                      ? `${results.touchlessKitchenFaucetCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                      : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.touchlessKitchenFaucetPricePerFlat || 8500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                  <span className="font-bold text-slate-400">Kapsam Durumu:</span>
+                  <span className={`font-bold ${params.hasTouchlessKitchenFaucet ? 'text-emerald-700' : 'text-slate-600'}`}>
+                    {params.hasTouchlessKitchenFaucet ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                   </span>
                 </div>
               </div>
@@ -4492,18 +4237,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 </div>
                 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                  <div>
-                    <span className="font-bold text-slate-400 block">Yatırım Değeri:</span>
-                    {params.hasSmartDoorLock && (
-                      <span className="text-[9px] text-purple-700 font-semibold">
-                        {results.smartDoorLockUnits ?? results.residentialUnitsCount ?? results.flatCount} Konut × {(params.smartDoorLockPricePerFlat || 8500).toLocaleString('tr-TR')} ₺
-                      </span>
-                    )}
-                  </div>
-                  <span className="font-black text-purple-700 font-mono">
-                    {params.hasSmartDoorLock 
-                      ? `${results.smartDoorLockCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                      : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.smartDoorLockPricePerFlat || 8500)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                  <span className="font-bold text-slate-400">Kapsam Durumu:</span>
+                  <span className={`font-bold ${params.hasSmartDoorLock ? 'text-emerald-700' : 'text-slate-600'}`}>
+                    {params.hasSmartDoorLock ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                   </span>
                 </div>
               </div>
@@ -4555,11 +4291,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 </div>
 
                 <div className="pt-2 border-t border-purple-100/60 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500 font-semibold">Jeneratör Yatırımı:</span>
-                  <span className="font-black text-purple-700 font-mono">
-                    {params.hasGenerator 
-                      ? `${results.generatorCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                      : `+${(180000 + (results.flatCount || 10) * 6000).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                  <span className="text-slate-500 font-semibold">Kapsam Durumu:</span>
+                  <span className={`font-bold ${params.hasGenerator ? 'text-emerald-700' : 'text-slate-600'}`}>
+                    {params.hasGenerator ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                   </span>
                 </div>
               </div>
@@ -4611,11 +4345,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 </div>
 
                 <div className="pt-2 border-t border-purple-100/60 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500 font-semibold">Porselen Tezgah Yatırımı:</span>
-                  <span className="font-black text-purple-700 font-mono">
-                    {params.hasPorcelainCountertop 
-                      ? `${results.porcelainCountertopCost?.toLocaleString('tr-TR')} ₺ (Bütçeye Dahil)` 
-                      : `+${(((results.residentialUnitsCount ?? results.flatCount) || 1) * (params.porcelainCountertopPricePerFlat || 25000)).toLocaleString('tr-TR')} ₺ fark ile eklenebilir`}
+                  <span className="text-slate-500 font-semibold">Kapsam Durumu:</span>
+                  <span className={`font-bold ${params.hasPorcelainCountertop ? 'text-emerald-700' : 'text-slate-600'}`}>
+                    {params.hasPorcelainCountertop ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
                   </span>
                 </div>
               </div>
@@ -4952,28 +4684,8 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                       {isContractorShareModel ? 'Proje Yapım Hacmi (Referans)' : 'Toplam Teklif Bedeli'}
                     </span>
                     <div className="text-3xl font-black text-emerald-400 font-mono">
-                      {results.grandTotal.toLocaleString('tr-TR')} ₺
+                      {customerPayload.pricing.grandTotal.toLocaleString('tr-TR')} ₺
                     </div>
-
-                    {/* Mali Mutabakat Teşhis Butonu */}
-                    <button
-                      type="button"
-                      onClick={() => setIsDiagnosticModalOpen(true)}
-                      className="mt-3 w-full py-2.5 px-3 bg-indigo-600/40 hover:bg-indigo-600/60 border border-indigo-400/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 print:hidden"
-                    >
-                      <Scale className="w-4 h-4 text-indigo-300" />
-                      <span>🔍 Malik Dağılım Mutabakat Teşhisini Aç</span>
-                    </button>
-
-                    {/* Istanbul Real Estate Valuation Button */}
-                    <button
-                      type="button"
-                      onClick={() => setIsValuationModalOpen(true)}
-                      className="mt-2 w-full py-2.5 px-3 bg-amber-600/40 hover:bg-amber-600/60 border border-amber-400/30 text-amber-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 print:hidden"
-                    >
-                      <Building2 className="w-4 h-4 text-amber-300" />
-                      <span>🏢 İstanbul Emlak Piyasa Değerlemesi</span>
-                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 pt-4 border-t border-white/10">
@@ -5186,7 +4898,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                     <td className="p-3 text-right font-mono">-</td>
                     <td className="p-3 text-right font-mono">{results.totalArea.toLocaleString('tr-TR')} m²</td>
                     <td className="p-3 text-right font-mono text-slate-600">
-                      Ort. ~{results.grossCostPerSqM.toLocaleString('tr-TR')} ₺/m²
+                      Ort. ~{customerPayload.pricing.displayFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²
                     </td>
                     <td className="p-3 text-right font-mono text-slate-600">-</td>
                     <td className="p-3 text-right font-mono text-emerald-700 text-sm">
@@ -5245,10 +4957,10 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 <ShieldCheck className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
                 <div>
                   <h5 className="text-xs font-extrabold text-purple-950 uppercase tracking-wide">
-                    {params.customInflationNoticeTitle || (params.hasInflationBuffer ? '🛡️ Enflasyon Risk Güvencesi (İmalat Bedeline Dahildir)' : '🛡️ Enflasyon ve Vade Farkı Güvencesi (TEFE/TÜFE Farkı Yoktur)')}
+                    🛡️ {customerPayload.presentation.inflationNoticeTitle}
                   </h5>
                   <p className="text-[10px] text-purple-800 leading-relaxed mt-1">
-                    {params.customInflationNoticeText || (params.hasInflationBuffer ? 'Anlaşma anında belirlenen imalat bedeline enflasyon risk payı dahil edilmiş olup, inşaat süresince kat maliklerinden ayrıca TEFE/TÜFE veya ilave maliyet farkı talep edilmeyecektir.' : 'Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.')}
+                    {customerPayload.presentation.inflationNoticeText}
                   </p>
                 </div>
               </div>

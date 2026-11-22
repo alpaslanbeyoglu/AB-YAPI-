@@ -61,7 +61,7 @@ export const PrintAndPdfButtons: React.FC<PrintAndPdfButtonsProps> = ({
     setIsPreviewOpen(true);
   };
 
-  const currentHtml = getHtmlContent ? getHtmlContent() : '';
+  const currentHtml = isPreviewOpen && getHtmlContent ? getHtmlContent() : '';
 
   return (
     <>

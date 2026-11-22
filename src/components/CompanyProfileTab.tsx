@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Building,
   Upload,
@@ -22,52 +22,58 @@ import {
   Briefcase,
   Plus,
   AlertCircle,
-  TrendingUp,
-  Coins,
+  AlertTriangle,
   HardHat,
   ArrowRight,
-  Activity,
-  Calculator,
   Instagram,
   Facebook,
   Linkedin,
   Youtube,
   Twitter,
   Share2,
-  Sparkles,
-  Copy,
-  Check,
-  Image as ImageIcon,
   MessageSquare,
   Send,
   Smartphone,
-  RefreshCw,
   Settings2,
-  Newspaper,
-  Layers,
-  ArrowUpRight,
+  Search,
+  Archive,
+  Zap,
   ChevronRight,
-  CheckCircle,
-  Clock,
-  DollarSign
+  FolderOpen,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
-import { CompanyProfile, CompanyProfilePrintOptions } from '../types';
+import {
+  CompanyProfile,
+  CompanyProfilePrintOptions,
+  SavedProjectData,
+  ProjectParams,
+  CalculationResult,
+  ProposalStatus,
+  AppTheme,
+} from '../types';
 import { FIRESTORE_MEDIA_CHAR_LIMIT } from '../utils/syncKeys';
 import { LiveMarketPricesBar } from './LiveMarketPricesBar';
-import { ExecutiveDashboardHome } from './ExecutiveDashboardHome';
+import { evaluateWorkbenchProject, WorkbenchIssue } from './ProjectWorkbench/WorkbenchLiveSummary';
 
 export interface CompanyProfileTabProps {
-  theme?: string;
-  historyList?: any[];
+  theme?: AppTheme | string;
+  historyList?: SavedProjectData[];
   onNavigateToNewWorkOrder?: () => void;
+  onOpenQuickProposal?: () => void;
+  onContinueActiveProject?: (targetTab?: string, setupStep?: number) => void;
+  onNavigateToArchive?: () => void;
+  onNavigateToPortfolio?: () => void;
   onNavigateToCRM?: () => void;
   onNavigateToCost?: () => void;
-  onNavigateToPortfolio?: () => void;
-  onSelectProject?: (projectId: any, targetTab?: string) => void;
-  params?: any;
-  results?: any;
+  onSelectProject?: (project: SavedProjectData, targetTab?: string) => void;
+  params?: ProjectParams;
+  results?: CalculationResult;
 }
+
+type DashboardView = 'overview' | 'profile';
+type ProjectFilterStatus = 'all' | 'active_site' | 'presented' | 'draft' | 'archived';
+type ProjectSortKey = 'newest' | 'area' | 'budget' | 'name';
 
 const AUTHORIZED_TITLE_PRESETS = [
   'Yönetim Kurulu Başkanı',
@@ -87,11 +93,72 @@ const SECOND_TITLE_PRESETS = [
   'Sözleşmeler Yöneticisi'
 ];
 
-export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({ 
+const resolveProjectStatus = (proj: SavedProjectData): ProposalStatus => {
+  const status = proj.params?.proposalStatus;
+  if (status === 'archived') return 'archived';
+  if (status === 'active_site') return 'active_site';
+  if (status === 'contracted') return 'contracted';
+  if (status === 'accepted') return 'accepted';
+  if (status === 'presented') return 'presented';
+  if (proj.params?.isOfferAccepted) return 'active_site';
+  return 'draft';
+};
+
+const getStatusMeta = (status: ProposalStatus): { label: string; textClass: string } => {
+  switch (status) {
+    case 'active_site':
+      return { label: 'Aktif Şantiye', textClass: 'text-emerald-700 font-semibold' };
+    case 'contracted':
+      return { label: 'Sözleşmeli', textClass: 'text-indigo-700 font-semibold' };
+    case 'accepted':
+      return { label: 'Kabul Edildi', textClass: 'text-emerald-700 font-medium' };
+    case 'presented':
+      return { label: 'Teklif Sunuldu', textClass: 'text-amber-700 font-semibold' };
+    case 'archived':
+      return { label: 'Arşiv', textClass: 'text-slate-500 font-medium' };
+    default:
+      return { label: 'Taslak', textClass: 'text-slate-600 font-medium' };
+  }
+};
+
+const getProjectModelLabel = (model?: string): string => {
+  if (model === 'contractorShare') return 'Kat Karşılığı';
+  if (model === 'urbanTransformation') return 'Kentsel Dönüşüm';
+  if (model === 'turnkey') return 'Anahtar Teslim';
+  return 'Müteahhitlik';
+};
+
+const formatCompactCurrency = (amount: number): string => {
+  if (!amount || !Number.isFinite(amount)) return '0 ₺';
+  return `${Math.round(amount).toLocaleString('tr-TR')} ₺`;
+};
+
+const formatShortDate = (iso?: string): string => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const mapIssueToTarget = (issue: WorkbenchIssue): { tab: string; setupStep?: number } => {
+  if (issue.stage === 5) return { tab: 'maliyet' };
+  if (issue.stage === 6) return { tab: 'model' };
+  if (issue.stage === 7) return { tab: 'malikler' };
+  if (issue.stage === 8) return { tab: 'teklif' };
+  if (issue.stage === 9) return { tab: 'surec' };
+  if (issue.stage === 1) return { tab: 'kurulum', setupStep: 1 };
+  if (issue.stage === 4) return { tab: 'kurulum', setupStep: 3 };
+  return { tab: 'kurulum', setupStep: 2 };
+};
+
+export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
   theme = 'light',
-  historyList,
+  historyList = [],
   onNavigateToNewWorkOrder,
-  onNavigateToCRM,
+  onOpenQuickProposal,
+  onContinueActiveProject,
+  onNavigateToArchive,
+  onNavigateToPortfolio,
   onSelectProject,
   params,
   results,
@@ -296,232 +363,858 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
     setShowCreateModal(false);
   };
 
-  // Separate history items into active sites and proposals
-  const activeConstructions = historyList.filter(p => p.params?.isOfferAccepted);
-  const proposalProjects = historyList.filter(p => !p.params?.isOfferAccepted);
+  // Dashboard view & project list controls
+  const [activeView, setActiveView] = useState<DashboardView>('overview');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ProjectFilterStatus>('all');
+  const [sortKey, setSortKey] = useState<ProjectSortKey>('newest');
+  const [showAllProjects, setShowAllProjects] = useState(false);
+
+  const safeHistory = useMemo(
+    () => (Array.isArray(historyList) ? historyList : []),
+    [historyList]
+  );
+
+  // Real company-wide KPI aggregation from historyList
+  const companyMetrics = useMemo(() => {
+    let activeSites = 0;
+    let acceptedCount = 0;
+    let presentedCount = 0;
+    let draftCount = 0;
+    let archivedCount = 0;
+    let totalPortfolioArea = 0;
+    let activePortfolioBudget = 0;
+
+    for (const proj of safeHistory) {
+      const status = resolveProjectStatus(proj);
+      const area = Number(proj.results?.totalArea || 0);
+      const budget = Number(proj.results?.grandTotal || 0);
+
+      if (status === 'active_site') activeSites += 1;
+      else if (status === 'accepted') acceptedCount += 1;
+      else if (status === 'presented') presentedCount += 1;
+      else if (status === 'archived') archivedCount += 1;
+      else draftCount += 1;
+
+      if (status !== 'archived') {
+        totalPortfolioArea += area;
+        activePortfolioBudget += budget;
+      }
+    }
+
+    return {
+      totalProjects: safeHistory.length,
+      activeAndAccepted: activeSites + acceptedCount,
+      activeSites,
+      acceptedCount,
+      presentedCount,
+      draftCount,
+      archivedCount,
+      totalPortfolioArea,
+      activePortfolioBudget,
+    };
+  }, [safeHistory]);
+
+  // Real filtered & sorted project list
+  const filteredProjects = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+
+    const filtered = safeHistory.filter((proj) => {
+      const status = resolveProjectStatus(proj);
+      if (statusFilter === 'active_site' && status !== 'active_site' && status !== 'accepted') {
+        return false;
+      }
+      if (statusFilter === 'presented' && status !== 'presented') return false;
+      if (statusFilter === 'draft' && status !== 'draft') return false;
+      if (statusFilter === 'archived' && status !== 'archived') return false;
+
+      if (!q) return true;
+      const name = (proj.params?.projectName || '').toLowerCase();
+      const address = (proj.projectAddress || '').toLowerCase();
+      const model = getProjectModelLabel(proj.params?.projectModel).toLowerCase();
+      return name.includes(q) || address.includes(q) || model.includes(q);
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortKey === 'area') {
+        return Number(b.results?.totalArea || 0) - Number(a.results?.totalArea || 0);
+      }
+      if (sortKey === 'budget') {
+        return Number(b.results?.grandTotal || 0) - Number(a.results?.grandTotal || 0);
+      }
+      if (sortKey === 'name') {
+        const nameA = (a.params?.projectName || a.projectAddress || '').toLocaleLowerCase('tr-TR');
+        const nameB = (b.params?.projectName || b.projectAddress || '').toLocaleLowerCase('tr-TR');
+        return nameA.localeCompare(nameB, 'tr-TR');
+      }
+      const dateA = new Date(a.updatedAt || a.savedAt || 0).getTime();
+      const dateB = new Date(b.updatedAt || b.savedAt || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [safeHistory, searchQuery, statusFilter, sortKey]);
+
+  const visibleProjects = showAllProjects ? filteredProjects : filteredProjects.slice(0, 8);
+
+  // Active in-memory workspace evaluation (real smart check)
+  const isActiveProjectSaved = useMemo(
+    () => Boolean(params?.projectAddress && safeHistory.some((p) => p.projectAddress === params.projectAddress)),
+    [safeHistory, params?.projectAddress]
+  );
+
+  const activeEvaluation = useMemo(() => {
+    if (!params || !results) return null;
+    return evaluateWorkbenchProject(params, results, isActiveProjectSaved);
+  }, [params, results, isActiveProjectSaved]);
+
+  const activeCriticalIssues = useMemo(
+    () => (activeEvaluation ? activeEvaluation.issues.filter((i) => i.severity === 'critical') : []),
+    [activeEvaluation]
+  );
+  const activeWarningIssues = useMemo(
+    () => (activeEvaluation ? activeEvaluation.issues.filter((i) => i.severity === 'warning') : []),
+    [activeEvaluation]
+  );
+
+  // Pending proposals for right-side Work Tracking panel (real data from historyList)
+  const pendingProposalProjects = useMemo(() => {
+    return safeHistory
+      .filter((proj) => {
+        const st = resolveProjectStatus(proj);
+        return st === 'presented' || st === 'draft';
+      })
+      .sort((a, b) => {
+        const stA = resolveProjectStatus(a) === 'presented' ? 0 : 1;
+        const stB = resolveProjectStatus(b) === 'presented' ? 0 : 1;
+        if (stA !== stB) return stA - stB;
+        return (
+          new Date(b.updatedAt || b.savedAt || 0).getTime() -
+          new Date(a.updatedAt || a.savedAt || 0).getTime()
+        );
+      })
+      .slice(0, 4);
+  }, [safeHistory]);
+
+  // Corporate profile completeness check (real data from CompanyProfile)
+  const missingProfileFields = useMemo(() => {
+    const missing: string[] = [];
+    if (!profile.logoBase64) missing.push('Firma logosu');
+    if (!profile.taxNumber?.trim()) missing.push('Vergi numarası');
+    if (!profile.iban?.trim()) missing.push('Banka / IBAN bilgisi');
+    if (!profile.phone?.trim()) missing.push('Telefon bilgisi');
+    return missing;
+  }, [profile]);
+
+  const companyInitials = useMemo(() => {
+    const words = (profile.companyName || 'AB').trim().split(/\s+/).filter(Boolean);
+    return words.slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || 'AB';
+  }, [profile.companyName]);
+
+  const filterButtons: { id: ProjectFilterStatus; label: string; count: number }[] = [
+    { id: 'all', label: 'Tümü', count: companyMetrics.totalProjects },
+    { id: 'active_site', label: 'Aktif Şantiye', count: companyMetrics.activeAndAccepted },
+    { id: 'presented', label: 'Teklif Sunuldu', count: companyMetrics.presentedCount },
+    { id: 'draft', label: 'Taslak', count: companyMetrics.draftCount },
+    { id: 'archived', label: 'Arşiv', count: companyMetrics.archivedCount },
+  ];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-10 pb-16">
-      {params && results && (
-        <ExecutiveDashboardHome
-          params={params}
-          results={results}
-          theme={theme as any}
-          onNavigateTab={(tabId) => {
-            if (onSelectProject && historyList && historyList.length > 0) {
-              onSelectProject(historyList[0], tabId);
-            }
-          }}
-          onOpenWizard={() => {
-            if (onNavigateToNewWorkOrder) onNavigateToNewWorkOrder();
-          }}
-        />
-      )}
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 pb-16">
       {/* ========================================================
-          EXECUTIVE CONTRACTOR HUB — MAIN COMPANY DASHBOARD
+          TOP COMPANY HEADER & VIEW SWITCHER (GENEL BAKIŞ | FİRMA PROFİLİ)
          ======================================================== */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-white/10">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-widest uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                Firma Ana Sayfası & Genel Yönetim
-              </span>
-              <span className="text-xs text-slate-400 font-mono">
-                {profile.companyName || 'AB YAPI'}
-              </span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+        <div className="flex items-center gap-3.5 min-w-0">
+          {profile.logoBase64 ? (
+            <img
+              src={profile.logoBase64}
+              alt={profile.companyName || 'Firma Logosu'}
+              referrerPolicy="no-referrer"
+              className="w-11 h-11 rounded-xl object-contain bg-white border border-slate-200 p-1 shrink-0"
+            />
+          ) : (
+            <div className="w-11 h-11 rounded-xl bg-slate-900 text-white font-bold text-sm flex items-center justify-center shrink-0 tracking-tight">
+              {companyInitials}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Şirket Genel Yönetim Merkezi
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Müteahhitlik projelerinizi, canlı piyasa malzeme fiyatlarını, döviz kurlarını ve aktif şantiyelerinizi tek merkezden takip edin.
-            </p>
-          </div>
+          )}
 
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {onNavigateToNewWorkOrder && (
-              <button
-                type="button"
-                onClick={onNavigateToNewWorkOrder}
-                className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-black text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Yeni Proje Oluştur</span>
-              </button>
-            )}
-            {onNavigateToCRM && (
-              <button
-                type="button"
-                onClick={onNavigateToCRM}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/10 transition-all active:scale-95 cursor-pointer"
-              >
-                <Users className="w-4 h-4 text-indigo-300" />
-                <span>Müşteriler & CRM</span>
-              </button>
-            )}
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate">
+              {profile.companyName || 'AB-YAPI'}
+            </h1>
+            <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs text-slate-500 mt-0.5">
+              <span className="truncate max-w-md">{profile.legalName || 'Şirket Genel Yönetim Paneli'}</span>
+              {profile.authorizedPerson && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="whitespace-nowrap">{profile.authorizedPerson}</span>
+                </>
+              )}
+              {profiles.length > 1 && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="whitespace-nowrap">{profiles.length} kayıtlı firma profili</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Executive KPI Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6">
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
-              Aktif Çalışılan Proje
-            </span>
-            <span className="text-sm sm:text-base font-black text-white line-clamp-1">
-              {params?.projectName || params?.projectAddress || 'Varsayılan Şantiye'}
-            </span>
-            <span className="text-[10px] text-indigo-300 font-medium block mt-1">
-              {params?.projectModel === 'contractorShare' ? 'Kat Karşılığı' :
-               params?.projectModel === 'urbanTransformation' ? 'Kentsel Dönüşüm' : 'Müteahhitlik Hizmeti'}
-            </span>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
-              Faal Şantiye Sayısı
-            </span>
-            <span className="text-sm sm:text-base font-black text-emerald-400">
-              {activeConstructions.length} Şantiye
-            </span>
-            <span className="text-[10px] text-slate-400 block mt-1">
-              {proposalProjects.length} Teklif Aşamasında
-            </span>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
-              Aktif Proje Bütçesi
-            </span>
-            <span className="text-sm sm:text-base font-black text-amber-300">
-              {results?.grandTotal ? `${Math.round(results.grandTotal).toLocaleString('tr-TR')} ₺` : '0 ₺'}
-            </span>
-            <span className="text-[10px] text-slate-400 block mt-1">
-              {results?.totalArea ? `${Math.round(results.totalArea)} m² İnşaat` : '-'}
-            </span>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
-              Tahmini Teslim Süresi
-            </span>
-            <span className="text-sm sm:text-base font-black text-indigo-200">
-              {results?.finalMonths || params?.manualMonths || 12} Ay
-            </span>
-            <span className="text-[10px] text-emerald-400 font-bold block mt-1">
-              ✓ Çalışma Alanında Açık
-            </span>
-          </div>
+        {/* Segmented View Switcher */}
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200/80 self-start md:self-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveView('overview')}
+            className={`px-3.5 py-2 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              activeView === 'overview'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Genel Bakış
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveView('profile')}
+            className={`px-3.5 py-2 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
+              activeView === 'profile'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            <span>Firma Profili & Ayarları</span>
+            {missingProfileFields.length > 0 && (
+              <span className="text-[11px] font-mono tabular-nums text-amber-700 font-bold">
+                ({missingProfileFields.length})
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Live Market Prices Tracker (Gram Altın, Demir, Beton, USD, EUR) */}
-      <LiveMarketPricesBar theme={theme as any} />
-
       {/* ========================================================
-          2. AKTİF ŞANTİYELER VE TEKLİFLER LİSTESİ (SEÇİLDİĞİNDE ALT SAYFALAR GELİR)
+          VIEW 1: GENEL BAKIŞ (EXECUTIVE COMPANY DASHBOARD)
          ======================================================== */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <div>
-            <h2 className="text-base font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
-              <HardHat className="w-5 h-5 text-indigo-600" />
-              <span>Firmanın Şantiyeleri ve Teklif Yapılmış Projeleri</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              İncelemek veya düzenlemek istediğiniz projenin üzerine tıklayarak o projeye ait 9 adımlı stüdyoya geçiş yapabilirsiniz.
-            </p>
-          </div>
-          {onNavigateToNewWorkOrder && (
-            <button
-              onClick={onNavigateToNewWorkOrder}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Yeni Proje Ekle
-            </button>
-          )}
-        </div>
+      {activeView === 'overview' && (
+        <div className="space-y-6">
+          {/* 1. ÜST BÖLÜM: GERÇEK ŞİRKET KPI ŞERİDİ (historyList) */}
+          <section aria-label="Şirket Genel Özeti" className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 bg-white border border-slate-200 rounded-xl divide-y md:divide-y-0 md:divide-x divide-slate-200 overflow-hidden">
+              <div className="p-4 flex flex-col justify-between gap-1">
+                <span className="text-xs font-medium text-slate-500">Toplam Proje</span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+                  {companyMetrics.totalProjects}
+                </span>
+                <span className="text-xs text-slate-500 font-mono tabular-nums">
+                  {companyMetrics.totalPortfolioArea > 0
+                    ? `${Math.round(companyMetrics.totalPortfolioArea).toLocaleString('tr-TR')} m² aktif portföy`
+                    : 'Kayıtlı proje yok'}
+                </span>
+              </div>
 
-        {/* Projects Display Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {historyList.length > 0 ? (
-            historyList.map((proj, idx) => {
-              const isCurrentActive = params?.projectAddress === proj.projectAddress;
-              const isAccepted = proj.params?.isOfferAccepted;
-              return (
-                <div
-                  key={idx}
-                  onClick={() => onSelectProject && onSelectProject(proj, 'kurulum')}
-                  className={`bg-white border rounded-2xl p-4 transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 group relative overflow-hidden ${
-                    isCurrentActive
-                      ? 'border-indigo-600 ring-2 ring-indigo-500/20 shadow-md bg-indigo-50/10'
-                      : 'border-slate-200 hover:border-indigo-300 hover:shadow-md'
-                  }`}
+              <div className="p-4 flex flex-col justify-between gap-1">
+                <span className="text-xs font-medium text-slate-500">Aktif Şantiye</span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-emerald-700">
+                  {companyMetrics.activeAndAccepted}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {companyMetrics.acceptedCount > 0
+                    ? `${companyMetrics.activeSites} sahada · ${companyMetrics.acceptedCount} onaylı`
+                    : 'Onaylanmış ve devam eden'}
+                </span>
+              </div>
+
+              <div className="p-4 flex flex-col justify-between gap-1">
+                <span className="text-xs font-medium text-slate-500">Sunulan Teklif</span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-amber-700">
+                  {companyMetrics.presentedCount}
+                </span>
+                <span className="text-xs text-slate-500">Müşteri dönüşü bekleyen</span>
+              </div>
+
+              <div className="p-4 flex flex-col justify-between gap-1">
+                <span className="text-xs font-medium text-slate-500">Taslak / Hazırlanan</span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+                  {companyMetrics.draftCount}
+                </span>
+                <span className="text-xs text-slate-500">Fizibilite ve teklif aşaması</span>
+              </div>
+
+              <div className="p-4 flex flex-col justify-between gap-1 col-span-2 md:col-span-1">
+                <span className="text-xs font-medium text-slate-500">Aktif Portföy Hacmi</span>
+                <span className="text-xl font-bold font-mono tabular-nums text-slate-900 truncate">
+                  {formatCompactCurrency(companyMetrics.activePortfolioBudget)}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {companyMetrics.archivedCount > 0
+                    ? `${companyMetrics.archivedCount} arşiv proje hariç`
+                    : 'Kayıtlı projeler toplamı'}
+                </span>
+              </div>
+            </div>
+
+            {/* Kompakt Canlı Piyasa Referans Şeridi */}
+            <LiveMarketPricesBar theme={theme as AppTheme} compact />
+          </section>
+
+          {/* 2. ANA İŞLEM ALANI: HIZLI İŞLEMLER & AKTİF PROJEYE DEVAM ET */}
+          <section
+            aria-label="Ana İşlemler"
+            className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-5"
+          >
+            {/* Primary Actions */}
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              {onNavigateToNewWorkOrder && (
+                <button
+                  type="button"
+                  onClick={onNavigateToNewWorkOrder}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                        isAccepted
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          : 'bg-amber-100 text-amber-800 border border-amber-200'
-                      }`}>
-                        {isAccepted ? '🟢 Faal Şantiye' : '🟡 Teklif / Fizibilite'}
-                      </span>
-                      {isCurrentActive && (
-                        <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
-                          Çalışılan Proje
-                        </span>
-                      )}
-                    </div>
+                  <Plus className="w-4 h-4" />
+                  <span>Yeni Proje Oluştur</span>
+                </button>
+              )}
 
-                    <h3 className="font-extrabold text-sm text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
-                      {proj.params?.projectName || proj.projectAddress || 'İsimsiz Proje'}
-                    </h3>
-                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-1 line-clamp-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      {proj.projectAddress}
+              {onOpenQuickProposal && (
+                <button
+                  type="button"
+                  onClick={onOpenQuickProposal}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>Hızlı Teklif Hazırla</span>
+                </button>
+              )}
+            </div>
+
+            {/* Active Workspace Project Resume Strip (does not overwrite active params) */}
+            {params && results && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 xl:pl-5 xl:border-l border-slate-200 flex-1 min-w-0">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span className="font-medium text-slate-700">Çalışma Masasında Açık</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{getProjectModelLabel(params.projectModel)}</span>
+                    {activeEvaluation && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span
+                          className={`font-mono tabular-nums font-semibold ${
+                            activeEvaluation.isOfferReady ? 'text-emerald-700' : 'text-amber-700'
+                          }`}
+                        >
+                          %{activeEvaluation.requiredPercent} tamamlandı
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 truncate mt-0.5">
+                    {params.projectName || params.projectAddress || 'Adsız Çalışma Taslağı'}
+                  </p>
+                  <div className="flex items-center flex-wrap gap-x-2 text-xs text-slate-500 font-mono tabular-nums mt-0.5">
+                    <span>{results.totalArea ? `${Math.round(results.totalArea).toLocaleString('tr-TR')} m²` : '0 m²'}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{results.flatCount || 0} bölüm</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="text-slate-700 font-medium">{formatCompactCurrency(results.grandTotal)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {onContinueActiveProject && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onContinueActiveProject('teklif')}
+                        className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                      >
+                        Teklif
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onContinueActiveProject('kurulum')}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                      >
+                        <span>Aktif Projeye Devam Et</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* 3 & 4. ANA YÖNETİM ALANI: SOL (PROJE YÖNETİMİ) + SAĞ (İŞ TAKİBİ) */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+            {/* SOL 8 KOLON: PROJE YÖNETİMİ (SON VE DEVAM EDEN PROJELER) */}
+            <section
+              aria-label="Proje Yönetimi"
+              className="xl:col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden"
+            >
+              {/* Header + Search + Sort */}
+              <div className="p-4 sm:p-5 border-b border-slate-200 space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">
+                      Son ve Devam Eden Projeler
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Kayıtlı projelerinizi durumuna göre filtreleyin, doğrudan çalışma masası, teklif veya şantiye ekranına geçin.
                     </p>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-600 font-mono">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Bağımsız Bölüm:</span>
-                      <span className="font-bold text-slate-800">{proj.results?.flatCount || proj.params?.flatCount || 0} Adet</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">İnşaat Alanı:</span>
-                      <span className="font-bold text-slate-800">{proj.results?.totalArea ? `${Math.round(proj.results.totalArea)} m²` : '-'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Proje Bedeli:</span>
-                      <span className="font-black text-indigo-600">{proj.results?.grandTotal ? `${Math.round(proj.results.grandTotal).toLocaleString('tr-TR')} ₺` : '-'}</span>
-                    </div>
+                  {onNavigateToArchive && safeHistory.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToArchive}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
+                    >
+                      <span>Tüm Arşiv ({safeHistory.length})</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Search + Sort Row */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Proje adı, adres veya yapım türü ara..."
+                      className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                    />
                   </div>
 
-                  <div className="pt-2 flex items-center justify-between text-xs font-bold text-indigo-600 group-hover:translate-x-0.5 transition-transform">
-                    <span>Proje Stüdyosunu Aç</span>
-                    <ArrowRight className="w-4 h-4" />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 shrink-0 hidden sm:block" />
+                    <select
+                      aria-label="Projeleri sırala"
+                      value={sortKey}
+                      onChange={(e) => setSortKey(e.target.value as ProjectSortKey)}
+                      className="px-3 py-2 text-xs font-medium bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+                    >
+                      <option value="newest">En Yeni Güncelleme</option>
+                      <option value="budget">En Yüksek Bütçe</option>
+                      <option value="area">En Büyük İnşaat Alanı</option>
+                      <option value="name">Proje Adı (A-Z)</option>
+                    </select>
                   </div>
                 </div>
-              );
-            })
-          ) : (
-            <div className="col-span-full p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-center space-y-2">
-              <Building className="w-8 h-8 text-slate-400 mx-auto" />
-              <p className="text-xs font-bold text-slate-700">Henüz kayıtlı proje bulunmuyor.</p>
-              <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-                Proje Kurulumu sekmesinden yeni bir kentsel dönüşüm veya inşaat hesabı başlatabilir ya da yukarıdaki "Yeni Proje Ekle" butonunu kullanabilirsiniz.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
 
-      <div className="pt-4 border-t border-slate-200">
+                {/* Segmented Status Filter Bar */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+                  {filterButtons.map((btn) => {
+                    const isActive = statusFilter === btn.id;
+                    return (
+                      <button
+                        key={btn.id}
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter(btn.id);
+                          setShowAllProjects(false);
+                        }}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                          isActive
+                            ? 'bg-slate-900 text-white'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        {btn.label}{' '}
+                        <span
+                          className={`font-mono tabular-nums ml-1 ${
+                            isActive ? 'text-slate-300' : 'text-slate-400'
+                          }`}
+                        >
+                          {btn.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Project Data Table / Empty States */}
+              {safeHistory.length === 0 ? (
+                <div className="p-10 text-center space-y-3">
+                  <FolderOpen className="w-8 h-8 text-slate-300 mx-auto" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-800">
+                      Henüz kayıtlı proje bulunmuyor
+                    </p>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto">
+                      Yeni bir proje oluşturup kaydettiğinizde veya Hızlı Teklif hazırladığınızda projeleriniz burada durumlarına göre listelenir.
+                    </p>
+                  </div>
+                  {onNavigateToNewWorkOrder && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToNewWorkOrder}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>İlk Projeyi Oluştur</span>
+                    </button>
+                  )}
+                </div>
+              ) : filteredProjects.length === 0 ? (
+                <div className="p-10 text-center space-y-2.5">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Arama ve filtre kriterlerine uyan proje bulunamadı
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setStatusFilter('all');
+                    }}
+                    className="px-3.5 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Filtreleri Temizle
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500">
+                          <th className="py-2.5 px-4">Proje / Adres</th>
+                          <th className="py-2.5 px-3 whitespace-nowrap">Durum</th>
+                          <th className="py-2.5 px-3 text-right whitespace-nowrap">Alan · Bölüm</th>
+                          <th className="py-2.5 px-3 text-right whitespace-nowrap">Proje Bedeli</th>
+                          <th className="py-2.5 px-3 text-right whitespace-nowrap hidden sm:table-cell">Güncelleme</th>
+                          <th className="py-2.5 px-4 text-right whitespace-nowrap">İşlemler</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs">
+                        {visibleProjects.map((proj, idx) => {
+                          const status = resolveProjectStatus(proj);
+                          const statusMeta = getStatusMeta(status);
+                          const isCurrentActive =
+                            Boolean(params?.projectAddress) &&
+                            params?.projectAddress === proj.projectAddress;
+                          const displayName =
+                            proj.params?.projectName?.trim() ||
+                            proj.projectAddress ||
+                            'İsimsiz Proje';
+                          const flatCount = proj.results?.flatCount || proj.params?.flatCount || 0;
+                          const area = proj.results?.totalArea || 0;
+
+                          return (
+                            <tr
+                              key={`${proj.projectAddress}-${proj.savedAt || idx}`}
+                              className={`transition-colors ${
+                                isCurrentActive ? 'bg-indigo-50/40 hover:bg-indigo-50/70' : 'hover:bg-slate-50'
+                              }`}
+                            >
+                              <td className="py-3 px-4 max-w-[260px]">
+                                <button
+                                  type="button"
+                                  onClick={() => onSelectProject?.(proj, 'kurulum')}
+                                  className="text-left group block w-full cursor-pointer"
+                                >
+                                  <div className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+                                    {displayName}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                                    <span>{proj.projectAddress || 'Adres girilmedi'}</span>
+                                    <span aria-hidden="true"> · </span>
+                                    <span>{getProjectModelLabel(proj.params?.projectModel)}</span>
+                                    {isCurrentActive && (
+                                      <>
+                                        <span aria-hidden="true"> · </span>
+                                        <span className="text-indigo-600 font-semibold">Açık</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </button>
+                              </td>
+
+                              <td className="py-3 px-3 whitespace-nowrap">
+                                <span className={`text-xs ${statusMeta.textClass}`}>
+                                  {statusMeta.label}
+                                </span>
+                              </td>
+
+                              <td className="py-3 px-3 text-right whitespace-nowrap font-mono tabular-nums text-slate-700">
+                                <span>{area > 0 ? `${Math.round(area).toLocaleString('tr-TR')} m²` : '—'}</span>
+                                <span className="text-slate-400"> · </span>
+                                <span>{flatCount} blm</span>
+                              </td>
+
+                              <td className="py-3 px-3 text-right whitespace-nowrap font-mono tabular-nums font-semibold text-slate-900">
+                                {proj.results?.grandTotal
+                                  ? formatCompactCurrency(proj.results.grandTotal)
+                                  : '—'}
+                              </td>
+
+                              <td className="py-3 px-3 text-right whitespace-nowrap font-mono tabular-nums text-slate-500 hidden sm:table-cell">
+                                {formatShortDate(proj.updatedAt || proj.savedAt)}
+                              </td>
+
+                              <td className="py-3 px-4 text-right whitespace-nowrap">
+                                <div className="inline-flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelectProject?.(proj, 'kurulum')}
+                                    className="px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:text-indigo-700 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-md transition-colors cursor-pointer"
+                                  >
+                                    Aç
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelectProject?.(proj, 'teklif')}
+                                    className="px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:text-indigo-700 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-md transition-colors cursor-pointer"
+                                  >
+                                    Teklif
+                                  </button>
+                                  {(status === 'active_site' || status === 'accepted') && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onSelectProject?.(proj, 'surec')}
+                                      className="px-2.5 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors cursor-pointer"
+                                    >
+                                      Şantiye
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {filteredProjects.length > 8 && (
+                    <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs">
+                      <span className="text-slate-500 font-mono tabular-nums">
+                        {visibleProjects.length} / {filteredProjects.length} proje gösteriliyor
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowAllProjects((prev) => !prev)}
+                        className="font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                      >
+                        {showAllProjects ? 'Daha Az Göster' : `Tümünü Göster (${filteredProjects.length})`}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+
+            {/* SAĞ 4 KOLON: İŞ TAKİBİ (GERÇEK ÖNCELİKLER VE UYARILAR) */}
+            <aside aria-label="İş Takibi ve Öncelikler" className="xl:col-span-4 space-y-4">
+              {/* 4A. Aktif Proje Kritik Kontrolleri */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold text-slate-900">Aktif Proje Kontrolleri</h2>
+                  {activeEvaluation && (
+                    <span className="text-xs font-mono tabular-nums text-slate-500">
+                      {activeEvaluation.requiredCompleted}/{activeEvaluation.requiredTotal} zorunlu
+                    </span>
+                  )}
+                </div>
+
+                {activeEvaluation ? (
+                  activeCriticalIssues.length > 0 ? (
+                    <div className="divide-y divide-slate-100">
+                      {activeCriticalIssues.slice(0, 4).map((issue) => {
+                        const target = mapIssueToTarget(issue);
+                        return (
+                          <button
+                            key={issue.id}
+                            type="button"
+                            onClick={() => onContinueActiveProject?.(target.tab, target.setupStep)}
+                            className="w-full py-2.5 first:pt-1 last:pb-0 flex items-start justify-between gap-2.5 text-left group cursor-pointer"
+                          >
+                            <div className="flex items-start gap-2 min-w-0">
+                              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-slate-800 group-hover:text-indigo-600 transition-colors leading-snug">
+                                  {issue.message}
+                                </p>
+                                <span className="text-[11px] text-slate-400">{issue.stageLabel}</span>
+                              </div>
+                            </div>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 shrink-0 mt-0.5" />
+                          </button>
+                        );
+                      })}
+                      {activeWarningIssues.length > 0 && (
+                        <p className="pt-2.5 text-[11px] text-amber-700 flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Ayrıca {activeWarningIssues.length} teknik kontrol uyarısı var.</span>
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      <div className="flex items-start gap-2 text-xs text-emerald-700">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>
+                          Aktif projede kritik eksik yok; teklif ve sözleşme çıktısı hazırlanabilir.
+                        </span>
+                      </div>
+                      {activeWarningIssues.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const firstTarget = mapIssueToTarget(activeWarningIssues[0]);
+                            onContinueActiveProject?.(firstTarget.tab, firstTarget.setupStep);
+                          }}
+                          className="w-full text-left text-xs text-amber-700 hover:text-amber-800 flex items-center justify-between gap-2 pt-2 border-t border-slate-100 cursor-pointer"
+                        >
+                          <span className="truncate">{activeWarningIssues[0].message}</span>
+                          <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                        </button>
+                      )}
+                      {onContinueActiveProject && (
+                        <button
+                          type="button"
+                          onClick={() => onContinueActiveProject('teklif')}
+                          className="w-full py-2 px-3 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Teklif Ekranına Geç
+                        </button>
+                      )}
+                    </div>
+                  )
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Aktif proje verisi yüklendiğinde eksik ve kritik kontroller burada listelenir.
+                  </p>
+                )}
+              </div>
+
+              {/* 4B. Takip / Onay Bekleyen Teklifler */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold text-slate-900">Bekleyen Teklifler</h2>
+                  <span className="text-xs font-mono tabular-nums text-slate-500">
+                    {companyMetrics.presentedCount + companyMetrics.draftCount} proje
+                  </span>
+                </div>
+
+                {pendingProposalProjects.length > 0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {pendingProposalProjects.map((proj, idx) => {
+                      const status = resolveProjectStatus(proj);
+                      const statusMeta = getStatusMeta(status);
+                      return (
+                        <button
+                          key={`pending-${proj.projectAddress}-${idx}`}
+                          type="button"
+                          onClick={() => onSelectProject?.(proj, 'teklif')}
+                          className="w-full py-2.5 first:pt-1 last:pb-0 flex items-center justify-between gap-3 text-left group cursor-pointer"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors truncate">
+                              {proj.params?.projectName || proj.projectAddress || 'İsimsiz Proje'}
+                            </p>
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                              <span className={statusMeta.textClass}>{statusMeta.label}</span>
+                              <span aria-hidden="true">·</span>
+                              <span className="font-mono tabular-nums">
+                                {formatCompactCurrency(proj.results?.grandTotal || 0)}
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 shrink-0" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Onay veya teklif hazırlığı bekleyen kayıtlı proje bulunmuyor.
+                  </p>
+                )}
+              </div>
+
+              {/* 4C. Kurumsal Profil Eksikliği (Yalnızca gerçekten eksik varsa gösterilir) */}
+              {missingProfileFields.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-sm font-bold text-slate-900">Kurumsal Çıktı Hazırlığı</h2>
+                    <span className="text-xs font-mono tabular-nums text-amber-700 font-semibold">
+                      {missingProfileFields.length} eksik
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Teklif ve sözleşme PDF çıktılarında görünmesi için şu bilgiler eksik:{' '}
+                    <span className="font-medium text-slate-800">
+                      {missingProfileFields.join(', ')}
+                    </span>
+                    .
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('profile')}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                  >
+                    <span>Firma Profilini Tamamla</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </aside>
+          </div>
+
+          {/* 5. ALT BÖLÜM: ARŞİV VE GEÇMİŞ İŞLEMLER */}
+          <footer className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-slate-500">
+              <span className="font-medium text-slate-700">Arşiv ve Portföy</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono tabular-nums">
+                {companyMetrics.totalProjects} kayıtlı proje
+              </span>
+              {companyMetrics.archivedCount > 0 && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono tabular-nums">
+                    {companyMetrics.archivedCount} arşivlenmiş
+                  </span>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center flex-wrap gap-2">
+              {onNavigateToArchive && (
+                <button
+                  type="button"
+                  onClick={onNavigateToArchive}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  <Archive className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Proje Arşivi & Yedekleme</span>
+                </button>
+              )}
+              {onNavigateToPortfolio && (
+                <button
+                  type="button"
+                  onClick={onNavigateToPortfolio}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  <HardHat className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Referans Tamamlanan Projeler</span>
+                </button>
+              )}
+            </div>
+          </footer>
+        </div>
+      )}
+
+      {/* ========================================================
+          VIEW 2: FİRMA PROFİLİ & AYARLARI (MEVCUT TÜM ÖZELLİKLER KORUNUR)
+         ======================================================== */}
+      {activeView === 'profile' && (
+      <div className="space-y-6">
           {/* HEADER & ACTIONS */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div className="flex items-center gap-3">
@@ -1477,6 +2170,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
         </div>
       </div>
       </div>
+      )}
     </div>
   );
 };

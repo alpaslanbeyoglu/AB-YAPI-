@@ -1812,12 +1812,18 @@ const handleQuickSave = () => {
               results={results}
               historyList={historyList}
               onSelectProject={(project, targetTab) => {
-                handleLoadProject(project);
-                if (targetTab) setActiveTab(targetTab as TabId);
+                handleLoadProject(project, (targetTab as TabId) || 'kurulum');
               }}
               onNavigateToNewWorkOrder={() => handleStartNewProject()}
-              onNavigateToCRM={() => setActiveTab('malikler')}
-              onNavigateToCost={() => setActiveTab('maliyet')}
+              onOpenQuickProposal={() => setIsQuickProposalOpen(true)}
+              onContinueActiveProject={(targetTab, setupStep) => {
+                activateProjectTabs();
+                if (setupStep !== undefined) {
+                  setRequestedSetupStep(setupStep);
+                }
+                setActiveTab((targetTab as TabId) || 'kurulum');
+              }}
+              onNavigateToArchive={() => setActiveTab('gecmis')}
               onNavigateToPortfolio={() => setActiveTab('tamamlanan')}
             />
           )}

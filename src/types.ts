@@ -474,6 +474,9 @@ export interface ProjectParams {
   showLegalTaahhut?: boolean;      // 6. Kurumsal Taahhütler ve Hukuki Protokol
   showContractorSignature?: boolean; // Yetkili İmza ve Kaşe Alanı
 
+  // Teklif Kimliği, Geçerlilik, Sürüm & Şirket İçi Gizli Notlar (Faz 1 - Geriye Dönük Uyumlu)
+  offerMeta?: OfferMeta;
+
   // Landowners (Arsa Malikleri Kayıt Defteri - Opsiyonel)
   landowners?: LandownerItem[];
 
@@ -918,7 +921,248 @@ export interface Subcontractor {
 
 export type CRMContactRole = 'landowner' | 'buyer' | 'subcontractor' | 'supplier' | 'consultant';
 
-export type ProposalStatus = 'draft' | 'presented' | 'accepted' | 'active_site' | 'archived';
+export type ProposalStatus = 'draft' | 'presented' | 'accepted' | 'contracted' | 'active_site' | 'archived';
+
+// -------------------------------------------------------------
+// TEKLİF SÜRÜM, KİMLİK VE MÜŞTERİ VERİ SINIRI (CUSTOMER PAYLOAD)
+// -------------------------------------------------------------
+
+export interface OfferStatusHistoryEntry {
+  fromStatus: ProposalStatus;
+  toStatus: ProposalStatus;
+  changedAt: string; // ISO 8601
+  note?: string;
+}
+
+export interface CustomerOfferBranding {
+  companyName: string;
+  legalName: string;
+  slogan: string;
+  tagline: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  taxInfo: string;
+  bankName: string;
+  iban: string;
+  logoBase64: string;
+  stampBase64: string;
+  authorizedPerson: string;
+  authorizedTitle: string;
+  authorizedChamberNo: string;
+  authorizedPerson2: string;
+  authorizedTitle2: string;
+  authorizedChamberNo2: string;
+  visibility: {
+    showLogo: boolean;
+    showLegal: boolean;
+    showSlogan: boolean;
+    showTagline: boolean;
+    showPhone: boolean;
+    showEmail: boolean;
+    showWebsite: boolean;
+    showAddress: boolean;
+    showTax: boolean;
+    showBank: boolean;
+    showFirstAuth: boolean;
+    showFirstAuthChamber: boolean;
+    showSecondAuth: boolean;
+    showSecondAuthChamber: boolean;
+    showStamp: boolean;
+  };
+}
+
+export interface CustomerOfferLandownerRow {
+  id: string;
+  displayName: string;
+  sharePercent: number;
+  landShareArea: number;
+  existingUnitInfo: string;
+  assignedUnitsSummary: string;
+  specialAgreement: string;
+}
+
+export interface CustomerOfferUnitRow {
+  id: number;
+  displayLabel: string;
+  floorLabel: string;
+  unitTypeLabel: string;
+  grossArea: number;
+  netArea: number;
+  allocationType: 'contractor' | 'owner_assigned' | 'owner_pending';
+  allocationBadge: string;
+  netRemainingDebt?: number; // Yalnızca nakit/hakedişli modelde malik birimi için
+}
+
+export interface CustomerOfferInnovativeOption {
+  id: string;
+  icon: string;
+  title: string;
+  included: boolean;
+  statusLabel: string;
+  description: string;
+  scopeBadge?: string;
+}
+
+export interface CustomerOfferDualFeature {
+  id: string;
+  name: string;
+  icon: string;
+  baseIncluded: boolean;
+  baseSpec: string;
+  plusIncluded: boolean;
+  plusSpec: string;
+}
+
+export interface CustomerOfferDualData {
+  baseTitle: string;
+  plusTitle: string;
+  customerBaseGrandTotal: number;
+  customerPlusGrandTotal: number;
+  customerFlatDelta: number;
+  customerTotalCostDiff: number;
+  customerBaseFlatShare: number;
+  customerPlusFlatShare: number;
+  customerBaseShopShare: number;
+  customerPlusShopShare: number;
+  customerBaseNetDebtPerFlat: number;
+  customerPlusNetDebtPerFlat: number;
+  hasShops: boolean;
+  features: CustomerOfferDualFeature[];
+}
+
+export interface CustomerOfferImageAttachment {
+  url: string;
+  caption: string;
+}
+
+/**
+ * Müşteriye sunulan tüm teklif çıktılarının (React önizleme, PDF, yazdırma, HTML, WhatsApp)
+ * TEK ve ZORUNLU veri sınırıdır.
+ * İç maliyet (subTotalCost, birim donanım maliyetleri), kâr oranı/tutarı, enflasyon tamponu,
+ * şirket içi gizli notlar ve dahili teşhis verileri bu şemada yapısal olarak YER ALMAZ.
+ */
+export interface CustomerOfferPayload {
+  schemaVersion: 1;
+  branding: CustomerOfferBranding;
+  identity: {
+    proposalNumber: string;
+    createdAt: string;
+    proposalDateFormatted: string;
+    validityDays: number;
+    validUntil: string;
+    validUntilFormatted: string;
+    version: number;
+    status: ProposalStatus;
+  };
+  project: {
+    projectName: string;
+    projectAddress: string;
+    isContractorShareModel: boolean;
+    modelTitle: string;
+    supportModelTitle: string;
+    landArea: number;
+    baseArea: number;
+    taksText: string;
+    kaksText: string;
+    floorCount: number;
+    flatsPerFloor: number;
+    floorStructureShort: string;
+    floorStructureDetailed: string;
+    unitBreakdownShort: string;
+    totalArea: number;
+    finalMonths: number;
+    hasGroundFloorShop: boolean;
+    shopUnitsCount: number;
+    normalUnitsCount: number;
+    mansardUnitsCount: number;
+    avgShopArea: number;
+    avgNormalArea: number;
+    avgMansardArea: number;
+  };
+  sharing: {
+    totalUnitCount: number;
+    totalAllocatedArea: number;
+    ownerUnitsCount: number;
+    ownerAllocatedArea: number;
+    ownerSharePercent: number;
+    contractorUnitsCount: number;
+    contractorAllocatedArea: number;
+    contractorSharePercent: number;
+    landowners: CustomerOfferLandownerRow[];
+    units: CustomerOfferUnitRow[];
+  };
+  pricing: {
+    grandTotal: number;
+    constructionScopeAmount: number;
+    permitAndConsultancyAmount: number;
+    displayFlatUnitPrice: number;
+    displayShopUnitPrice: number;
+    avgFlatShare: number;
+    firstOwnerNetDebt: number;
+    firstOwnerMonthlyInstallment: number;
+    paymentPlanType: 'stages' | 'installments' | 'hybrid';
+    paymentPlanLabel: string;
+    installmentCount: number;
+    parkingFeeMode: 'included' | 'excluded' | 'none';
+    parkingFeeActual: number;
+    parkingFeePerFlat: number;
+    parkingDeficientSpaces: number;
+    parkingBirimBedeli: number;
+  };
+  presentation: {
+    mode: 'single' | 'dual';
+    showIntroPresentation: boolean;
+    introText: string;
+    showCompanyHistory: boolean;
+    companyHistoryText: string;
+    completedProjects: string[];
+    companyMission: string;
+    companyVision: string;
+    showProposalHeader: boolean;
+    showVisionCards: boolean;
+    showTechnicalSummary: boolean;
+    showQualityStandards: boolean;
+    showInnovativeOptions: boolean;
+    showDualOfferMatrix: boolean;
+    showFinancialSummary: boolean;
+    showPaymentTimeline: boolean;
+    showInflationGuaranteeNotice: boolean;
+    inflationNoticeTitle: string;
+    inflationNoticeText: string;
+    showLegalTaahhut: boolean;
+    showContractorSignature: boolean;
+  };
+  innovativeOptions: CustomerOfferInnovativeOption[];
+  dualOffer: CustomerOfferDualData | null;
+  publicNotes: string;
+  additionalClauses: string[];
+  attachments: CustomerOfferImageAttachment[];
+}
+
+export interface OfferVersionSnapshot {
+  version: number;
+  proposalNumber: string;
+  createdAt: string;
+  validUntil: string;
+  status: ProposalStatus;
+  summaryNote?: string;
+  grandTotal: number;
+  presentationMode: 'single' | 'dual';
+  customerPayload: CustomerOfferPayload;
+}
+
+export interface OfferMeta {
+  proposalNumber: string;
+  createdAt: string;       // ISO 8601
+  validityDays: number;    // Varsayılan: 30
+  validUntil: string;      // ISO 8601
+  currentVersion: number;  // Varsayılan: 1
+  internalNotes?: string;  // YALNIZCA FİRMA İÇİ — müşteri çıktısına ASLA aktarılmaz
+  versions?: OfferVersionSnapshot[];
+  statusHistory?: OfferStatusHistoryEntry[];
+}
 
 export interface UnifiedCRMContact {
   id: string;

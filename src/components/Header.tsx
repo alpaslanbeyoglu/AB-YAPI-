@@ -112,6 +112,8 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                     className={`h-7 text-[11px] font-bold tracking-tight px-2 rounded-lg border cursor-pointer focus:outline-none transition-colors ${
                       currentProposalStatus === 'accepted' || currentProposalStatus === 'active_site'
                         ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : currentProposalStatus === 'contracted'
+                        ? 'bg-indigo-50 text-indigo-800 border-indigo-300'
                         : currentProposalStatus === 'presented'
                         ? 'bg-blue-50 text-blue-800 border-blue-300'
                         : currentProposalStatus === 'archived'
@@ -123,6 +125,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                     <option value="draft">⏳ Taslak</option>
                     <option value="presented">📤 Sunuldu</option>
                     <option value="accepted">✅ Kabul Edildi</option>
+                    <option value="contracted">📝 Sözleşmeli</option>
                     <option value="active_site">🏗️ Faal Şantiye</option>
                     <option value="archived">📦 Arşivlendi</option>
                   </select>
