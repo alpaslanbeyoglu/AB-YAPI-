@@ -97,6 +97,7 @@ interface OfferTabProps {
   onSelectWorkbenchStage?: (stage: number, focusFieldId?: string) => void;
   evaluation?: WorkbenchEvaluation;
   theme?: AppTheme;
+  initialView?: OfferMainViewId;
 }
 
 type OfferMainViewId = 'prepare' | 'preview' | 'history';
@@ -136,12 +137,13 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   onSelectWorkbenchStage,
   evaluation,
   theme = 'light',
+  initialView = 'prepare',
 }) => {
   const { profile } = useCompanyProfile();
   const offerDocRef = useRef<HTMLDivElement>(null);
 
   // Sade Ana Ekran + Kapalı Başlayan Gelişmiş Ayarlar
-  const [activeView, setActiveView] = useState<OfferMainViewId>('prepare');
+  const [activeView, setActiveView] = useState<OfferMainViewId>(initialView);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
   const [activeAdvancedGroup, setActiveAdvancedGroup] = useState<OfferAdvancedGroupId>('cost_profit');
   const [isPreviewAttachmentsOpen, setIsPreviewAttachmentsOpen] = useState<boolean>(false);
@@ -599,87 +601,6 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     }, 4000);
   };
 
-  const handleStepDelta = (amount: number) => {
-    const current = params.plusOfferCustomFlatDelta ?? dualData.calculatedAvgCostPerFlatDiff;
-    const newVal = Math.max(0, Math.round(current + amount));
-    handleApplyDelta(newVal, amount > 0 ? `+${amount.toLocaleString('tr-TR')} ₺` : `${amount.toLocaleString('tr-TR')} ₺`);
-  };
-
-  const deltaPresets = [
-    {
-      id: 'cost',
-      label: 'Maliyetine (%0)',
-      percentBadge: '%0',
-      value: undefined,
-      displayVal: dualData.calculatedAvgCostPerFlatDiff,
-      isActive: params.plusOfferCustomFlatDelta === undefined || params.plusOfferCustomFlatDelta === 0 || params.plusOfferCustomFlatDelta === dualData.calculatedAvgCostPerFlatDiff,
-    },
-    {
-      id: 'p10',
-      label: '+%10 Kâr',
-      percentBadge: '+%10',
-      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.10),
-      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.10),
-      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.10),
-    },
-    {
-      id: 'p15',
-      label: '+%15 Kâr',
-      percentBadge: '+%15',
-      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.15),
-      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.15),
-      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.15),
-    },
-    {
-      id: 'p20',
-      label: '+%20 Kâr',
-      percentBadge: '+%20',
-      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.20),
-      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.20),
-      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.20),
-    },
-    {
-      id: 'p25',
-      label: '+%25 Kâr',
-      percentBadge: '+%25',
-      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.25),
-      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.25),
-      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.25),
-    },
-    {
-      id: 'p30',
-      label: '+%30 Kâr',
-      percentBadge: '+%30',
-      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.30),
-      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.30),
-      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.30),
-    },
-    {
-      id: 'p35',
-      label: '+%35 Kâr',
-      percentBadge: '+%35',
-      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.35),
-      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.35),
-      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.35),
-    },
-    {
-      id: 'p50',
-      label: '+%50 Kâr',
-      percentBadge: '+%50',
-      value: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.50),
-      displayVal: Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.50),
-      isActive: params.plusOfferCustomFlatDelta === Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.50),
-    },
-    {
-      id: 'round',
-      label: '5.000 ₺ Tamamla',
-      percentBadge: 'Yuvarlak',
-      value: Math.ceil((dualData.calculatedAvgCostPerFlatDiff * 1.20) / 5000) * 5000,
-      displayVal: Math.ceil((dualData.calculatedAvgCostPerFlatDiff * 1.20) / 5000) * 5000,
-      isActive: params.plusOfferCustomFlatDelta === Math.ceil((dualData.calculatedAvgCostPerFlatDiff * 1.20) / 5000) * 5000 && params.plusOfferCustomFlatDelta !== Math.round(dualData.calculatedAvgCostPerFlatDiff * 1.20),
-    },
-  ];
-
   const handleTogglePresentationMode = (mode: 'single' | 'dual') => {
     if (onUpdateParam) {
       onUpdateParam('offerPresentationMode', mode);
@@ -697,9 +618,22 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     }
   };
 
-  const handleTogglePlusFeature = (featKey: 'underfloorHeating' | 'waterFiltration' | 'acOption' | 'thermostaticShowerMixer' | 'linearShowerDrain' | 'bathroomHumidityFan' | 'touchlessKitchenFaucet' | 'smartHome' | 'generator' | 'porcelainCountertop') => {
+  const handleTogglePlusFeature = (
+    featKey:
+      | 'underfloorHeating'
+      | 'waterFiltration'
+      | 'acOption'
+      | 'thermostaticShowerMixer'
+      | 'linearShowerDrain'
+      | 'bathroomHumidityFan'
+      | 'touchlessKitchenFaucet'
+      | 'smartDoorLock'
+      | 'smartHome'
+      | 'generator'
+      | 'porcelainCountertop'
+  ) => {
     if (onUpdateParam) {
-      const currentFeatures = params.plusOfferFeatures || {
+      const currentFeatures = {
         underfloorHeating: true,
         waterFiltration: true,
         acOption: true,
@@ -707,14 +641,56 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         linearShowerDrain: true,
         bathroomHumidityFan: true,
         touchlessKitchenFaucet: true,
+        smartDoorLock: true,
         smartHome: true,
         generator: true,
         porcelainCountertop: true,
+        ...(params.plusOfferFeatures || {}),
       };
       onUpdateParam('plusOfferFeatures', {
         ...currentFeatures,
         [featKey]: currentFeatures[featKey] === false ? true : false,
       });
+    }
+  };
+
+  const handleSetAllPlusFeatures = (enabled: boolean) => {
+    if (!onUpdateParam) return;
+    onUpdateParam('plusOfferFeatures', {
+      ...(params.plusOfferFeatures || {}),
+      underfloorHeating: enabled,
+      waterFiltration: enabled,
+      acOption: enabled,
+      thermostaticShowerMixer: enabled,
+      linearShowerDrain: enabled,
+      bathroomHumidityFan: enabled,
+      touchlessKitchenFaucet: enabled,
+      smartDoorLock: enabled,
+      smartHome: enabled,
+      generator: enabled,
+      porcelainCountertop: enabled,
+    });
+  };
+
+  const handleSetAllSingleComfortFeatures = (enabled: boolean) => {
+    const patch: Partial<ProjectParams> = {
+      hasUnderfloorHeating: enabled,
+      hasWaterFiltration: enabled,
+      hasAcOption: enabled,
+      hasThermostaticShowerMixer: enabled,
+      hasLinearShowerDrain: enabled,
+      hasBathroomHumidityFan: enabled,
+      hasTouchlessKitchenFaucet: enabled,
+      hasSmartDoorLock: enabled,
+      hasGenerator: enabled,
+      hasPorcelainCountertop: enabled,
+    };
+    if (onUpdateAllParams) {
+      onUpdateAllParams(patch);
+    } else if (onUpdateParam) {
+      for (const [k, v] of Object.entries(patch)) {
+        onUpdateParam(k as keyof ProjectParams, v);
+      }
     }
   };
 
@@ -1322,7 +1298,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
                 {/* 1. MALİYET VE KÂR ANALİZİ (YALNIZCA ŞİRKET İÇİ) */}
                 {activeAdvancedGroup === 'cost_profit' && (
-                  <div className="space-y-5" data-internal-only="true">
+                  <div id="internal-cost-profit-panel" className="space-y-5" data-internal-only="true">
                     <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
                         <div>
@@ -2770,6 +2746,92 @@ export const OfferTab: React.FC<OfferTabProps> = ({
           </div>
         </div>
 
+        {/* Single Offer Equipment Selection Panel (Tek Paket Teklifi Kapsamı) */}
+        {!isDualOffer && (() => {
+          const singleComfortItems: Array<{
+            paramKey: keyof ProjectParams;
+            icon: string;
+            title: string;
+            subtitle: string;
+          }> = [
+            { paramKey: 'hasUnderfloorHeating', icon: '🔥', title: 'Sulu Yerden Isıtma', subtitle: 'Peteksiz, homojen & tasarruflu' },
+            { paramKey: 'hasWaterFiltration', icon: '💧', title: 'Merkezi Su Arıtma', subtitle: 'Tüm binada klor & kireçsiz su' },
+            { paramKey: 'hasAcOption', icon: '❄️', title: 'A++ Inverter Klima', subtitle: getAcOptionById(params.acType || '18k_btu').shortTitle },
+            { paramKey: 'hasThermostaticShowerMixer', icon: '🚿', title: 'Termostatik Duş Bataryası', subtitle: '38°C emniyet (Konutlar)' },
+            { paramKey: 'hasLinearShowerDrain', icon: '✨', title: 'Lineer Duş Süzgeci', subtitle: '304 Paslanmaz & koku çekvalfli' },
+            { paramKey: 'hasBathroomHumidityFan', icon: '🌀', title: 'Nem Sensörlü Banyo Fanı', subtitle: '25 dB sessiz & buhar önleyici' },
+            { paramKey: 'hasTouchlessKitchenFaucet', icon: '🫧', title: 'Fotoselli Mutfak & Banyo Bataryaları', subtitle: 'Temassız sensörlü hijyenik kullanım' },
+            { paramKey: 'hasSmartDoorLock', icon: '🔑', title: 'Motorlu Akıllı Kapı Kilidi', subtitle: 'Parmak izli, şifreli & mobil uygulamalı' },
+            { paramKey: 'hasGenerator', icon: '⚡', title: 'Otomatik Jeneratör & ATS', subtitle: 'Aksa/muadili asansör & hidrofor' },
+            { paramKey: 'hasPorcelainCountertop', icon: '🍳', title: 'Lüks Porselen Mutfak Tezgahı', subtitle: 'Lamar/muadili 12-15mm yanmaz plaka' },
+          ];
+          const selectedCount = singleComfortItems.filter((item) => Boolean(params[item.paramKey])).length;
+
+          return (
+            <div className="p-4 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-3 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-black text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    Yapısal Kalite ve Yaşam Konforu Donanımları (Tekli Paket Kapsamı)
+                  </h4>
+                  <p className="text-[10px] text-emerald-800 mt-0.5">
+                    Yalnızca işaretlediğiniz donanımlar müşteri teklifine, PDF&apos;e ve yazdırma çıktısına dahil edilir. Hiçbiri seçili değilse donanım bölümü teklifte gizlenir.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-emerald-800">
+                    Seçili: {selectedCount} / 10
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleSetAllSingleComfortFeatures(true)}
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors cursor-pointer"
+                  >
+                    Tümünü Seç
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetAllSingleComfortFeatures(false)}
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    Tümünü Kaldır
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                {singleComfortItems.map((item) => {
+                  const isChecked = Boolean(params[item.paramKey]);
+                  return (
+                    <label
+                      key={item.paramKey}
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                        isChecked
+                          ? 'bg-white border-emerald-400 shadow-2xs'
+                          : 'bg-white/70 border-slate-200 hover:border-emerald-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => onUpdateParam && onUpdateParam(item.paramKey, e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <div>
+                        <span className="font-bold text-slate-800 block text-[11px]">
+                          {item.icon} {item.title}
+                        </span>
+                        <span className="text-[10px] text-slate-500">{item.subtitle}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Dual Offer Configuration Controls (Visible when Dual Mode is Active) */}
         {isDualOffer && (
           <div className="space-y-5 animate-fade-in">
@@ -2844,15 +2906,34 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
             {/* 3. Plus Offer Feature Selection (Dilediğim özellikleri ekleyebileceğim Plus Teklif) */}
             <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-black text-purple-950 flex items-center gap-1.5 uppercase tracking-wide">
                     <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                     Plus Teklifte Yer Alacak İlave Konfor Özellikleri:
                   </h4>
                   <p className="text-[10px] text-purple-700 mt-0.5">
-                    İşaretlediğiniz özellikler 2. Teklife dahil edilecek ve 1. Teklif (Baz) ile aradaki maliyet farkı otomatik hesaplanacaktır.
+                    Yalnızca işaretlediğiniz özellikler 2. Teklif (Plus) karşılaştırma tablosuna eklenir ve 1. Teklif (Baz) ile aradaki fark otomatik hesaplanır.
                   </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-purple-800">
+                    Seçili: {customerPayload.dualOffer?.features.length ?? 0} / 11
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleSetAllPlusFeatures(true)}
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors cursor-pointer"
+                  >
+                    Tümünü Seç
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetAllPlusFeatures(false)}
+                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    Tümünü Kaldır
+                  </button>
                 </div>
               </div>
 
@@ -2955,6 +3036,20 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   </div>
                 </label>
 
+                {/* Smart Door Lock */}
+                <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    checked={params.plusOfferFeatures?.smartDoorLock !== false}
+                    onChange={() => handleTogglePlusFeature('smartDoorLock')}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-800 block text-[11px]">🔑 Motorlu Akıllı Kapı Kilidi</span>
+                    <span className="text-[10px] text-slate-500">Parmak izli, şifreli & mobil uygulamalı</span>
+                  </div>
+                </label>
+
                 {/* Smart Home */}
                 <label className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-purple-100 hover:border-purple-300 cursor-pointer transition-all">
                   <input
@@ -3020,13 +3115,13 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-                  <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-purple-200">
+                  <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-xl border border-purple-200">
                     <span className="text-xs font-bold text-slate-600 whitespace-nowrap">Daire Başı Plus Farkı (₺):</span>
                     <input
                       type="number"
                       min={0}
                       step={5000}
-                      value={params.plusOfferCustomFlatDelta ?? dualData.customerFlatDelta}
+                      value={dualData.isCustomDeltaApplied ? (params.plusOfferCustomFlatDelta ?? dualData.customerFlatDelta) : dualData.customerFlatDelta}
                       onChange={(e) => {
                         const raw = e.target.value;
                         const val = raw === '' ? undefined : Math.max(0, Number(raw));
@@ -3034,6 +3129,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       }}
                       className="w-36 px-2.5 py-1 rounded-lg border border-slate-300 text-right font-mono font-black text-purple-900 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
+                    {dualData.isCustomDeltaApplied && (
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDelta(undefined, 'Seçili Donanımlara Göre Otomatik')}
+                        className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap"
+                        title="Sabit özel farkı kaldırıp işaretli donanımlara göre otomatik hesaplamaya dön"
+                      >
+                        Otomatiğe Dön ({dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺)
+                      </button>
+                    )}
                   </div>
 
                   <button
@@ -3041,7 +3146,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     onClick={() => {
                       openAdvancedGroup('cost_profit');
                       setTimeout(() => {
-                        const el = document.getElementById('contractor-financial-reflection-panel');
+                        const el = document.getElementById('internal-cost-profit-panel');
                         el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                       }, 60);
                     }}
@@ -3110,412 +3215,6 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             </div>
           </div>
         )}
-      </div>
-      )}
-
-      {/* ========================================================
-          CONTRACTOR PRIVATE FINANCIAL CONTROL PANEL (PLUS PAKET YANSIMASI)
-         ======================================================== */}
-      {activeView === 'prepare' && isAdvancedOpen && activeAdvancedGroup === 'cost_profit' && (
-      <div className="space-y-6 animate-fade-in" data-internal-only="true">
-        <div
-          id="contractor-financial-reflection-panel"
-          className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white border-2 border-amber-500/40 shadow-2xl space-y-6"
-        >
-          {/* Header */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-800">
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-500/40 shrink-0">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="text-sm font-black text-white uppercase tracking-wider">
-                    Yüklenici Finansal Tablosu: Plus Paketin Müteahhite (Bana) Yansıyan Farkı
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
-                    🔒 Gizli (Müşteri Teklifinde ve PDF'te Görünmez)
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 mt-1">
-                  Plus paketin şantiye imalat maliyetinize, müşterilerden toplanacak nakit akışına, daire başı net kârınıza ve toplam şirket kazancınıza yansıyan tüm finansal farkları inceleyin.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 self-start lg:self-center">
-              <span className="text-[11px] text-slate-400 font-mono bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
-                Proje Birim Adedi: <strong className="text-white">{results.flatCount || 1}</strong>
-              </span>
-            </div>
-          </div>
-
-          {/* 1. DÖRT TEMEL FİNANSAL YANSIMA KARTI (EXECUTIVE OVERVIEW) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {/* KART 1: Şantiyeye / Bana Ekstra Maliyet */}
-            <div className="p-4 bg-slate-900/90 rounded-2xl border border-rose-500/30 relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-xl pointer-events-none" />
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-extrabold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Calculator className="w-3.5 h-3.5 text-rose-400" />
-                    1. Bana (Şantiyeye) Yansıyan Maliyet
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">Çıkan Para</span>
-                </div>
-                <div className="text-2xl font-black font-mono text-white mt-1">
-                  {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">Daire Başı Net İmalat</span>
-                </div>
-              </div>
-              <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-                <span className="text-slate-400">Toplam Ek Maliyet:</span>
-                <strong className="font-mono text-rose-300 font-bold">{dualData.calculatedTotalCostDiff.toLocaleString('tr-TR')} ₺</strong>
-              </div>
-            </div>
-
-            {/* KART 2: Müşteriden Toplanacak Tutar */}
-            <div className="p-4 bg-slate-900/90 rounded-2xl border border-sky-500/30 relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/5 rounded-full blur-xl pointer-events-none" />
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-extrabold text-sky-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-sky-400" />
-                    2. Müşteriden Alınacak Hasılat
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">Giren Para</span>
-                </div>
-                <div className="text-2xl font-black font-mono text-sky-300 mt-1">
-                  {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">Daire Başı Teklif Farkı</span>
-                </div>
-              </div>
-              <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-                <span className="text-slate-400">Toplam Tahsilat:</span>
-                <strong className="font-mono text-white font-bold">{dualData.customerTotalCostDiff.toLocaleString('tr-TR')} ₺</strong>
-              </div>
-            </div>
-
-            {/* KART 3: Müteahhide (Bana) Kalan Net İlave Kâr */}
-            <div className="p-4 bg-slate-900/90 rounded-2xl border border-emerald-500/40 relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                    3. Bana Kalan Net Ekstra Kâr
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">Cepte Kalan</span>
-                </div>
-                <div className="text-2xl font-black font-mono text-emerald-400 mt-1">
-                  {dualData.contractorNetExtraMargin >= 0 ? '+' : ''}{dualData.contractorNetExtraMargin.toLocaleString('tr-TR')} ₺
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">
-                    Daire Başı: {dualData.unitProfitPerFlat >= 0 ? '+' : ''}{dualData.unitProfitPerFlat.toLocaleString('tr-TR')} ₺
-                  </span>
-                </div>
-              </div>
-              <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-                <span className="text-slate-400">İlave Kâr Marjı:</span>
-                <strong className="font-mono text-emerald-300 font-bold">+{dualData.contractorMarginPercent}%</strong>
-              </div>
-            </div>
-
-            {/* KART 4: Toplam Şirket Kârı Değişimi */}
-            <div className="p-4 bg-slate-900/90 rounded-2xl border border-amber-500/40 relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-extrabold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Coins className="w-3.5 h-3.5 text-amber-400" />
-                    4. Toplam Proje Kârı Büyümesi
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">Genel Kâr</span>
-                </div>
-                <div className="text-2xl font-black font-mono text-amber-300 mt-1">
-                  {dualData.plusProfitAmount.toLocaleString('tr-TR')} ₺
-                  <span className="text-xs font-normal text-slate-400 block mt-0.5">
-                    Baz Kâr: {dualData.baseProfitAmount.toLocaleString('tr-TR')} ₺
-                  </span>
-                </div>
-              </div>
-              <div className="mt-3 pt-2.5 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-                <span className="text-slate-400">Net Kâr Artışınız:</span>
-                <strong className="font-mono text-emerald-400 font-bold">
-                  +{dualData.profitDiffAmount.toLocaleString('tr-TR')} ₺ ({dualData.profitDiffPercent > 0 ? `+${dualData.profitDiffPercent}%` : 'Aynı'})
-                </strong>
-              </div>
-            </div>
-          </div>
-
-          {/* 2. KAT KARŞILIĞI VE MÜTEAHHİT MÜLKİYETİNDEKİ DAİRELERİN ANALİZİ (Varsa) */}
-          {dualData.contractorFlatsCount > 0 && (
-            <div className="p-4 bg-indigo-950/40 rounded-2xl border border-indigo-500/30 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-indigo-200 uppercase tracking-wider flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-indigo-400" />
-                  Kat Karşılığı Analizi: Müteahhidin (Sizin) Dairelerine Yansıyan Finansal Bakiye
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">
-                  {dualData.contractorFlatsCount} Daire Sizin / {dualData.ownerFlatsCount} Daire Kat Maliklerinin
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
-                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                  <span className="text-slate-400 block text-[10px]">Sizin Dairelerinizin Plus Maliyeti:</span>
-                  <strong className="font-mono text-base text-rose-300 block mt-0.5">
-                    {dualData.contractorOwnFlatsCost.toLocaleString('tr-TR')} ₺
-                  </strong>
-                  <span className="text-[9px] text-slate-400">{dualData.contractorFlatsCount} daire × {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺</span>
-                </div>
-
-                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                  <span className="text-slate-400 block text-[10px]">Kat Maliklerinden Toplanan Tutar:</span>
-                  <strong className="font-mono text-base text-sky-300 block mt-0.5">
-                    {dualData.collectedFromOwners.toLocaleString('tr-TR')} ₺
-                  </strong>
-                  <span className="text-[9px] text-slate-400">{dualData.ownerFlatsCount} daire × {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺</span>
-                </div>
-
-                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                  <span className="text-slate-400 block text-[10px]">Nakit Finansman Dengesi:</span>
-                  <strong className={`font-mono text-base block mt-0.5 ${dualData.netContractorBalance >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                    {dualData.netContractorBalance >= 0 ? '+' : ''}{dualData.netContractorBalance.toLocaleString('tr-TR')} ₺
-                  </strong>
-                  <span className="text-[9px] text-slate-400">
-                    {dualData.netContractorBalance >= 0 ? 'Malik payları kendi maliyetinizi de karşılıyor' : 'Kendi dairelerinize kalan net yatırım'}
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-[11px] text-indigo-200/90 leading-relaxed pt-1">
-                💡 <strong>Satış Primi Avantajı:</strong> Mülkiyetinizdeki {dualData.contractorFlatsCount} adet bağımsız bölüme uygulanan Plus donanımlar (yerden ısıtma, klima, merkezi su arıtma, akıllı banyo ve mutfak), dairelerinizin piyasa satış değerini ortalama <strong>+%15-25 artıracak</strong> ve satış hızını katlayacaktır.
-              </p>
-            </div>
-          )}
-
-          {/* 3. KALEM KALEM ŞANTİYE VE TAŞERON MALİYETLERİ TABLOSU */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-amber-400" />
-                Bana Yansıyan Plus Kalemleri Maliyet ve Kâr Tablosu
-              </span>
-              <span className="text-[10px] text-slate-400">Şantiye Taşeron & Malzeme Birim Fiyatları</span>
-            </div>
-
-            <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/70">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 bg-slate-900/90 text-[10px] uppercase font-bold tracking-wider">
-                    <th className="py-2.5 px-3">Plus Donanım Kalemi</th>
-                    <th className="py-2.5 px-3">Uygulama Kapsamı</th>
-                    <th className="py-2.5 px-3 text-right">Şantiye Maliyeti (₺/Daire)</th>
-                    <th className="py-2.5 px-3 text-right">Toplam Ek İmalat (₺)</th>
-                    <th className="py-2.5 px-3 text-right">Müşteriye Sunulan (₺/Daire)</th>
-                    <th className="py-2.5 px-3 text-right">Birim Net Kâr (₺)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-medium">
-                  {dualData.itemizedContractorCosts.map((item) => {
-                    const itemShareOfCustomer = dualData.calculatedAvgCostPerFlatDiff > 0
-                      ? Math.round(dualData.customerFlatDelta * (item.unitCost / dualData.calculatedAvgCostPerFlatDiff))
-                      : item.unitCost;
-                    const itemUnitProfit = itemShareOfCustomer - item.unitCost;
-
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-2 px-3 text-white font-semibold flex items-center gap-2">
-                          <span>{item.icon}</span>
-                          <span>{item.name}</span>
-                        </td>
-                        <td className="py-2 px-3 text-slate-400 text-[11px]">
-                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 text-[9.5px]">
-                            {item.scope}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono text-slate-300">
-                          {item.unitCost.toLocaleString('tr-TR')} ₺
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono text-indigo-300 font-bold">
-                          {item.totalCost.toLocaleString('tr-TR')} ₺
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono text-sky-300">
-                          {itemShareOfCustomer.toLocaleString('tr-TR')} ₺
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold">
-                          <span className={itemUnitProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                            {itemUnitProfit >= 0 ? '+' : ''}{itemUnitProfit.toLocaleString('tr-TR')} ₺
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {/* Toplam Satırı */}
-                  <tr className="bg-slate-900 border-t-2 border-slate-700 text-white font-bold">
-                    <td className="py-2.5 px-3" colSpan={2}>
-                      GENEL PLUS PAKET TOPLAMI
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-rose-300">
-                      {dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-indigo-300">
-                      {dualData.calculatedTotalCostDiff.toLocaleString('tr-TR')} ₺
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-sky-300">
-                      {dualData.customerFlatDelta.toLocaleString('tr-TR')} ₺
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono text-emerald-400">
-                      {dualData.unitProfitPerFlat >= 0 ? '+' : ''}{dualData.unitProfitPerFlat.toLocaleString('tr-TR')} ₺
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* 4. MÜŞTERİYE SUNULACAK DAİRE BAŞI FARK GİRİŞİ & HIZLI KÂR SİMÜLATÖRÜ */}
-          <div className="p-4 sm:p-5 bg-slate-900/90 rounded-2xl border-2 border-amber-400/60 space-y-4 shadow-xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <span className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sliders className="w-4 h-4 text-amber-400" />
-                  Müşteriye Sunulacak Daire Başı Plus Farkını Belirleyin
-                </span>
-                <p className="text-[11px] text-slate-300 mt-0.5">
-                  Yüzdelik kâr butonlarına basarak veya özel tutar girerek teklif mektubunda müşterinin göreceği daire başı Plus bedelini belirleyin.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {deltaNotification && (
-                  <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-400 text-slate-950 flex items-center gap-1.5 shadow-sm">
-                    <Check className="w-3.5 h-3.5" />
-                    {deltaNotification}
-                  </span>
-                )}
-                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-400 text-slate-950 shrink-0">
-                  Teklif Belgesine Yansır
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Percentage Presets */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-300 font-bold flex items-center gap-1.5">
-                  <Percent className="w-3.5 h-3.5 text-amber-400" />
-                  Hızlı Kâr Marjı ve Yuvarlama Butonları:
-                </span>
-                <span className="text-slate-400 font-mono text-[10px]">
-                  Net Şantiye Maliyeti: <strong className="text-amber-300">{dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺/daire</strong>
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {deltaPresets.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => handleApplyDelta(preset.value, preset.label)}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
-                      preset.isActive
-                        ? 'bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-400/30 ring-2 ring-amber-300 scale-[1.03]'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600'
-                    }`}
-                    title={`${preset.label} - Daire Başı ${preset.displayVal.toLocaleString('tr-TR')} ₺`}
-                  >
-                    {preset.isActive ? (
-                      <Check className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />
-                    ) : (
-                      <span className="text-[10px] px-1 py-0.2 rounded bg-slate-700/80 text-slate-300 font-mono">
-                        {preset.percentBadge}
-                      </span>
-                    )}
-                    <span>{preset.label}</span>
-                    <span className={`font-mono text-[11px] ${preset.isActive ? 'text-slate-950 font-black' : 'text-amber-400'}`}>
-                      ({preset.displayVal.toLocaleString('tr-TR')} ₺)
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Fine-Tuning & Custom Input Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center pt-2 border-t border-slate-800">
-              <div className="lg:col-span-6 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleStepDelta(-5000)}
-                  className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1 shrink-0 cursor-pointer"
-                  title="5.000 ₺ Azalt"
-                >
-                  <Minus className="w-3.5 h-3.5 text-amber-400" />
-                  <span>-5.000 ₺</span>
-                </button>
-
-                <div className="relative flex-1">
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={params.plusOfferCustomFlatDelta ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value ? Math.max(0, parseFloat(e.target.value)) : undefined;
-                      handleApplyDelta(val, 'Özel Tutar');
-                    }}
-                    placeholder={`Maliyet: ${dualData.calculatedAvgCostPerFlatDiff.toLocaleString('tr-TR')} ₺`}
-                    className="w-full text-base font-black font-mono px-4 py-2.5 rounded-xl border-2 border-amber-400 bg-slate-950 text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-inner"
-                  />
-                  <span className="absolute right-3 top-[11px] text-xs font-black text-amber-400 pointer-events-none">
-                    ₺ / Daire
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleStepDelta(5000)}
-                  className="px-2.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1 shrink-0 cursor-pointer"
-                  title="5.000 ₺ Arttır"
-                >
-                  <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>+5.000 ₺</span>
-                </button>
-              </div>
-
-              <div className="lg:col-span-6 p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Daire Başı Net İlave Kâr:</span>
-                  <span className={`font-mono text-sm font-black ${dualData.contractorNetMarginPerFlat >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {dualData.contractorNetMarginPerFlat >= 0 ? '+' : ''}{dualData.contractorNetMarginPerFlat.toLocaleString('tr-TR')} ₺
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Toplam Şirket Ek Kârı:</span>
-                  <span className={`font-mono text-sm font-black ${dualData.contractorNetTotalProfit >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
-                    {dualData.contractorNetTotalProfit >= 0 ? '+' : ''}{dualData.contractorNetTotalProfit.toLocaleString('tr-TR')} ₺
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleApplyDelta(undefined, 'Maliyetine Sıfırla')}
-                  className="px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer"
-                  title="Sıfırla ve teknik maliyete dön"
-                >
-                  Sıfırla (%0)
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Güvenlik & Gizlilik Bildirimi */}
-          <div className="text-[11px] text-slate-400 flex items-center gap-2 pt-2 border-t border-slate-800">
-            <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              <strong>Gizlilik Garantisi:</strong> Yukarıdaki maliyet farkı, şantiye taşeron bedelleri ve yüklenici net kâr rakamları yalnızca sizin ekranınızda görünür. Müşteriye sunulan resmi teklif özetinde, mukavele ekinde ve PDF çıktısında sadece müşteriye sunduğunuz nihai Plus Paket tutarı yer alır.
-            </span>
-          </div>
-        </div>
       </div>
       )}
 
@@ -4071,25 +3770,64 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             </div>
           </div>
 
-          {/* İNOVATİF SEÇENEKLER VE KONFOR DONANIMLARI */}
-          <div className="mt-6 p-5 bg-gradient-to-r from-purple-50/50 to-indigo-50/50 rounded-2xl border border-purple-100/70 space-y-6">
+          {/* TEKLİ PAKET KAPSAMINDAKİ YAPISAL KALİTE VE YAŞAM KONFORU DONANIMLARI (YALNIZCA SEÇİLİ OLANLAR) */}
+          {(() => {
+            if (isDualOffer || !customerPayload.presentation.showInnovativeOptions) return null;
+
+            const includedOptionIds = new Set(
+              customerPayload.innovativeOptions
+                .filter((opt) => opt.included)
+                .map((opt) => opt.id)
+            );
+            if (includedOptionIds.size === 0) return null;
+
+            const showUnderfloor = includedOptionIds.has('underfloorHeating');
+            const showWaterFiltration = includedOptionIds.has('waterFiltration');
+            const showAcOption = includedOptionIds.has('acOption');
+            const showGroup1 = showUnderfloor || showWaterFiltration || showAcOption;
+
+            const showThermostatic = includedOptionIds.has('thermostaticShowerMixer');
+            const showLinearDrain = includedOptionIds.has('linearShowerDrain');
+            const showHumidityFan = includedOptionIds.has('bathroomHumidityFan');
+            const showGroup2 = showThermostatic || showLinearDrain || showHumidityFan;
+
+            const showTouchlessFaucet = includedOptionIds.has('touchlessKitchenFaucet');
+            const showSmartLock = includedOptionIds.has('smartDoorLock');
+            const showGenerator = includedOptionIds.has('generator');
+            const showPorcelain = includedOptionIds.has('porcelainCountertop');
+            const showGroup3 = showTouchlessFaucet || showSmartLock || showGenerator || showPorcelain;
+
+            if (!showGroup1 && !showGroup2 && !showGroup3) return null;
+
+            let groupCounter = 0;
+            const group1Num = showGroup1 ? ++groupCounter : 0;
+            const group2Num = showGroup2 ? ++groupCounter : 0;
+            const group3Num = showGroup3 ? ++groupCounter : 0;
+
+            return (
+          <div
+            data-testid="single-offer-comfort-section"
+            className="mt-6 p-5 bg-gradient-to-r from-purple-50/50 to-indigo-50/50 rounded-2xl border border-purple-100/70 space-y-6"
+          >
             <div className="flex items-center justify-between border-b border-purple-100 pb-3">
               <h4 className="text-xs font-black text-purple-950 flex items-center gap-2 uppercase tracking-wider">
                 <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
-                İnovatif Teknoloji ve Yaşam Konforu Donanımları
+                Teklif Kapsamındaki Yapısal Kalite ve Yaşam Konforu Donanımları
               </h4>
-              <span className="text-[10px] font-bold text-purple-700 bg-purple-100/70 px-2.5 py-0.5 rounded-full">
-                Teklife Eklenen & Opsiyonel Donanımlar
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                Teklif Kapsamına Dahil Donanımlar ({includedOptionIds.size})
               </span>
             </div>
             
             {/* 1. GRUP: İKLİMLENDİRME VE MERKEZİ TESİSAT */}
+            {showGroup1 && (
             <div className="space-y-3">
               <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                1. İklimlendirme ve Tesisat Altyapısı
+                {group1Num}. İklimlendirme ve Tesisat Altyapısı
               </span>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Card 1: Yerden Isıtma */}
+                {showUnderfloor && (
                 <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -4097,8 +3835,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         <Flame className="w-3.5 h-3.5 text-purple-500" />
                         Yerden Isıtma Sistemi (Sulu)
                       </span>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasUnderfloorHeating ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                        {params.hasUnderfloorHeating ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Teklife Dahil
                       </span>
                     </div>
                     
@@ -4115,13 +3853,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
                     <span className="font-bold text-slate-400">Kapsam Durumu:</span>
-                    <span className={`font-bold ${params.hasUnderfloorHeating ? 'text-emerald-700' : 'text-slate-600'}`}>
-                      {params.hasUnderfloorHeating ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                    <span className="font-bold text-emerald-700">
+                      ✓ Teklif Kapsamına Dahil
                     </span>
                   </div>
                 </div>
+                )}
 
                 {/* Card 2: Su Arıtma */}
+                {showWaterFiltration && (
                 <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -4129,8 +3869,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         <Droplets className="w-3.5 h-3.5 text-blue-500" />
                         Bina Girişi Merkezi Su Arıtma
                       </span>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasWaterFiltration ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                        {params.hasWaterFiltration ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Teklife Dahil
                       </span>
                     </div>
                     
@@ -4147,14 +3887,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
                     <span className="font-bold text-slate-400">Kapsam Durumu:</span>
-                    <span className={`font-bold ${params.hasWaterFiltration ? 'text-emerald-700' : 'text-slate-600'}`}>
-                      {params.hasWaterFiltration ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                    <span className="font-bold text-emerald-700">
+                      ✓ Teklif Kapsamına Dahil
                     </span>
                   </div>
                 </div>
+                )}
 
                 {/* Card 3: İklimlendirme ve Klima Sistemleri */}
-                {(() => {
+                {showAcOption && (() => {
                   const currentAc = getAcOptionById(params.acType || '18k_btu');
                   return (
                     <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
@@ -4164,8 +3905,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                             <Wind className="w-3.5 h-3.5 text-indigo-500" />
                             A++ Inverter Klima Paketi
                           </span>
-                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasAcOption ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                            {params.hasAcOption ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Teklife Dahil
                           </span>
                         </div>
                         
@@ -4195,8 +3936,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
                         <span className="font-bold text-slate-400">Kapsam Durumu:</span>
-                        <span className={`font-bold ${params.hasAcOption ? 'text-emerald-700' : 'text-slate-600'}`}>
-                          {params.hasAcOption ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                        <span className="font-bold text-emerald-700">
+                          ✓ Teklif Kapsamına Dahil
                         </span>
                       </div>
                     </div>
@@ -4204,13 +3945,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 })()}
               </div>
             </div>
+            )}
 
             {/* 2. GRUP: BANYO KONFORU & EVİN BANYOSUNDAKİ YAŞAM KALİTESİNE YAPTIĞIMIZ DOKUNUŞLAR */}
-            <div className="space-y-3 pt-3 border-t border-purple-100">
+            {showGroup2 && (
+            <div className={`space-y-3 ${showGroup1 ? 'pt-3 border-t border-purple-100' : ''}`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                 <span className="text-[11px] font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
                   <Bath className="w-3.5 h-3.5 text-purple-600" />
-                  2. Evin Banyosundaki Yaşam Kalitesine Değer Katan Konfor Dokunuşları (Banyo & Duş Paketi)
+                  {group2Num}. Evin Banyosundaki Yaşam Kalitesine Değer Katan Konfor Dokunuşları (Banyo & Duş Paketi)
                 </span>
                 <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-medium">
                   🏠 Yalnızca Konut Daireleri İçindir (Dükkanlarda duş olmadığından hariçtir)
@@ -4219,6 +3962,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Card 4: Termostatik Duş Bataryası */}
+                {showThermostatic && (
                 <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -4226,8 +3970,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         <Bath className="w-3.5 h-3.5 text-purple-600" />
                         Termostatik Duş Bataryası
                       </span>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasThermostaticShowerMixer ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                        {params.hasThermostaticShowerMixer ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Teklife Dahil
                       </span>
                     </div>
                     
@@ -4253,13 +3997,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
                     <span className="font-bold text-slate-400">Kapsam Durumu:</span>
-                    <span className={`font-bold ${params.hasThermostaticShowerMixer ? 'text-emerald-700' : 'text-slate-600'}`}>
-                      {params.hasThermostaticShowerMixer ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                    <span className="font-bold text-emerald-700">
+                      ✓ Teklif Kapsamına Dahil
                     </span>
                   </div>
                 </div>
+                )}
 
                 {/* Card 5: Duş Kabinine Lineer Su Süzgeci */}
+                {showLinearDrain && (
                 <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -4267,8 +4013,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         <Sliders className="w-3.5 h-3.5 text-teal-600" />
                         Lineer Duş Süzgeci & Kanalı
                       </span>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasLinearShowerDrain ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                        {params.hasLinearShowerDrain ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Teklife Dahil
                       </span>
                     </div>
                     
@@ -4294,13 +4040,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
                     <span className="font-bold text-slate-400">Kapsam Durumu:</span>
-                    <span className={`font-bold ${params.hasLinearShowerDrain ? 'text-emerald-700' : 'text-slate-600'}`}>
-                      {params.hasLinearShowerDrain ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                    <span className="font-bold text-emerald-700">
+                      ✓ Teklif Kapsamına Dahil
                     </span>
                   </div>
                 </div>
+                )}
 
                 {/* Card 6: Nem Sensörlü Sessiz Banyo Fanı */}
+                {showHumidityFan && (
                 <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -4308,8 +4056,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                         <Fan className="w-3.5 h-3.5 text-cyan-600" />
                         Nem Sensörlü Sessiz Banyo Fanı
                       </span>
-                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasBathroomHumidityFan ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                        {params.hasBathroomHumidityFan ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Teklife Dahil
                       </span>
                     </div>
                     
@@ -4335,20 +4083,23 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
                     <span className="font-bold text-slate-400">Kapsam Durumu:</span>
-                    <span className={`font-bold ${params.hasBathroomHumidityFan ? 'text-emerald-700' : 'text-slate-600'}`}>
-                      {params.hasBathroomHumidityFan ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                    <span className="font-bold text-emerald-700">
+                      ✓ Teklif Kapsamına Dahil
                     </span>
                   </div>
                 </div>
+                )}
               </div>
             </div>
+            )}
 
             {/* 3. GRUP: GÜNLÜK KULLANIMI KOLAYLAŞTIRAN MUTFAK VE BANYO KONFORU */}
-            <div className="space-y-3 pt-3 border-t border-purple-100">
+            {showGroup3 && (
+            <div className={`space-y-3 ${(showGroup1 || showGroup2) ? 'pt-3 border-t border-purple-100' : ''}`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                 <span className="text-[11px] font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
                   <ChefHat className="w-3.5 h-3.5 text-purple-600" />
-                  3. Pratik ve Hijyenik Mutfak & Banyo Çözümleri
+                  {group3Num}. Pratik ve Hijyenik Mutfak & Banyo Çözümleri
                 </span>
                 <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-medium">
                   🏠 Yalnızca Konut Daireleri İçindir (Dükkanlar muaftır)
@@ -4356,6 +4107,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
               </div>
 
               {/* Kurumsal Farkındalık Bannerı */}
+              {showTouchlessFaucet && (
               <div className="p-3.5 bg-gradient-to-r from-purple-100/70 via-pink-50/70 to-indigo-50/70 rounded-xl border border-purple-200 text-purple-950 flex items-center gap-3">
                 <div className="p-2 bg-purple-600 text-white rounded-lg shrink-0">
                   <Heart className="w-4 h-4" />
@@ -4367,8 +4119,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   </p>
                 </div>
               </div>
+              )}
 
               {/* Card 7: Fotoselli Mutfak ve Banyo Bataryaları */}
+              {showTouchlessFaucet && (
               <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -4376,8 +4130,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                       Mutfak Eviyesi & Banyo Lavabosu Fotoselli Batarya Paketi
                     </span>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasTouchlessKitchenFaucet ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                      {params.hasTouchlessKitchenFaucet ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Teklife Dahil
                     </span>
                   </div>
                   
@@ -4416,13 +4170,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
                   <span className="font-bold text-slate-400">Kapsam Durumu:</span>
-                  <span className={`font-bold ${params.hasTouchlessKitchenFaucet ? 'text-emerald-700' : 'text-slate-600'}`}>
-                    {params.hasTouchlessKitchenFaucet ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                  <span className="font-bold text-emerald-700">
+                    ✓ Teklif Kapsamına Dahil
                   </span>
                 </div>
               </div>
+              )}
 
               {/* Card 8: Motorlu & Biyometrik Akıllı Daire Kapısı Kilitleri (DESİ / Kale / Smart) */}
+              {showSmartLock && (
               <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -4430,8 +4186,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       <Lock className="w-3.5 h-3.5 text-indigo-600" />
                       Motorlu & Biyometrik Akıllı Daire Kapısı Kilit Sistemi
                     </span>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasSmartDoorLock ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                      {params.hasSmartDoorLock ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Teklife Dahil
                     </span>
                   </div>
                   
@@ -4470,13 +4226,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
                   <span className="font-bold text-slate-400">Kapsam Durumu:</span>
-                  <span className={`font-bold ${params.hasSmartDoorLock ? 'text-emerald-700' : 'text-slate-600'}`}>
-                    {params.hasSmartDoorLock ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                  <span className="font-bold text-emerald-700">
+                    ✓ Teklif Kapsamına Dahil
                   </span>
                 </div>
               </div>
+              )}
 
               {/* Card 9: Otomatik Dizel Jeneratör & ATS Transfer Panosu (Aksa / Alimar / Teksan veya muadili) */}
+              {showGenerator && (
               <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -4484,8 +4242,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       <Zap className="w-3.5 h-3.5 text-amber-500" />
                       Otomatik Transfer Panolu (ATS) Kabinli Jeneratör Sistemi
                     </span>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasGenerator ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                      {params.hasGenerator ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Teklife Dahil
                     </span>
                   </div>
                   
@@ -4524,13 +4282,15 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
                 <div className="pt-2 border-t border-purple-100/60 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500 font-semibold">Kapsam Durumu:</span>
-                  <span className={`font-bold ${params.hasGenerator ? 'text-emerald-700' : 'text-slate-600'}`}>
-                    {params.hasGenerator ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                  <span className="font-bold text-emerald-700">
+                    ✓ Teklif Kapsamına Dahil
                   </span>
                 </div>
               </div>
+              )}
 
               {/* Card 10: 12-15mm Lüks Porselen Mutfak Tezgahı & Alınlık (Lamar / Neolith / Belenco veya muadili) */}
+              {showPorcelain && (
               <div className="bg-white rounded-xl border border-purple-100 p-4 space-y-3 flex flex-col justify-between shadow-2xs">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -4538,8 +4298,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                       <ChefHat className="w-3.5 h-3.5 text-amber-700" />
                       12-15mm Lüks Porselen Mutfak Tezgahı ve Alınlığı
                     </span>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${params.hasPorcelainCountertop ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-                      {params.hasPorcelainCountertop ? 'Teklife Dahil' : 'Opsiyonel Upgrade'}
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Teklife Dahil
                     </span>
                   </div>
                   
@@ -4578,17 +4338,24 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
                 <div className="pt-2 border-t border-purple-100/60 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500 font-semibold">Kapsam Durumu:</span>
-                  <span className={`font-bold ${params.hasPorcelainCountertop ? 'text-emerald-700' : 'text-slate-600'}`}>
-                    {params.hasPorcelainCountertop ? '✓ Teklif Kapsamına Dahil' : '○ Opsiyonel (İsteğe Bağlı Eklenebilir)'}
+                  <span className="font-bold text-emerald-700">
+                    ✓ Teklif Kapsamına Dahil
                   </span>
                 </div>
               </div>
+              )}
             </div>
+            )}
           </div>
+            );
+          })()}
 
           {/* ÇİFT SEÇENEKLİ TEKLİF VE PAKET KARŞILAŞTIRMA MATRİSİ (DUAL OFFER İÇİN BELGE İÇİ GÖRÜNÜM) */}
-          {isDualOffer && (
-            <div className="mt-8 p-6 bg-gradient-to-br from-indigo-50/70 via-purple-50/50 to-white rounded-3xl border-2 border-indigo-200 shadow-sm space-y-6">
+          {isDualOffer && customerPayload.dualOffer && customerPayload.presentation.showDualOfferMatrix && (
+            <div
+              data-testid="dual-offer-matrix-section"
+              className="mt-8 p-6 bg-gradient-to-br from-indigo-50/70 via-purple-50/50 to-white rounded-3xl border-2 border-indigo-200 shadow-sm space-y-6"
+            >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-100">
                 <div>
                   <h4 className="text-sm font-black text-indigo-950 flex items-center gap-2 uppercase tracking-wide">
@@ -4682,7 +4449,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     </div>
 
                     <p className="text-xs text-purple-900/80 leading-relaxed">
-                      Temel standartlara ilave olarak; peteksiz sulu yerden ısıtma, merkezi su arıtma, salon A++ inverter klima, termostatik duş bataryası, hemzemin lineer süzgeç, sessiz nem sensörlü banyo fanı ile mutfak eviyesi ve banyo lavabosunda temassız fotoselli bataryalar içeren yüksek katma değerli yaşam paketi.
+                      {customerPayload.dualOffer.features.length > 0
+                        ? `Temel standartlara ilave olarak seçili konfor donanımlarını (${customerPayload.dualOffer.features.map((f) => f.name).join(', ')}) içeren yüksek katma değerli yaşam paketi.`
+                        : 'Plus paket kapsamında ek konfor donanımı seçilmemiştir.'}
                     </p>
 
                     <div className="p-3.5 bg-purple-100/60 rounded-xl space-y-2 border border-purple-200 text-xs">
@@ -4742,19 +4511,20 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 </div>
               </div>
 
-              {/* Detailed Feature Matrix Table */}
+              {/* Detailed Feature Matrix Table (Yalnızca seçili Plus özellikleri gösterilir) */}
+              {customerPayload.dualOffer.features.length > 0 && (
               <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-900 font-bold">
                       <th className="p-3.5 w-1/4">Donanım / İmalat Kalemi</th>
-                      <th className="p-3.5 w-3/8 text-slate-600">1. Seçenek: {dualData.baseTitle}</th>
-                      <th className="p-3.5 w-3/8 text-purple-900 bg-purple-50/50">2. Seçenek: {dualData.plusTitle}</th>
+                      <th className="p-3.5 w-3/8 text-slate-600">1. Seçenek: {customerPayload.dualOffer.baseTitle}</th>
+                      <th className="p-3.5 w-3/8 text-purple-900 bg-purple-50/50">2. Seçenek: {customerPayload.dualOffer.plusTitle}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {dualData.features.map((feat, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                    {customerPayload.dualOffer.features.map((feat) => (
+                      <tr key={feat.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="p-3.5 font-bold text-slate-800 flex items-center gap-2">
                           <span className="text-base">{feat.icon}</span>
                           <span>{feat.name}</span>
@@ -4772,6 +4542,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
         </div>

@@ -892,50 +892,107 @@ export const PreOfferModularWorkbench: React.FC<PreOfferModularWorkbenchProps> =
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-800">Plus Paket Konfor Özellikleri:</label>
-                <div className="grid grid-cols-2 gap-1.5 text-xs">
-                  {[
-                    { key: 'underfloorHeating', label: '♨️ Yerden Isıtma' },
-                    { key: 'acOption', label: '❄️ Klima Altyapısı' },
-                    { key: 'smartHome', label: '🔑 Akıllı Kapı/Sistem' },
-                    { key: 'waterFiltration', label: '💧 Su Arıtma' },
-                    { key: 'thermostaticShowerMixer', label: '🚿 Termostatik Batarya' },
-                    { key: 'linearShowerDrain', label: '📐 Lineer Süzgeç' },
-                  ].map((item) => {
-                    const feats = params.plusOfferFeatures || {
-                      underfloorHeating: true,
-                      waterFiltration: true,
-                      acOption: true,
-                      thermostaticShowerMixer: true,
-                      linearShowerDrain: true,
-                      smartHome: true,
-                    };
-                    const isActive = feats[item.key as keyof typeof feats] !== false;
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => {
-                          if (onUpdateParam) {
-                            onUpdateParam('plusOfferFeatures', {
-                              ...feats,
-                              [item.key]: !isActive,
-                            });
-                          }
-                        }}
-                        className={`p-2 rounded-xl text-[11px] font-bold text-left transition-all cursor-pointer border ${
-                          isActive
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                            : 'bg-slate-50 text-slate-400 border-slate-200 line-through'
-                        }`}
-                      >
-                        {isActive ? '✓ ' : '✕ '} {item.label}
-                      </button>
-                    );
-                  })}
+              {params.offerPresentationMode !== 'dual' ? (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-800">
+                    Tekli Paket Konfor Donanımları:
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    {(
+                      [
+                        { paramKey: 'hasUnderfloorHeating', label: '🔥 Yerden Isıtma' },
+                        { paramKey: 'hasWaterFiltration', label: '💧 Su Arıtma' },
+                        { paramKey: 'hasAcOption', label: '❄️ A++ Inverter Klima' },
+                        { paramKey: 'hasThermostaticShowerMixer', label: '🚿 Termostatik Batarya' },
+                        { paramKey: 'hasLinearShowerDrain', label: '✨ Lineer Süzgeç' },
+                        { paramKey: 'hasBathroomHumidityFan', label: '🌀 Nem Sensörlü Fan' },
+                        { paramKey: 'hasTouchlessKitchenFaucet', label: '🫧 Fotoselli Batarya' },
+                        { paramKey: 'hasSmartDoorLock', label: '🔑 Akıllı Kapı Kilidi' },
+                        { paramKey: 'hasGenerator', label: '⚡ Otomatik Jeneratör' },
+                        { paramKey: 'hasPorcelainCountertop', label: '🍳 Porselen Tezgah' },
+                      ] as const
+                    ).map((item) => {
+                      const isActive = Boolean(params[item.paramKey]);
+                      return (
+                        <button
+                          key={item.paramKey}
+                          type="button"
+                          onClick={() => {
+                            if (onUpdateParam) {
+                              onUpdateParam(item.paramKey, !isActive);
+                            }
+                          }}
+                          className={`p-2 rounded-xl text-[11px] font-bold text-left transition-all cursor-pointer border ${
+                            isActive
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : 'bg-slate-50 text-slate-400 border-slate-200 line-through'
+                          }`}
+                        >
+                          {isActive ? '✓ ' : '✕ '} {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-800">Plus Paket Konfor Özellikleri:</label>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    {(
+                      [
+                        { key: 'underfloorHeating', label: '🔥 Yerden Isıtma' },
+                        { key: 'waterFiltration', label: '💧 Su Arıtma' },
+                        { key: 'acOption', label: '❄️ A++ Inverter Klima' },
+                        { key: 'thermostaticShowerMixer', label: '🚿 Termostatik Batarya' },
+                        { key: 'linearShowerDrain', label: '✨ Lineer Süzgeç' },
+                        { key: 'bathroomHumidityFan', label: '🌀 Nem Sensörlü Fan' },
+                        { key: 'touchlessKitchenFaucet', label: '🫧 Fotoselli Batarya' },
+                        { key: 'smartDoorLock', label: '🔑 Akıllı Kapı Kilidi' },
+                        { key: 'smartHome', label: '🏡 Akıllı Ev Modülü' },
+                        { key: 'generator', label: '⚡ Otomatik Jeneratör' },
+                        { key: 'porcelainCountertop', label: '🍳 Porselen Tezgah' },
+                      ] as const
+                    ).map((item) => {
+                      const feats = {
+                        underfloorHeating: true,
+                        waterFiltration: true,
+                        acOption: true,
+                        thermostaticShowerMixer: true,
+                        linearShowerDrain: true,
+                        bathroomHumidityFan: true,
+                        touchlessKitchenFaucet: true,
+                        smartDoorLock: true,
+                        smartHome: true,
+                        generator: true,
+                        porcelainCountertop: true,
+                        ...(params.plusOfferFeatures || {}),
+                      };
+                      const isActive = feats[item.key] !== false;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => {
+                            if (onUpdateParam) {
+                              onUpdateParam('plusOfferFeatures', {
+                                ...feats,
+                                [item.key]: !isActive,
+                              });
+                            }
+                          }}
+                          className={`p-2 rounded-xl text-[11px] font-bold text-left transition-all cursor-pointer border ${
+                            isActive
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : 'bg-slate-50 text-slate-400 border-slate-200 line-through'
+                          }`}
+                        >
+                          {isActive ? '✓ ' : '✕ '} {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

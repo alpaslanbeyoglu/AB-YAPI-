@@ -279,6 +279,17 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
     });
   }
 
+  if (plusFeatures.smartDoorLock !== false && (plusResult.smartDoorLockCost || 0) > 0) {
+    itemizedContractorCosts.push({
+      id: 'smart_door_lock',
+      name: 'Motorlu Akıllı Daire Kapısı Kilidi',
+      icon: '🔑',
+      unitCost: Math.round((plusResult.smartDoorLockCost || 0) / plusFlatCount),
+      totalCost: Math.round(plusResult.smartDoorLockCost || 0),
+      scope: 'Yalnızca Konutlar',
+    });
+  }
+
   if (plusFeatures.smartHome !== false && (plusParams.priceSmartHome || 0) > 0) {
     itemizedContractorCosts.push({
       id: 'smart_home',
@@ -324,8 +335,11 @@ export function computeDualOffer(params: ProjectParams): DualOfferComparisonResu
     ? Math.round(calculatedTotalCostDiff / plusFlatCount)
     : 0;
 
-  // Müteahhit özel daire başı fark girdi mi?
-  const hasCustomDelta = params.plusOfferCustomFlatDelta !== undefined && params.plusOfferCustomFlatDelta > 0;
+  // Müteahhit özel daire başı fark girdi mi? (0 özellik seçiliyse Plus farkı daima 0 TL olur)
+  const hasCustomDelta =
+    calculatedTotalCostDiff > 0 &&
+    params.plusOfferCustomFlatDelta !== undefined &&
+    params.plusOfferCustomFlatDelta > 0;
   const customerFlatDelta = hasCustomDelta 
     ? Math.round(params.plusOfferCustomFlatDelta!) 
     : calculatedAvgCostPerFlatDiff;

@@ -1,3 +1,5 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_PARAMS, calculateProject } from './calculatorEngine';
 import {
@@ -6,6 +8,7 @@ import {
   createOfferVersionSnapshot,
   appendOfferStatusHistory,
   resolveOfferMetadata,
+  resolveSelectedDualFeatureIds,
   generateCustomerWhatsAppSummary,
   findForbiddenCustomerKeys,
   escapeHtml,
@@ -13,6 +16,8 @@ import {
   sanitizeUrl,
 } from './customerOfferBoundary';
 import { generateOfferHtml, generateOfferHtmlFromPayload } from './offerReportExport';
+import { computeDualOffer } from './dualOfferUtils';
+import { OfferTab } from '../components/OfferTab';
 import { CompanyProfile, ProjectParams, CalculationResult } from '../types';
 
 const SECRET_INTERNAL_NOTE = 'GIZLI_SIRKET_NOTU_KAR_MARJI_OZEL_998877';
@@ -369,3 +374,440 @@ describe('Geriye dönük uyumluluk ve sürümleme testleri', () => {
     expect(updatedMeta.statusHistory[0].note).toBe('Müşteriye ilk sunum yapıldı');
   });
 });
+
+describe('Tekli Paket ve İkili Paket donanım sunumu doğrulaması', () => {
+  it('Tekli Paket modunda hiçbir konfor donanımı seçili değilse opsiyonel/upgrade listesi üretilmez', () => {
+    const { params, results } = createTurnkeyFixture();
+    const singleEmptyParams: ProjectParams = {
+      ...params,
+      offerPresentationMode: 'single',
+      showInnovativeOptions: true,
+      hasUnderfloorHeating: false,
+      hasWaterFiltration: false,
+      hasAcOption: false,
+      hasThermostaticShowerMixer: false,
+      hasLinearShowerDrain: false,
+      hasBathroomHumidityFan: false,
+      hasTouchlessKitchenFaucet: false,
+      hasSmartDoorLock: false,
+      hasGenerator: false,
+      hasPorcelainCountertop: false,
+    };
+
+    const payload = buildCustomerOfferPayload(singleEmptyParams, results, MOCK_COMPANY_PROFILE);
+    const html = generateOfferHtmlFromPayload(payload);
+
+    expect(payload.presentation.mode).toBe('single');
+    expect(payload.dualOffer).toBeNull();
+    expect(payload.innovativeOptions).toEqual([]);
+    expect(html).not.toContain('Opsiyonel');
+    expect(html).not.toContain('Opsiyonel Upgrade');
+    expect(html).not.toContain('Opsiyonel Donanım');
+    expect(html).not.toContain('İsteğe bağlı olarak eklenebilir');
+    expect(html).not.toContain('İkili Teklif & Paket Karşılaştırma Matrisi');
+    expect(html).not.toContain('Muvafakat Edilen Teklif Paketi');
+    expect(findForbiddenCustomerKeys(payload)).toEqual([]);
+  });
+
+  it('Tekli Paket modunda yalnızca seçili pakete dahil donanımlar "Teklife Dahil" olarak sunulur, seçilmeyen Plus kalemleri opsiyonel gösterilmez', () => {
+    const { params, results } = createTurnkeyFixture();
+    const singlePartialParams: ProjectParams = {
+      ...params,
+      offerPresentationMode: 'single',
+      showInnovativeOptions: true,
+      hasUnderfloorHeating: true,
+      hasWaterFiltration: false,
+      hasAcOption: false,
+      hasThermostaticShowerMixer: false,
+      hasLinearShowerDrain: false,
+      hasBathroomHumidityFan: false,
+      hasTouchlessKitchenFaucet: false,
+      hasSmartDoorLock: false,
+      hasGenerator: true,
+      hasPorcelainCountertop: false,
+    };
+
+    const payload = buildCustomerOfferPayload(singlePartialParams, results, MOCK_COMPANY_PROFILE);
+    const html = generateOfferHtml(singlePartialParams, results, false, MOCK_COMPANY_PROFILE);
+
+    expect(payload.presentation.mode).toBe('single');
+    expect(payload.dualOffer).toBeNull();
+    expect(payload.innovativeOptions).toHaveLength(2);
+    expect(payload.innovativeOptions.map((o) => o.id)).toEqual(['underfloorHeating', 'generator']);
+    expect(payload.innovativeOptions.every((o) => o.included && o.statusLabel === 'Teklife Dahil')).toBe(true);
+
+    expect(html).toContain('Yerden Isıtma (Sulu)');
+    expect(html).toContain('Otomatik Transfer Panolu (ATS) Jeneratör');
+    expect(html).toContain('Teklife Dahil');
+    expect(html).toContain('✓ Teklif kapsamına dahildir');
+    expect(html).not.toContain('Merkezi Su Arıtma');
+    expect(html).not.toContain('Termostatik Duş Bataryası');
+    expect(html).not.toContain('Motorlu &amp; Biyometrik Akıllı Kapı Kilidi');
+    expect(html).not.toContain('Opsiyonel');
+    expect(html).not.toContain('İsteğe bağlı olarak eklenebilir');
+    expect(html).not.toContain('İkili Teklif & Paket Karşılaştırma Matrisi');
+    expect(findForbiddenCustomerKeys(payload)).toEqual([]);
+  });
+
+  it('İki Seçenekli Paket (dual) modunda Baz/Plus karşılaştırma matrisi ve paket farkları korunur, iç maliyet sızmaz', () => {
+    const { params, results } = createTurnkeyFixture();
+    const dualParams: ProjectParams = {
+      ...params,
+      offerPresentationMode: 'dual',
+      showDualOfferMatrix: true,
+      hasUnderfloorHeating: true,
+      hasGenerator: false,
+    };
+
+    const payload = buildCustomerOfferPayload(dualParams, results, MOCK_COMPANY_PROFILE);
+    const html = generateOfferHtmlFromPayload(payload);
+
+    expect(payload.presentation.mode).toBe('dual');
+    expect(payload.dualOffer).not.toBeNull();
+    expect(payload.innovativeOptions).toHaveLength(10);
+    expect(payload.innovativeOptions.find((o) => o.id === 'underfloorHeating')?.included).toBe(true);
+    expect(payload.innovativeOptions.find((o) => o.id === 'generator')?.included).toBe(false);
+    expect(payload.innovativeOptions.find((o) => o.id === 'generator')?.statusLabel).toBe('Opsiyonel Donanım');
+
+    expect(html).toContain('İkili Teklif & Paket Karşılaştırma Matrisi');
+    expect(html).toContain('1. SEÇENEK:');
+    expect(html).toContain('2. SEÇENEK:');
+    expect(html).toContain('Muvafakat Edilen Teklif Paketi');
+    expect(findForbiddenCustomerKeys(payload)).toEqual([]);
+    expect(html).not.toContain(SECRET_INTERNAL_NOTE);
+  });
+
+  const ALL_SINGLE_OFF: Partial<ProjectParams> = {
+    offerPresentationMode: 'single',
+    showInnovativeOptions: true,
+    hasUnderfloorHeating: false,
+    hasWaterFiltration: false,
+    hasAcOption: false,
+    hasThermostaticShowerMixer: false,
+    hasLinearShowerDrain: false,
+    hasBathroomHumidityFan: false,
+    hasTouchlessKitchenFaucet: false,
+    hasSmartDoorLock: false,
+    hasGenerator: false,
+    hasPorcelainCountertop: false,
+  };
+
+  const ALL_PLUS_OFF: NonNullable<ProjectParams['plusOfferFeatures']> = {
+    underfloorHeating: false,
+    waterFiltration: false,
+    acOption: false,
+    thermostaticShowerMixer: false,
+    linearShowerDrain: false,
+    bathroomHumidityFan: false,
+    touchlessKitchenFaucet: false,
+    smartDoorLock: false,
+    smartHome: false,
+    generator: false,
+    porcelainCountertop: false,
+  };
+
+  it('Tekli Paket: 0 / 1 / 3 / 10 donanım seçim senaryoları payload, PDF/yazdırma HTML ve canlı önizleme DOM üzerinde birebir aynıdır', () => {
+    const { params } = createTurnkeyFixture();
+
+    // 1) 0 / 10 seçili -> Donanım bölümü tamamen gizli
+    const p0: ProjectParams = { ...params, ...ALL_SINGLE_OFF };
+    const r0 = calculateProject(p0);
+    const payload0 = buildCustomerOfferPayload(p0, r0, MOCK_COMPANY_PROFILE);
+    const html0 = generateOfferHtmlFromPayload(payload0);
+    const preview0 = renderToStaticMarkup(
+      React.createElement(OfferTab, { params: p0, results: r0, initialView: 'preview' })
+    );
+    expect(payload0.innovativeOptions).toHaveLength(0);
+    expect(html0).not.toContain('Teklif Kapsamındaki Yapısal Kalite ve Yaşam Konforu Donanımları');
+    expect(html0).not.toContain('Opsiyonel');
+    expect(preview0).not.toContain('data-testid="single-offer-comfort-section"');
+    expect(preview0).not.toContain('Opsiyonel Upgrade');
+
+    // 2) 1 / 10 seçili -> Yalnızca seçilen 1 donanım
+    const p1: ProjectParams = { ...params, ...ALL_SINGLE_OFF, hasThermostaticShowerMixer: true };
+    const r1 = calculateProject(p1);
+    const payload1 = buildCustomerOfferPayload(p1, r1, MOCK_COMPANY_PROFILE);
+    const html1 = generateOfferHtmlFromPayload(payload1);
+    const preview1 = renderToStaticMarkup(
+      React.createElement(OfferTab, { params: p1, results: r1, initialView: 'preview' })
+    );
+    expect(payload1.innovativeOptions.map((o) => o.id)).toEqual(['thermostaticShowerMixer']);
+    expect(html1).toContain('Termostatik Duş Bataryası');
+    expect(html1).not.toContain('Yerden Isıtma (Sulu)');
+    expect(html1).not.toContain('Merkezi Su Arıtma');
+    expect(html1).not.toContain('Lineer Duş Süzgeci');
+    expect(html1).not.toContain('Opsiyonel');
+    expect(preview1).toContain('data-testid="single-offer-comfort-section"');
+    expect(preview1).toContain('Termostatik Duş Bataryası');
+    expect(preview1).not.toContain('Yerden Isıtma Sistemi (Sulu)');
+    expect(preview1).not.toContain('Bina Girişi Merkezi Su Arıtma');
+    expect(preview1).not.toContain('Opsiyonel Upgrade');
+
+    // 3) 3 / 10 seçili -> Yalnızca seçilen 3 donanım
+    const p3: ProjectParams = {
+      ...params,
+      ...ALL_SINGLE_OFF,
+      hasUnderfloorHeating: true,
+      hasSmartDoorLock: true,
+      hasPorcelainCountertop: true,
+    };
+    const r3 = calculateProject(p3);
+    const payload3 = buildCustomerOfferPayload(p3, r3, MOCK_COMPANY_PROFILE);
+    const html3 = generateOfferHtmlFromPayload(payload3);
+    const preview3 = renderToStaticMarkup(
+      React.createElement(OfferTab, { params: p3, results: r3, initialView: 'preview' })
+    );
+    expect(payload3.innovativeOptions.map((o) => o.id)).toEqual([
+      'underfloorHeating',
+      'smartDoorLock',
+      'porcelainCountertop',
+    ]);
+    expect(html3).toContain('Yerden Isıtma (Sulu)');
+    expect(html3).toContain('Motorlu &amp; Biyometrik Akıllı Kapı Kilidi');
+    expect(html3).toContain('12-15mm Lüks Porselen Mutfak Tezgahı');
+    expect(html3).not.toContain('Merkezi Su Arıtma');
+    expect(html3).not.toContain('Nem Sensörlü Banyo Fanı');
+    expect(html3).not.toContain('Otomatik Transfer Panolu (ATS) Jeneratör');
+    expect(html3).not.toContain('Opsiyonel');
+    expect(preview3).toContain('Yerden Isıtma Sistemi (Sulu)');
+    expect(preview3).toContain('Motorlu &amp; Biyometrik Akıllı Daire Kapısı Kilit Sistemi');
+    expect(preview3).toContain('12-15mm Lüks Porselen Mutfak Tezgahı ve Alınlığı');
+    expect(preview3).not.toContain('Bina Girişi Merkezi Su Arıtma');
+    expect(preview3).not.toContain('Nem Sensörlü Sessiz Banyo Fanı');
+    expect(preview3).not.toContain('Otomatik Transfer Panolu (ATS) Kabinli Jeneratör Sistemi');
+    expect(preview3).not.toContain('Opsiyonel Upgrade');
+
+    // 4) 10 / 10 seçili -> 10 donanımın tamamı
+    const p10: ProjectParams = {
+      ...params,
+      offerPresentationMode: 'single',
+      showInnovativeOptions: true,
+      hasUnderfloorHeating: true,
+      hasWaterFiltration: true,
+      hasAcOption: true,
+      hasThermostaticShowerMixer: true,
+      hasLinearShowerDrain: true,
+      hasBathroomHumidityFan: true,
+      hasTouchlessKitchenFaucet: true,
+      hasSmartDoorLock: true,
+      hasGenerator: true,
+      hasPorcelainCountertop: true,
+    };
+    const r10 = calculateProject(p10);
+    const payload10 = buildCustomerOfferPayload(p10, r10, MOCK_COMPANY_PROFILE);
+    const html10 = generateOfferHtmlFromPayload(payload10);
+    const preview10 = renderToStaticMarkup(
+      React.createElement(OfferTab, { params: p10, results: r10, initialView: 'preview' })
+    );
+    expect(payload10.innovativeOptions).toHaveLength(10);
+    expect(payload10.innovativeOptions.every((o) => o.included && o.statusLabel === 'Teklife Dahil')).toBe(true);
+    expect(html10).toContain('Yerden Isıtma (Sulu)');
+    expect(html10).toContain('12-15mm Lüks Porselen Mutfak Tezgahı');
+    expect(html10).not.toContain('Opsiyonel');
+    expect(preview10).toContain('Teklif Kapsamına Dahil Donanımlar (10)');
+    expect(preview10).not.toContain('Opsiyonel Upgrade');
+  });
+
+  it('İki Seçenekli Paket (dual): 0 / 1 / 3 / 11 Plus donanım seçim senaryoları payload, PDF/yazdırma HTML ve canlı önizleme DOM üzerinde birebir aynıdır', () => {
+    const { params } = createTurnkeyFixture();
+
+    // 1) 0 Plus seçili -> Karşılaştırma tablosu gizli, seçilmeyen Plus donanımları görünmez
+    const d0: ProjectParams = {
+      ...params,
+      offerPresentationMode: 'dual',
+      showDualOfferMatrix: true,
+      showInnovativeOptions: true,
+      plusOfferFeatures: { ...ALL_PLUS_OFF },
+    };
+    const dr0 = calculateProject(d0);
+    const dp0 = buildCustomerOfferPayload(d0, dr0, MOCK_COMPANY_PROFILE);
+    const dh0 = generateOfferHtmlFromPayload(dp0);
+    const dprev0 = renderToStaticMarkup(
+      React.createElement(OfferTab, { params: d0, results: dr0, initialView: 'preview' })
+    );
+    expect(resolveSelectedDualFeatureIds(d0.plusOfferFeatures).size).toBe(0);
+    expect(dp0.dualOffer?.features).toEqual([]);
+    expect(dh0).not.toContain('E.C.A. / Demirdöküm Sulu Yerden Isıtma Sistemi');
+    expect(dh0).not.toContain('Merkezi Su Arıtma İstasyonu');
+    expect(dh0).toContain('Plus paket kapsamında ek konfor donanımı seçilmemiştir.');
+    // Önizlemede Tekli Paket 10 kart kutusu dual modda görünmez!
+    expect(dprev0).not.toContain('data-testid="single-offer-comfort-section"');
+    expect(dprev0).toContain('data-testid="dual-offer-matrix-section"');
+    expect(dprev0).not.toContain('E.C.A. / Demirdöküm Sulu Yerden Isıtma Sistemi');
+    expect(dprev0).not.toContain('Merkezi Su Arıtma İstasyonu');
+    expect(dprev0).toContain('Plus paket kapsamında ek konfor donanımı seçilmemiştir.');
+
+    // 2) 1 Plus seçili -> Yalnızca o 1 özellik
+    const d1: ProjectParams = {
+      ...params,
+      offerPresentationMode: 'dual',
+      showDualOfferMatrix: true,
+      plusOfferFeatures: { ...ALL_PLUS_OFF, underfloorHeating: true },
+    };
+    const dr1 = calculateProject(d1);
+    const dp1 = buildCustomerOfferPayload(d1, dr1, MOCK_COMPANY_PROFILE);
+    const dh1 = generateOfferHtmlFromPayload(dp1);
+    const dprev1 = renderToStaticMarkup(
+      React.createElement(OfferTab, { params: d1, results: dr1, initialView: 'preview' })
+    );
+    expect(dp1.dualOffer?.features.map((f) => f.id)).toEqual(['heating']);
+    expect(dh1).toContain('Isıtma Sistemi');
+    expect(dh1).not.toContain('Merkezi Su Arıtma İstasyonu');
+    expect(dh1).not.toContain('Nem Sensörlü Sessiz Banyo Fanı');
+    expect(dh1).not.toContain('Motorlu Akıllı Daire Kapısı Kilidi');
+    expect(dprev1).toContain('Isıtma Sistemi');
+    expect(dprev1).not.toContain('Merkezi Su Arıtma İstasyonu');
+    expect(dprev1).not.toContain('Nem Sensörlü Sessiz Banyo Fanı');
+    expect(dprev1).not.toContain('Motorlu Akıllı Daire Kapısı Kilidi');
+
+    // 3) 3 Plus seçili -> Yalnızca o 3 özellik
+    const d3: ProjectParams = {
+      ...params,
+      offerPresentationMode: 'dual',
+      showDualOfferMatrix: true,
+      plusOfferFeatures: {
+        ...ALL_PLUS_OFF,
+        waterFiltration: true,
+        smartDoorLock: true,
+        generator: true,
+      },
+    };
+    const dr3 = calculateProject(d3);
+    const dp3 = buildCustomerOfferPayload(d3, dr3, MOCK_COMPANY_PROFILE);
+    const dh3 = generateOfferHtmlFromPayload(dp3);
+    const dprev3 = renderToStaticMarkup(
+      React.createElement(OfferTab, { params: d3, results: dr3, initialView: 'preview' })
+    );
+    expect(dp3.dualOffer?.features.map((f) => f.id)).toEqual([
+      'water',
+      'smart_door_lock',
+      'generator',
+    ]);
+    expect(dh3).toContain('Merkezi Su Arıtma İstasyonu');
+    expect(dh3).toContain('Motorlu Akıllı Daire Kapısı Kilidi');
+    expect(dh3).toContain('Otomatik Jeneratör &amp; ATS Transfer Panosu');
+    expect(dh3).not.toContain('Emniyetli Termostatik Duş Bataryası');
+    expect(dh3).not.toContain('Lüks Porselen Mutfak Tezgahı (12-15mm)');
+    expect(dprev3).toContain('Merkezi Su Arıtma İstasyonu');
+    expect(dprev3).toContain('Motorlu Akıllı Daire Kapısı Kilidi');
+    expect(dprev3).toContain('Otomatik Jeneratör &amp; ATS Transfer Panosu');
+    expect(dprev3).not.toContain('Emniyetli Termostatik Duş Bataryası');
+    expect(dprev3).not.toContain('Lüks Porselen Mutfak Tezgahı (12-15mm)');
+
+    // 4) 11 / 11 Plus seçili -> Tüm 11 özellik
+    const d11: ProjectParams = {
+      ...params,
+      offerPresentationMode: 'dual',
+      showDualOfferMatrix: true,
+      plusOfferFeatures: {
+        underfloorHeating: true,
+        waterFiltration: true,
+        acOption: true,
+        thermostaticShowerMixer: true,
+        linearShowerDrain: true,
+        bathroomHumidityFan: true,
+        touchlessKitchenFaucet: true,
+        smartDoorLock: true,
+        smartHome: true,
+        generator: true,
+        porcelainCountertop: true,
+      },
+    };
+    const dr11 = calculateProject(d11);
+    const dp11 = buildCustomerOfferPayload(d11, dr11, MOCK_COMPANY_PROFILE);
+    const dh11 = generateOfferHtmlFromPayload(dp11);
+    const dprev11 = renderToStaticMarkup(
+      React.createElement(OfferTab, { params: d11, results: dr11, initialView: 'preview' })
+    );
+    expect(dp11.dualOffer?.features).toHaveLength(11);
+    expect(dh11).toContain('Isıtma Sistemi');
+    expect(dh11).toContain('Motorlu Akıllı Daire Kapısı Kilidi');
+    expect(dh11).toContain('Lüks Porselen Mutfak Tezgahı (12-15mm)');
+    expect(dprev11).toContain('Isıtma Sistemi');
+    expect(dprev11).toContain('Motorlu Akıllı Daire Kapısı Kilidi');
+    expect(dprev11).toContain('Lüks Porselen Mutfak Tezgahı (12-15mm)');
+  });
+
+  it('Plus Teklif 11 özelliğin her biri tikli/tiksiz fiyat kontrolü: her özellik fiyata doğru eklenir, kaldırıldığında birebir düşer ve 0 seçimde fark 0 TL olur', () => {
+    const featureKeys = Object.keys(ALL_PLUS_OFF) as Array<keyof typeof ALL_PLUS_OFF>;
+    const baseDualParams: ProjectParams = {
+      ...DEFAULT_PARAMS,
+      offerPresentationMode: 'dual',
+    };
+
+    // 1) 0/11 seçili -> fark 0 TL (eski custom delta kalsa bile!)
+    const d0 = computeDualOffer({
+      ...baseDualParams,
+      plusOfferFeatures: { ...ALL_PLUS_OFF },
+    });
+    expect(d0.itemizedContractorCosts).toHaveLength(0);
+    expect(d0.calculatedTotalCostDiff).toBe(0);
+    expect(d0.customerFlatDelta).toBe(0);
+    expect(d0.customerPlusGrandTotal).toBe(d0.customerBaseGrandTotal);
+
+    const d0WithStaleCustom = computeDualOffer({
+      ...baseDualParams,
+      plusOfferCustomFlatDelta: 150000,
+      plusOfferFeatures: { ...ALL_PLUS_OFF },
+    });
+    expect(d0WithStaleCustom.isCustomDeltaApplied).toBe(false);
+    expect(d0WithStaleCustom.customerFlatDelta).toBe(0);
+    expect(d0WithStaleCustom.customerPlusGrandTotal).toBe(d0WithStaleCustom.customerBaseGrandTotal);
+
+    // 2) 11/11 hepsi seçili
+    const dAll = computeDualOffer(baseDualParams);
+    expect(dAll.itemizedContractorCosts).toHaveLength(11);
+
+    // 3) Her 11 özelliğin tek tek (0->1) artışı ile (11->10) düşüşü birebir eşit ve > 0 olmalı
+    let sumIndividual = 0;
+    for (const key of featureKeys) {
+      const dSingle = computeDualOffer({
+        ...baseDualParams,
+        plusOfferFeatures: { ...ALL_PLUS_OFF, [key]: true },
+      });
+      const dWithout = computeDualOffer({
+        ...baseDualParams,
+        plusOfferFeatures: {
+          underfloorHeating: true,
+          waterFiltration: true,
+          acOption: true,
+          thermostaticShowerMixer: true,
+          linearShowerDrain: true,
+          bathroomHumidityFan: true,
+          touchlessKitchenFaucet: true,
+          smartDoorLock: true,
+          smartHome: true,
+          generator: true,
+          porcelainCountertop: true,
+          [key]: false,
+        },
+      });
+
+      expect(dSingle.itemizedContractorCosts, `${key} tek başına maliyet kalemi üretmeli`).toHaveLength(1);
+      expect(dSingle.calculatedTotalCostDiff, `${key} tek başına > 0 TL eklemeli`).toBeGreaterThan(0);
+      expect(dSingle.customerFlatDelta, `${key} daire başı farkı > 0 TL olmalı`).toBeGreaterThan(0);
+      expect(dSingle.customerPlusGrandTotal - dSingle.customerBaseGrandTotal).toBe(dSingle.customerTotalCostDiff);
+
+      // 11 -> 10 düşüşü birebir tek başına eklenen maliyetle eşit olmalı
+      const dropTotal = dAll.calculatedTotalCostDiff - dWithout.calculatedTotalCostDiff;
+      expect(dropTotal, `${key} tik kaldırıldığında toplam fark birebir düşmeli`).toBe(dSingle.calculatedTotalCostDiff);
+
+      // Manuel m² birim fiyat girili projede dahi ilgili özellik fiyat farkı üretmeli
+      const dManual = computeDualOffer({
+        ...baseDualParams,
+        manualFlatUnitPrice: 45000,
+        plusOfferFeatures: { ...ALL_PLUS_OFF, [key]: true },
+      });
+      expect(dManual.calculatedTotalCostDiff, `${key} manuel m² fiyatlı projede de > 0 olmalı`).toBe(
+        dSingle.calculatedTotalCostDiff
+      );
+
+      sumIndividual += dSingle.calculatedTotalCostDiff;
+    }
+
+    // 11 özelliğin tek tek toplamı, 11/11 toplamına birebir eşit olmalı
+    expect(dAll.calculatedTotalCostDiff).toBe(sumIndividual);
+  });
+});
+
+

@@ -53,6 +53,7 @@ export function generateOfferHtmlFromPayload(payload: CustomerOfferPayload): str
   const compStampEsc = e(branding.stampBase64);
 
   const isDualOffer = presentation.mode === 'dual' && dualOffer !== null;
+  const includedInnovativeOptions = innovativeOptions.filter((opt) => opt.included);
   const isContractorShareModel = project.isContractorShareModel;
 
   let introPageHtml = '';
@@ -447,28 +448,28 @@ export function generateOfferHtmlFromPayload(payload: CustomerOfferPayload): str
       </div>
     </div>
 
-    <!-- İNOVATİF TEKNOLOJİ VE KONFOR SEÇENEKLERİ (TEK TEKLİF İÇİN — İÇ MALİYET GÖSTERİLMEZ) -->
-    ${!isDualOffer && presentation.showInnovativeOptions ? `
+    <!-- TEKLİ PAKET KAPSAMINDAKİ TEKNİK KONFOR DONANIMLARI (YALNIZCA DAHİL ÖZELLİKLER) -->
+    ${!isDualOffer && presentation.showInnovativeOptions && includedInnovativeOptions.length > 0 ? `
     <div style="margin-top:10px;background:linear-gradient(135deg, #fdf8ff 0%, #f4f5ff 100%);border:1px solid #e9d5ff;border-radius:12px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
       <div style="font-weight:900;font-size:11px;color:#581c87;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:4px;">
-        ✨ Teknik Konfor Donanımları ve Kapsam Durumu
+        ✨ Teklif Kapsamındaki Yapısal Kalite ve Yaşam Konforu Donanımları
       </div>
       <div class="grid-3" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;">
-        ${innovativeOptions
+        ${includedInnovativeOptions
           .map(
             (opt) => `
         <div class="card" style="background:#ffffff;border:1px solid #f3e8ff;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;min-height:86px;">
           <div>
             <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;margin-bottom:4px;">
               <span style="font-size:9.5px;font-weight:bold;color:#1e1b4b;">${e(opt.icon)} ${e(opt.title)}${opt.scopeBadge ? ` (${e(opt.scopeBadge)})` : ''}</span>
-              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;white-space:nowrap;background:${opt.included ? '#ecfdf5' : '#f1f5f9'};color:${opt.included ? '#065f46' : '#475569'};border:1px solid ${opt.included ? '#a7f3d0' : '#cbd5e1'}">${opt.included ? 'Dahil' : 'Opsiyonel'}</span>
+              <span style="font-size:8px;font-weight:900;text-transform:uppercase;padding:1px 5px;border-radius:10px;white-space:nowrap;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0">Teklife Dahil</span>
             </div>
             <p style="font-size:8.5px;color:#4b5563;margin:0 0 6px 0;line-height:1.35;">
               ${e(opt.description)}
             </p>
           </div>
-          <div style="font-size:8px;color:${opt.included ? '#065f46' : '#64748b'};border-top:1px solid #f3f4f6;padding-top:4px;font-weight:600;">
-            ${opt.included ? '✓ Teklif kapsamına dahildir' : '○ İsteğe bağlı olarak eklenebilir'}
+          <div style="font-size:8px;color:#065f46;border-top:1px solid #f3f4f6;padding-top:4px;font-weight:600;">
+            ✓ Teklif kapsamına dahildir
           </div>
         </div>`
           )
@@ -521,7 +522,9 @@ export function generateOfferHtmlFromPayload(payload: CustomerOfferPayload): str
               <span style="font-size:8px;font-weight:900;background:#7c3aed;color:#ffffff;padding:1px 6px;border-radius:10px;">Prestij & Konfor</span>
             </div>
             <p style="font-size:8.5px;color:#6d28d9;margin:0 0 8px 0;line-height:1.35;">
-              Seçili ileri teknoloji konfor donanımları ile donatılmış üst segment yaşam paketi.
+              ${dualOffer.features.length > 0
+                ? `Seçili konfor donanımları (${e(dualOffer.features.map((f) => f.name).join(', '))}) ile donatılmış üst segment yaşam paketi.`
+                : 'Plus paket kapsamında ek konfor donanımı seçilmemiştir.'}
             </p>
             <div style="background:#ffffff;border:1px solid #ddd6fe;border-radius:6px;padding:8px;margin-bottom:8px;">
               <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:4px;">
@@ -544,6 +547,7 @@ export function generateOfferHtmlFromPayload(payload: CustomerOfferPayload): str
         </div>
       </div>
 
+      ${dualOffer.features.length > 0 ? `
       <table style="width:100%;border-collapse:collapse;font-size:8.5px;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
         <thead>
           <tr style="background:#f1f5f9;color:#1e293b;border-bottom:1.5px solid #cbd5e1;text-align:left;">
@@ -573,6 +577,7 @@ export function generateOfferHtmlFromPayload(payload: CustomerOfferPayload): str
             .join('')}
         </tbody>
       </table>
+      ` : ''}
     </div>
     ` : ''}
   </div>` : ''}

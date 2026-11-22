@@ -338,9 +338,12 @@ function formatFloorLabel(floorNum?: number, ft?: string): string {
   return 'Normal Kat';
 }
 
-function buildCustomerInnovativeOptions(params: ProjectParams): CustomerOfferInnovativeOption[] {
+function buildCustomerInnovativeOptions(
+  params: ProjectParams,
+  isDualOffer: boolean
+): CustomerOfferInnovativeOption[] {
   const currentAc = getAcOptionById(params.acType || '18k_btu');
-  return [
+  const allOptions: CustomerOfferInnovativeOption[] = [
     {
       id: 'underfloorHeating',
       icon: '🔥',
@@ -437,6 +440,54 @@ function buildCustomerInnovativeOptions(params: ProjectParams): CustomerOfferInn
       scopeBadge: 'Konutlar',
     },
   ];
+
+  // Tekli Paket modunda yalnızca seçilen pakete dahil donanımlar sunulur;
+  // seçilmemiş Plus özellikleri "Opsiyonel Donanım / Upgrade" olarak gösterilmez.
+  if (!isDualOffer) {
+    return allOptions
+      .filter((opt) => opt.included)
+      .map((opt) => ({
+        ...opt,
+        statusLabel: 'Teklife Dahil',
+      }));
+  }
+
+  return allOptions;
+}
+
+const DUAL_FEATURE_ID_TO_PLUS_KEY: Record<
+  string,
+  keyof NonNullable<ProjectParams['plusOfferFeatures']>
+> = {
+  heating: 'underfloorHeating',
+  ac: 'acOption',
+  water: 'waterFiltration',
+  thermostatic_mixer: 'thermostaticShowerMixer',
+  linear_drain: 'linearShowerDrain',
+  bathroom_fan: 'bathroomHumidityFan',
+  touchless_kitchen: 'touchlessKitchenFaucet',
+  smart_door_lock: 'smartDoorLock',
+  smart_home: 'smartHome',
+  generator: 'generator',
+  porcelain_countertop: 'porcelainCountertop',
+};
+
+/**
+ * İki seçenekli (Baz + Plus) teklifte, kullanıcının Plus paket için seçtiği
+ * özellik kimliklerini (dualOfferUtils feature id) döndürür.
+ * getPlusParams() ile birebir aynı iş kuralını uygular: ilgili anahtar false değilse seçilidir.
+ */
+export function resolveSelectedDualFeatureIds(
+  plusOfferFeatures?: ProjectParams['plusOfferFeatures']
+): Set<string> {
+  const selected = new Set<string>();
+  const feats = plusOfferFeatures || {};
+  for (const [featureId, plusKey] of Object.entries(DUAL_FEATURE_ID_TO_PLUS_KEY)) {
+    if (feats[plusKey] !== false) {
+      selected.add(featureId);
+    }
+  }
+  return selected;
 }
 
 /**
@@ -618,7 +669,8 @@ export function buildCustomerOfferPayload(
   let dualOffer: CustomerOfferDualData | null = null;
   if (isDualOffer) {
     const rawDual = computeDualOffer(params);
-    // Yalnızca müşteriye ait alanları projekte et (iç maliyet & kâr alanları tamamen çıkarılır)
+    const selectedDualFeatureIds = resolveSelectedDualFeatureIds(params.plusOfferFeatures);
+    // Yalnızca müşteriye ait alanları ve kullanıcının Plus için seçtiği özellikleri projekte et
     dualOffer = {
       baseTitle: rawDual.baseTitle,
       plusTitle: rawDual.plusTitle,
@@ -633,15 +685,17 @@ export function buildCustomerOfferPayload(
       customerBaseNetDebtPerFlat: rawDual.customerBaseNetDebtPerFlat,
       customerPlusNetDebtPerFlat: rawDual.customerPlusNetDebtPerFlat,
       hasShops: rawDual.hasShops,
-      features: rawDual.features.map((f) => ({
-        id: f.id,
-        name: f.name,
-        icon: f.icon,
-        baseIncluded: f.baseIncluded,
-        baseSpec: f.baseSpec,
-        plusIncluded: f.plusIncluded,
-        plusSpec: f.plusSpec,
-      })),
+      features: rawDual.features
+        .filter((f) => selectedDualFeatureIds.has(f.id))
+        .map((f) => ({
+          id: f.id,
+          name: f.name,
+          icon: f.icon,
+          baseIncluded: f.baseIncluded,
+          baseSpec: f.baseSpec,
+          plusIncluded: f.plusIncluded,
+          plusSpec: f.plusSpec,
+        })),
     };
   }
 
@@ -815,7 +869,7 @@ export function buildCustomerOfferPayload(
       showLegalTaahhut: params.showLegalTaahhut !== false,
       showContractorSignature: params.showContractorSignature !== false,
     },
-    innovativeOptions: buildCustomerInnovativeOptions(params),
+    innovativeOptions: buildCustomerInnovativeOptions(params, isDualOffer),
     dualOffer,
     publicNotes: (params.customContractNotes || '').trim(),
     additionalClauses: (params.additionalOfferClauses || [])
