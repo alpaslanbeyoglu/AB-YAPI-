@@ -680,17 +680,6 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                   <span>Yeni Proje Oluştur</span>
                 </button>
               )}
-
-              {onOpenQuickProposal && (
-                <button
-                  type="button"
-                  onClick={onOpenQuickProposal}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-                >
-                  <Zap className="w-4 h-4" />
-                  <span>Hızlı Teklif Hazırla</span>
-                </button>
-              )}
             </div>
 
             {/* Active Workspace Project Resume Strip (does not overwrite active params) */}
@@ -852,7 +841,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                       Henüz kayıtlı proje bulunmuyor
                     </p>
                     <p className="text-xs text-slate-500 max-w-md mx-auto">
-                      Yeni bir proje oluşturup kaydettiğinizde veya Hızlı Teklif hazırladığınızda projeleriniz burada durumlarına göre listelenir.
+                      Yeni bir proje oluşturup kaydettiğinizde projeleriniz burada durumlarına göre listelenir.
                     </p>
                   </div>
                   {onNavigateToNewWorkOrder && (

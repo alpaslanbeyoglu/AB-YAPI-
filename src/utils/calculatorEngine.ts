@@ -336,8 +336,12 @@ export function getInitialProjectParams(customAddress = 'Yeni Kentsel Dönüşü
     ...DEFAULT_PARAMS,
     projectName: '',
     projectAddress: customAddress,
-    landArea: 400,
-    baseBuildArea: 140,
+    landArea: 100,
+    baseBuildArea: 100,
+    facadeWidth: 10.0,
+    facadeDepth: 10.0,
+    backFacadeLength: 10.0,
+    leftFacadeLength: 10.0,
     floorCount: 5,
     flatsPerFloor: 2,
     flatCount: 10,
@@ -346,7 +350,7 @@ export function getInitialProjectParams(customAddress = 'Yeni Kentsel Dönüşü
     basementCount: 1,
     isOfferAccepted: false,
     proposalStatus: 'draft',
-    flats: generateInitialFlats(140, 5, 10, 'currentSupport'),
+    flats: generateInitialFlats(100, 5, 10, 'currentSupport'),
     existingBuildings: [],
   };
 }

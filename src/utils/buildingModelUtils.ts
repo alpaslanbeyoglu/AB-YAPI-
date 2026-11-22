@@ -296,8 +296,10 @@ export const DEFAULT_BUILDING_PARAMS: BuildingModelParams = {
 export function getInitialBuildingModelParams(): BuildingModelParams {
   return {
     ...DEFAULT_BUILDING_PARAMS,
-    facadeWidth: 14.0,
-    facadeDepth: 18.0,
+    facadeWidth: 10.0,
+    facadeDepth: 10.0,
+    backFacadeLength: 10.0,
+    leftFacadeLength: 10.0,
     floorCount: 5,
     flatsPerFloor: 2,
     hasGroundFloorShop: false,

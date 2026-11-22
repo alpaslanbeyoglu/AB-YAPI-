@@ -17,12 +17,11 @@ interface HeaderProps {
   activeProjectName?: string;
   onNewProjectClick?: () => void;
   onOpenHistoryClick?: () => void;
-  onOpenQuickProposal?: () => void;
-  onOpenGuidedWizard?: () => void;
   historyList?: SavedProjectData[];
   onSelectProject?: (project: SavedProjectData) => void;
   currentProposalStatus?: ProposalStatus;
   onChangeProposalStatus?: (status: ProposalStatus) => void;
+  showLogoOnDesktop?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -36,12 +35,11 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   activeProjectName,
   onNewProjectClick,
   onOpenHistoryClick,
-  onOpenQuickProposal,
-  onOpenGuidedWizard,
   historyList = [],
   onSelectProject,
   currentProposalStatus = 'draft',
   onChangeProposalStatus,
+  showLogoOnDesktop = false,
 }) => {
   const isGray = theme === 'gray';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,13 +73,14 @@ export const Header: React.FC<HeaderProps> = React.memo(({
       <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-7 min-h-[60px] py-2 @[1000px]:py-0 @[1000px]:h-16 flex flex-wrap @[1000px]:flex-nowrap items-center justify-between gap-x-3 @[1160px]:gap-x-5 gap-y-2">
         {/* 1. SOL BÖLÜM: Marka / Logo + Proje Durumu & Seçici */}
         <div className="flex items-center gap-2.5 @[1160px]:gap-3.5 min-w-0 shrink-0">
-          {/* Logo ve AB-YAPI Marka Alanı */}
-          <div className="shrink-0 flex items-center">
-            <Logo size="sm" variant="compact" theme={theme} className="@[1180px]:hidden" />
-            <Logo size="md" variant="compact" theme={theme} className="hidden @[1180px]:inline-flex" />
+          {/* Logo ve AB-YAPI Marka Alanı (Masaüstünde sol menü açıkken tekrar etmez; mobil veya sol menü gizliyken tek logo gösterilir) */}
+          <div className={`shrink-0 items-center ${showLogoOnDesktop ? 'flex' : 'flex md:hidden'}`}>
+            <Logo size="sm" variant="compact" theme={theme} />
           </div>
 
-          <div className="hidden lg:block h-7 w-px bg-slate-200/90 shrink-0" />
+          {showLogoOnDesktop && (
+            <div className="hidden lg:block h-7 w-px bg-slate-200/90 shrink-0" />
+          )}
 
           {/* Aktif Proje & Teklif Durumu (Diğer butonlardan görsel olarak ayrı alan) */}
           <div className="relative hidden lg:flex items-center shrink-0">
@@ -223,44 +222,18 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           </div>
         </div>
 
-        {/* 2. ORTA BÖLÜM: Eşit Hizalı Hızlı İşlem Butonları */}
-        {(onOpenGuidedWizard || onOpenQuickProposal || onNewProjectClick) && (
+        {/* 2. ORTA BÖLÜM: Hızlı İşlem Butonu */}
+        {onNewProjectClick && (
           <div className="hidden lg:flex items-center gap-2 @[1160px]:gap-2.5 shrink-0 order-3 @[1000px]:order-2 w-full @[1000px]:w-auto pt-1 @[1000px]:pt-0 border-t @[1000px]:border-t-0 border-slate-100">
-            {onOpenGuidedWizard && (
-              <button
-                type="button"
-                onClick={onOpenGuidedWizard}
-                className="h-9 px-2.5 @[1160px]:px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] @[1160px]:text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs whitespace-nowrap leading-none shrink-0"
-                title="4 Adımlı Akıllı Rehber Modunu Aç"
-              >
-                <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-200" />
-                <span>4 Adımlı Rehber</span>
-              </button>
-            )}
-
-            {onOpenQuickProposal && (
-              <button
-                type="button"
-                onClick={onOpenQuickProposal}
-                className="h-9 px-2.5 @[1160px]:px-3.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-[11px] @[1160px]:text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs whitespace-nowrap leading-none shrink-0"
-                title="2 Dakikada Hızlı Teklif Sihirbazını Aç"
-              >
-                <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                <span>Hızlı Teklif</span>
-              </button>
-            )}
-
-            {onNewProjectClick && (
-              <button
-                type="button"
-                onClick={onNewProjectClick}
-                className="h-9 px-2.5 @[1160px]:px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] @[1160px]:text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs whitespace-nowrap leading-none shrink-0"
-                title="Mevcut çalışmayı arşive alıp sıfırdan yeni bir proje başlatır"
-              >
-                <Plus className="w-3.5 h-3.5 shrink-0" />
-                <span>Sıfırla</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onNewProjectClick}
+              className="h-9 px-2.5 @[1160px]:px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] @[1160px]:text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs whitespace-nowrap leading-none shrink-0"
+              title="Mevcut çalışmayı arşive alıp sıfırdan yeni bir proje başlatır"
+            >
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              <span>Sıfırla</span>
+            </button>
           </div>
         )}
 

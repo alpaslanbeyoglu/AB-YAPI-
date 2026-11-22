@@ -28,8 +28,6 @@ import { ProjectSetupTab } from './components/ProjectSetupTab';
 import { LiteMobileView } from './components/LiteMobileView';
 import { ProjectTransferModal } from './components/ProjectTransferModal';
 import { ProjectLifecycleBar } from './components/ProjectLifecycleBar';
-import { QuickProposalModal } from './components/QuickProposalModal';
-import { GuidedWizardModal } from './components/GuidedWizardModal';
 
 // Resilient lazy loader for secondary tabs that retries once on network hiccups
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -139,8 +137,6 @@ export default function App() {
   const [isProjectFlowOpen, setIsProjectFlowOpen] = useState<boolean>(false);
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isProjectTransferOpen, setIsProjectTransferOpen] = useState(false);
-  const [isQuickProposalOpen, setIsQuickProposalOpen] = useState(false);
-  const [isGuidedWizardOpen, setIsGuidedWizardOpen] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     try {
@@ -1331,8 +1327,6 @@ const handleQuickSave = () => {
 
   const handleRootErrorReset = () => {
     setIsProjectTransferOpen(false);
-    setIsQuickProposalOpen(false);
-    setIsGuidedWizardOpen(false);
     setIsMenuSettingsOpen(false);
     setIsAdminLicensesOpen(false);
   };
@@ -1505,6 +1499,7 @@ const handleQuickSave = () => {
           {/* Unified Sticky Top Header & Mobile Menu Bar */}
           <div className="sticky top-0 z-30 print:hidden w-full max-w-full">
             <Header
+              showLogoOnDesktop={activeTab === 'kurulum' && isProjectFlowOpen}
               onExportJson={handleExportJson}
               onImportJson={handleImportJson}
               onOpenTransferModal={() => setIsProjectTransferOpen(true)}
@@ -1515,8 +1510,6 @@ const handleQuickSave = () => {
               activeProjectName={params.projectName || params.projectAddress || 'Varsayılan Şantiye'}
               onNewProjectClick={() => handleStartNewProject()}
               onOpenHistoryClick={() => setActiveTab('gecmis')}
-              onOpenQuickProposal={() => setIsQuickProposalOpen(true)}
-              onOpenGuidedWizard={() => setIsGuidedWizardOpen(true)}
               historyList={historyList}
               onSelectProject={(proj) => handleLoadProject(proj, activeTab)}
               currentProposalStatus={params.proposalStatus || (params.isOfferAccepted ? 'accepted' : 'draft')}
@@ -1829,7 +1822,6 @@ const handleQuickSave = () => {
                 handleLoadProject(project, (targetTab as TabId) || 'kurulum');
               }}
               onNavigateToNewWorkOrder={() => handleStartNewProject()}
-              onOpenQuickProposal={() => setIsQuickProposalOpen(true)}
               onContinueActiveProject={(targetTab, setupStep) => {
                 activateProjectTabs();
                 if (setupStep !== undefined) {
@@ -1904,25 +1896,6 @@ const handleQuickSave = () => {
       onImportProject={handleImportProjectData}
       onExportProject={handleExportJson}
       historyList={historyList}
-      theme={theme}
-    />
-
-    <QuickProposalModal
-      isOpen={isQuickProposalOpen}
-      onClose={() => setIsQuickProposalOpen(false)}
-      onApplyProposal={(newParams) => {
-        updateCalculatorParams(newParams);
-        showNotification('success', 'Hızlı teklif başarıyla oluşturuldu ve çalışma alanına aktarıldı!');
-        setActiveTab('teklif');
-      }}
-      theme={theme}
-    />
-
-    <GuidedWizardModal
-      isOpen={isGuidedWizardOpen}
-      onClose={() => setIsGuidedWizardOpen(false)}
-      params={params}
-      onChangeParams={updateCalculatorParams}
       theme={theme}
     />
 
