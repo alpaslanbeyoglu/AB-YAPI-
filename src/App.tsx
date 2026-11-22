@@ -22,7 +22,7 @@ import { Logo } from './components/Logo';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useFirebaseSync } from './context/FirebaseSyncContext';
-import { getSafeProjectKey } from './utils/syncKeys';
+import { getSafeProjectKey, getLegacySafeProjectKey } from './utils/syncKeys';
 
 // Primary tabs imported directly for instant, rock-solid mobile & Safari initial paint
 import { ProjectSetupTab } from './components/ProjectSetupTab';
@@ -1079,33 +1079,69 @@ const handleQuickSave = () => {
     showNotification('success', 'Hesaplama geçmişi temizlendi.');
   };
 
-  const handleDeleteHistoryItem = (index: number) => {
-    const targetProject = historyList[index];
+  const handleDeleteHistoryItem = (identifier: number | string) => {
+    let targetIndex = -1;
+    if (typeof identifier === 'number') {
+      targetIndex = identifier;
+    } else {
+      const queryStr = String(identifier || '').trim().toLowerCase();
+      const querySafeKey = getSafeProjectKey(String(identifier || ''));
+      targetIndex = historyList.findIndex(p => {
+        const pAddr = String(p.projectAddress || '').trim().toLowerCase();
+        const pSafeKey = getSafeProjectKey(p.projectAddress || '');
+        const pLegacyKey = getLegacySafeProjectKey(p.projectAddress || '').slice(0, 128);
+        return (
+          pAddr === queryStr ||
+          pSafeKey === querySafeKey ||
+          pLegacyKey === querySafeKey ||
+          p.projectAddress === identifier
+        );
+      });
+    }
+
+    if (targetIndex === -1 || targetIndex >= historyList.length) {
+      showNotification('error', 'Silinecek proje kaydı bulunamadı.');
+      return;
+    }
+
+    const targetProject = historyList[targetIndex];
     if (!targetProject) return;
-    const updated = historyList.filter((_, idx) => idx !== index);
+
+    const updated = historyList.filter((_, idx) => idx !== targetIndex);
     setHistoryList(updated);
     try {
       localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
     } catch (e) {}
 
-    // Permanent cleanup of local storage progress records and 3D preview for this project
+    // Permanent cleanup of local storage progress records, 3D preview, and legacy keys for this project
     try {
       const safeKey = getSafeProjectKey(targetProject.projectAddress);
+      const legacyKey = getLegacySafeProjectKey(targetProject.projectAddress).slice(0, 128);
       const suffixes = ['stages', 'logs', 'subcontractors', 'notif_history', 'contract_date', 'target_date', 'offer_accepted'];
+      
       for (const suffix of suffixes) {
         localStorage.removeItem(`ab_yapi_progress_${safeKey}_${suffix}`);
+        if (legacyKey && legacyKey !== safeKey) {
+          localStorage.removeItem(`ab_yapi_progress_${legacyKey}_${suffix}`);
+        }
       }
       localStorage.removeItem(`ab_yapi_offer_3d_${safeKey}`);
+      if (legacyKey && legacyKey !== safeKey) {
+        localStorage.removeItem(`ab_yapi_offer_3d_${legacyKey}`);
+      }
     } catch (e) {}
 
     if (user && targetProject) {
-      deleteProjectFromCloud(targetProject.projectAddress).catch(err => 
-        console.warn("Failed to delete project from cloud:", err)
-      );
+      deleteProjectFromCloud(targetProject.projectAddress).then(() => {
+        console.log("Proje buluttan başarıyla silindi:", targetProject.projectAddress);
+      }).catch(err => {
+        console.error("Buluttan silme hatası:", err);
+        showNotification('error', 'Bulut sunucusundan silme sırasında bir hata oluştu, yerel kayıt temizlendi.');
+      });
     }
 
     // Silinen şantiye aktif projeyse aktif proje seçimini güvenli biçimde temizle veya başka projeye geç
-    if (params.projectAddress === targetProject.projectAddress) {
+    if (params.projectAddress === targetProject.projectAddress || getSafeProjectKey(params.projectAddress) === getSafeProjectKey(targetProject.projectAddress)) {
       if (updated.length > 0) {
         handleLoadProjectForProgress(updated[0]);
       } else {
@@ -1115,7 +1151,7 @@ const handleQuickSave = () => {
       }
     }
 
-    showNotification('success', 'Seçilen proje kaydı başarıyla silindi.');
+    showNotification('success', 'Seçilen proje kaydı ve tüm kalıcı verileri başarıyla silindi.');
   };
 
   // Group tabs by category
@@ -1505,10 +1541,7 @@ const handleQuickSave = () => {
               savedProjects={historyList}
               onSelectProjectForProgress={handleLoadProjectForProgress}
               onAddNewConstructionProject={handleAddNewConstructionProject}
-              onDeleteHistoryProject={(address) => {
-                const idx = historyList.findIndex(p => p.projectAddress === address);
-                if (idx !== -1) handleDeleteHistoryItem(idx);
-              }}
+              onDeleteHistoryProject={handleDeleteHistoryItem}
               onNavigateToContract={() => setActiveTab('sozlesme')}
               isFlowOpen={isProjectFlowOpen}
               onToggleFlow={() => setIsProjectFlowOpen((prev) => !prev)}
@@ -1586,10 +1619,7 @@ const handleQuickSave = () => {
               savedProjects={historyList}
               onSelectProject={handleLoadProjectForProgress}
               onAddNewProject={handleAddNewConstructionProject}
-              onDeleteProject={(address) => {
-                const idx = historyList.findIndex(p => p.projectAddress === address);
-                if (idx !== -1) handleDeleteHistoryItem(idx);
-              }}
+              onDeleteProject={handleDeleteHistoryItem}
               onSaveCurrentProject={handleCalculate}
               onUpdateParam={(key, val) => updateCalculatorParams({ [key]: val })}
               onUpdateAllParams={updateCalculatorParams}
