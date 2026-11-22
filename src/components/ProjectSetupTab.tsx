@@ -61,7 +61,9 @@ import {
   Lock,
   Printer,
   Image as ImageIcon,
-  FileText
+  FileText,
+  FileSpreadsheet,
+  ScrollText
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { renderElementToCanvas } from '../utils/pdfExport';
@@ -76,6 +78,10 @@ import {
   generateFacadeConfigs,
   syncPolygonToCustomFacades,
   calculateFootprint,
+  InteractiveFacadeUpdateResult,
+  buildPolygonEditUpdate,
+  buildFacadeEditUpdate,
+  buildBaseAreaEditUpdate,
   DEFAULT_CUSTOM_FACADES_4,
   DEFAULT_CUSTOM_FACADES_5,
   DEFAULT_CUSTOM_FACADES_6,
@@ -90,6 +96,11 @@ import { BuildingModelTab } from './BuildingModelTab';
 import { OwnersTab } from './OwnersTab';
 import { OfferTab } from './OfferTab';
 import { ConstructionProgressTab } from './ConstructionProgressTab';
+import { SpecificationTab } from './SpecificationTab';
+import { AdminReportTab } from './AdminReportTab';
+import { ContractTab } from './ContractTab';
+import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
+import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel';
 import { getInitialBuildingModelParams } from '../utils/buildingModelUtils';
 import { BuildingModelParams, SavedProjectData } from '../types';
 
@@ -320,7 +331,10 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   }, [requestedStep]);
   const [activeScenario, setActiveScenario] = useState<number | null>(null);
   const [showExistingForm, setShowExistingForm] = useState<boolean>(false);
-  const [showComfortOptions, setShowComfortOptions] = useState<boolean>(false);
+  const [showComfortOptions, setShowComfortOptions] = useState<boolean>(true);
+  const [stage5SubView, setStage5SubView] = useState<'spec' | 'takeoff' | 'comfort'>('spec');
+  const [stage6SubView, setStage6SubView] = useState<'cost' | 'admin_report'>('cost');
+  const [stage8SubView, setStage8SubView] = useState<'offer' | 'contract'>('offer');
   const [equalizeSuccessToast, setEqualizeSuccessToast] = useState<string | null>(null);
 
   const goToStage = (stage: number, focusFieldId?: string) => {
@@ -805,22 +819,15 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     }
     const parsed = parseFloat(valStr);
     if (isNaN(parsed) || parsed <= 0) return;
-    const currentArea = calculatePolygonArea(activePoints);
-    if (currentArea > 0) {
-      const scaleFactor = Math.sqrt(parsed / currentArea);
-      const scaledPoints = activePoints.map((p) => ({
-        ...p,
-        x: Math.round(p.x * scaleFactor * 100) / 100,
-        y: Math.round(p.y * scaleFactor * 100) / 100,
-      }));
-      handlePolygonPointsChange(scaledPoints);
-    } else {
-      onChangeParams({ ...params, baseBuildArea: parsed });
+    const patch = buildBaseAreaEditUpdate(params, parsed, activePoints);
+    onChangeParams({ ...params, ...patch });
+    if (!onUpdateBuildingModelParams) {
+      setInternalBuildingModelParams((prev) => ({ ...prev, ...patch }));
     }
   };
 
   // Polygon & Geometry handling
-  const activeInputMode = params.footprintInputMode || 'polygonDraw';
+  const activeInputMode = params.footprintInputMode || 'directArea';
   const activePoints = useMemo(() => {
     if (params.polygonPoints && params.polygonPoints.length >= 3) {
       return params.polygonPoints;
@@ -843,6 +850,10 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const currentPolyArea = calculatePolygonArea(activePoints);
   const currentPolyPerimeter = calculatePolygonPerimeter(activePoints);
   const currentPolyBounds = getPolygonBounds(activePoints);
+  const directAreaFootprint = useMemo(
+    () => calculateFootprint('directArea', params),
+    [params.baseBuildArea, params.facadeWidth, params.facadeDepth]
+  );
 
   useEffect(() => {
     if (params.footprintInputMode === 'polygonDraw' && currentPolyArea > 0) {
@@ -857,29 +868,14 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   }, [currentPolyArea, params.footprintInputMode]);
 
   const handlePolygonPointsChange = (newPoints: PolygonPoint[]) => {
-    const bounds = getPolygonBounds(newPoints);
-    const syncedConfigs = generateFacadeConfigs(
-      newPoints,
-      params.facadeConfigs,
-      params.mainEntranceFacadeIndex || 0
-    );
-    const syncedCustom = syncPolygonToCustomFacades(
-      newPoints,
-      params.customFacades,
-      syncedConfigs,
-      params.mainEntranceFacadeIndex || 0
-    );
-    const area = calculatePolygonArea(newPoints);
-
+    const patch = buildPolygonEditUpdate(params, newPoints);
     onChangeParams({
       ...params,
-      polygonPoints: newPoints,
-      facadeWidth: Math.round(bounds.width * 10) / 10,
-      facadeDepth: Math.round(bounds.depth * 10) / 10,
-      facadeConfigs: syncedConfigs,
-      customFacades: syncedCustom,
-      baseBuildArea: Math.round(area * 10) / 10,
+      ...patch,
     });
+    if (!onUpdateBuildingModelParams) {
+      setInternalBuildingModelParams((prev) => ({ ...prev, ...patch }));
+    }
   };
 
   const handleApplyPreset = (presetKey: string) => {
@@ -947,10 +943,11 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
         {/* Orta Bölüm: Aktif Aşama Çalışma Alanı */}
         <div className="space-y-5 min-w-0">
+          {/* 1. AŞAMA: MÜŞTERİ VE PROJE TANIMLAMA */}
           {workbenchStage === 1 && (
       <div className="space-y-6">
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-6 animate-fade-in`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   👤 Müşteri / Proje Adı
@@ -987,100 +984,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   İl, ilçe, mahalle ve ada/parsel bilgisini yazabilirsiniz.
                 </span>
               </div>
-
-              <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-1.5">
-                <label className="block text-xs font-bold text-emerald-950 flex items-center justify-between">
-                  <span>📐 Arsa / Parsel Alanı (m²)</span>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded">
-                    Temel Giriş
-                  </span>
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    id="projectLandAreaInput"
-                    type="number"
-                    min="10"
-                    value={params.landArea || ''}
-                    onChange={(e) => {
-                      const newLandArea = Math.max(0, parseFloat(e.target.value) || 0);
-                      onChangeParams({ ...params, landArea: newLandArea });
-                    }}
-                    placeholder="Örn: 350"
-                    className={inputClassEmerald}
-                  />
-                  <span className="absolute right-3.5 text-xs font-black text-emerald-600 font-mono">m²</span>
-                </div>
-                <span className="text-[10px] text-emerald-700 block font-medium">
-                  Tüm modüllerdeki (TAKS, KAKS, Arsa Payı) hesaplamaları doğrudan günceller.
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-200/80 space-y-1.5">
-                <label className="block text-xs font-bold text-indigo-950 flex items-center justify-between">
-                  <span>🏗️ Taban Oturumu (m²)</span>
-                  <span className="text-[10px] bg-indigo-100 text-indigo-800 font-extrabold px-1.5 py-0.5 rounded">
-                    Zemin Kat
-                  </span>
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    id="projectBaseAreaInput"
-                    type="number"
-                    min="10"
-                    value={params.baseBuildArea || ''}
-                    onChange={(e) => onChangeParams({ ...params, baseBuildArea: Math.max(0, parseFloat(e.target.value) || 0) })}
-                    placeholder="Örn: 140"
-                    className={inputClassIndigo}
-                  />
-                  <span className="absolute right-3.5 text-xs font-black text-indigo-600 font-mono">m²</span>
-                </div>
-                <span className="text-[10px] text-indigo-700 block font-medium">
-                  Binanın arsa üzerine oturacağı net zemin alanı (m²).
-                </span>
-              </div>
             </div>
-
-            {/* Live TAKS & KAKS Hızlı İmar Oranları Çubuğu */}
-            {params.landArea && params.landArea > 0 ? (
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-600">TAKS (Taban Oturum Oranı):</span>
-                    <span className="font-mono font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
-                      %{((params.baseBuildArea / params.landArea) * 100).toFixed(1)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-600">Tahmini KAKS (Emsal):</span>
-                    <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
-                      {(((params.baseBuildArea * (params.floorCount || 5)) / params.landArea)).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] font-bold text-slate-500 mr-1">Hızlı TAKS Seçin:</span>
-                  {[25, 30, 35, 40, 50].map((taks) => {
-                    const calculatedBase = Math.round((params.landArea! * taks) / 100);
-                    const isActive = Math.abs((params.baseBuildArea / params.landArea!) * 100 - taks) < 1;
-                    return (
-                      <button
-                        key={taks}
-                        type="button"
-                        onClick={() => onChangeParams({ ...params, baseBuildArea: calculatedBase })}
-                        className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono transition-all cursor-pointer ${
-                          isActive
-                            ? 'bg-indigo-600 text-white shadow-xs'
-                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        %{taks} ({calculatedBase}m²)
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
 
             {/* Proje Türü Seçimi (Tek Kaynak — 5 Model) */}
             <div className="pt-4 border-t border-slate-100/80 space-y-3">
@@ -1131,18 +1035,104 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
         </div>
       )}
 
-      {/* 2. AŞAMA: ARSA & MEVCUT YAPI ANALİZİ */}
+      {/* 2. AŞAMA: ARSA VE İMAR ANALİZİ */}
       {workbenchStage === 2 && (
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-5 animate-fade-in`}>
-          <div className="flex items-center justify-end">
-            <button
-              type="button"
-              onClick={() => goToStage(1)}
-              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
-            >
-              Arsa: {(params.landArea || 0).toLocaleString('tr-TR')} m² • Taban: {currentPolyArea.toFixed(0)} m² (Düzenle)
-            </button>
+          {/* Arsa & Taban Oturumu Temel Girdileri */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-1.5">
+              <label className="block text-xs font-bold text-emerald-950 flex items-center justify-between">
+                <span>📐 Arsa / Parsel Alanı (m²)</span>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded">
+                  Temel Giriş
+                </span>
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  id="projectLandAreaInput"
+                  type="number"
+                  min="10"
+                  value={params.landArea || ''}
+                  onChange={(e) => {
+                    const newLandArea = Math.max(0, parseFloat(e.target.value) || 0);
+                    onChangeParams({ ...params, landArea: newLandArea });
+                  }}
+                  placeholder="Örn: 350"
+                  className={inputClassEmerald}
+                />
+                <span className="absolute right-3.5 text-xs font-black text-emerald-600 font-mono">m²</span>
+              </div>
+              <span className="text-[10px] text-emerald-700 block font-medium">
+                Tüm modüllerdeki (TAKS, KAKS, Arsa Payı) hesaplamaları doğrudan günceller.
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-200/80 space-y-1.5">
+              <label className="block text-xs font-bold text-indigo-950 flex items-center justify-between">
+                <span>🏗️ Taban Oturumu (m²)</span>
+                <span className="text-[10px] bg-indigo-100 text-indigo-800 font-extrabold px-1.5 py-0.5 rounded">
+                  Zemin Kat
+                </span>
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  id="projectBaseAreaInput"
+                  type="number"
+                  min="10"
+                  value={params.baseBuildArea || ''}
+                  onChange={(e) => handleBaseAreaInputChange(e.target.value)}
+                  placeholder="Örn: 140"
+                  className={inputClassIndigo}
+                />
+                <span className="absolute right-3.5 text-xs font-black text-indigo-600 font-mono">m²</span>
+              </div>
+              <span className="text-[10px] text-indigo-700 block font-medium">
+                Binanın arsa üzerine oturacağı net zemin alanı (2D poligon ve 3D model ile eşzamanlıdır).
+              </span>
+            </div>
           </div>
+
+          {/* Live TAKS & KAKS Hızlı İmar Oranları Çubuğu */}
+          {params.landArea && params.landArea > 0 ? (
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-600">TAKS (Taban Oturum Oranı):</span>
+                  <span className="font-mono font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+                    %{((params.baseBuildArea / params.landArea) * 100).toFixed(1)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-600">Tahmini KAKS (Emsal):</span>
+                  <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                    {(((params.baseBuildArea * (params.floorCount || 5)) / params.landArea)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-bold text-slate-500 mr-1">Hızlı TAKS Seçin:</span>
+                {[25, 30, 35, 40, 50].map((taks) => {
+                  const calculatedBase = Math.round((params.landArea! * taks) / 100);
+                  const isActive = Math.abs((params.baseBuildArea / params.landArea!) * 100 - taks) < 1;
+                  return (
+                    <button
+                      key={taks}
+                      type="button"
+                      onClick={() => handleBaseAreaInputChange(String(calculatedBase))}
+                      className={`px-2 py-1 rounded-md text-[11px] font-bold font-mono transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      %{taks} ({calculatedBase}m²)
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           {/* Parsel / Taban Şekli Hızlı Geometri Seçimi */}
           <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1168,6 +1158,60 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* 2D Akıllı Poligon & Taban Oturumu Editörü (Tek Veri Kaynağı — 4. Aşama 3D Model ile Canlı Senkronize) */}
+          <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-indigo-200/70 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+              <div className="flex items-center gap-2">
+                <Compass className="w-4 h-4 text-indigo-600" />
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                  2D Parsel & Taban Oturumu Poligon Editörü
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  3D Model ile Canlı Senkronize
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => goToStage(4)}
+                className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+              >
+                3D Önizlemede Gör (4. Aşama) →
+              </button>
+            </div>
+            <InteractiveFootprintCanvas
+              points={activePoints}
+              onChangePoints={handlePolygonPointsChange}
+              facadeConfigs={params.facadeConfigs || activeBuildingModelParams.facadeConfigs}
+              onChangeFacadeConfigs={(configs) => {
+                onChangeParams({ ...params, facadeConfigs: configs });
+                if (!onUpdateBuildingModelParams) {
+                  setInternalBuildingModelParams((prev) => ({ ...prev, facadeConfigs: configs }));
+                }
+              }}
+              mainEntranceIndex={params.mainEntranceFacadeIndex ?? activeBuildingModelParams.mainEntranceFacadeIndex ?? 0}
+              onChangeMainEntranceIndex={(idx) => {
+                onChangeParams({ ...params, mainEntranceFacadeIndex: idx });
+                if (!onUpdateBuildingModelParams) {
+                  setInternalBuildingModelParams((prev) => ({ ...prev, mainEntranceFacadeIndex: idx }));
+                }
+              }}
+              flatsPerFloor={params.flatsPerFloor || 2}
+              theme={theme}
+              compact
+              roads={activeBuildingModelParams.roads}
+              onChangeRoads={(newRoads) => handleUpdateBuildingModel({ roads: newRoads })}
+              stairWidth={activeBuildingModelParams.stairWidth}
+              stairDepth={activeBuildingModelParams.stairDepth}
+              elevatorWidth={activeBuildingModelParams.elevatorWidth}
+              elevatorDepth={activeBuildingModelParams.elevatorDepth}
+              elevatorCount={params.elevatorCount ?? activeBuildingModelParams.elevatorCount}
+              coreOffsetX={activeBuildingModelParams.coreOffsetX}
+              coreOffsetY={activeBuildingModelParams.coreOffsetY}
+              corePositionPreset={activeBuildingModelParams.corePositionPreset}
+              onChangeCoreParams={(coreUpdates) => handleUpdateBuildingModel(coreUpdates)}
+            />
           </div>
 
           <div className="space-y-4">
@@ -1446,25 +1490,26 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           </div>
       )}
 
-      {/* 3. AŞAMA: YENİ BİNA TASARIMI & YAPI PARAMETRELERİ */}
+      {/* 3. AŞAMA: MİMARİ TASARIM VE YAPILANDIRMA */}
       {workbenchStage === 3 && (
-        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-5 animate-fade-in`}>
+        <div className="space-y-5 animate-fade-in">
+        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-5`}>
           <div className="flex items-center justify-end">
             <button
               type="button"
-              onClick={() => goToStage(1)}
+              onClick={() => goToStage(2)}
               className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
-              title="Taban oturumu ve proje modelini düzenle"
+              title="Arsa ve taban oturumunu 2. aşamada düzenle"
             >
-              Taban: {Math.round(params.baseBuildArea || 0)} m² • Z+{(params.floorCount || 5) - 1} Kat (Düzenle)
+              Taban: {Math.round(params.baseBuildArea || 0)} m² • Z+{(params.floorCount || 5) - 1} Kat (2. Aşamada Düzenle)
             </button>
           </div>
 
               {/* PLANLANAN YENİ BİNA PARAMETRELERİ */}
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                  {/* GRUP 1: YAPI GEOMETRİSİ (4 Columns) */}
-                  <div className="md:col-span-4 p-3.5 rounded-xl bg-slate-50/50 border border-slate-200/60 space-y-3.5">
+                  {/* GRUP 1: YAPI GEOMETRİSİ (6 Columns) */}
+                  <div className="md:col-span-6 p-3.5 rounded-xl bg-slate-50/50 border border-slate-200/60 space-y-3.5">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-200/40">
                       <div className="flex items-center gap-2">
                         <Ruler className="w-4 h-4 text-indigo-600" />
@@ -1472,7 +1517,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       </div>
                       <button
                         type="button"
-                        onClick={() => goToStage(1)}
+                        onClick={() => goToStage(2)}
                         className="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
                       >
                         Taban: {Math.round(params.baseBuildArea || 0)} m²
@@ -1564,63 +1609,65 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     </div>
                   </div>
 
-                  {/* GRUP 2: BAĞIMSIZ BÖLÜM PLANLAMA (3 Columns) */}
-                  <div className="md:col-span-3 p-3.5 rounded-xl bg-indigo-50/30 border border-indigo-100/60 space-y-3.5">
+                  {/* GRUP 2: BAĞIMSIZ BÖLÜM PLANLAMA (6 Columns) */}
+                  <div className="md:col-span-6 p-3.5 rounded-xl bg-indigo-50/30 border border-indigo-100/60 space-y-3.5">
                     <div className="flex items-center gap-2 pb-2 border-b border-indigo-200/40">
                       <Layout className="w-4 h-4 text-indigo-600" />
-                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Bölüm Planlama</span>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Bağımsız Bölüm Planlama</span>
                     </div>
 
-                    <div className="space-y-4">
-                      {/* Katta Daire Sayısı */}
-                      <div>
-                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                          🔢 Katta Daire Sayısı
-                        </label>
-                        <input
-                          id="minimalFlatsPerFloorInput"
-                          type="number"
-                          min={1}
-                          max={10}
-                          value={params.flatsPerFloor || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const parsed = parseInt(val) || 0;
-                            const normalFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : (params.floorCount || 5);
-                            onChangeParams({
-                              ...params,
-                              flatsPerFloor: val === '' ? 0 : parsed,
-                              flatCount: val === '' ? 0 : normalFloors * parsed,
-                            });
-                          }}
-                          className={`w-full text-xs font-black font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                        />
-                      </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+                      <div className="space-y-3">
+                        {/* Katta Daire Sayısı */}
+                        <div>
+                          <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                            🔢 Katta Daire Sayısı
+                          </label>
+                          <input
+                            id="minimalFlatsPerFloorInput"
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={params.flatsPerFloor || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const parsed = parseInt(val) || 0;
+                              const normalFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : (params.floorCount || 5);
+                              onChangeParams({
+                                ...params,
+                                flatsPerFloor: val === '' ? 0 : parsed,
+                                flatCount: val === '' ? 0 : normalFloors * parsed,
+                              });
+                            }}
+                            className={`w-full text-xs font-black font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
+                          />
+                        </div>
 
-                      {/* Daire Oda Planı */}
-                      <div>
-                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                          🚪 Varsayılan Oda Planı
-                        </label>
-                        <select
-                          id="minimalRoomTypeSelect"
-                          value={params.roomType || '3+1'}
-                          onChange={(e) => onChangeParams({ ...params, roomType: e.target.value as RoomType })}
-                          className="w-full text-[11px] font-bold px-2.5 py-1.5 rounded-lg border bg-white border-slate-200"
-                        >
-                          <option value="1+1">1+1 Stüdyo</option>
-                          <option value="2+1">2+1 Standart</option>
-                          <option value="3+1">3+1 Geniş</option>
-                          <option value="4+1">4+1 Lüks</option>
-                          <option value="5+1">5+1 Büyük</option>
-                        </select>
+                        {/* Daire Oda Planı */}
+                        <div>
+                          <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                            🚪 Varsayılan Oda Planı
+                          </label>
+                          <select
+                            id="minimalRoomTypeSelect"
+                            value={params.roomType || '3+1'}
+                            onChange={(e) => onChangeParams({ ...params, roomType: e.target.value as RoomType })}
+                            className="w-full text-[11px] font-bold px-2.5 py-1.5 rounded-lg border bg-white border-slate-200"
+                          >
+                            <option value="1+1">1+1 Stüdyo</option>
+                            <option value="2+1">2+1 Standart</option>
+                            <option value="3+1">3+1 Geniş</option>
+                            <option value="4+1">4+1 Lüks</option>
+                            <option value="5+1">5+1 Büyük</option>
+                          </select>
+                        </div>
                       </div>
 
                       {/* Toplam Bağımsız Bölüm (Display) */}
-                      <div className="p-3 rounded-xl bg-white border border-indigo-100 shadow-sm space-y-1.5">
+                      <div className="p-3 rounded-xl bg-white border border-indigo-100 shadow-sm space-y-1.5 h-full flex flex-col justify-between">
                         <span className="block text-[10px] font-extrabold text-indigo-500 uppercase">Hesaplanan Toplam</span>
                         <div className="flex items-baseline justify-between">
-                          <span className="text-lg font-black text-slate-900 font-mono">
+                          <span className="text-2xl font-black text-slate-900 font-mono">
                             {results.unitBreakdown?.totalUnits || calculateFlatCount(params)}
                           </span>
                           <span className="text-[10px] font-bold text-slate-400">BÖLÜM</span>
@@ -1643,198 +1690,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                             <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[9px] font-bold border border-purple-100">
                               {results.unitBreakdown.basementUnitsCount} Bodrum
                             </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* GRUP 3: FİNANSAL & SÖZLEŞME MODELİ (5 Columns) */}
-                  <div className="md:col-span-5 p-3.5 rounded-xl bg-emerald-50/30 border border-emerald-100/60 space-y-3.5">
-                    <div className="flex items-center gap-2 pb-2 border-b border-emerald-200/40">
-                      <DollarSign className="w-4 h-4 text-emerald-600" />
-                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Sözleşme & Finansal Model</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {/* Yapım Modeli Özeti (1. Aşamadan Senkronize — Tekrar Seçim Önlenir) */}
-                      <div className="sm:col-span-2 space-y-2">
-                        <div className="p-2.5 rounded-lg bg-white border border-emerald-200 flex items-center justify-between gap-2">
-                          <div className="text-xs font-bold text-emerald-950 truncate">
-                            {params.projectType === 'kentsel_imar' || (params.projectModel === 'urbanTransformation' && params.hasZoningIncrease)
-                              ? '⚡ Kentsel Dönüşüm + İmar Artışı'
-                              : params.projectType === 'kat_karsiligi' || params.projectModel === 'contractorShare'
-                              ? '🤝 Kat Karşılığı İnşaat'
-                              : params.projectType === 'muteahhitlik' || params.projectModel === 'contractorService'
-                              ? '🔨 Anahtar Teslim Müteahhitlik'
-                              : params.projectType === 'nakit' || params.projectModel === 'cash'
-                              ? '💵 Nakit / Hakediş Usulü'
-                              : '🏢 Kentsel Dönüşüm (6306)'}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => goToStage(1)}
-                            className="text-[10px] font-bold text-indigo-600 hover:underline shrink-0 cursor-pointer"
-                          >
-                            Değiştir (1. Aşama)
-                          </button>
-                        </div>
-
-                          {/* Model Özel Parametreleri */}
-                          {(params.projectModel === 'contractorService' || params.projectModel === 'cash') && (
-                            <div className="p-2 bg-emerald-100/40 rounded-lg border border-emerald-200 flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-emerald-900">Müteahhit Hizmet Bedeli:</span>
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="50"
-                                  value={params.contractorFeeRate ?? 15}
-                                  onChange={(e) => onChangeParams({ ...params, contractorFeeRate: Math.max(0, parseFloat(e.target.value) || 0) })}
-                                  className="w-14 text-xs font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-300 bg-white text-center"
-                                />
-                                <span className="text-[10px] text-emerald-800 font-black">%</span>
-                              </div>
-                            </div>
-                          )}
-
-                          {params.projectModel === 'contractorShare' && (
-                            <div className="p-2 bg-amber-100/40 rounded-lg border border-amber-200 flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-amber-900">Müteahhit Pay Oranı:</span>
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={params.contractorShareRate ?? 50}
-                                  onChange={(e) => onChangeParams({ ...params, contractorShareRate: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
-                                  className="w-14 text-xs font-mono font-bold px-1.5 py-0.5 rounded border border-amber-300 bg-white text-center"
-                                />
-                                <span className="text-[10px] text-amber-800 font-black">%</span>
-                              </div>
-                            </div>
-                          )}
-
-                          {params.projectModel === 'urbanTransformation' && (
-                            <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-200 space-y-2">
-                              <label className="flex items-center gap-2 cursor-pointer font-bold text-indigo-900 text-[10px]">
-                                <input
-                                  type="checkbox"
-                                  checked={!!params.hasZoningIncrease}
-                                  onChange={(e) => onChangeParams({ ...params, hasZoningIncrease: e.target.checked })}
-                                  className="w-3.5 h-3.5 rounded text-indigo-600"
-                                />
-                                <span>İmar / Kat Artışı Var</span>
-                              </label>
-
-                              {params.hasZoningIncrease && (
-                                <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-indigo-100">
-                                  <span className="text-[10px] font-bold text-indigo-900">İmar Artış Oranı:</span>
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      value={params.zoningIncreaseRate ?? 20}
-                                      onChange={(e) => onChangeParams({ ...params, zoningIncreaseRate: Math.max(0, parseFloat(e.target.value) || 0) })}
-                                      className="w-12 text-xs font-mono font-bold px-1.5 py-0.5 rounded border border-indigo-300 bg-white text-center"
-                                    />
-                                    <span className="text-[10px] font-bold text-indigo-800">%</span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                      {/* Destek Modeli */}
-                      <div>
-                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                          🎁 Destek Modeli
-                        </label>
-                        <select
-                          value={params.transformationStatus || 'currentSupport'}
-                          onChange={(e) => {
-                            const val = e.target.value as any;
-                            const updatedFlats = params.flats.map((f) => ({ ...f, useTransformationCredit: val !== 'none' }));
-                            onChangeParams({ ...params, transformationStatus: val, flats: updatedFlats });
-                          }}
-                          className="w-full text-[11px] font-bold px-2 py-1.5 rounded-lg border bg-white border-slate-200"
-                        >
-                          <option value="currentSupport">Hibe + Kredi</option>
-                          <option value="futureSupport2027">180 Ay Vade</option>
-                          <option value="none">Desteksiz</option>
-                        </select>
-                      </div>
-
-                      {/* Yapı Sınıfı */}
-                      <div>
-                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                          🏛️ Yapı Sınıfı
-                        </label>
-                        <select
-                          value={params.buildingType || 'standard'}
-                          onChange={(e) => onChangeParams({ ...params, buildingType: e.target.value as any })}
-                          className="w-full text-[11px] font-bold px-2 py-1.5 rounded-lg border bg-white border-slate-200"
-                        >
-                          <option value="standard">Standart</option>
-                          <option value="luxury">Lüks (A+)</option>
-                          <option value="commercial">Ticari</option>
-                        </select>
-                      </div>
-
-                      {/* Teslim Süresi */}
-                      <div>
-                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                          ⏱️ Teslim Süresi
-                        </label>
-                        <div className="flex items-center gap-1">
-                          <select
-                            value={params.durationOption || 'auto'}
-                            onChange={(e) => onChangeParams({ ...params, durationOption: e.target.value as any })}
-                            className="flex-1 text-[11px] font-bold px-2 py-1.5 rounded-lg border bg-white border-slate-200"
-                          >
-                            <option value="auto">Oto</option>
-                            <option value="manual">Man</option>
-                          </select>
-                          {params.durationOption === 'manual' && (
-                            <input
-                              type="number"
-                              min="1"
-                              max="60"
-                              value={params.manualMonths || 18}
-                              onChange={(e) => onChangeParams({ ...params, manualMonths: Math.max(1, parseFloat(e.target.value) || 1) })}
-                              className="w-12 text-xs font-mono font-bold px-1 py-1.5 rounded-lg border border-slate-200"
-                            />
-                          )}
-                          <span className="text-[10px] font-bold text-slate-400">Ay</span>
-                        </div>
-                      </div>
-
-                      {/* Birim Maliyetler */}
-                      <div>
-                        <label className="block text-[10px] font-extrabold text-indigo-600 uppercase mb-1">
-                          💰 Birim m² (TL)
-                        </label>
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1">
-                            <input
-                              id="stage3UnitPriceInput"
-                              type="number"
-                              value={params.manualFlatUnitPrice || ''}
-                              onChange={(e) => onChangeParams({ ...params, manualFlatUnitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
-                              placeholder={`Konut: ${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : '31k'}`}
-                              className="w-full text-[10px] font-mono font-bold px-2 py-1.5 rounded-lg border border-indigo-200 bg-white"
-                            />
-                          </div>
-                          {params.hasGroundFloorShop && (
-                            <input
-                              type="number"
-                              value={params.manualShopUnitPrice || ''}
-                              onChange={(e) => onChangeParams({ ...params, manualShopUnitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
-                              placeholder={`Dükkan: ${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : '28k'}`}
-                              className="w-full text-[10px] font-mono font-bold px-2 py-1.5 rounded-lg border border-amber-200 bg-white"
-                            />
                           )}
                         </div>
                       </div>
@@ -2146,13 +2001,55 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* 2D Cephe Ölçüleri & Yol Yönetimi Paneli (Tek Veri Kaynağı — 2. Aşama Poligon ve 4. Aşama 3D Model ile Canlı Senkronize) */}
+                <div className="pt-4 border-t border-slate-100">
+                  <InteractiveFacadeGeometryPanel
+                    facadeWidth={
+                      activeInputMode === 'directArea'
+                        ? directAreaFootprint.effectiveWidth
+                        : (params.facadeWidth || currentPolyBounds.width || 10)
+                    }
+                    facadeDepth={
+                      activeInputMode === 'directArea'
+                        ? directAreaFootprint.effectiveDepth
+                        : (params.facadeDepth || currentPolyBounds.depth || 10)
+                    }
+                    backFacadeLength={
+                      activeInputMode === 'directArea'
+                        ? directAreaFootprint.effectiveWidth
+                        : params.backFacadeLength
+                    }
+                    leftFacadeLength={
+                      activeInputMode === 'directArea'
+                        ? directAreaFootprint.effectiveDepth
+                        : params.leftFacadeLength
+                    }
+                    polygonPoints={activePoints}
+                    roads={activeBuildingModelParams.roads}
+                    mainEntranceIndex={params.mainEntranceFacadeIndex ?? activeBuildingModelParams.mainEntranceFacadeIndex ?? 0}
+                    theme={theme}
+                    compact
+                    title="2D Cephe Ölçüleri ve Yol Yönetimi (3D Model ile Canlı Senkronize)"
+                    onUpdateFacades={(res: InteractiveFacadeUpdateResult) => {
+                      const patch = buildFacadeEditUpdate(params, res);
+                      onChangeParams({
+                        ...params,
+                        ...patch,
+                      });
+                      if (!onUpdateBuildingModelParams) {
+                        setInternalBuildingModelParams((prev) => ({ ...prev, ...patch }));
+                      }
+                    }}
+                    onUpdateRoads={(newRoads) => handleUpdateBuildingModel({ roads: newRoads })}
+                    onEditInSmartPolygon={() => goToStage(2)}
+                  />
+                </div>
               </div>
         </div>
-      )}
 
-      {/* 4. AŞAMA: KAT BAZLI BAĞIMSIZ BÖLÜM ŞEMASI & DAİRE DAĞILIMI */}
-      {workbenchStage === 4 && (
-        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-4 animate-fade-in`}>
+        {/* KAT BAZLI BAĞIMSIZ BÖLÜM ŞEMASI & DAİRE DAĞILIMI (3. Aşama — Mimari Yapılandırma) */}
+        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-4`}>
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <p className={`text-xs ${textMuted}`}>
               Z+{(params.floorCount || 5) - 1} Kat Yapısı • {params.hasGroundFloorShop ? `${params.shopCount || 1} Dükkan + ` : ''}{newFlatCount} Bağımsız Bölüm • Katta {params.flatsPerFloor || 2} Daire {params.roofType === 'mansard' ? '• Mansart Çatı' : params.roofType === 'duplex' ? '• Çatı Dubleksi' : ''}
@@ -2791,9 +2688,15 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             </div>
           </div>
         </div>
+        </div>
+        </div>
+      )}
 
+      {/* 2. AŞAMA (DEVAM): OTOPARK HARCI & İMAR MEVZUAT DENETİMİ */}
+      {workbenchStage === 2 && (
+        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-5 animate-fade-in`}>
           {/* OTOPARK HARCI HESAPLAMA VE MEVZUAT TARAMA MODÜLÜ */}
-          <div className="pt-4 border-t border-slate-100 space-y-4">
+          <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md">
@@ -2989,8 +2892,97 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             )}
           </div>
 
-          {/* İNOVATİF VE KONFORLU SEÇENEKLER MODÜLÜ (Katlanabilir Hızlı Seçim) */}
-          <div className="pt-4 border-t border-slate-100 space-y-4">
+          {/* MEVZUAT VE İMAR DENETİMİ PANELİ */}
+          <div className="pt-4 border-t border-slate-100">
+            <ZoningAuditPanel params={params} theme={theme} />
+          </div>
+        </div>
+      )}
+
+      {/* 4. AŞAMA: 3D TASARIM VE GÖRSELLEŞTİRME (2. ve 3. Aşamayla Tek Kaynaktan Senkronize) */}
+      {workbenchStage === 4 && (
+        <BuildingModelTab
+          params={activeBuildingModelParams}
+          projectParams={params}
+          projectName={params.projectName}
+          projectAddress={params.projectAddress}
+          landArea={params.landArea}
+          onUpdateParams={handleUpdateBuildingModel}
+          onSyncWithCalculator={onSyncModelToCalculator}
+          onNavigateToSetup={() => goToStage(2)}
+          onNavigateToCost={() => goToStage(6)}
+          onNavigateToOwners={() => goToStage(7)}
+          onNavigateToOffer={() => goToStage(8)}
+          workbenchVisualizationMode={true}
+          theme={theme}
+        />
+      )}
+
+      {/* 5. AŞAMA: TEKNİK ŞARTNAME VE METRAJ */}
+      {workbenchStage === 5 && (
+        <div className="space-y-4 animate-fade-in">
+          <div className={`${bgCard} rounded-2xl p-2 border shadow-xs flex flex-wrap items-center justify-between gap-2`}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'spec' as const, label: 'Teknik Şartname', icon: FileText },
+                { id: 'takeoff' as const, label: 'Metraj ve Keşif Cetveli', icon: FileSpreadsheet },
+                { id: 'comfort' as const, label: `Konfor ve İnovatif Donanımlar (${activeComfortStats.count}/10)`, icon: Sparkles },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = stage5SubView === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setStage5SubView(tab.id)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : isGray
+                          ? 'text-slate-300 hover:bg-slate-700/60'
+                          : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => goToStage(6)}
+              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
+            >
+              Maliyet ve Fizibilite (6. Aşama) →
+            </button>
+          </div>
+
+          {stage5SubView === 'spec' && (
+            <SpecificationTab
+              params={params}
+              results={results}
+              theme={theme}
+            />
+          )}
+
+          {stage5SubView === 'takeoff' && (
+            <CostDetailsTab
+              params={params}
+              results={results}
+              theme={theme}
+              viewMode="takeoff"
+              onChangeParams={onChangeParams}
+              onCalculate={onCalculate}
+            />
+          )}
+        </div>
+      )}
+
+      {/* 5. AŞAMA (ALT SEKME): İNOVATİF VE KONFORLU SEÇENEKLER MODÜLÜ */}
+      {workbenchStage === 5 && stage5SubView === 'comfort' && (
+        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-4 animate-fade-in`}>
+          <div className="space-y-4">
             <button
               type="button"
               onClick={() => setShowComfortOptions(!showComfortOptions)}
@@ -3886,69 +3878,373 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             </div>
             )}
           </div>
-
-          {/* MEVZUAT VE İMAR DENETİMİ PANELİ */}
-          <div className="pt-4 border-t border-slate-100">
-            <ZoningAuditPanel params={params} theme={theme} />
-          </div>
         </div>
       )}
 
-          {workbenchStage === 5 && (
-            <CostDetailsTab
-              params={params}
-              results={results}
-              theme={theme}
-              onChangeParams={onChangeParams}
-              onCalculate={onCalculate}
-            />
-          )}
-
+          {/* 6. AŞAMA: MALİYET VE FİZİBİLİTE */}
           {workbenchStage === 6 && (
-            <BuildingModelTab
-              params={activeBuildingModelParams}
-              projectParams={params}
-              projectName={params.projectName}
-              projectAddress={params.projectAddress}
-              landArea={params.landArea}
-              onUpdateParams={handleUpdateBuildingModel}
-              onSyncWithCalculator={onSyncModelToCalculator}
-              onNavigateToSetup={() => goToStage(2)}
-              onNavigateToCost={() => goToStage(5)}
-              onNavigateToOwners={() => goToStage(7)}
-              onNavigateToOffer={() => goToStage(8)}
-              theme={theme}
-            />
+            <div className="space-y-4 animate-fade-in">
+              <div className={`${bgCard} rounded-2xl p-2 border shadow-xs flex flex-wrap items-center justify-between gap-2`}>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: 'cost' as const, label: 'Maliyet ve Rayiç Analizi', icon: DollarSign },
+                    { id: 'admin_report' as const, label: 'Yönetici Raporu ve CFO Fizibilite (Firma İçi)', icon: BarChart3 },
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = stage6SubView === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setStage6SubView(tab.id)}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : isGray
+                              ? 'text-slate-300 hover:bg-slate-700/60'
+                              : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStage5SubView('takeoff');
+                    goToStage(5);
+                  }}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                >
+                  ← Metraj Cetveli (5. Aşama)
+                </button>
+              </div>
+
+              {stage6SubView === 'cost' && (
+                <>
+                  {/* Yapı Sınıfı, Teslim Süresi ve Birim m² Maliyet Parametre Şeridi */}
+                  <div className={`${bgCard} rounded-2xl p-4 border shadow-xs`}>
+                    <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-indigo-600" />
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                          Maliyet Temel Parametreleri
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500">
+                        Yapı sınıfı, teslim süresi ve birim m² fiyatı doğrudan maliyet hesabını günceller
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {/* Yapı Sınıfı */}
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                          🏛️ Yapı Sınıfı
+                        </label>
+                        <select
+                          value={params.buildingType || 'standard'}
+                          onChange={(e) => onChangeParams({ ...params, buildingType: e.target.value as any })}
+                          className="w-full text-xs font-bold px-2.5 py-2 rounded-lg border bg-white border-slate-200"
+                        >
+                          <option value="standard">Standart</option>
+                          <option value="luxury">Lüks (A+)</option>
+                          <option value="commercial">Ticari</option>
+                        </select>
+                      </div>
+
+                      {/* Teslim Süresi */}
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                          ⏱️ Teslim Süresi
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={params.durationOption || 'auto'}
+                            onChange={(e) => onChangeParams({ ...params, durationOption: e.target.value as any })}
+                            className="flex-1 text-xs font-bold px-2.5 py-2 rounded-lg border bg-white border-slate-200"
+                          >
+                            <option value="auto">Otomatik ({results.finalMonths} Ay)</option>
+                            <option value="manual">Manuel</option>
+                          </select>
+                          {params.durationOption === 'manual' && (
+                            <input
+                              type="number"
+                              min="1"
+                              max="60"
+                              value={params.manualMonths || 18}
+                              onChange={(e) => onChangeParams({ ...params, manualMonths: Math.max(1, parseFloat(e.target.value) || 1) })}
+                              className="w-16 text-xs font-mono font-bold px-2 py-2 rounded-lg border border-slate-200 bg-white"
+                            />
+                          )}
+                          <span className="text-[10px] font-bold text-slate-400">Ay</span>
+                        </div>
+                      </div>
+
+                      {/* Birim Maliyetler */}
+                      <div>
+                        <label className="block text-[10px] font-extrabold text-indigo-600 uppercase mb-1">
+                          💰 Manuel Birim m² (TL)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id="stage3UnitPriceInput"
+                            type="number"
+                            value={params.manualFlatUnitPrice || ''}
+                            onChange={(e) => onChangeParams({ ...params, manualFlatUnitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
+                            placeholder={`Konut: ${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : '31k'}`}
+                            className="w-full text-xs font-mono font-bold px-2.5 py-2 rounded-lg border border-indigo-200 bg-white"
+                          />
+                          {params.hasGroundFloorShop && (
+                            <input
+                              type="number"
+                              value={params.manualShopUnitPrice || ''}
+                              onChange={(e) => onChangeParams({ ...params, manualShopUnitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
+                              placeholder={`Dükkan: ${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : '28k'}`}
+                              className="w-full text-xs font-mono font-bold px-2.5 py-2 rounded-lg border border-amber-200 bg-white"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <CostDetailsTab
+                    params={params}
+                    results={results}
+                    theme={theme}
+                    viewMode="cost"
+                    onChangeParams={onChangeParams}
+                    onCalculate={onCalculate}
+                  />
+                </>
+              )}
+
+              {stage6SubView === 'admin_report' && (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2.5 text-xs text-amber-950 font-semibold">
+                    <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>
+                      Bu bölüm yalnızca firma içi finansal fizibilite ve CFO nakit akışı analizi içindir; müşteri teklif belgelerine ve PDF/yazdırma çıktılarına dahil edilmez.
+                    </span>
+                  </div>
+                  <AdminReportTab
+                    params={params}
+                    results={results}
+                    theme={theme}
+                  />
+                </div>
+              )}
+            </div>
           )}
 
+          {/* 7. AŞAMA: MALİK PAYLAŞIMI VE TİCARİ MODEL */}
           {workbenchStage === 7 && (
-            <OwnersTab
-              params={params}
-              results={results}
-              onChangeParams={onChangeParams}
-              onCalculate={onCalculate}
-              onNavigateToUnits={() => goToStage(4)}
-              onNavigateToCost={() => goToStage(5)}
-              onNavigateToOffer={() => goToStage(8)}
-              theme={theme}
-            />
+            <div className="space-y-4 animate-fade-in">
+              {/* Ticari Model & 6306 Destek Parametre Şeridi */}
+              <div className={`${bgCard} rounded-2xl p-4 border shadow-xs space-y-3`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                      Ticari Model & 6306 Destek Parametreleri
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => goToStage(1)}
+                    className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                  >
+                    İş Modelini Değiştir (1. Aşama) →
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                  {/* Aktif İş Modeli */}
+                  <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200 flex items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase block">Aktif Ticari Model</span>
+                      <div className="text-xs font-black text-emerald-950">
+                        {params.projectType === 'kentsel_imar' || (params.projectModel === 'urbanTransformation' && params.hasZoningIncrease)
+                          ? '⚡ Kentsel Dönüşüm + İmar Artışı'
+                          : params.projectType === 'kat_karsiligi' || params.projectModel === 'contractorShare'
+                          ? '🤝 Kat Karşılığı İnşaat'
+                          : params.projectType === 'muteahhitlik' || params.projectModel === 'contractorService'
+                          ? '🔨 Anahtar Teslim Müteahhitlik'
+                          : params.projectType === 'nakit' || params.projectModel === 'cash'
+                          ? '💵 Nakit / Hakediş Usulü'
+                          : '🏢 Kentsel Dönüşüm (6306)'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modele Özel Ticari Oran */}
+                  <div>
+                    {(params.projectModel === 'contractorService' || params.projectModel === 'cash') && (
+                      <div className="p-2.5 bg-emerald-50/60 rounded-xl border border-emerald-200 flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-900">Müteahhit Hizmet Bedeli:</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="0"
+                            max="50"
+                            value={params.contractorFeeRate ?? 15}
+                            onChange={(e) => onChangeParams({ ...params, contractorFeeRate: Math.max(0, parseFloat(e.target.value) || 0) })}
+                            className="w-16 text-xs font-mono font-bold px-2 py-1 rounded-lg border border-emerald-300 bg-white text-center"
+                          />
+                          <span className="text-xs text-emerald-800 font-black">%</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {params.projectModel === 'contractorShare' && (
+                      <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200 flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-900">Müteahhit Pay Oranı:</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={params.contractorShareRate ?? 50}
+                            onChange={(e) => onChangeParams({ ...params, contractorShareRate: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                            className="w-16 text-xs font-mono font-bold px-2 py-1 rounded-lg border border-amber-300 bg-white text-center"
+                          />
+                          <span className="text-xs text-amber-800 font-black">%</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {params.projectModel === 'urbanTransformation' && (
+                      <div className="p-2.5 bg-indigo-50/70 rounded-xl border border-indigo-200 flex items-center justify-between gap-2">
+                        <label className="flex items-center gap-2 cursor-pointer font-bold text-indigo-900 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={!!params.hasZoningIncrease}
+                            onChange={(e) => onChangeParams({ ...params, hasZoningIncrease: e.target.checked })}
+                            className="w-3.5 h-3.5 rounded text-indigo-600"
+                          />
+                          <span>İmar Artışı</span>
+                        </label>
+                        {params.hasZoningIncrease && (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={params.zoningIncreaseRate ?? 20}
+                              onChange={(e) => onChangeParams({ ...params, zoningIncreaseRate: Math.max(0, parseFloat(e.target.value) || 0) })}
+                              className="w-14 text-xs font-mono font-bold px-1.5 py-1 rounded-lg border border-indigo-300 bg-white text-center"
+                            />
+                            <span className="text-xs font-bold text-indigo-800">%</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 6306 Destek Modeli */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
+                      🎁 6306 Destek Modeli
+                    </label>
+                    <select
+                      value={params.transformationStatus || 'currentSupport'}
+                      onChange={(e) => {
+                        const val = e.target.value as any;
+                        const updatedFlats = params.flats.map((f) => ({ ...f, useTransformationCredit: val !== 'none' }));
+                        onChangeParams({ ...params, transformationStatus: val, flats: updatedFlats });
+                      }}
+                      className="w-full text-xs font-bold px-2.5 py-2 rounded-lg border bg-white border-slate-200"
+                    >
+                      <option value="currentSupport">Hibe + Kredi (Yarısı Bizden)</option>
+                      <option value="futureSupport2027">180 Ay Vade</option>
+                      <option value="none">Desteksiz</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <OwnersTab
+                params={params}
+                results={results}
+                onChangeParams={onChangeParams}
+                onCalculate={onCalculate}
+                onNavigateToUnits={() => goToStage(3)}
+                onNavigateToCost={() => goToStage(6)}
+                onNavigateToOffer={() => goToStage(8)}
+                theme={theme}
+              />
+            </div>
           )}
 
+          {/* 8. AŞAMA: TEKLİF VE SÖZLEŞME */}
           {workbenchStage === 8 && (
-            <OfferTab
-              params={params}
-              results={results}
-              onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
-              onUpdateAllParams={(partial) => onChangeParams({ ...params, ...partial })}
-              onNavigateToSurec={() => goToStage(9)}
-              onSaveOffer={onCalculate || onQuickSave}
-              onNavigateToContract={onNavigateToContract}
-              onSelectWorkbenchStage={goToStage}
-              evaluation={workbenchEvaluation}
-              theme={theme}
-            />
+            <div className="space-y-4 animate-fade-in">
+              <div className={`${bgCard} rounded-2xl p-2 border shadow-xs flex flex-wrap items-center justify-between gap-2`}>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: 'offer' as const, label: 'Müşteri Teklifi ve Teklif Yönetimi', icon: FileText },
+                    { id: 'contract' as const, label: 'Resmi Yapım Sözleşmesi', icon: ScrollText },
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = stage8SubView === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setStage8SubView(tab.id)}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : isGray
+                              ? 'text-slate-300 hover:bg-slate-700/60'
+                              : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => goToStage(9)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
+                >
+                  Proje ve Şantiye Yönetimi (9. Aşama) →
+                </button>
+              </div>
+
+              {stage8SubView === 'offer' && (
+                <OfferTab
+                  params={params}
+                  results={results}
+                  onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
+                  onUpdateAllParams={(partial) => onChangeParams({ ...params, ...partial })}
+                  onNavigateToSurec={() => goToStage(9)}
+                  onSaveOffer={onCalculate || onQuickSave}
+                  onNavigateToContract={() => setStage8SubView('contract')}
+                  onSelectWorkbenchStage={goToStage}
+                  evaluation={workbenchEvaluation}
+                  theme={theme}
+                />
+              )}
+
+              {stage8SubView === 'contract' && (
+                <ContractTab
+                  params={params}
+                  results={results}
+                  onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
+                  theme={theme}
+                />
+              )}
+            </div>
           )}
 
+          {/* 9. AŞAMA: PROJE VE ŞANTİYE YÖNETİMİ */}
           {workbenchStage === 9 && (
             <ConstructionProgressTab
               params={params}
@@ -3960,8 +4256,14 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               onDeleteProject={onDeleteHistoryProject}
               onSaveCurrentProject={onCalculate || onQuickSave}
               onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
-              onNavigateToOffer={() => goToStage(8)}
-              onNavigateToContract={onNavigateToContract}
+              onNavigateToOffer={() => {
+                setStage8SubView('offer');
+                goToStage(8);
+              }}
+              onNavigateToContract={() => {
+                setStage8SubView('contract');
+                goToStage(8);
+              }}
             />
           )}
         </div>

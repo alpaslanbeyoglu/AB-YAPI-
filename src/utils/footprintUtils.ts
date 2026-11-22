@@ -1338,3 +1338,348 @@ export function calculateFootprint(
     sidesList: [],
   };
 }
+
+/**
+ * Checks whether a 4-vertex polygon is an axis-aligned orthogonal rectangle.
+ * Used to distinguish clean rectangular edits ('dimensions') from freehand,
+ * L-shaped, rotated, or skewed polygons ('polygonDraw').
+ */
+export function isAxisAlignedRectanglePolygon(
+  points: PolygonPoint[],
+  tolerance = 0.05
+): boolean {
+  if (!points || points.length !== 4) return false;
+  const edges = getPolygonEdges(points);
+  if (edges.length !== 4) return false;
+
+  let prevHorizontal: boolean | null = null;
+  for (let i = 0; i < 4; i++) {
+    const e = edges[i];
+    if (e.length <= tolerance) return false;
+    const dx = Math.abs(e.end.x - e.start.x);
+    const dy = Math.abs(e.end.y - e.start.y);
+    const isHorizontal = dy <= tolerance && dx > tolerance;
+    const isVertical = dx <= tolerance && dy > tolerance;
+    if (!isHorizontal && !isVertical) return false;
+    if (prevHorizontal !== null && prevHorizontal === isHorizontal) return false;
+    prevHorizontal = isHorizontal;
+  }
+
+  return (
+    Math.abs(edges[0].length - edges[2].length) <= tolerance &&
+    Math.abs(edges[1].length - edges[3].length) <= tolerance
+  );
+}
+
+export interface GeometrySyncSourceParams {
+  footprintInputMode?: FootprintInputMode;
+  baseBuildArea?: number;
+  facadeWidth?: number;
+  facadeDepth?: number;
+  backFacadeLength?: number;
+  leftFacadeLength?: number;
+  polygonPoints?: PolygonPoint[];
+  facadeConfigs?: FacadeDetailConfig[];
+  customFacades?: CustomFacadeSide[];
+  mainEntranceFacadeIndex?: number;
+}
+
+export interface GeometrySyncPatch {
+  footprintInputMode: FootprintInputMode;
+  baseBuildArea: number;
+  facadeWidth?: number;
+  facadeDepth?: number;
+  backFacadeLength?: number;
+  leftFacadeLength?: number;
+  polygonPoints?: PolygonPoint[];
+  facadeConfigs?: FacadeDetailConfig[];
+  customFacades?: CustomFacadeSide[];
+}
+
+/**
+ * Builds a single, consistent geometry patch when the user edits vertices or selects
+ * a preset in Stage 2 (InteractiveFootprintCanvas).
+ * - Axis-aligned 4-corner rectangles map cleanly to 'dimensions'.
+ * - L-shapes, trapezoids, skewed quads, rotated rectangles, and freehand polygons map to 'polygonDraw'.
+ */
+export function buildPolygonEditUpdate(
+  current: GeometrySyncSourceParams,
+  newPoints: PolygonPoint[]
+): GeometrySyncPatch {
+  const bounds = getPolygonBounds(newPoints);
+  const edges = getPolygonEdges(newPoints);
+  const syncedConfigs = generateFacadeConfigs(
+    newPoints,
+    current.facadeConfigs,
+    current.mainEntranceFacadeIndex || 0
+  );
+  const syncedCustom = syncPolygonToCustomFacades(
+    newPoints,
+    current.customFacades,
+    syncedConfigs,
+    current.mainEntranceFacadeIndex || 0
+  );
+  const area = Math.round(calculatePolygonArea(newPoints) * 10) / 10;
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+
+  const isAxisRect = isAxisAlignedRectanglePolygon(newPoints);
+  if (isAxisRect) {
+    const front = round1(bounds.width);
+    const right = round1(bounds.depth);
+    return {
+      footprintInputMode: 'dimensions',
+      polygonPoints: newPoints,
+      facadeWidth: front,
+      facadeDepth: right,
+      backFacadeLength: front,
+      leftFacadeLength: right,
+      facadeConfigs: syncedConfigs,
+      customFacades: syncedCustom,
+      baseBuildArea: area > 0 ? area : current.baseBuildArea || 100,
+    };
+  }
+
+  const isFourSided = edges.length === 4;
+  return {
+    footprintInputMode: 'polygonDraw',
+    polygonPoints: newPoints,
+    facadeWidth: isFourSided ? round1(edges[0].length) : round1(bounds.width),
+    facadeDepth: isFourSided ? round1(edges[1].length) : round1(bounds.depth),
+    backFacadeLength: isFourSided ? round1(edges[2].length) : round1(bounds.width),
+    leftFacadeLength: isFourSided ? round1(edges[3].length) : round1(bounds.depth),
+    facadeConfigs: syncedConfigs,
+    customFacades: syncedCustom,
+    baseBuildArea: area > 0 ? area : current.baseBuildArea || 100,
+  };
+}
+
+/**
+ * Builds a single, consistent geometry patch when the user edits facade lengths
+ * in Stage 3 (InteractiveFacadeGeometryPanel).
+ * Uses 'dimensions' mode so square, non-square rectangles (e.g. 15x8), and skewed
+ * 4-sided trapezoids all synchronize accurately with Stage 2 and Stage 4 (3D).
+ */
+export function buildFacadeEditUpdate(
+  current: GeometrySyncSourceParams,
+  res: InteractiveFacadeUpdateResult
+): GeometrySyncPatch {
+  const nextPoints = res.quadrilateral.polygonPoints;
+  const syncedConfigs = generateFacadeConfigs(
+    nextPoints,
+    current.facadeConfigs,
+    current.mainEntranceFacadeIndex || 0
+  );
+  const nextArea = Math.round(calculatePolygonArea(nextPoints) * 10) / 10;
+
+  return {
+    footprintInputMode: 'dimensions',
+    polygonPoints: nextPoints,
+    facadeWidth: res.front,
+    facadeDepth: res.right,
+    backFacadeLength: res.back,
+    leftFacadeLength: res.left,
+    customFacades: res.customFacades,
+    facadeConfigs: syncedConfigs,
+    baseBuildArea: nextArea > 0 ? nextArea : current.baseBuildArea || 100,
+  };
+}
+
+/**
+ * Builds a single, consistent geometry patch when the user updates numeric baseBuildArea
+ * (or clicks a quick TAKS preset).
+ * - Preserves legacy 'directArea' mode when already in 'directArea' (or undefined).
+ * - Preserves 'dimensions' mode & aspect ratio / trapezoid proportions when in 'dimensions'.
+ * - Preserves 'polygonDraw' (or custom/lShape) & scales vertices uniformly when in polygon mode.
+ */
+export function buildBaseAreaEditUpdate(
+  current: GeometrySyncSourceParams,
+  parsedArea: number,
+  activePoints: PolygonPoint[]
+): Partial<GeometrySyncPatch> {
+  const mode = current.footprintInputMode;
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+
+  // Legacy / default 'directArea': keep 'directArea' untouched for full backward compatibility
+  if (!mode || mode === 'directArea') {
+    const patch: Partial<GeometrySyncPatch> = {
+      footprintInputMode: 'directArea',
+      baseBuildArea: parsedArea,
+    };
+    if (current.polygonPoints && current.polygonPoints.length >= 3) {
+      const existingArea = calculatePolygonArea(current.polygonPoints);
+      if (existingArea > 0) {
+        const scale = Math.sqrt(parsedArea / existingArea);
+        patch.polygonPoints = current.polygonPoints.map((p) => ({
+          ...p,
+          x: Math.round(p.x * scale * 100) / 100,
+          y: Math.round(p.y * scale * 100) / 100,
+        }));
+      }
+    }
+    return patch;
+  }
+
+  const currentArea = calculatePolygonArea(activePoints);
+  if (currentArea <= 0) {
+    return {
+      footprintInputMode: mode,
+      baseBuildArea: parsedArea,
+    };
+  }
+
+  const scaleFactor = Math.sqrt(parsedArea / currentArea);
+  const scaledPoints = activePoints.map((p) => ({
+    ...p,
+    x: Math.round(p.x * scaleFactor * 100) / 100,
+    y: Math.round(p.y * scaleFactor * 100) / 100,
+  }));
+
+  if (mode === 'dimensions') {
+    const syncedConfigs = generateFacadeConfigs(
+      scaledPoints,
+      current.facadeConfigs,
+      current.mainEntranceFacadeIndex || 0
+    );
+    const syncedCustom = syncPolygonToCustomFacades(
+      scaledPoints,
+      current.customFacades,
+      syncedConfigs,
+      current.mainEntranceFacadeIndex || 0
+    );
+    const baseFront = current.facadeWidth && current.facadeWidth > 0 ? current.facadeWidth : getPolygonBounds(activePoints).width;
+    const baseRight = current.facadeDepth && current.facadeDepth > 0 ? current.facadeDepth : getPolygonBounds(activePoints).depth;
+    const baseBack = current.backFacadeLength && current.backFacadeLength > 0 ? current.backFacadeLength : baseFront;
+    const baseLeft = current.leftFacadeLength && current.leftFacadeLength > 0 ? current.leftFacadeLength : baseRight;
+
+    return {
+      footprintInputMode: 'dimensions',
+      baseBuildArea: parsedArea,
+      facadeWidth: round1(baseFront * scaleFactor),
+      facadeDepth: round1(baseRight * scaleFactor),
+      backFacadeLength: round1(baseBack * scaleFactor),
+      leftFacadeLength: round1(baseLeft * scaleFactor),
+      polygonPoints: scaledPoints,
+      facadeConfigs: syncedConfigs,
+      customFacades: syncedCustom,
+    };
+  }
+
+  const polyUpdate = buildPolygonEditUpdate(current, scaledPoints);
+  return {
+    ...polyUpdate,
+    footprintInputMode: mode,
+    baseBuildArea: parsedArea,
+  };
+}
+
+export interface ResolvedThreeFootprint {
+  W: number;
+  D: number;
+  isDirectFootprint: boolean;
+  isPolygonDraw: boolean;
+  isLShapeMode: boolean;
+  isCustomPoly: boolean;
+  activePolyPts: Array<{ id?: string; x: number; y: number }> | null;
+  quadInfo: QuadrilateralResult;
+}
+
+/**
+ * Pure footprint resolver shared by ThreeBuildingView (3D mass & camera framing)
+ * and automated geometry sync tests.
+ */
+export function resolveThreeBuildingFootprint(params: {
+  footprintInputMode?: FootprintInputMode;
+  baseBuildArea?: number;
+  facadeWidth?: number;
+  facadeDepth?: number;
+  backFacadeLength?: number;
+  leftFacadeLength?: number;
+  customFacadeCount?: number;
+  customFacades?: CustomFacadeSide[];
+  lShapeFrontMain?: number;
+  lShapeDepthMain?: number;
+  lShapeRecessFront?: number;
+  lShapeRecessDepth?: number;
+  polygonPoints?: PolygonPoint[];
+}): ResolvedThreeFootprint {
+  const safeNum = (val: number | undefined | null, fallback: number, min = 1.0): number => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return fallback;
+    return Math.max(min, val);
+  };
+
+  const computedFootprint = calculateFootprint(
+    params?.footprintInputMode || 'directArea',
+    params || {}
+  );
+  const isDirectFootprint =
+    !params?.footprintInputMode || params.footprintInputMode === 'directArea';
+
+  let W = isDirectFootprint
+    ? safeNum(computedFootprint.effectiveWidth, 14.0, 1.0)
+    : safeNum(params?.facadeWidth, 14.0, 1.0);
+  let D = isDirectFootprint
+    ? safeNum(computedFootprint.effectiveDepth, 18.0, 1.0)
+    : safeNum(params?.facadeDepth, 18.0, 1.0);
+
+  const isPolygonDraw =
+    params.footprintInputMode === 'polygonDraw' &&
+    !!params.polygonPoints &&
+    params.polygonPoints.length >= 3;
+  const isLShapeMode = params.footprintInputMode === 'lShape';
+
+  const quadInfo = buildQuadrilateralPolygon(
+    W,
+    D,
+    isDirectFootprint ? W : params.backFacadeLength,
+    isDirectFootprint ? D : params.leftFacadeLength
+  );
+
+  let activePolyPts: Array<{ id?: string; x: number; y: number }> | null = null;
+  if (isPolygonDraw) {
+    activePolyPts = params.polygonPoints!;
+  } else if (isLShapeMode) {
+    const front = safeNum(params?.lShapeFrontMain, 16.0, 2.0);
+    const depth = safeNum(params?.lShapeDepthMain, 20.0, 2.0);
+    const recFront = safeNum(params?.lShapeRecessFront, 6.0, 1.0);
+    const recDepth = safeNum(params?.lShapeRecessDepth, 8.0, 1.0);
+
+    activePolyPts = [
+      { id: 'l1', x: -front / 2, y: -depth / 2 },
+      { id: 'l2', x: front / 2, y: -depth / 2 },
+      { id: 'l3', x: front / 2, y: depth / 2 - recDepth },
+      { id: 'l4', x: front / 2 - recFront, y: depth / 2 - recDepth },
+      { id: 'l5', x: front / 2 - recFront, y: depth / 2 },
+      { id: 'l6', x: -front / 2, y: depth / 2 },
+    ];
+  } else if (!isDirectFootprint && quadInfo.isSkewed) {
+    activePolyPts =
+      params.polygonPoints && params.polygonPoints.length >= 3
+        ? params.polygonPoints
+        : quadInfo.polygonPoints;
+  } else if (
+    params.polygonPoints &&
+    params.polygonPoints.length >= 3 &&
+    params.footprintInputMode === 'customFacades'
+  ) {
+    activePolyPts = params.polygonPoints;
+  }
+
+  const isCustomPoly = !!activePolyPts && activePolyPts.length >= 3;
+  if (isCustomPoly && activePolyPts) {
+    const bounds = getPolygonBounds(activePolyPts as PolygonPoint[]);
+    W = bounds.width;
+    D = bounds.depth;
+  }
+
+  return {
+    W,
+    D,
+    isDirectFootprint,
+    isPolygonDraw,
+    isLShapeMode,
+    isCustomPoly,
+    activePolyPts,
+    quadInfo,
+  };
+}
+

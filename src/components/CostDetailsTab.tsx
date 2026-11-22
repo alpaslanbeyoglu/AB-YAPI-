@@ -42,6 +42,7 @@ interface CostDetailsTabProps {
   theme?: AppTheme;
   onChangeParams?: (newParams: ProjectParams) => void;
   onCalculate?: () => void;
+  viewMode?: 'full' | 'takeoff' | 'cost';
 }
 
 interface CostGroup {
@@ -70,6 +71,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   theme = 'light',
   onChangeParams,
   onCalculate,
+  viewMode = 'full',
 }) => {
   const updateParam = <K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) => {
     if (onChangeParams) {
@@ -88,6 +90,9 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   const [isCostSettingsOpen, setIsCostSettingsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<'kaba' | 'ince' | 'tesisat' | 'resmi' | 'ortak' | 'guvence'>('kaba');
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
+  const [showTakeoffInCostView, setShowTakeoffInCostView] = useState(false);
+  const isTakeoffOnly = viewMode === 'takeoff';
+  const isCostOnly = viewMode === 'cost';
 
   // Unified Live Market Data Hook
   const market = useMarketData();
@@ -999,6 +1004,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in" id="cost-details-container">
+      {!isTakeoffOnly && (
+      <>
       {/* 1. TOP HEADER & METRIC BANNER */}
       <div
         className={`p-6 rounded-2xl border ${
@@ -2467,8 +2474,27 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {isCostOnly && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+          <div className="text-slate-600">
+            <strong className="text-slate-900">Metraj & Keşif Cetveli ({materialItems.length} kalem):</strong>{' '}
+            5. Aşama (Teknik Şartname ve Metraj) ile aynı hesaplama motorundan beslenir.
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowTakeoffInCostView((prev) => !prev)}
+            className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-semibold transition-colors cursor-pointer shrink-0"
+          >
+            {showTakeoffInCostView ? 'Metraj Cetvelini Gizle' : 'Metraj Cetvelini Burada Göster'}
+          </button>
+        </div>
+      )}
 
       {/* 6. İNŞAAT MALZEME METRAJ VE İMALAT CETVELİ TABLOSU */}
+      {(!isCostOnly || showTakeoffInCostView) && (
       <div
         className={`p-5 rounded-2xl border ${
           isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'
@@ -2484,6 +2510,50 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
               Hesaplama motorundan türetilen net metrajlar, birim fiyatlar ve toplam maliyet dökümleri.
             </p>
           </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {isTakeoffOnly && (
+              <>
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setCurrency('TL')}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      currency === 'TL' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    ₺ TL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrency('USD')}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      currency === 'USD' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    $ USD
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                  title="Metraj cetvelini Excel / CSV olarak indir"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Excel / CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                  title="A4 formatında yazdır veya PDF kaydet"
+                >
+                  <Printer className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Yazdır / PDF</span>
+                </button>
+              </>
+            )}
 
           {/* Category Filter Tabs */}
           <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
@@ -2541,6 +2611,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
             >
               Ortak Gider
             </button>
+          </div>
           </div>
         </div>
 
@@ -2709,6 +2780,22 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
           </div>
         )}
       </div>
+      )}
+
+      {/* Otopark Harcı Maliyet Beyanı (cost modunda metraj tablosu kapalıyken de görünür kalır) */}
+      {isCostOnly && !showTakeoffInCostView && params.parkingFeeMode !== 'none' && (
+        <div className={`p-4 rounded-xl border ${params.parkingFeeMode === 'included' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-amber-50/50 border-amber-200'} space-y-2`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${params.parkingFeeMode === 'included' ? 'text-emerald-800' : 'text-amber-800'}`}>
+              <Car className="w-4 h-4" />
+              Otopark Harcı Maliyet Özeti
+            </span>
+            <span className="text-xs font-mono font-black text-indigo-950">
+              {sym}{(results.parkingFeeActual !== undefined ? results.parkingFeeActual * rate : 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ({results.parkingDeficientSpaces?.toLocaleString('tr-TR') || 0} eksik araç)
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

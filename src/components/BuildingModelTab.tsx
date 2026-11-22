@@ -90,6 +90,7 @@ interface BuildingModelTabProps {
   onNavigateToOwners?: () => void;
   onNavigateToOffer?: () => void;
   theme?: AppTheme;
+  workbenchVisualizationMode?: boolean;
 }
 
 const ROAD_TYPES_DATA: { id: RoadType; label: string; width: number; color: string }[] = [
@@ -113,6 +114,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   onNavigateToOwners,
   onNavigateToOffer,
   theme = 'light',
+  workbenchVisualizationMode = false,
 }) => {
   const isGray = theme === 'gray';
   const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null);
@@ -1743,21 +1745,25 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                     <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs text-slate-600">
                       <span className="flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>Bina taban oturumu, kat ve daire adetleri <strong>1. Proje Kurulumu</strong> sekmesinden tek merkez olarak yönetilmektedir.</span>
+                        <span>
+                          {workbenchVisualizationMode
+                            ? 'Parsel ve taban oturumu 2. Aşamada, cephe ölçüleri ve daire matrisi 3. Aşamada düzenlenir; bu ekran 3D modelle anlık senkronize görselleştirme sunar.'
+                            : 'Bina taban oturumu, kat ve daire adetleri 1. Proje Çalışma Masası üzerinden tek merkez olarak yönetilmektedir.'}
+                        </span>
                       </span>
                       {onNavigateToSetup && (
                         <button
                           type="button"
                           onClick={onNavigateToSetup}
-                          className="text-[11px] font-bold text-indigo-600 hover:underline shrink-0"
+                          className="text-[11px] font-bold text-indigo-600 hover:underline shrink-0 cursor-pointer"
                         >
-                          1. Kuruluma Git →
+                          {workbenchVisualizationMode ? '2. / 3. Aşamada Düzenle →' : 'Çalışma Masasına Git →'}
                         </button>
                       )}
                     </div>
 
-                    {/* Mode: Freehand Polygon Canvas (Serbest Çizim Modu) */}
-                    {modelParams.footprintInputMode === 'polygonDraw' && (
+                    {/* Mode: Freehand Polygon Canvas (Serbest Çizim Modu — Çalışma Masası 4. Aşamada gizlenir, 2. Aşamadan yönetilir) */}
+                    {!workbenchVisualizationMode && modelParams.footprintInputMode === 'polygonDraw' && (
                       <div className="p-3 bg-slate-50/90 rounded-2xl border border-indigo-200 shadow-sm">
                         <InteractiveFootprintCanvas
                           points={modelParams.polygonPoints}

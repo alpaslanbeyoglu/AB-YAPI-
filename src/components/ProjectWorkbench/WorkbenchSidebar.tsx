@@ -3,11 +3,11 @@ import { ProjectParams, CalculationResult, AppTheme } from '../../types';
 import { evaluateWorkbenchProject, StageStatus, WorkbenchEvaluation } from './WorkbenchLiveSummary';
 import {
   Home,
-  Building,
+  Compass,
   Layers,
-  LayoutGrid,
-  DollarSign,
   Box,
+  FileSpreadsheet,
+  DollarSign,
   Users,
   FileText,
   Hammer,
@@ -54,15 +54,15 @@ export const WorkbenchSidebar: React.FC<WorkbenchSidebarProps> = ({
     desc: string;
     icon: React.ComponentType<{ className?: string }>;
   }> = [
-    { id: 1, title: '1. Müşteri & Proje', desc: 'Ad, adres, arsa, model', icon: Home },
-    { id: 2, title: '2. Arsa & Mevcut Yapı', desc: 'Parsel ve eski binalar', icon: Building },
-    { id: 3, title: '3. Yeni Bina Tasarımı', desc: 'Kat, bodrum, dükkan, çatı', icon: Layers },
-    { id: 4, title: '4. Kat & Daire Matrisi', desc: 'Daire dağılımı, metraj', icon: LayoutGrid },
-    { id: 5, title: '5. Metraj & Maliyet', desc: 'Bütçe ve kalem analizi', icon: DollarSign },
-    { id: 6, title: '6. 3D Bina & Cephe', desc: 'Model ve dış görünüm', icon: Box },
-    { id: 7, title: '7. Malik Paylaşımı', desc: 'Pay oranları ve dağıtım', icon: Users },
-    { id: 8, title: '8. Müşteri Teklifi', desc: 'Teklif hazırlama ve PDF', icon: FileText },
-    { id: 9, title: '9. Kayıt & Şantiye', desc: 'Arşiv ve şantiye takibi', icon: Hammer },
+    { id: 1, title: '1. Müşteri ve Proje Tanımlama', desc: 'Kimlik, adres ve proje modeli', icon: Home },
+    { id: 2, title: '2. Arsa ve İmar Analizi', desc: 'Parsel, TAKS/KAKS, imar, otopark', icon: Compass },
+    { id: 3, title: '3. Mimari Tasarım ve Yapılandırma', desc: 'Kat, cephe, daire matrisi', icon: Layers },
+    { id: 4, title: '4. 3D Tasarım ve Görselleştirme', desc: '3D model, AI render ve güneş', icon: Box },
+    { id: 5, title: '5. Teknik Şartname ve Metraj', desc: 'Şartname, keşif ve donanım', icon: FileSpreadsheet },
+    { id: 6, title: '6. Maliyet ve Fizibilite', desc: 'Bütçe, rayiç ve CFO raporu', icon: DollarSign },
+    { id: 7, title: '7. Malik Paylaşımı ve Ticari Model', desc: 'Malik CRM, pay ve destekler', icon: Users },
+    { id: 8, title: '8. Teklif ve Sözleşme', desc: 'Müşteri teklifi ve sözleşme', icon: FileText },
+    { id: 9, title: '9. Proje ve Şantiye Yönetimi', desc: 'İcra, taşeron ve arşiv', icon: Hammer },
   ];
 
   const statusMeta: Record<StageStatus, { label: string }> = {

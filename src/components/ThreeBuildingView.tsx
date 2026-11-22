@@ -37,7 +37,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { BuildingModelParams, CameraPresetType, FacadeStyleType, LightingPresetType } from '../types';
-import { calculateFootprint, generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon } from '../utils/footprintUtils';
+import { calculateFootprint, generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon, resolveThreeBuildingFootprint } from '../utils/footprintUtils';
 import { WALL_COLOR_PRESETS, ROOF_COLOR_PRESETS, ACCENT_COLOR_PRESETS, FRAME_COLOR_PRESETS } from '../utils/buildingModelUtils';
 import { PhotorealisticRenderModal } from './PhotorealisticRenderModal';
 
@@ -681,63 +681,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       column: 0x475569,
       balcony: parseHexColor(params.accentColor, 0x18181b),
     };
-    const computedFootprint = calculateFootprint(
-      params?.footprintInputMode || 'directArea',
-      params || {}
-    );
-    const isDirectFootprint =
-      !params?.footprintInputMode || params.footprintInputMode === 'directArea';
-    let W = isDirectFootprint
-      ? safeNum(computedFootprint.effectiveWidth, 14.0, 1.0)
-      : safeNum(params?.facadeWidth, 14.0, 1.0);
-    let D = isDirectFootprint
-      ? safeNum(computedFootprint.effectiveDepth, 18.0, 1.0)
-      : safeNum(params?.facadeDepth, 18.0, 1.0);
-
-    const isPolygonDraw = params.footprintInputMode === 'polygonDraw' && !!params.polygonPoints && params.polygonPoints.length >= 3;
-    const isLShapeMode = params.footprintInputMode === 'lShape';
-
-    // Check if 4 facades form a non-rectangular / skewed quadrilateral
-    const quadInfo = buildQuadrilateralPolygon(
-      params.facadeWidth || 10.0,
-      params.facadeDepth || 10.0,
-      params.backFacadeLength,
-      params.leftFacadeLength
-    );
-
-    let activePolyPts: Array<{ id?: string; x: number; y: number }> | null = null;
-    if (isPolygonDraw) {
-      activePolyPts = params.polygonPoints!;
-    } else if (isLShapeMode) {
-      const front = safeNum(params?.lShapeFrontMain, 16.0, 2.0);
-      const depth = safeNum(params?.lShapeDepthMain, 20.0, 2.0);
-      const recFront = safeNum(params?.lShapeRecessFront, 6.0, 1.0);
-      const recDepth = safeNum(params?.lShapeRecessDepth, 8.0, 1.0);
-
-      activePolyPts = [
-        { id: 'l1', x: -front / 2, y: -depth / 2 },
-        { id: 'l2', x: front / 2, y: -depth / 2 },
-        { id: 'l3', x: front / 2, y: depth / 2 - recDepth },
-        { id: 'l4', x: front / 2 - recFront, y: depth / 2 - recDepth },
-        { id: 'l5', x: front / 2 - recFront, y: depth / 2 },
-        { id: 'l6', x: -front / 2, y: depth / 2 },
-      ];
-    } else if (quadInfo.isSkewed) {
-      // Skewed 4-facade geometry (trapezoid / non-rectangular building mass)
-      activePolyPts = (params.polygonPoints && params.polygonPoints.length >= 3)
-        ? params.polygonPoints
-        : quadInfo.polygonPoints;
-    } else if (params.polygonPoints && params.polygonPoints.length >= 3 && params.footprintInputMode === 'customFacades') {
-      activePolyPts = params.polygonPoints;
-    }
-
-    const isCustomPoly = !!activePolyPts && activePolyPts.length >= 3;
-
-    if (isCustomPoly && activePolyPts) {
-      const bounds = getPolygonBounds(activePolyPts);
-      W = bounds.width;
-      D = bounds.depth;
-    }
+    const {
+      W,
+      D,
+      isCustomPoly,
+      activePolyPts,
+    } = resolveThreeBuildingFootprint(params || {});
 
     const H = safeNum(params?.floorHeight, 2.95, 1.5);
     const N = Math.max(1, Math.round(safeNum(params?.floorCount, 5, 1)));
@@ -4463,13 +4412,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const H = (params?.floorHeight || 2.95) * (params?.floorCount || 5);
     const targetY = selectedFloor === 'basement' ? -1.5 : H / 2;
 
-    const computedFootprint = calculateFootprint(
-      params?.footprintInputMode || 'directArea',
-      params || {}
-    );
-    const isDirect = !params?.footprintInputMode || params.footprintInputMode === 'directArea';
-    const W = isDirect ? (computedFootprint.effectiveWidth || 14) : (params?.facadeWidth || 14);
-    const D = isDirect ? (computedFootprint.effectiveDepth || 16) : (params?.facadeDepth || 16);
+    const { W, D } = resolveThreeBuildingFootprint(params || {});
     const dist = Math.max(W, D, H) * 1.8;
 
     const nextTarget = new THREE.Vector3(0, targetY, 0);
