@@ -42,13 +42,27 @@ import {
   Home,
   Wrench,
   Equal,
+  Phone,
+  Mail,
+  UserPlus,
+  Edit3,
+  ArrowRight,
+  AlertCircle,
+  PieChart,
+  Lock,
 } from 'lucide-react';
-import { ProjectParams, CalculationResult, FlatItem, AppTheme, FlatCalcResult } from '../types';
+import { ProjectParams, CalculationResult, FlatItem, AppTheme, FlatCalcResult, LandownerItem } from '../types';
 import { OfficialOwnerReportModal } from './OfficialOwnerReportModal';
 import { ReconciliationDiagnosticModal } from './ReconciliationDiagnosticModal';
 import { IstanbulRealEstateValuationModal } from './IstanbulRealEstateValuationModal';
 import { calculateFootprint } from '../utils/footprintUtils';
 import { calculateCantileverDetails } from '../utils/calculatorEngine';
+
+export const isPlaceholderOwnerName = (name?: string): boolean => {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return true;
+  return /^(kat\s*maliki|malik|daire|bölüm|hak\s*sahibi)\s*\d*$/i.test(trimmed);
+};
 
 interface OwnersTabProps {
   params: ProjectParams;
@@ -56,9 +70,12 @@ interface OwnersTabProps {
   theme?: AppTheme;
   onChangeParams: (newParams: ProjectParams) => void;
   onCalculate?: () => void;
+  onNavigateToUnits?: () => void;
+  onNavigateToCost?: () => void;
+  onNavigateToOffer?: () => void;
 }
 
-type FilterType = 'all' | 'owners' | 'contractor' | 'withDebt' | 'paid' | 'withCredit' | 'shops';
+type FilterType = 'all' | 'owners' | 'contractor' | 'unassigned' | 'withDebt' | 'paid' | 'withCredit' | 'shops';
 type SortType = 'id_asc' | 'id_desc' | 'name_asc' | 'area_desc' | 'area_asc' | 'debt_desc' | 'debt_asc';
 type ViewMode = 'grid' | 'table';
 
@@ -68,6 +85,9 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   theme = 'light',
   onChangeParams,
   onCalculate,
+  onNavigateToUnits,
+  onNavigateToCost,
+  onNavigateToOffer,
 }) => {
   const isGray = theme === 'gray';
   const cardBg = isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200';
@@ -114,8 +134,29 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const [isStagesOpen, setIsStagesOpen] = useState(true);
   const [isSerefiyeOpen, setIsSerefiyeOpen] = useState(true);
   const [isOwnersGridOpen, setIsOwnersGridOpen] = useState(true);
-  const [isBulkControlOpen, setIsBulkControlOpen] = useState(true);
+  const [isBulkControlOpen, setIsBulkControlOpen] = useState(false);
   const [financialStabilityNotice, setFinancialStabilityNotice] = useState(true);
+
+  // Stage 7: Landowner Registry & Scenario Panel States
+  const [isLandownerPanelOpen, setIsLandownerPanelOpen] = useState(true);
+  const [isScenarioPanelOpen, setIsScenarioPanelOpen] = useState(params.projectModel === 'contractorShare');
+  const [editingLandownerId, setEditingLandownerId] = useState<string | null>(null);
+  const [isLandownerFormOpen, setIsLandownerFormOpen] = useState(false);
+  const [landownerDraft, setLandownerDraft] = useState<LandownerItem>({
+    id: '',
+    name: '',
+    companyName: '',
+    phone: '',
+    email: '',
+    tcOrTaxNo: '',
+    landShareNumerator: undefined,
+    landShareDenominator: params.totalLandShareDenominator || 1000,
+    sharePercent: 0,
+    existingUnitInfo: '',
+    specialAgreement: '',
+  });
+  const [draftSelectedFlatIds, setDraftSelectedFlatIds] = useState<number[]>([]);
+  const [allocationNotice, setAllocationNotice] = useState<string | null>(null);
 
   const updateParam = <K extends keyof ProjectParams>(key: K, value: ProjectParams[K]) => {
     onChangeParams({
@@ -131,6 +172,13 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         let merged: FlatItem;
         if (typeof fieldOrUpdates === 'string') {
           merged = { ...flat, [fieldOrUpdates]: val };
+          if (fieldOrUpdates === 'name' && flat.ownerId) {
+            const linked = (params.landowners || []).find((o) => o.id === flat.ownerId);
+            const expectedName = linked ? (linked.companyName ? `${linked.name} (${linked.companyName})` : linked.name) : '';
+            if (val !== expectedName) {
+              merged.ownerId = undefined;
+            }
+          }
         } else {
           merged = { ...flat, ...fieldOrUpdates };
         }
@@ -672,19 +720,463 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const totalOwnerDebt = ownerFlats.reduce((sum, f) => sum + (f.grossPay || 0), 0);
   const totalRemainingDebt = ownerFlats.reduce((sum, f) => sum + (f.netRemainingDebt || 0), 0);
 
+  const landowners = useMemo(() => params.landowners || [], [params.landowners]);
+  const defaultShareDenominator = params.totalLandShareDenominator || 1000;
+
+  const getOwnerSharePercent = (owner: LandownerItem): number => {
+    if (owner.sharePercent !== undefined && owner.sharePercent > 0) {
+      return Math.round(owner.sharePercent * 100) / 100;
+    }
+    const den = owner.landShareDenominator || defaultShareDenominator;
+    if (owner.landShareNumerator !== undefined && owner.landShareNumerator > 0 && den > 0) {
+      return Math.round(((owner.landShareNumerator / den) * 100) * 100) / 100;
+    }
+    return 0;
+  };
+
+  // Stage 7: Comprehensive Share & Allocation Audit
+  const shareAudit = useMemo(() => {
+    const flats = params.flats || [];
+    const flatResMap = new Map((results.flatResults || []).map((fr) => [fr.id, fr]));
+
+    let ownerUnitsCount = 0;
+    let contractorUnitsCount = 0;
+    let ownerArea = 0;
+    let contractorArea = 0;
+    let ownerEstimatedVal = 0;
+    let contractorEstimatedVal = 0;
+    const unassignedFlatsList: FlatItem[] = [];
+
+    flats.forEach((f) => {
+      const isContractor = !!(params.contractorFlatIds?.includes(f.id) || f.isContractorShare);
+      const calc = flatResMap.get(f.id);
+      const areaVal = f.area || 0;
+      const estVal = f.customMarketPrice || f.salePrice || calc?.serefiyeAdjustedCost || calc?.grossPay || (areaVal * (results.grossCostPerSqM || 0));
+
+      if (isContractor) {
+        contractorUnitsCount++;
+        contractorArea += areaVal;
+        contractorEstimatedVal += estVal;
+      } else {
+        ownerUnitsCount++;
+        ownerArea += areaVal;
+        ownerEstimatedVal += estVal;
+        const linkedOwnerExists = Boolean(f.ownerId && landowners.some((o) => o.id === f.ownerId));
+        if (!linkedOwnerExists && isPlaceholderOwnerName(f.name)) {
+          unassignedFlatsList.push(f);
+        }
+      }
+    });
+
+    const totalAllocatedArea = ownerArea + contractorArea;
+    const actualOwnerSharePct = totalAllocatedArea > 0 ? Math.round((ownerArea / totalAllocatedArea) * 1000) / 10 : 100;
+    const actualContractorSharePct = totalAllocatedArea > 0 ? Math.round((contractorArea / totalAllocatedArea) * 1000) / 10 : 0;
+
+    const totalLandownerSharePct = Math.round(
+      landowners.reduce((sum, o) => sum + getOwnerSharePercent(o), 0) * 100
+    ) / 100;
+
+    const hasLandowners = landowners.length > 0;
+    const shareTotalMismatch = hasLandowners && Math.abs(totalLandownerSharePct - 100) > 0.5;
+    const targetContractorRate = params.projectModel === 'contractorShare' ? (params.contractorShareRate ?? 50) : 0;
+    const contractorTargetDeviation = params.projectModel === 'contractorShare'
+      ? Math.round((actualContractorSharePct - targetContractorRate) * 10) / 10
+      : 0;
+
+    return {
+      totalUnits: flats.length,
+      ownerUnitsCount,
+      contractorUnitsCount,
+      ownerArea,
+      contractorArea,
+      totalAllocatedArea,
+      ownerEstimatedVal,
+      contractorEstimatedVal,
+      actualOwnerSharePct,
+      actualContractorSharePct,
+      unassignedFlatsList,
+      unassignedCount: unassignedFlatsList.length,
+      totalLandownerSharePct,
+      hasLandowners,
+      shareTotalMismatch,
+      targetContractorRate,
+      contractorTargetDeviation,
+    };
+  }, [params.flats, params.contractorFlatIds, params.projectModel, params.contractorShareRate, results.flatResults, results.grossCostPerSqM, landowners]);
+
+  // Read-only scenario projections for Kat Karşılığı comparison (does not modify calculatorEngine)
+  const scenarioRows = useMemo(() => {
+    const presetRates = [40, 45, 50, 55, 60];
+    const currentTarget = params.contractorShareRate ?? 50;
+    const uniqueRates = Array.from(new Set([...presetRates, currentTarget])).sort((a, b) => a - b);
+    const totalAreaForSplit = shareAudit.totalAllocatedArea || results.totalArea || 0;
+    const totalProjectVal = shareAudit.ownerEstimatedVal + shareAudit.contractorEstimatedVal || results.grandTotal || 0;
+
+    return uniqueRates.map((rate) => {
+      const ownerRate = 100 - rate;
+      const projContractorArea = Math.round((totalAreaForSplit * rate) / 100);
+      const projOwnerArea = Math.max(0, Math.round(totalAreaForSplit - projContractorArea));
+      const projContractorUnits = Math.round((shareAudit.totalUnits * rate) / 100);
+      const projOwnerUnits = Math.max(0, shareAudit.totalUnits - projContractorUnits);
+      const projContractorValue = Math.round((totalProjectVal * rate) / 100);
+      const costCoverageRatio = results.subTotalCost > 0 ? Math.round((projContractorValue / results.subTotalCost) * 100) : 0;
+      return {
+        rate,
+        ownerRate,
+        projContractorArea,
+        projOwnerArea,
+        projContractorUnits,
+        projOwnerUnits,
+        projContractorValue,
+        costCoverageRatio,
+        isCurrentTarget: Math.abs(rate - currentTarget) < 0.1,
+      };
+    });
+  }, [params.contractorShareRate, shareAudit, results.totalArea, results.grandTotal, results.subTotalCost]);
+
+  // Unique Unit Allocation Handler (Enforces: 1 unit -> max 1 landowner OR contractor OR unassigned)
+  const handleAssignFlatTarget = (flatId: number, targetValue: string) => {
+    const currentIds = params.contractorFlatIds ? [...params.contractorFlatIds] : [];
+    let nextContractorIds = currentIds;
+
+    if (targetValue === '__CONTRACTOR__') {
+      nextContractorIds = currentIds.includes(flatId) ? currentIds : [...currentIds, flatId];
+      const nextFlats = params.flats.map((f) =>
+        f.id === flatId
+          ? {
+              ...f,
+              isContractorShare: true,
+              ownerId: undefined,
+            }
+          : f
+      );
+      onChangeParams({
+        ...params,
+        contractorFlatIds: nextContractorIds,
+        flats: nextFlats,
+      });
+      if (onCalculate) onCalculate();
+      return;
+    }
+
+    // Remove from contractor list if assigned to owner or unassigned
+    nextContractorIds = currentIds.filter((id) => id !== flatId);
+
+    if (!targetValue) {
+      const nextFlats = params.flats.map((f) =>
+        f.id === flatId
+          ? {
+              ...f,
+              isContractorShare: false,
+              ownerId: undefined,
+            }
+          : f
+      );
+      onChangeParams({
+        ...params,
+        contractorFlatIds: nextContractorIds,
+        flats: nextFlats,
+      });
+      if (onCalculate) onCalculate();
+      return;
+    }
+
+    const targetOwner = landowners.find((o) => o.id === targetValue);
+    if (!targetOwner) return;
+
+    const nextFlats = params.flats.map((f) =>
+      f.id === flatId
+        ? {
+            ...f,
+            isContractorShare: false,
+            ownerId: targetOwner.id,
+            name: targetOwner.companyName ? `${targetOwner.name} (${targetOwner.companyName})` : targetOwner.name,
+            tc: targetOwner.tcOrTaxNo || f.tc || '',
+          }
+        : f
+    );
+
+    onChangeParams({
+      ...params,
+      contractorFlatIds: nextContractorIds,
+      flats: nextFlats,
+    });
+    if (onCalculate) onCalculate();
+  };
+
+  // Landowner Form Actions
+  const handleOpenNewLandowner = () => {
+    setEditingLandownerId(null);
+    setLandownerDraft({
+      id: `owner_${Date.now()}`,
+      name: '',
+      companyName: '',
+      phone: '',
+      email: '',
+      tcOrTaxNo: '',
+      landShareNumerator: undefined,
+      landShareDenominator: defaultShareDenominator,
+      sharePercent: 0,
+      existingUnitInfo: '',
+      specialAgreement: '',
+    });
+    setDraftSelectedFlatIds([]);
+    setIsLandownerFormOpen(true);
+  };
+
+  const handleOpenEditLandowner = (owner: LandownerItem) => {
+    setEditingLandownerId(owner.id);
+    setLandownerDraft({
+      ...owner,
+      landShareDenominator: owner.landShareDenominator || defaultShareDenominator,
+      sharePercent: getOwnerSharePercent(owner),
+    });
+    const currentlyOwnedIds = params.flats
+      .filter((f) => f.ownerId === owner.id && !(params.contractorFlatIds?.includes(f.id) || f.isContractorShare))
+      .map((f) => f.id);
+    setDraftSelectedFlatIds(currentlyOwnedIds);
+    setIsLandownerFormOpen(true);
+  };
+
+  const handleSaveLandowner = () => {
+    const trimmedName = (landownerDraft.name || '').trim();
+    if (!trimmedName) {
+      setAllocationNotice('Lütfen malik adı soyadı veya şirket unvanını girin.');
+      return;
+    }
+
+    const ownerId = editingLandownerId || landownerDraft.id || `owner_${Date.now()}`;
+    const den = landownerDraft.landShareDenominator || defaultShareDenominator;
+    let pct = Number(landownerDraft.sharePercent) || 0;
+    let num = landownerDraft.landShareNumerator;
+    if (pct <= 0 && num && den > 0) {
+      pct = Math.round(((num / den) * 100) * 100) / 100;
+    } else if (pct > 0 && (!num || num <= 0)) {
+      num = Math.round((pct / 100) * den);
+    }
+
+    const savedOwner: LandownerItem = {
+      ...landownerDraft,
+      id: ownerId,
+      name: trimmedName,
+      companyName: landownerDraft.companyName?.trim() || undefined,
+      phone: landownerDraft.phone?.trim() || undefined,
+      email: landownerDraft.email?.trim() || undefined,
+      tcOrTaxNo: landownerDraft.tcOrTaxNo?.trim() || undefined,
+      landShareNumerator: num,
+      landShareDenominator: den,
+      sharePercent: Math.max(0, Math.min(100, pct)),
+      existingUnitInfo: landownerDraft.existingUnitInfo?.trim() || undefined,
+      specialAgreement: landownerDraft.specialAgreement?.trim() || undefined,
+    };
+
+    const nextLandowners = editingLandownerId
+      ? landowners.map((o) => (o.id === editingLandownerId ? savedOwner : o))
+      : [...landowners, savedOwner];
+
+    // Enforce tekil tahsis: only allow selecting units not held by contractor or another landowner
+    const allowedSelectedSet = new Set(
+      draftSelectedFlatIds.filter((fId) => {
+        const flatObj = params.flats.find((fl) => fl.id === fId);
+        if (!flatObj) return false;
+        const isCont = !!(params.contractorFlatIds?.includes(flatObj.id) || flatObj.isContractorShare);
+        if (isCont) return false;
+        if (flatObj.ownerId && flatObj.ownerId !== ownerId) return false;
+        return true;
+      })
+    );
+
+    const displayName = savedOwner.companyName ? `${savedOwner.name} (${savedOwner.companyName})` : savedOwner.name;
+    const nextFlats = params.flats.map((f) => {
+      if (allowedSelectedSet.has(f.id)) {
+        return {
+          ...f,
+          isContractorShare: false,
+          ownerId: savedOwner.id,
+          name: displayName,
+          tc: savedOwner.tcOrTaxNo || f.tc || '',
+        };
+      }
+      // If previously assigned to this owner and unchecked in the form, release it cleanly
+      if (f.ownerId === ownerId) {
+        return {
+          ...f,
+          ownerId: undefined,
+          name: `Kat Maliki ${f.id}`,
+        };
+      }
+      return f;
+    });
+
+    onChangeParams({
+      ...params,
+      landowners: nextLandowners,
+      flats: nextFlats,
+    });
+    if (onCalculate) onCalculate();
+    setIsLandownerFormOpen(false);
+    setEditingLandownerId(null);
+    setAllocationNotice(null);
+  };
+
+  const handleDeleteLandowner = (ownerId: string) => {
+    const nextLandowners = landowners.filter((o) => o.id !== ownerId);
+    const nextFlats = params.flats.map((f) =>
+      f.ownerId === ownerId
+        ? {
+            ...f,
+            ownerId: undefined,
+            name: `Kat Maliki ${f.id}`,
+          }
+        : f
+    );
+    onChangeParams({
+      ...params,
+      landowners: nextLandowners,
+      flats: nextFlats,
+    });
+    if (onCalculate) onCalculate();
+  };
+
+  // Sync existing named flats into Landowner registry without duplicates
+  const handleSyncLandownersFromFlats = () => {
+    const existingByName = new Map<string, LandownerItem>();
+    landowners.forEach((o) => existingByName.set(o.name.trim().toLowerCase(), o));
+
+    const newOwners: LandownerItem[] = [...landowners];
+    const ownerFlatsList = params.flats.filter(
+      (f) => !(params.contractorFlatIds?.includes(f.id) || f.isContractorShare) && !isPlaceholderOwnerName(f.name)
+    );
+
+    if (ownerFlatsList.length === 0) {
+      setAllocationNotice('Mevcut bölümlerde kayıt oluşturulacak gerçek malik adı bulunamadı. "+ Yeni Malik Ekle" butonunu kullanabilirsiniz.');
+      return;
+    }
+
+    const totalOwnerArea = ownerFlatsList.reduce((s, f) => s + (f.area || 0), 0) || 1;
+    const flatOwnerIdMap = new Map<number, string>();
+
+    ownerFlatsList.forEach((f, idx) => {
+      const key = f.name.trim().toLowerCase();
+      let owner = existingByName.get(key);
+      if (!owner) {
+        const sharePct = Math.round(((f.area || 0) / totalOwnerArea) * 10000) / 100;
+        owner = {
+          id: `owner_sync_${Date.now()}_${idx}`,
+          name: f.name.trim(),
+          tcOrTaxNo: f.tc && !/^10{9}\d$/.test(f.tc) ? f.tc : undefined,
+          sharePercent: sharePct,
+          landShareNumerator: Math.round((sharePct / 100) * defaultShareDenominator),
+          landShareDenominator: defaultShareDenominator,
+        };
+        existingByName.set(key, owner);
+        newOwners.push(owner);
+      }
+      flatOwnerIdMap.set(f.id, owner.id);
+    });
+
+    const nextFlats = params.flats.map((f) => {
+      const mappedId = flatOwnerIdMap.get(f.id);
+      if (mappedId && !f.ownerId) {
+        return { ...f, ownerId: mappedId };
+      }
+      return f;
+    });
+
+    onChangeParams({
+      ...params,
+      landowners: newOwners,
+      flats: nextFlats,
+    });
+    setAllocationNotice(`${newOwners.length} malik mevcut bağımsız bölüm kayıtlarıyla senkronize edildi.`);
+    if (onCalculate) onCalculate();
+  };
+
+  // Normalize landowner share percentages to total 100%
+  const handleNormalizeLandownerShares = () => {
+    if (landowners.length === 0) return;
+    const sum = landowners.reduce((s, o) => s + getOwnerSharePercent(o), 0);
+    const nextOwners = landowners.map((o) => {
+      const pct = sum > 0
+        ? Math.round(((getOwnerSharePercent(o) / sum) * 100) * 100) / 100
+        : Math.round((100 / landowners.length) * 100) / 100;
+      return {
+        ...o,
+        sharePercent: pct,
+        landShareDenominator: defaultShareDenominator,
+        landShareNumerator: Math.round((pct / 100) * defaultShareDenominator),
+      };
+    });
+    onChangeParams({
+      ...params,
+      landowners: nextOwners,
+    });
+    setAllocationNotice('Malik arsa hisse oranları toplam %100 olacak şekilde dengelendi.');
+  };
+
+  // Auto-assign contractor units to match a target percentage (clears ownerId on selected contractor units)
+  const handleAutoAllocateByRate = (targetRate: number) => {
+    const flats = params.flats || [];
+    if (flats.length === 0) return;
+    const targetArea = ((shareAudit.totalAllocatedArea || 0) * targetRate) / 100;
+    // Sort from top floor down / largest first cleanly without mutating original order
+    const sortedForContractor = [...flats].sort((a, b) => {
+      const floorDiff = (b.floorNumber ?? 0) - (a.floorNumber ?? 0);
+      if (floorDiff !== 0) return floorDiff;
+      return b.id - a.id;
+    });
+
+    const selectedContractorIds: number[] = [];
+    let accArea = 0;
+    for (const flat of sortedForContractor) {
+      if (targetRate <= 0) break;
+      const flatArea = flat.area || 0;
+      const distBefore = Math.abs(accArea - targetArea);
+      const distAfter = Math.abs(accArea + flatArea - targetArea);
+      if (distAfter <= distBefore || selectedContractorIds.length === 0) {
+        selectedContractorIds.push(flat.id);
+        accArea += flatArea;
+      }
+      if (accArea >= targetArea) break;
+    }
+
+    const contractorSet = new Set(selectedContractorIds);
+    const nextFlats = flats.map((f) => {
+      const isCont = contractorSet.has(f.id);
+      return {
+        ...f,
+        isContractorShare: isCont,
+        ownerId: isCont ? undefined : f.ownerId,
+      };
+    });
+
+    onChangeParams({
+      ...params,
+      contractorShareRate: targetRate,
+      contractorFlatIds: selectedContractorIds,
+      flats: nextFlats,
+    });
+    setAllocationNotice(`Hedef %${targetRate} oranı için ${selectedContractorIds.length} bağımsız bölüm Müteahhit Payına atandı.`);
+    if (onCalculate) onCalculate();
+  };
+
   // Merged flats with calculation results and filter/sort logic
   const mergedFlats = useMemo(() => {
     return params.flats.map((flat, idx) => {
       const isContractor = !!(params.contractorFlatIds?.includes(flat.id) || flat.isContractorShare);
       const calc = results.flatResults?.find((f) => f.id === flat.id);
+      const linkedOwner = !isContractor && flat.ownerId ? landowners.find((o) => o.id === flat.ownerId) : undefined;
+      const isUnassigned = !isContractor && !linkedOwner && isPlaceholderOwnerName(flat.name);
       return {
         flat,
         originalIndex: idx,
         calc,
         isContractor,
+        linkedOwner,
+        isUnassigned,
       };
     });
-  }, [params.flats, params.contractorFlatIds, results.flatResults]);
+  }, [params.flats, params.contractorFlatIds, results.flatResults, landowners]);
 
   // Filtered & Sorted Flats
   const filteredFlats = useMemo(() => {
@@ -700,7 +1192,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         const name = (item.flat.name || '').toLowerCase();
         const tc = (item.flat.tc || '').toLowerCase();
         const desc = (item.flat.description || '').toLowerCase();
-        return flatNo.includes(q) || shopNo.includes(q) || idStr.includes(q) || name.includes(q) || tc.includes(q) || desc.includes(q);
+        const ownerName = (item.linkedOwner?.name || '').toLowerCase();
+        return flatNo.includes(q) || shopNo.includes(q) || idStr.includes(q) || name.includes(q) || tc.includes(q) || desc.includes(q) || ownerName.includes(q);
       });
     }
 
@@ -709,6 +1202,8 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
       list = list.filter((item) => !item.isContractor);
     } else if (activeFilter === 'contractor') {
       list = list.filter((item) => item.isContractor);
+    } else if (activeFilter === 'unassigned') {
+      list = list.filter((item) => item.isUnassigned);
     } else if (activeFilter === 'shops') {
       list = list.filter((item) => item.flat.flatType === 'shop' || item.flat.flatType === 'basement_shop');
     } else if (activeFilter === 'withDebt') {
@@ -828,82 +1323,220 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
   const selectedFlatResult = results.flatResults?.find((f) => f.id === selectedFlatId);
 
   return (
-    <div className="space-y-6 animate-fade-in print:p-0">
-      {/* 1. ÜST BAŞLIK & ÖZET METRAJ / PEŞİNAT KARTLARI */}
-      <div className={`p-6 rounded-3xl border ${cardBg} shadow-sm space-y-6`}>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="space-y-5 animate-fade-in print:p-0">
+      {/* 1. ÜST BAŞLIK, PAYLAŞIM ÖZETİ & AKILLI KONTROL ŞERİDİ */}
+      <div className={`p-5 rounded-3xl border ${cardBg} shadow-sm space-y-5`}>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0">
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-                👥 Kat Malikleri, Ödeme Planları & Pay Oranları Yönetimi
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                  Malikler ve Kat Karşılığı Paylaşım Yönetimi
+                </h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                  {params.projectModel === 'contractorShare'
+                    ? 'Kat Karşılığı Modeli'
+                    : params.projectModel === 'urbanTransformation'
+                    ? 'Kentsel Dönüşüm'
+                    : params.projectModel === 'contractorService'
+                    ? 'Müteahhitlik Hizmeti'
+                    : 'Nakit / Hakediş'}
+                </span>
+              </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Kat maliklerinin alan paylaşımlarını, peşinatlarını, devlet hibelerini, maliyet dağılımlarını ve 5 aşamalı taksit ödemelerini tek sayfadan yönetin.
+                Arsa maliklerini, hisse oranlarını, müteahhit payını ve bağımsız bölüm tahsislerini tek merkezden yönetin.
               </p>
             </div>
           </div>
-          {onCalculate && (
-            <button
-              type="button"
-              onClick={onCalculate}
-              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 shrink-0 cursor-pointer"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>HESAPLARI YENİLE VE SAKLA</span>
-            </button>
-          )}
-        </div>
 
-        {/* Özet Peşinat, Metraj ve Destek Kartları */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
-            <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Toplanan Peşinat</span>
-            <span className="block text-xl font-extrabold font-mono text-indigo-700">
-              {totalDownPayments.toLocaleString('tr-TR')} <span className="text-xs">TL</span>
-            </span>
-            <span className="block text-[10px] text-slate-500">
-              {ownerFlats.length} Hak Sahibi Dairesinden
-            </span>
-          </div>
-
-          <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
-            <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Toplam Kalan Taksit</span>
-            <span className="block text-xl font-extrabold font-mono text-amber-700">
-              {totalRemainingDebt.toLocaleString('tr-TR')} <span className="text-xs">TL</span>
-            </span>
-            <span className="block text-[10px] text-slate-500">
-              Hak sahiplerinin ödeyeceği 5 aşamalı bakiye
-            </span>
-          </div>
-
-          <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
-            <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Kentsel Dönüşüm Hibe/Destek</span>
-            <span className="block text-xl font-extrabold font-mono text-emerald-700">
-              {totalStateSupport.toLocaleString('tr-TR')} <span className="text-xs">TL</span>
-            </span>
-            <span className="block text-[10px] text-slate-500">
-              Devlet tarafından karşılanan toplam kredi/yardım
-            </span>
-          </div>
-
-          <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
-            <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Paylaşım Dağılımı</span>
-            <span className="block text-base font-extrabold text-slate-800">
-              {ownerFlats.length} Malik (%{(100 - params.contractorShareRate).toFixed(0)})
-            </span>
-            <span className="block text-xs font-semibold text-indigo-600">
-              {contractorFlats.length} Müteahhit (%{params.contractorShareRate.toFixed(0)})
-            </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {onNavigateToUnits && (
+              <button
+                type="button"
+                onClick={onNavigateToUnits}
+                className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+              >
+                4. Bölüm Matrisi
+              </button>
+            )}
+            {onNavigateToCost && (
+              <button
+                type="button"
+                onClick={onNavigateToCost}
+                className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+              >
+                5. Maliyet
+              </button>
+            )}
+            {onCalculate && (
+              <button
+                type="button"
+                onClick={onCalculate}
+                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all active:scale-95 shrink-0 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Hesapları Güncelle</span>
+              </button>
+            )}
+            {onNavigateToOffer && (
+              <button
+                type="button"
+                onClick={onNavigateToOffer}
+                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shadow-sm transition-all cursor-pointer"
+              >
+                <span>8. Teklife Geç</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
+
+        {/* 4 Karar KPI Kartı: Malik Payı, Müteahhit Payı, Malik & Hisse Kontrolü, Finansal Durum */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
+            <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Arsa Malikleri Payı</span>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-lg font-extrabold font-mono text-emerald-700">
+                {shareAudit.ownerUnitsCount} Bölüm
+              </span>
+              <span className="text-xs font-bold font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                %{shareAudit.actualOwnerSharePct.toFixed(1)}
+              </span>
+            </div>
+            <span className="block text-[11px] text-slate-600 font-mono">
+              {Math.round(shareAudit.ownerArea).toLocaleString('tr-TR')} m² • ~{Math.round(shareAudit.ownerEstimatedVal).toLocaleString('tr-TR')} ₺
+            </span>
+          </div>
+
+          <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
+            <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Müteahhit Payı</span>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-lg font-extrabold font-mono text-indigo-700">
+                {shareAudit.contractorUnitsCount} Bölüm
+              </span>
+              <span className="text-xs font-bold font-mono text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                %{shareAudit.actualContractorSharePct.toFixed(1)}
+              </span>
+            </div>
+            <span className="block text-[11px] text-slate-600 font-mono">
+              {params.projectModel === 'contractorShare'
+                ? `${Math.round(shareAudit.contractorArea).toLocaleString('tr-TR')} m² (Hedef: %${shareAudit.targetContractorRate})`
+                : `${Math.round(shareAudit.contractorArea).toLocaleString('tr-TR')} m² • ~${Math.round(shareAudit.contractorEstimatedVal).toLocaleString('tr-TR')} ₺`}
+            </span>
+          </div>
+
+          <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
+            <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Malik & Hisse Kontrolü</span>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-lg font-extrabold font-mono text-slate-900">
+                {landowners.length} Malik
+              </span>
+              <span
+                className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md border ${
+                  landowners.length === 0
+                    ? 'bg-slate-100 text-slate-600 border-slate-200'
+                    : shareAudit.shareTotalMismatch
+                    ? 'bg-amber-50 text-amber-800 border-amber-300'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}
+              >
+                %{shareAudit.totalLandownerSharePct.toFixed(1)} Hisse
+              </span>
+            </div>
+            <span className="block text-[11px] text-slate-600">
+              {shareAudit.unassignedCount > 0 ? (
+                <strong className="text-amber-700">{shareAudit.unassignedCount} bağımsız bölüm atanmamış</strong>
+              ) : (
+                <span className="text-emerald-700 font-semibold">Tüm bölümler atanmış</span>
+              )}
+            </span>
+          </div>
+
+          <div className={`p-4 rounded-2xl border ${innerCardBg} space-y-1`}>
+            <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              {params.projectModel === 'contractorShare' ? 'Ek Peşinat / Bakiye' : 'Ödeme & Destek Dengesi'}
+            </span>
+            <span className="block text-lg font-extrabold font-mono text-amber-700">
+              {totalRemainingDebt.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} <span className="text-xs">₺</span>
+            </span>
+            <span className="block text-[10px] text-slate-500 font-mono">
+              Peşinat: {totalDownPayments.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺ • Destek: {totalStateSupport.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
+            </span>
+          </div>
+        </div>
+
+        {/* Kritik Paylaşım & Eksik Bilgi Uyarı Şeridi (Yalnızca gerçek sorun varsa görünür) */}
+        {(shareAudit.unassignedCount > 0 ||
+          shareAudit.shareTotalMismatch ||
+          (params.projectModel === 'contractorShare' && Math.abs(shareAudit.contractorTargetDeviation) > 5) ||
+          allocationNotice) && (
+          <div className="space-y-2">
+            {allocationNotice && (
+              <div className="px-3.5 py-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-center justify-between gap-2">
+                <span className="font-semibold">{allocationNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setAllocationNotice(null)}
+                  className="text-indigo-500 hover:text-indigo-800 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {(shareAudit.unassignedCount > 0 ||
+              shareAudit.shareTotalMismatch ||
+              (params.projectModel === 'contractorShare' && Math.abs(shareAudit.contractorTargetDeviation) > 5)) && (
+              <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-950">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-bold flex items-center gap-1.5 text-amber-900">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    Paylaşım Kontrolü:
+                  </span>
+                  {shareAudit.unassignedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveSubTab('list');
+                        setActiveFilter('unassigned');
+                      }}
+                      className="underline font-semibold text-amber-900 hover:text-indigo-700 cursor-pointer"
+                    >
+                      {shareAudit.unassignedCount} bölüm henüz atanmamış (Filtrele)
+                    </button>
+                  )}
+                  {shareAudit.shareTotalMismatch && (
+                    <span className="font-semibold text-rose-800">
+                      • Malik arsa hisse toplamı %{shareAudit.totalLandownerSharePct.toFixed(1)} (%100 olmalı)
+                    </span>
+                  )}
+                  {params.projectModel === 'contractorShare' && Math.abs(shareAudit.contractorTargetDeviation) > 5 && (
+                    <span className="font-semibold text-amber-900">
+                      • Manuel müteahhit payı (%{shareAudit.actualContractorSharePct.toFixed(1)}) hedef orandan (%{shareAudit.targetContractorRate}) {shareAudit.contractorTargetDeviation > 0 ? '+' : ''}{shareAudit.contractorTargetDeviation}% sapıyor
+                    </span>
+                  )}
+                </div>
+                {shareAudit.shareTotalMismatch && (
+                  <button
+                    type="button"
+                    onClick={handleNormalizeLandownerShares}
+                    className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] cursor-pointer"
+                  >
+                    Hisseleri %100'e Dengele
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* SUB-NAVBAR: Kat Malikleri Listesi vs. Ödeme & Şerefiye Ayarları */}
+      {/* SUB-NAVBAR: Malikler & Bölüm Paylaşımı vs. Ödeme & Şerefiye Ayarları */}
       <div className="flex items-center justify-between bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setActiveSubTab('list')}
@@ -914,7 +1547,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>📋 Kat Malikleri & Daire Listesi ({params.flats.length})</span>
+            <span>Malikler ({landowners.length}) & Bölüm Paylaşımı ({params.flats.length})</span>
           </button>
 
           <button
@@ -927,12 +1560,12 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
             }`}
           >
             <Sliders className="w-4 h-4" />
-            <span>⚙️ Ödeme Planı Şablonu & Şerefiye Ayarları</span>
+            <span>Ödeme Planı Şablonu & Şerefiye Ayarları</span>
           </button>
         </div>
 
         <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline-block pr-2">
-          {activeSubTab === 'list' ? 'Daire ve malik listesini hızlıca yönetin' : 'Hakediş oranları, taksit şablonu ve şerefiye çarpanları'}
+          {activeSubTab === 'list' ? 'Malik, hisse ve bölüm tahsislerini yönetin' : 'Hakediş oranları, taksit şablonu ve şerefiye çarpanları'}
         </span>
       </div>
 
@@ -1783,10 +2416,638 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
         </div>
       )}
 
-      {/* MALİKLER LİSTESİ SEKMESİ (Kat Malikleri Listesi & Pay Dağılımı) */}
+      {/* MALİKLER LİSTESİ SEKMESİ (Malik Kayıt Defteri, Senaryo Karşılaştırma & Bağımsız Bölüm Paylaşımı) */}
       {activeSubTab === 'list' && (
-        <div className="space-y-6">
-          {/* 4. KAT MALİKLERİ BİLGİ GİRİŞLERİ, ARAMA & TABLO / KART YÖNETİMİ */}
+        <div className="space-y-5">
+          {/* A. ARSA MALİKLERİ VE HİSSE YÖNETİMİ PANELİ */}
+          <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
+            <div className="px-6 py-4 bg-slate-50 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/60">
+              <button
+                type="button"
+                onClick={() => setIsLandownerPanelOpen(!isLandownerPanelOpen)}
+                className="flex items-center gap-2.5 text-left cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <UserCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Arsa Malikleri & Hisse Yönetimi
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono">
+                      {landowners.length} Malik
+                    </span>
+                    {landowners.length > 0 && (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono ${
+                          shareAudit.shareTotalMismatch
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-indigo-100 text-indigo-800'
+                        }`}
+                      >
+                        Toplam Hisse: %{shareAudit.totalLandownerSharePct.toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Malik kimlik, iletişim, arsa payı m², mevcut bölüm ve özel anlaşma bilgilerini yönetin; yeni bölümleri tekil olarak tahsis edin.
+                  </p>
+                </div>
+              </button>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleSyncLandownersFromFlats}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  title="Daire tablosunda yazılmış malik isimlerinden otomatik kayıt oluştur"
+                >
+                  Bölümlerden Malik Oluştur
+                </button>
+                {landowners.length > 0 && shareAudit.shareTotalMismatch && (
+                  <button
+                    type="button"
+                    onClick={handleNormalizeLandownerShares}
+                    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Hisseleri %100 Yap
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleOpenNewLandowner}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Yeni Malik Ekle</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsLandownerPanelOpen(!isLandownerPanelOpen)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                >
+                  {isLandownerPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {isLandownerPanelOpen && (
+              <div className="p-5 space-y-4">
+                {/* Inline Malik Ekle / Düzenle Formu */}
+                {isLandownerFormOpen && (
+                  <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-200 space-y-4">
+                    <div className="flex items-center justify-between border-b border-indigo-200/60 pb-2.5">
+                      <span className="text-xs font-black uppercase tracking-wider text-indigo-950">
+                        {editingLandownerId ? 'Malik Bilgilerini Düzenle' : 'Yeni Arsa Maliki Ekle'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsLandownerFormOpen(false)}
+                        className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Ad Soyad / Yetkili *</label>
+                        <input
+                          type="text"
+                          value={landownerDraft.name}
+                          onChange={(e) => setLandownerDraft({ ...landownerDraft, name: e.target.value })}
+                          placeholder="Örn: Ahmet Yılmaz"
+                          className={`w-full px-3 py-2 rounded-xl border font-semibold ${inputBg}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Şirket Unvanı (Opsiyonel)</label>
+                        <input
+                          type="text"
+                          value={landownerDraft.companyName || ''}
+                          onChange={(e) => setLandownerDraft({ ...landownerDraft, companyName: e.target.value })}
+                          placeholder="Örn: Yılmaz İnşaat A.Ş."
+                          className={`w-full px-3 py-2 rounded-xl border ${inputBg}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Telefon</label>
+                        <input
+                          type="text"
+                          value={landownerDraft.phone || ''}
+                          onChange={(e) => setLandownerDraft({ ...landownerDraft, phone: e.target.value })}
+                          placeholder="05XX XXX XX XX"
+                          className={`w-full px-3 py-2 rounded-xl border font-mono ${inputBg}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">T.C. / Vergi No</label>
+                        <input
+                          type="text"
+                          maxLength={11}
+                          value={landownerDraft.tcOrTaxNo || ''}
+                          onChange={(e) => setLandownerDraft({ ...landownerDraft, tcOrTaxNo: e.target.value })}
+                          placeholder="11 haneli TC / VKN"
+                          className={`w-full px-3 py-2 rounded-xl border font-mono ${inputBg}`}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">E-posta</label>
+                        <input
+                          type="email"
+                          value={landownerDraft.email || ''}
+                          onChange={(e) => setLandownerDraft({ ...landownerDraft, email: e.target.value })}
+                          placeholder="ornek@posta.com"
+                          className={`w-full px-3 py-2 rounded-xl border ${inputBg}`}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Hisse Oranı (%)</label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            value={landownerDraft.sharePercent ?? ''}
+                            onChange={(e) => {
+                              const pct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                              const den = landownerDraft.landShareDenominator || defaultShareDenominator;
+                              setLandownerDraft({
+                                ...landownerDraft,
+                                sharePercent: pct,
+                                landShareNumerator: Math.round((pct / 100) * den),
+                              });
+                            }}
+                            placeholder="Örn: 25"
+                            className={`w-full px-3 py-2 rounded-xl border font-mono font-bold ${inputBg}`}
+                          />
+                          <span className="text-[11px] font-mono text-slate-500 whitespace-nowrap">
+                            {params.landArea && params.landArea > 0
+                              ? `${Math.round(((params.landArea * (landownerDraft.sharePercent || 0)) / 100) * 10) / 10} m²`
+                              : ''}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Tapu Arsa Payı (Pay / Payda)</label>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            value={landownerDraft.landShareNumerator ?? ''}
+                            onChange={(e) => {
+                              const num = Math.max(0, parseFloat(e.target.value) || 0);
+                              const den = landownerDraft.landShareDenominator || defaultShareDenominator;
+                              const pct = den > 0 ? Math.round(((num / den) * 100) * 100) / 100 : 0;
+                              setLandownerDraft({
+                                ...landownerDraft,
+                                landShareNumerator: num,
+                                sharePercent: pct,
+                              });
+                            }}
+                            placeholder="Pay"
+                            className={`w-1/2 px-2 py-2 rounded-xl border font-mono ${inputBg}`}
+                          />
+                          <span className="text-slate-400 font-bold">/</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={landownerDraft.landShareDenominator ?? defaultShareDenominator}
+                            onChange={(e) => {
+                              const den = Math.max(1, parseFloat(e.target.value) || defaultShareDenominator);
+                              const num = landownerDraft.landShareNumerator || 0;
+                              const pct = num > 0 ? Math.round(((num / den) * 100) * 100) / 100 : (landownerDraft.sharePercent || 0);
+                              setLandownerDraft({
+                                ...landownerDraft,
+                                landShareDenominator: den,
+                                sharePercent: pct,
+                              });
+                            }}
+                            placeholder="Payda"
+                            className={`w-1/2 px-2 py-2 rounded-xl border font-mono ${inputBg}`}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Mevcut Bağımsız Bölüm</label>
+                        <input
+                          type="text"
+                          value={landownerDraft.existingUnitInfo || ''}
+                          onChange={(e) => setLandownerDraft({ ...landownerDraft, existingUnitInfo: e.target.value })}
+                          placeholder="Örn: 2. Kat Daire 4 • 105 m²"
+                          className={`w-full px-3 py-2 rounded-xl border ${inputBg}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Özel Anlaşma & Açıklamalar</label>
+                        <input
+                          type="text"
+                          value={landownerDraft.specialAgreement || ''}
+                          onChange={(e) => setLandownerDraft({ ...landownerDraft, specialAgreement: e.target.value })}
+                          placeholder="Örn: Kira yardımı, şerefiye farkı veya ek ödeme mutabakatı..."
+                          className={`w-full px-3 py-2 rounded-xl border ${inputBg}`}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                          Yeni Projede Tahsis Edilecek Bölümler (Tekil Seçim)
+                        </label>
+                        <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-white border border-slate-200 max-h-28 overflow-y-auto">
+                          {params.flats.map((f) => {
+                            const isCont = !!(params.contractorFlatIds?.includes(f.id) || f.isContractorShare);
+                            const currentDraftOwnerId = editingLandownerId || landownerDraft.id;
+                            const heldByOther = Boolean(f.ownerId && f.ownerId !== currentDraftOwnerId);
+                            const otherOwner = heldByOther ? landowners.find((o) => o.id === f.ownerId) : undefined;
+                            const isSelected = draftSelectedFlatIds.includes(f.id);
+                            const isLocked = isCont || heldByOther;
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                disabled={isLocked}
+                                onClick={() => {
+                                  setDraftSelectedFlatIds((prev) =>
+                                    prev.includes(f.id) ? prev.filter((id) => id !== f.id) : [...prev, f.id]
+                                  );
+                                }}
+                                title={
+                                  isCont
+                                    ? 'Müteahhit payına atanmış — önce tablodan değiştirin'
+                                    : heldByOther
+                                    ? `${otherOwner?.name || 'Başka malik'} adına atanmış`
+                                    : `Bölüm ${f.id} (${f.area} m²)`
+                                }
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 ${
+                                  isLocked
+                                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                    : isSelected
+                                    ? 'bg-indigo-600 text-white border-indigo-600 cursor-pointer'
+                                    : 'bg-slate-50 hover:bg-indigo-50 text-slate-700 border-slate-200 cursor-pointer'
+                                }`}
+                              >
+                                {isLocked && <Lock className="w-2.5 h-2.5" />}
+                                <span>No {f.id} ({Math.round(f.area)} m²)</span>
+                                {isCont && <span className="text-[9px]">• Müt.</span>}
+                                {heldByOther && <span className="text-[9px]">• {otherOwner?.name.split(' ')[0] || 'Dolu'}</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsLandownerFormOpen(false)}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer"
+                      >
+                        Vazgeç
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveLandowner}
+                        className="px-4 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer"
+                      >
+                        {editingLandownerId ? 'Maliki Güncelle' : 'Maliki Kaydet'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kayıtlı Malikler Tablosu / Boş Durum */}
+                {landowners.length === 0 ? (
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-300 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+                    <div>
+                      <strong className="text-slate-800 block">Henüz kayıtlı arsa maliki tanımlanmadı.</strong>
+                      <span>
+                        Aşağıdaki tablodan daire bazlı hızlı isim girebilir veya hisse/iletişim/anlaşma takibi için malik kaydı oluşturabilirsiniz.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleSyncLandownersFromFlats}
+                        className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 font-bold text-slate-700 cursor-pointer"
+                      >
+                        Bölümlerden Aktar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenNewLandowner}
+                        className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer"
+                      >
+                        + İlk Maliki Ekle
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                          <th className="py-2.5 px-3">Malik / Şirket</th>
+                          <th className="py-2.5 px-3">İletişim</th>
+                          <th className="py-2.5 px-3 text-right">Arsa Payı & Alan</th>
+                          <th className="py-2.5 px-3">Mevcut Bölüm</th>
+                          <th className="py-2.5 px-3">Atanan Yeni Bölümler</th>
+                          <th className="py-2.5 px-3">Özel Anlaşma</th>
+                          <th className="py-2.5 px-3 text-center">İşlem</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {landowners.map((owner) => {
+                          const sharePct = getOwnerSharePercent(owner);
+                          const landShareM2 =
+                            params.landArea && params.landArea > 0
+                              ? Math.round(((params.landArea * sharePct) / 100) * 10) / 10
+                              : 0;
+                          const assignedFlats = params.flats.filter(
+                            (f) => f.ownerId === owner.id && !(params.contractorFlatIds?.includes(f.id) || f.isContractorShare)
+                          );
+                          const assignedArea = assignedFlats.reduce((s, f) => s + (f.area || 0), 0);
+
+                          return (
+                            <tr key={owner.id} className="hover:bg-slate-50/70">
+                              <td className="py-2.5 px-3">
+                                <div className="font-bold text-slate-900">{owner.name}</div>
+                                {owner.companyName && (
+                                  <div className="text-[10px] text-indigo-700 font-semibold">{owner.companyName}</div>
+                                )}
+                                {owner.tcOrTaxNo && (
+                                  <div className="text-[10px] text-slate-400 font-mono">{owner.tcOrTaxNo}</div>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] text-slate-600">
+                                {owner.phone && (
+                                  <div className="flex items-center gap-1 font-mono">
+                                    <Phone className="w-3 h-3 text-slate-400" />
+                                    <span>{owner.phone}</span>
+                                  </div>
+                                )}
+                                {owner.email && (
+                                  <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                    <Mail className="w-3 h-3 text-slate-400" />
+                                    <span>{owner.email}</span>
+                                  </div>
+                                )}
+                                {!owner.phone && !owner.email && <span className="text-slate-300">—</span>}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono">
+                                <div className="font-bold text-slate-900">%{sharePct.toFixed(1)}</div>
+                                {owner.landShareNumerator !== undefined && owner.landShareNumerator > 0 && (
+                                  <div className="text-[10px] text-slate-500">
+                                    {owner.landShareNumerator}/{owner.landShareDenominator || defaultShareDenominator}
+                                  </div>
+                                )}
+                                {landShareM2 > 0 && (
+                                  <div className="text-[10px] font-bold text-emerald-700">{landShareM2} m² arsa</div>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] text-slate-700">
+                                {owner.existingUnitInfo || <span className="text-slate-300">—</span>}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                {assignedFlats.length > 0 ? (
+                                  <div className="space-y-1">
+                                    <div className="flex flex-wrap gap-1">
+                                      {assignedFlats.map((af) => (
+                                        <span
+                                          key={af.id}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold font-mono"
+                                        >
+                                          No {af.id} ({Math.round(af.area)} m²)
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 font-mono">
+                                      Toplam: {Math.round(assignedArea)} m²
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="inline-block px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
+                                    Bölüm Atanmadı
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] text-slate-600 max-w-[200px]">
+                                {owner.specialAgreement || <span className="text-slate-300">—</span>}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditLandowner(owner)}
+                                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 cursor-pointer"
+                                    title="Maliki Düzenle & Bölüm Ata"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteLandowner(owner.id)}
+                                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-700 cursor-pointer"
+                                    title="Malik Kaydını Sil"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* B. KAT KARŞILIĞI PAYLAŞIM ÖZETİ & SENARYO KARŞILAŞTIRMA */}
+          <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
+            <button
+              type="button"
+              onClick={() => setIsScenarioPanelOpen(!isScenarioPanelOpen)}
+              className="w-full px-6 py-4 bg-slate-50 hover:bg-slate-100 flex flex-wrap items-center justify-between gap-3 text-left transition-colors border-b border-slate-200/60 cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                  <PieChart className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Kat Karşılığı Paylaşım & Senaryo Karşılaştırma
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono">
+                      Fiili Malik: %{shareAudit.actualOwnerSharePct.toFixed(1)}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-mono">
+                      Fiili Müteahhit: %{shareAudit.actualContractorSharePct.toFixed(1)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Hesaplanan hedef oranlar ile manuel bağımsız bölüm tahsislerinizi karşılaştırın; farklı paylaşım senaryolarını kıyaslayın.
+                  </p>
+                </div>
+              </div>
+              <span>{isScenarioPanelOpen ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}</span>
+            </button>
+
+            {isScenarioPanelOpen && (
+              <div className="p-5 space-y-4">
+                {/* Hedef Oran vs Fiili Tahsis Ayrımı ve Görsel Paylaşım Çubuğu */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <div className="space-y-1.5 lg:col-span-2">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-emerald-800">
+                        Arsa Malikleri (Manuel Tahsis): %{shareAudit.actualOwnerSharePct.toFixed(1)} ({shareAudit.ownerUnitsCount} bölüm • {Math.round(shareAudit.ownerArea)} m²)
+                      </span>
+                      <span className="text-indigo-800">
+                        Müteahhit: %{shareAudit.actualContractorSharePct.toFixed(1)} ({shareAudit.contractorUnitsCount} bölüm • {Math.round(shareAudit.contractorArea)} m²)
+                      </span>
+                    </div>
+                    <div className="h-3 w-full rounded-full bg-slate-200 overflow-hidden flex">
+                      <div
+                        className="h-full bg-emerald-500 transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(0, shareAudit.actualOwnerSharePct))}%` }}
+                      />
+                      <div
+                        className="h-full bg-indigo-600 transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(0, shareAudit.actualContractorSharePct))}%` }}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 pt-1">
+                      <span>
+                        <strong className="text-slate-800">Otomatik Hedef Oran:</strong> %{shareAudit.targetContractorRate} Müteahhit / %{100 - shareAudit.targetContractorRate} Malik
+                      </span>
+                      <span>•</span>
+                      <span>
+                        <strong className="text-slate-800">Fiili Tahsis:</strong> %{shareAudit.actualContractorSharePct.toFixed(1)} Müteahhit / %{shareAudit.actualOwnerSharePct.toFixed(1)} Malik
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
+                      <span className="text-[11px] font-bold text-slate-600">Hedef Müteahhit %:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={params.contractorShareRate ?? 50}
+                        onChange={(e) => {
+                          const rate = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                          updateParam('contractorShareRate', rate);
+                          if (onCalculate) onCalculate();
+                        }}
+                        className="w-16 text-xs font-mono font-bold text-right px-1.5 py-1 rounded-lg border border-slate-200 bg-slate-50"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAutoAllocateByRate(params.contractorShareRate ?? 50)}
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all cursor-pointer"
+                      title="Üst katlardan başlayarak hedef yüzdeye en yakın bağımsız bölümleri otomatik müteahhit payına işaretler"
+                    >
+                      Hedefe Göre Otomatik Bölüm Seç
+                    </button>
+                  </div>
+                </div>
+
+                {/* Paylaşım Senaryosu Karşılaştırma Tablosu */}
+                <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                        <th className="py-2.5 px-3">Senaryo (Müteahhit / Malik)</th>
+                        <th className="py-2.5 px-3 text-right">Müteahhit (Yaklaşık)</th>
+                        <th className="py-2.5 px-3 text-right">Malik (Yaklaşık)</th>
+                        <th className="py-2.5 px-3 text-right">Tahmini Müteahhit Hasılatı</th>
+                        <th className="py-2.5 px-3 text-right">Maliyet Karşılama</th>
+                        <th className="py-2.5 px-3 text-center">Uygula</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono">
+                      {scenarioRows.map((row) => (
+                        <tr
+                          key={row.rate}
+                          className={row.isCurrentTarget ? 'bg-indigo-50/70 font-bold' : 'hover:bg-slate-50'}
+                        >
+                          <td className="py-2 px-3 font-sans">
+                            <span className="font-bold text-slate-900">%{row.rate} / %{row.ownerRate}</span>
+                            {row.isCurrentTarget && (
+                              <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-600 text-white font-bold">
+                                Aktif Hedef
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-right text-indigo-800">
+                            ~{row.projContractorUnits} Bölüm • {row.projContractorArea.toLocaleString('tr-TR')} m²
+                          </td>
+                          <td className="py-2 px-3 text-right text-emerald-800">
+                            ~{row.projOwnerUnits} Bölüm • {row.projOwnerArea.toLocaleString('tr-TR')} m²
+                          </td>
+                          <td className="py-2 px-3 text-right text-slate-900">
+                            {row.projContractorValue.toLocaleString('tr-TR')} ₺
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                row.costCoverageRatio >= 120
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : row.costCoverageRatio >= 100
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              %{row.costCoverageRatio}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-center font-sans">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {!row.isCurrentTarget && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateParam('contractorShareRate', row.rate);
+                                    if (onCalculate) onCalculate();
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-indigo-50 text-indigo-700 text-[10px] font-bold cursor-pointer"
+                                >
+                                  Hedef Yap
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleAutoAllocateByRate(row.rate)}
+                                className="px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-[10px] font-bold cursor-pointer"
+                              >
+                                Bölüm Ata
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 4. BAĞIMSIZ BÖLÜM PAYLAŞIM TABLOSU VE ÖDEME TAKİBİ */}
           <div className={`rounded-3xl border ${cardBg} shadow-sm overflow-hidden`}>
         <div className="w-full px-6 py-4 bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/60">
           <div className="flex items-center gap-3">
@@ -1986,19 +3247,30 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                   >
                     Hak Sahipleri ({ownerFlats.length})
                   </button>
-                  {params.projectModel === 'contractorShare' && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveFilter('contractor')}
-                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                        activeFilter === 'contractor'
-                          ? 'bg-amber-600 text-white shadow-xs'
-                          : 'bg-amber-50 hover:bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      Müteahhit Payı ({contractorFlats.length})
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('unassigned')}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      activeFilter === 'unassigned'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : shareAudit.unassignedCount > 0
+                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    Atanmamış ({shareAudit.unassignedCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('contractor')}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      activeFilter === 'contractor'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-amber-50 hover:bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    Müteahhit Payı ({contractorFlats.length})
+                  </button>
                   <button
                     type="button"
                     onClick={() => setActiveFilter('shops')}
@@ -2652,7 +3924,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                       </th>
                       <th className="p-3 w-16 text-center">Daire</th>
                       <th className="p-3 w-24 text-center">Bölüm Tipi</th>
-                      <th className="p-3 min-w-[150px]">Hak Sahibi Adı Soyadı</th>
+                      <th className="p-3 min-w-[210px]">Tahsis Tarafı & Hak Sahibi</th>
                       <th className="p-3 w-24">T.C. Kimlik</th>
                       <th className="p-3 w-20 text-right">Brüt (m²)</th>
                       {params.enableSerefiye && (
@@ -2692,10 +3964,9 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                       <tr>
                         <td
                           colSpan={
-                            9 +
+                            10 +
                             (params.enableSerefiye ? 1 : 0) +
-                            (params.enableLandShareBalancing ? 2 : 0) +
-                            (params.projectModel === 'contractorShare' ? 1 : 0)
+                            (params.enableLandShareBalancing ? 2 : 0)
                           }
                           className="p-8 text-center text-slate-400 font-medium"
                         >
@@ -2703,7 +3974,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         </td>
                       </tr>
                     ) : (
-                      filteredFlats.map(({ flat, originalIndex, calc, isContractor }, flatIdx) => {
+                      filteredFlats.map(({ flat, originalIndex, calc, isContractor, linkedOwner, isUnassigned }, flatIdx) => {
                         const isSelected = selectedFlatId === flat.id;
                         const netDebt = calc?.netRemainingDebt || 0;
                         const isPaid = !isContractor && netDebt <= 0;
@@ -2843,20 +4114,50 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                               </select>
                             </td>
 
-                            {/* Malik Adı Soyadı (Inline Input) */}
+                            {/* Malik / Tahsis Seçimi & Ad Soyad (Tekil Tahsis Kuralı) */}
                             <td className="p-2">
-                              <input
-                                type="text"
-                                value={flat.name || ''}
-                                onChange={(e) => handleFlatChange(originalIndex, 'name', e.target.value)}
-                                disabled={isContractor}
-                                placeholder={isContractor ? 'MÜTEAHHİT SATIŞ PAYI' : 'Malik Adı Soyadı'}
-                                className={`w-full text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
-                                  isContractor
-                                    ? 'bg-slate-100/80 text-slate-500 border-transparent italic'
-                                    : 'bg-white border-slate-200 focus:border-indigo-500 text-slate-800 shadow-2xs'
-                                }`}
-                              />
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1">
+                                  <select
+                                    value={isContractor ? '__CONTRACTOR__' : (linkedOwner?.id || '')}
+                                    onChange={(e) => handleAssignFlatTarget(flat.id, e.target.value)}
+                                    className={`w-full text-[11px] px-2 py-1 rounded-lg border font-bold cursor-pointer ${
+                                      isContractor
+                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-800'
+                                        : linkedOwner
+                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                                        : isUnassigned
+                                        ? 'bg-amber-50 border-amber-300 text-amber-900'
+                                        : 'bg-white border-slate-200 text-slate-700'
+                                    }`}
+                                    title="Bu bağımsız bölümü tekil olarak bir malike veya müteahhit payına tahsis edin"
+                                  >
+                                    <option value="">
+                                      {isUnassigned ? '⚠️ Atanmamış (Serbest İsim)' : '— Serbest İsim / Atanmamış —'}
+                                    </option>
+                                    <option value="__CONTRACTOR__">🏗️ Müteahhit Payı</option>
+                                    {landowners.map((owner) => (
+                                      <option key={owner.id} value={owner.id}>
+                                        👤 {owner.name} ({getOwnerSharePercent(owner).toFixed(1)}%)
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={flat.name || ''}
+                                  onChange={(e) => handleFlatChange(originalIndex, 'name', e.target.value)}
+                                  disabled={isContractor}
+                                  placeholder={isContractor ? 'MÜTEAHHİT SATIŞ PAYI' : 'Malik Adı Soyadı'}
+                                  className={`w-full text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
+                                    isContractor
+                                      ? 'bg-slate-100/80 text-slate-500 border-transparent italic'
+                                      : isUnassigned
+                                      ? 'bg-amber-50/40 border-amber-200 focus:border-indigo-500 text-slate-700'
+                                      : 'bg-white border-slate-200 focus:border-indigo-500 text-slate-800 shadow-2xs'
+                                  }`}
+                                />
+                              </div>
                             </td>
 
                             {/* T.C. Kimlik No (Inline Input) */}
@@ -3059,9 +4360,16 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                       ...params,
                                       contractorFlatIds: nextIds,
                                       flats: params.flats.map((f, i) =>
-                                        i === originalIndex ? { ...f, isContractorShare: isChecked } : f
+                                        i === originalIndex
+                                          ? {
+                                              ...f,
+                                              isContractorShare: isChecked,
+                                              ownerId: isChecked ? undefined : f.ownerId,
+                                            }
+                                          : f
                                       ),
                                     });
+                                    if (onCalculate) onCalculate();
                                   }}
                                   className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
                                 />
@@ -3176,7 +4484,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
             ) : (
               /* 4. KART GÖRÜNÜMÜ */
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredFlats.map(({ flat, originalIndex, calc, isContractor }) => {
+                {filteredFlats.map(({ flat, originalIndex, calc, isContractor, linkedOwner, isUnassigned }) => {
                   const isSelected = selectedFlatId === flat.id;
                   const netDebt = calc?.netRemainingDebt || 0;
 
@@ -3188,11 +4496,13 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           ? 'ring-2 ring-indigo-500 border-indigo-400 bg-indigo-50/30 shadow-md'
                           : isContractor
                           ? 'ring-1 ring-amber-500/20 border-amber-300'
+                          : isUnassigned
+                          ? 'border-amber-300 bg-amber-50/20'
                           : 'hover:border-slate-300'
                       }`}
                     >
                       <div className="font-bold text-xs text-slate-800 flex items-center justify-between pb-2 border-b border-slate-200">
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1.5 flex-wrap">
                           <input
                             type="checkbox"
                             checked={selectedFlatIds.has(flat.id)}
@@ -3202,7 +4512,7 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                           />
                           <span
                             className={`w-2.5 h-2.5 rounded-full ${
-                              isContractor ? 'bg-amber-500' : (flat.flatType === 'shop' || flat.flatType === 'basement_shop') ? 'bg-amber-600' : 'bg-indigo-500'
+                              isContractor ? 'bg-amber-500' : (flat.flatType === 'shop' || flat.flatType === 'basement_shop') ? 'bg-amber-600' : isUnassigned ? 'bg-amber-400' : 'bg-indigo-500'
                             }`}
                           />
                           <span className="font-extrabold">
@@ -3221,12 +4531,14 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                             className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                               isContractor
                                 ? 'bg-amber-100 text-amber-800'
+                                : isUnassigned
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
                                 : (flat.flatType === 'shop' || flat.flatType === 'basement_shop')
                                 ? 'bg-amber-100 text-amber-900 border border-amber-300'
                                 : 'bg-indigo-100 text-indigo-800'
                             }`}
                           >
-                            {isContractor ? 'Müteahhit' : flat.flatType === 'basement_shop' ? 'Bodrum İşyeri' : flat.flatType === 'shop' ? 'Zemin Dükkan' : 'Hak Sahibi'}
+                            {isContractor ? 'Müteahhit' : isUnassigned ? 'Atanmamış' : flat.flatType === 'basement_shop' ? 'Bodrum İşyeri' : flat.flatType === 'shop' ? 'Zemin Dükkan' : 'Hak Sahibi'}
                           </span>
                         </span>
                         <div className="flex items-center gap-1.5">
@@ -3245,10 +4557,31 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                          Hak Sahibi Adı Soyadı:
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          Tahsis Tarafı & Hak Sahibi:
                         </label>
+                        <select
+                          value={isContractor ? '__CONTRACTOR__' : (linkedOwner?.id || '')}
+                          onChange={(e) => handleAssignFlatTarget(flat.id, e.target.value)}
+                          className={`w-full text-xs px-3 py-1.5 rounded-xl border font-bold cursor-pointer ${
+                            isContractor
+                              ? 'bg-indigo-50 border-indigo-200 text-indigo-800'
+                              : linkedOwner
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                              : isUnassigned
+                              ? 'bg-amber-50 border-amber-300 text-amber-900'
+                              : inputBg
+                          }`}
+                        >
+                          <option value="">— Serbest İsim / Atanmamış —</option>
+                          <option value="__CONTRACTOR__">🏗️ Müteahhit Payı</option>
+                          {landowners.map((owner) => (
+                            <option key={owner.id} value={owner.id}>
+                              👤 {owner.name} ({getOwnerSharePercent(owner).toFixed(1)}%)
+                            </option>
+                          ))}
+                        </select>
                         <input
                           type="text"
                           value={flat.name || ''}
@@ -3536,9 +4869,16 @@ export const OwnersTab: React.FC<OwnersTabProps> = ({
                                   ...params,
                                   contractorFlatIds: nextIds,
                                   flats: params.flats.map((f, i) =>
-                                    i === originalIndex ? { ...f, isContractorShare: isChecked } : f
+                                    i === originalIndex
+                                      ? {
+                                          ...f,
+                                          isContractorShare: isChecked,
+                                          ownerId: isChecked ? undefined : f.ownerId,
+                                        }
+                                      : f
                                   ),
                                 });
+                                if (onCalculate) onCalculate();
                               }}
                               className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
                             />

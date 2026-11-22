@@ -1,12 +1,16 @@
 import React from 'react';
 import { ProjectParams, CalculationResult, AppTheme } from '../../types';
-import { FileUp, Save, Printer, Building2, CheckCircle2, Clock, ArrowRight } from 'lucide-react';
+import { WorkbenchEvaluation } from './WorkbenchLiveSummary';
+import { FileUp, Save, FileText, CheckCircle2, Clock, ArrowRight, MapPin, AlertCircle } from 'lucide-react';
 
 interface WorkbenchHeaderProps {
   params: ProjectParams;
   results: CalculationResult;
   theme?: AppTheme;
   isProjectSaved?: boolean;
+  activeStage?: number;
+  evaluation?: WorkbenchEvaluation;
+  onSelectStage?: (stage: number, focusFieldId?: string) => void;
   onOpenTransferModal?: () => void;
   onExportPdf?: () => void;
   onQuickSave?: () => void;
@@ -14,11 +18,30 @@ interface WorkbenchHeaderProps {
   isSaving?: boolean;
 }
 
+const getModelLabel = (params: ProjectParams): string => {
+  if (params.projectType === 'kentsel_imar' || (params.projectModel === 'urbanTransformation' && params.hasZoningIncrease)) {
+    return 'Kentsel Dönüşüm + İmar';
+  }
+  if (params.projectType === 'kat_karsiligi' || params.projectModel === 'contractorShare') {
+    return `Kat Karşılığı (%${params.contractorShareRate ?? 50})`;
+  }
+  if (params.projectType === 'muteahhitlik' || params.projectModel === 'contractorService') {
+    return 'Anahtar Teslim Müteahhitlik';
+  }
+  if (params.projectType === 'nakit' || params.projectModel === 'cash') {
+    return 'Nakit / Hakediş';
+  }
+  return 'Kentsel Dönüşüm (6306)';
+};
+
 export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
   params,
   results,
   theme = 'light',
   isProjectSaved = false,
+  activeStage = 1,
+  evaluation,
+  onSelectStage,
   onOpenTransferModal,
   onExportPdf,
   onQuickSave,
@@ -30,70 +53,144 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
   const textTitle = isGray ? 'text-gray-100' : 'text-slate-900';
   const textMuted = isGray ? 'text-gray-400' : 'text-slate-500';
 
-  const projectName = params.projectName?.trim() || 'İsimsiz Kentsel Dönüşüm Projesi';
-  const projectAddress = params.projectAddress?.trim() || 'Adres Girilmedi';
+  const projectName = params.projectName?.trim() || 'İsimsiz Proje';
+  const projectAddress = params.projectAddress?.trim() || 'Adres henüz girilmedi';
+  const modelLabel = getModelLabel(params);
+  const firstCritical = evaluation?.issues.find((i) => i.severity === 'critical');
+  const criticalCount = evaluation?.issues.filter((i) => i.severity === 'critical').length || 0;
 
   return (
-    <div className={`${bgCard} rounded-2xl p-5 border shadow-xs relative overflow-hidden`}>
+    <div className={`${bgCard} rounded-2xl px-5 py-4 border shadow-xs`}>
       <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
-        {/* Left: Project Title, Save Status & Summary */}
-        <div className="space-y-1.5 min-w-0">
+        {/* Sol: Proje Künyesi & Hızlı Erişim Bilgileri */}
+        <div className="space-y-1.5 min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-2.5 py-1 text-[11px] font-black rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5 text-indigo-600" />
-              AB-YAPI PROJE ÇALIŞMA MASASI
-            </span>
+            <button
+              type="button"
+              onClick={() => onSelectStage?.(1, 'projectNameInput')}
+              className={`text-lg font-black tracking-tight ${textTitle} truncate max-w-xl text-left hover:text-indigo-600 transition-colors cursor-pointer`}
+              title="Proje adını düzenle (1. Aşama)"
+            >
+              {projectName}
+            </button>
+
             {isProjectSaved ? (
-              <span className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                Arşivde Kayıtlı
+              <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shrink-0">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                Kayıtlı
               </span>
             ) : (
-              <span className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                Henüz Kaydedilmedi
+              <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1 shrink-0">
+                <Clock className="w-3 h-3 text-slate-500" />
+                Taslak
               </span>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onSelectStage?.(1)}
+              className="px-2 py-0.5 text-[11px] font-semibold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 transition-colors cursor-pointer shrink-0"
+              title="Proje modelini değiştirmek için 1. aşamaya gidin"
+            >
+              {modelLabel}
+            </button>
+
+            {evaluation && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (firstCritical) {
+                    onSelectStage?.(firstCritical.stage, firstCritical.focusFieldId);
+                  } else {
+                    onSelectStage?.(8);
+                  }
+                }}
+                className={`px-2 py-0.5 text-[11px] font-bold rounded-md border flex items-center gap-1 shrink-0 cursor-pointer transition-colors ${
+                  evaluation.isOfferReady
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                    : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                }`}
+                title={
+                  evaluation.isOfferReady
+                    ? 'Zorunlu bilgiler tamam — teklif ekranına geçebilirsiniz'
+                    : 'İlk eksik zorunlu alana git'
+                }
+              >
+                {evaluation.isOfferReady ? (
+                  <>
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <span>Teklife Hazır • %{evaluation.requiredPercent}</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-3 h-3 text-rose-600" />
+                    <span>{criticalCount} Zorunlu Eksik • %{evaluation.requiredPercent}</span>
+                  </>
+                )}
+              </button>
             )}
           </div>
 
-          <h1 className={`text-lg sm:text-xl font-black tracking-tight ${textTitle} truncate max-w-2xl`}>
-            {projectName}
-          </h1>
-
-          <div className={`text-xs ${textMuted} flex items-center gap-2 flex-wrap`}>
-            <span className="font-medium text-slate-700">📍 {projectAddress}</span>
-            <span>•</span>
-            <span>Arsa: <strong className="text-slate-900">{params.landArea || 0} m²</strong></span>
-            <span>•</span>
-            <span>Toplam İnşaat: <strong className="text-slate-900">{Math.round(results.totalArea || 0).toLocaleString('tr-TR')} m²</strong></span>
-            <span>•</span>
-            <span>Hedef Bedel: <strong className="text-indigo-700">{Math.round(results.grandTotal || 0).toLocaleString('tr-TR')} ₺</strong></span>
+          <div className={`text-xs ${textMuted} flex items-center gap-x-3 gap-y-1 flex-wrap`}>
+            <button
+              type="button"
+              onClick={() => onSelectStage?.(1, 'projectAddressInput')}
+              className="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer truncate max-w-md"
+              title="Adresi düzenle (1. Aşama)"
+            >
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate">{projectAddress}</span>
+            </button>
+            <span className="text-slate-300">•</span>
+            <button
+              type="button"
+              onClick={() => onSelectStage?.(1, 'projectLandAreaInput')}
+              className="hover:text-indigo-600 transition-colors cursor-pointer"
+              title="Arsa alanını düzenle (1. Aşama)"
+            >
+              Arsa: <strong className="text-slate-900 font-mono">{(params.landArea || 0).toLocaleString('tr-TR')} m²</strong>
+            </button>
+            <span className="text-slate-300">•</span>
+            <button
+              type="button"
+              onClick={() => onSelectStage?.(3, 'minimalFloorCountInput')}
+              className="hover:text-indigo-600 transition-colors cursor-pointer"
+              title="Yapı tasarımına git (3. Aşama)"
+            >
+              İnşaat: <strong className="text-slate-900 font-mono">{Math.round(results.totalArea || 0).toLocaleString('tr-TR')} m²</strong>
+            </button>
+            <span className="text-slate-300">•</span>
+            <button
+              type="button"
+              onClick={() => onSelectStage?.(4)}
+              className="hover:text-indigo-600 transition-colors cursor-pointer"
+              title="Kat ve daire matrisine git (4. Aşama)"
+            >
+              Bölüm: <strong className="text-slate-900 font-mono">{results.flatCount || 0} Adet</strong>
+            </button>
+            <span className="text-slate-300">•</span>
+            <button
+              type="button"
+              onClick={() => onSelectStage?.(5)}
+              className="hover:text-indigo-600 transition-colors cursor-pointer"
+              title="Maliyet analizine git (5. Aşama)"
+            >
+              Teklif Bedeli: <strong className="text-indigo-700 font-mono">{Math.round(results.grandTotal || 0).toLocaleString('tr-TR')} ₺</strong>
+            </button>
           </div>
         </div>
 
-        {/* Right: Action Buttons (Quick Save, Transfer, PDF, Site Transition) */}
+        {/* Sağ: Hızlı Karar ve Geçiş İşlemleri */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {onOpenTransferModal && (
             <button
               type="button"
               onClick={onOpenTransferModal}
-              className="px-3 py-2 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
               title="Projeyi İçe veya Dışa Aktar"
             >
-              <FileUp className="w-3.5 h-3.5 text-indigo-600" />
+              <FileUp className="w-3.5 h-3.5 text-slate-500" />
               <span>İçe / Dışa Aktar</span>
-            </button>
-          )}
-
-          {onExportPdf && (
-            <button
-              type="button"
-              onClick={onExportPdf}
-              className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-              title="Teklif Aşamasına / PDF Çıktıya Git"
-            >
-              <Printer className="w-3.5 h-3.5 text-slate-600" />
-              <span>Teklif & PDF</span>
             </button>
           )}
 
@@ -102,11 +199,27 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               type="button"
               onClick={onQuickSave}
               disabled={isSaving}
-              className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+              className="px-3 py-2 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
               title="Projeyi Kaydet ve Hesaplamayı Güncelle"
             >
               <Save className="w-3.5 h-3.5" />
-              <span>{isSaving ? 'Kaydediliyor...' : 'Projeyi Kaydet'}</span>
+              <span>{isSaving ? 'Kaydediliyor...' : 'Kaydet'}</span>
+            </button>
+          )}
+
+          {onExportPdf && (
+            <button
+              type="button"
+              onClick={onExportPdf}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                activeStage === 8
+                  ? 'bg-indigo-700 text-white ring-2 ring-indigo-500/20'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
+              title="Müşteri Teklifi ve PDF Çıktı Ekranına Geç"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Teklif Hazırla</span>
             </button>
           )}
 
@@ -114,10 +227,14 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
             <button
               type="button"
               onClick={onNavigateToSite}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                activeStage === 9
+                  ? 'bg-emerald-700 text-white ring-2 ring-emerald-500/20'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }`}
               title="Şantiye Aşamasına Geçiş Yap"
             >
-              <span>Şantiye Aşaması</span>
+              <span>Şantiye</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}

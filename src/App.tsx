@@ -275,6 +275,8 @@ export default function App() {
       const saved = localStorage.getItem('ab_yapi_building_model');
       if (saved) {
         const parsed = JSON.parse(saved);
+        const fpInit = calculateFootprint(params.footprintInputMode || 'directArea', params);
+        const isDirectInit = !params.footprintInputMode || params.footprintInputMode === 'directArea';
         return {
           ...DEFAULT_BUILDING_PARAMS,
           ...parsed,
@@ -289,21 +291,27 @@ export default function App() {
           frameColor: parsed.frameColor || params.frameColor || DEFAULT_BUILDING_PARAMS.frameColor,
           slabColor: parsed.slabColor || params.slabColor || DEFAULT_BUILDING_PARAMS.slabColor,
           facadeStyle: params.facadeStyle || 'wood_anthracite',
-          facadeWidth: params.facadeWidth || 14.0,
-          facadeDepth: params.facadeDepth || 18.0,
-          backFacadeLength: params.backFacadeLength !== undefined ? params.backFacadeLength : (params.facadeWidth || 14.0),
-          leftFacadeLength: params.leftFacadeLength !== undefined ? params.leftFacadeLength : (params.facadeDepth || 18.0),
+          facadeWidth: isDirectInit ? fpInit.effectiveWidth : (params.facadeWidth || 14.0),
+          facadeDepth: isDirectInit ? fpInit.effectiveDepth : (params.facadeDepth || 18.0),
+          backFacadeLength: isDirectInit ? fpInit.effectiveWidth : (params.backFacadeLength !== undefined ? params.backFacadeLength : (params.facadeWidth || 14.0)),
+          leftFacadeLength: isDirectInit ? fpInit.effectiveDepth : (params.leftFacadeLength !== undefined ? params.leftFacadeLength : (params.facadeDepth || 18.0)),
           baseBuildArea: params.baseBuildArea,
           basementCount: params.basementCount !== undefined ? params.basementCount : 1,
           elevatorCount: params.elevatorCount !== undefined ? params.elevatorCount : 1,
           balconyDepth: params.balconyDepth !== undefined ? params.balconyDepth : 1.4,
           hasGroundFloorShop: !!params.hasGroundFloorShop,
+          hasBasementShop: params.hasBasementShop,
+          basementPurpose: params.basementPurpose,
+          basementShopCount: params.basementShopCount,
+          shopLocation: params.shopLocation,
+          basementConfig: params.basementConfig,
           shopCount: params.shopCount || 1,
           shopHeight: params.shopHeight || 3.8,
           flatCount: params.flatCount,
           hasCantilever: params.hasCantilever,
           cantileverDepth: params.cantileverDepth,
           cantileverDirection: params.cantileverDirection,
+          facadeCantilevers: params.facadeCantilevers,
           footprintInputMode: params.footprintInputMode,
           customFacadeCount: params.customFacadeCount,
           customFacades: params.customFacades,
@@ -322,6 +330,8 @@ export default function App() {
         };
       }
     } catch (e) {}
+    const fpFallback = calculateFootprint(params.footprintInputMode || 'directArea', params);
+    const isDirectFallback = !params.footprintInputMode || params.footprintInputMode === 'directArea';
     return {
       ...DEFAULT_BUILDING_PARAMS,
       floorCount: params.floorCount,
@@ -335,10 +345,10 @@ export default function App() {
       frameColor: params.frameColor || DEFAULT_BUILDING_PARAMS.frameColor,
       slabColor: params.slabColor || DEFAULT_BUILDING_PARAMS.slabColor,
       facadeStyle: params.facadeStyle || 'wood_anthracite',
-      facadeWidth: params.facadeWidth || 14.0,
-      facadeDepth: params.facadeDepth || 18.0,
-      backFacadeLength: params.backFacadeLength !== undefined ? params.backFacadeLength : (params.facadeWidth || 14.0),
-      leftFacadeLength: params.leftFacadeLength !== undefined ? params.leftFacadeLength : (params.facadeDepth || 18.0),
+      facadeWidth: isDirectFallback ? fpFallback.effectiveWidth : (params.facadeWidth || 14.0),
+      facadeDepth: isDirectFallback ? fpFallback.effectiveDepth : (params.facadeDepth || 18.0),
+      backFacadeLength: isDirectFallback ? fpFallback.effectiveWidth : (params.backFacadeLength !== undefined ? params.backFacadeLength : (params.facadeWidth || 14.0)),
+      leftFacadeLength: isDirectFallback ? fpFallback.effectiveDepth : (params.leftFacadeLength !== undefined ? params.leftFacadeLength : (params.facadeDepth || 18.0)),
       baseBuildArea: params.baseBuildArea,
       basementCount: params.basementCount !== undefined ? params.basementCount : 1,
       elevatorCount: params.elevatorCount !== undefined ? params.elevatorCount : 1,
@@ -440,10 +450,29 @@ export default function App() {
 
     // Live Sync from Proje Künyesi / Hesap to Building Model:
     setBuildingModelParams((prevModel) => {
-      let newW = sanitizedParams.facadeWidth || prevModel.facadeWidth;
-      let newD = sanitizedParams.facadeDepth || prevModel.facadeDepth;
-      let newBackW = sanitizedParams.backFacadeLength !== undefined ? sanitizedParams.backFacadeLength : (prevModel.backFacadeLength ?? newW);
-      let newLeftD = sanitizedParams.leftFacadeLength !== undefined ? sanitizedParams.leftFacadeLength : (prevModel.leftFacadeLength ?? newD);
+      const fpSync = calculateFootprint(
+        sanitizedParams.footprintInputMode || prevModel.footprintInputMode || 'directArea',
+        sanitizedParams
+      );
+      const isDirectMode =
+        !sanitizedParams.footprintInputMode || sanitizedParams.footprintInputMode === 'directArea';
+
+      let newW = isDirectMode
+        ? fpSync.effectiveWidth
+        : sanitizedParams.facadeWidth || prevModel.facadeWidth;
+      let newD = isDirectMode
+        ? fpSync.effectiveDepth
+        : sanitizedParams.facadeDepth || prevModel.facadeDepth;
+      let newBackW = isDirectMode
+        ? fpSync.effectiveWidth
+        : sanitizedParams.backFacadeLength !== undefined
+        ? sanitizedParams.backFacadeLength
+        : prevModel.backFacadeLength ?? newW;
+      let newLeftD = isDirectMode
+        ? fpSync.effectiveDepth
+        : sanitizedParams.leftFacadeLength !== undefined
+        ? sanitizedParams.leftFacadeLength
+        : prevModel.leftFacadeLength ?? newD;
 
       const nextModel: BuildingModelParams = {
         ...prevModel,
@@ -464,6 +493,11 @@ export default function App() {
         elevatorCount: sanitizedParams.elevatorCount !== undefined ? sanitizedParams.elevatorCount : prevModel.elevatorCount,
         flatsPerFloor: sanitizedParams.flatsPerFloor || Math.max(1, Math.round(totalFlats / Math.max(1, resFloors))),
         hasGroundFloorShop: !!sanitizedParams.hasGroundFloorShop,
+        hasBasementShop: sanitizedParams.hasBasementShop !== undefined ? sanitizedParams.hasBasementShop : prevModel.hasBasementShop,
+        basementPurpose: sanitizedParams.basementPurpose !== undefined ? sanitizedParams.basementPurpose : prevModel.basementPurpose,
+        basementShopCount: sanitizedParams.basementShopCount !== undefined ? sanitizedParams.basementShopCount : prevModel.basementShopCount,
+        shopLocation: sanitizedParams.shopLocation !== undefined ? sanitizedParams.shopLocation : prevModel.shopLocation,
+        basementConfig: sanitizedParams.basementConfig !== undefined ? sanitizedParams.basementConfig : prevModel.basementConfig,
         shopCount: sanitizedParams.shopCount || 1,
         shopHeight: sanitizedParams.shopHeight || 3.8,
         contractorFlatIds: sanitizedParams.contractorFlatIds,
@@ -475,6 +509,7 @@ export default function App() {
         hasCantilever: sanitizedParams.hasCantilever,
         cantileverDepth: sanitizedParams.cantileverDepth,
         cantileverDirection: sanitizedParams.cantileverDirection,
+        facadeCantilevers: sanitizedParams.facadeCantilevers || prevModel.facadeCantilevers,
         roofType: sanitizedParams.roofType || prevModel.roofType,
         wallColor: sanitizedParams.wallColor || prevModel.wallColor,
         roofColor: sanitizedParams.roofColor || prevModel.roofColor,
@@ -1573,7 +1608,7 @@ const handleQuickSave = () => {
             </div>
           )}
 
-          <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 w-full max-w-full overflow-x-hidden min-w-0">
+          <main className={`flex-1 w-full ${activeTab === 'kurulum' ? 'max-w-[1600px]' : 'max-w-7xl'} mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 overflow-x-hidden min-w-0`}>
             {/* Proje Yaşam Döngüsü & Hiyerarşik Faz Çubuğu (Yalnızca Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
             {tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
               <ProjectLifecycleBar
@@ -1676,11 +1711,16 @@ const handleQuickSave = () => {
           {activeTab === 'model' && (
             <BuildingModelTab
               params={buildingModelParams}
+              projectParams={params}
+              projectName={params.projectName}
+              projectAddress={params.projectAddress}
+              landArea={params.landArea}
               onUpdateParams={updateBuildingModelParams}
               onSyncWithCalculator={handleSyncModelToCalculator}
               onNavigateToSetup={() => setActiveTab('kurulum')}
               onNavigateToCost={() => setActiveTab('maliyet')}
               onNavigateToOwners={() => setActiveTab('malikler')}
+              onNavigateToOffer={() => setActiveTab('teklif')}
               theme={theme}
             />
           )}
@@ -1701,6 +1741,9 @@ const handleQuickSave = () => {
               results={results}
               onChangeParams={updateCalculatorParams}
               onCalculate={handleCalculate}
+              onNavigateToUnits={() => setActiveTab('kurulum')}
+              onNavigateToCost={() => setActiveTab('maliyet')}
+              onNavigateToOffer={() => setActiveTab('teklif')}
               theme={theme}
             />
           )}
@@ -1712,6 +1755,8 @@ const handleQuickSave = () => {
               onUpdateParam={(key, val) => updateCalculatorParams({ [key]: val })}
               onUpdateAllParams={updateCalculatorParams}
               onNavigateToSurec={() => setActiveTab('surec')}
+              onSaveOffer={handleCalculate}
+              onNavigateToContract={() => setActiveTab('sozlesme')}
               theme={theme}
             />
           )}

@@ -29,7 +29,10 @@ interface PhotorealisticRenderModalProps {
   isOpen: boolean;
   onClose: () => void;
   params: BuildingModelParams;
+  projectName?: string;
+  projectAddress?: string;
   getCanvasDataUrl?: () => string | null;
+  onAttachToOffer?: (dataUrl: string) => void;
   onApplyFacadeStyle?: (style: FacadeStyleType) => void;
   onApplyLightingPreset?: (preset: LightingPresetType) => void;
   currentLightingPreset?: LightingPresetType;
@@ -40,7 +43,10 @@ export const PhotorealisticRenderModal: React.FC<PhotorealisticRenderModalProps>
   isOpen,
   onClose,
   params,
+  projectName,
+  projectAddress,
   getCanvasDataUrl,
+  onAttachToOffer,
   onApplyFacadeStyle,
   onApplyLightingPreset,
   currentLightingPreset = 'sunset',
@@ -191,8 +197,12 @@ export const PhotorealisticRenderModal: React.FC<PhotorealisticRenderModalProps>
 
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${fontSizeMain}px "Plus Jakarta Sans", system-ui, sans-serif`;
+        const antetTitle =
+          (projectName && projectName.trim()) ||
+          (projectAddress && projectAddress.trim()) ||
+          `${profile?.companyName || 'AB YAPI'} | ${params.floorCount} KATLI MİMARİ PROJE`;
         ctx.fillText(
-          `AB YAPI | ${params.floorCount} KATLI MİMARİ PROJE`,
+          antetTitle.slice(0, 42),
           textLeft,
           titleY + titleH * 0.32
         );
@@ -754,9 +764,8 @@ export const PhotorealisticRenderModal: React.FC<PhotorealisticRenderModalProps>
                     alt="Fotogerçekçi 3D Render"
                     className="w-full h-full object-contain max-h-[520px] transition-all"
                   />
-                  {/* Floating Metadata Overlay */}
-                  <div className="absolute top-3 left-3 bg-slate-900/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/80 text-[10px] font-mono text-slate-300 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <div className="absolute top-3 left-3 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-700/80 text-[10px] font-mono text-slate-300 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
                     <span>
                       {renderEngine === 'ai_archviz' ? 'AI ArchViz Render' : '4K Ultra-HD Stüdyo'}
                     </span>
@@ -820,7 +829,20 @@ export const PhotorealisticRenderModal: React.FC<PhotorealisticRenderModalProps>
                 </button>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {onAttachToOffer && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeImageUrl) onAttachToOffer(activeImageUrl);
+                    }}
+                    disabled={!activeImageUrl}
+                    className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-900/30 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Teklife Görsel Ekle</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleDownload}

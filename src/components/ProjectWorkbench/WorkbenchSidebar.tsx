@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ProjectParams, CalculationResult, AppTheme } from '../../types';
+import { evaluateWorkbenchProject, StageStatus, WorkbenchEvaluation } from './WorkbenchLiveSummary';
 import {
   Home,
   Building,
@@ -22,10 +23,9 @@ interface WorkbenchSidebarProps {
   params: ProjectParams;
   results: CalculationResult;
   isProjectSaved?: boolean;
+  evaluation?: WorkbenchEvaluation;
   theme?: AppTheme;
 }
-
-type StageStatus = 'completed' | 'in_progress' | 'needs_check' | 'incomplete';
 
 export const WorkbenchSidebar: React.FC<WorkbenchSidebarProps> = ({
   activeWorkbenchStage,
@@ -33,204 +33,88 @@ export const WorkbenchSidebar: React.FC<WorkbenchSidebarProps> = ({
   params,
   results,
   isProjectSaved = false,
+  evaluation: propEvaluation,
   theme = 'light',
 }) => {
   const isGray = theme === 'gray';
   const bgCard = isGray ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200/90 shadow-xs';
   const textTitle = isGray ? 'text-gray-100' : 'text-slate-900';
 
-  const hasName = Boolean(params.projectName && params.projectName.trim().length > 0);
-  const hasAddress = Boolean(params.projectAddress && params.projectAddress.trim().length > 0);
-  const hasLandArea = Boolean(params.landArea && params.landArea > 0);
-  const hasBaseArea = Boolean(params.baseBuildArea && params.baseBuildArea > 0);
-  const hasExistingBuildings = Boolean(params.existingBuildings && params.existingBuildings.length > 0);
-  const hasPolygon = Boolean(params.polygonPoints && params.polygonPoints.length >= 3);
-  const hasFloors = Boolean(params.floorCount && params.floorCount > 0 && params.flatsPerFloor && params.flatsPerFloor > 0);
-  const hasFlats = Boolean(params.flats && params.flats.length > 0 && results.flatCount > 0);
-  const hasCosts = Boolean(results.totalArea > 0 && results.grandTotal > 0);
-  const taksRatio = hasLandArea && hasBaseArea ? params.baseBuildArea / (params.landArea || 1) : 0;
-  const taksExceeds = taksRatio > 0.65;
-
-  const getStage1Status = (): StageStatus => {
-    if (hasName && hasAddress && hasLandArea) return 'completed';
-    if (hasName || hasAddress || hasLandArea) return 'in_progress';
-    return 'incomplete';
-  };
-
-  const getStage2Status = (): StageStatus => {
-    if (taksExceeds) return 'needs_check';
-    if (hasBaseArea && (hasPolygon || hasExistingBuildings)) return 'completed';
-    if (hasBaseArea || hasPolygon || hasExistingBuildings) return 'in_progress';
-    return 'incomplete';
-  };
-
-  const getStage3Status = (): StageStatus => {
-    if (hasBaseArea && hasFloors) return 'completed';
-    if (hasFloors || hasBaseArea) return 'in_progress';
-    return 'incomplete';
-  };
-
-  const getStage4Status = (): StageStatus => {
-    if (!hasFlats) return 'incomplete';
-    if (params.flats.length !== results.flatCount) return 'needs_check';
-    return 'completed';
-  };
-
-  const getStage5Status = (): StageStatus => {
-    if (!hasCosts) return 'incomplete';
-    if (!hasLandArea) return 'needs_check';
-    return 'completed';
-  };
-
-  const getStage6Status = (): StageStatus => {
-    if (hasBaseArea && hasFloors && (hasPolygon || (params.facadeWidth && params.facadeDepth))) return 'completed';
-    if (hasBaseArea && hasFloors) return 'in_progress';
-    return 'incomplete';
-  };
-
-  const getStage7Status = (): StageStatus => {
-    if (params.projectModel === 'contractorShare') {
-      const assigned = (params.contractorFlatIds || []).length;
-      if (assigned > 0 || (params.contractorShareRate || 0) > 0) return 'completed';
-      return 'needs_check';
-    }
-    if (hasFlats && params.flats.some((f) => Boolean(f.name && f.name.trim()))) return 'completed';
-    if (hasFlats) return 'in_progress';
-    return 'incomplete';
-  };
-
-  const getStage8Status = (): StageStatus => {
-    if (hasName && hasAddress && hasCosts && hasFlats) return 'completed';
-    if (hasCosts && hasFlats) return 'in_progress';
-    return 'incomplete';
-  };
-
-  const getStage9Status = (): StageStatus => {
-    if (isProjectSaved && hasCosts) return 'completed';
-    if (hasCosts) return 'in_progress';
-    return 'incomplete';
-  };
+  const evaluation = useMemo(
+    () => propEvaluation || evaluateWorkbenchProject(params, results, isProjectSaved),
+    [propEvaluation, params, results, isProjectSaved]
+  );
 
   const stages: Array<{
     id: number;
     title: string;
     desc: string;
     icon: React.ComponentType<{ className?: string }>;
-    status: StageStatus;
   }> = [
-    {
-      id: 1,
-      title: '1. Müşteri & Proje Bilgileri',
-      desc: 'Proje adı, arsa alanı, adres',
-      icon: Home,
-      status: getStage1Status(),
-    },
-    {
-      id: 2,
-      title: '2. Arsa & Mevcut Yapı Analizi',
-      desc: 'Parsel geometrisi, eski binalar',
-      icon: Building,
-      status: getStage2Status(),
-    },
-    {
-      id: 3,
-      title: '3. Yeni Bina Tasarımı',
-      desc: 'Kat adedi, bodrum, çıkmalar',
-      icon: Layers,
-      status: getStage3Status(),
-    },
-    {
-      id: 4,
-      title: '4. Kat & Bağımsız Bölüm',
-      desc: 'Daire tipleri, metrekareler',
-      icon: LayoutGrid,
-      status: getStage4Status(),
-    },
-    {
-      id: 5,
-      title: '5. Metraj, Maliyet & Fizibilite',
-      desc: 'İnşaat maliyeti ve metraj',
-      icon: DollarSign,
-      status: getStage5Status(),
-    },
-    {
-      id: 6,
-      title: '6. 3D Bina Modeli & Cephe',
-      desc: '3D önizleme ve dış cephe',
-      icon: Box,
-      status: getStage6Status(),
-    },
-    {
-      id: 7,
-      title: '7. Kat Karşılığı & Malik Payı',
-      desc: 'Malik oranları ve paylaşım',
-      icon: Users,
-      status: getStage7Status(),
-    },
-    {
-      id: 8,
-      title: '8. Profesyonel Müşteri Teklifi',
-      desc: 'Teklif özeti ve çıktı',
-      icon: FileText,
-      status: getStage8Status(),
-    },
-    {
-      id: 9,
-      title: '9. Proje Kaydı & Şantiye',
-      desc: 'Kayıt ve şantiye takibi',
-      icon: Hammer,
-      status: getStage9Status(),
-    },
+    { id: 1, title: '1. Müşteri & Proje', desc: 'Ad, adres, arsa, model', icon: Home },
+    { id: 2, title: '2. Arsa & Mevcut Yapı', desc: 'Parsel ve eski binalar', icon: Building },
+    { id: 3, title: '3. Yeni Bina Tasarımı', desc: 'Kat, bodrum, dükkan, çatı', icon: Layers },
+    { id: 4, title: '4. Kat & Daire Matrisi', desc: 'Daire dağılımı, metraj', icon: LayoutGrid },
+    { id: 5, title: '5. Metraj & Maliyet', desc: 'Bütçe ve kalem analizi', icon: DollarSign },
+    { id: 6, title: '6. 3D Bina & Cephe', desc: 'Model ve dış görünüm', icon: Box },
+    { id: 7, title: '7. Malik Paylaşımı', desc: 'Pay oranları ve dağıtım', icon: Users },
+    { id: 8, title: '8. Müşteri Teklifi', desc: 'Teklif hazırlama ve PDF', icon: FileText },
+    { id: 9, title: '9. Kayıt & Şantiye', desc: 'Arşiv ve şantiye takibi', icon: Hammer },
   ];
-
-  const completedCount = stages.filter((s) => s.status === 'completed').length;
 
   const statusMeta: Record<StageStatus, { label: string }> = {
     completed: { label: 'Tamamlandı' },
     in_progress: { label: 'Devam ediyor' },
     needs_check: { label: 'Kontrol gerekli' },
-    incomplete: { label: 'Tamamlanmadı' },
+    incomplete: { label: 'Eksik' },
   };
 
   return (
-    <div className={`${bgCard} rounded-2xl p-4 border shadow-xs space-y-2`}>
-      <div className="px-3 py-2 border-b border-slate-100 mb-2 flex items-center justify-between gap-2">
+    <div className={`${bgCard} rounded-2xl p-3 border shadow-xs space-y-2`}>
+      <div className="px-2 py-1.5 border-b border-slate-100 flex items-center justify-between gap-2">
         <div>
-          <h3 className={`text-xs font-black uppercase tracking-wider ${textTitle}`}>
-            Proje Aşamaları
+          <h3 className={`text-[11px] font-black uppercase tracking-wider ${textTitle}`}>
+            Proje Akışı
           </h3>
-          <p className="text-[10px] text-slate-500 mt-0.5">
-            9 Aşamalı Çalışma Masası
+          <p className="text-[10px] text-slate-500">
+            Zorunlu: <strong className="text-indigo-700 font-mono">%{evaluation.requiredPercent}</strong>
           </p>
         </div>
-        <span className="text-[10px] font-black font-mono px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
-          {completedCount}/9
+        <span className="text-[10px] font-black font-mono px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+          {evaluation.completedStageCount}/9
         </span>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         {stages.map((stage) => {
           const Icon = stage.icon;
+          const stageEval = evaluation.stages[stage.id] || {
+            id: stage.id,
+            status: 'incomplete' as StageStatus,
+            isOptional: false,
+            issueCount: 0,
+          };
+          const status = stageEval.status;
           const isActive = activeWorkbenchStage === stage.id;
-          const isCompleted = stage.status === 'completed';
-          const isCheck = stage.status === 'needs_check';
+          const isCompleted = status === 'completed';
+          const isCheck = status === 'needs_check';
 
           return (
             <button
               key={stage.id}
               type="button"
               onClick={() => onSelectWorkbenchStage(stage.id)}
-              className={`w-full text-left p-2.5 rounded-xl transition-all flex items-center justify-between gap-2 cursor-pointer ${
+              className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center justify-between gap-2 cursor-pointer ${
                 isActive
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
                   : isCompleted
-                  ? 'bg-slate-50/80 hover:bg-slate-100/80 text-slate-800 border border-slate-200/60'
+                  ? 'bg-slate-50/80 hover:bg-slate-100 text-slate-800 border border-slate-200/60'
                   : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/40'
               }`}
             >
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                     isActive
                       ? 'bg-white/20 text-white'
                       : isCompleted
@@ -240,34 +124,42 @@ export const WorkbenchSidebar: React.FC<WorkbenchSidebarProps> = ({
                       : 'bg-slate-100 text-slate-500'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <div className={`text-xs font-bold truncate ${isActive ? 'text-white' : textTitle}`}>
+                  <div className={`text-xs font-bold truncate leading-tight ${isActive ? 'text-white' : textTitle}`}>
                     {stage.title}
                   </div>
                   <div
-                    className={`text-[10px] truncate ${
+                    className={`text-[10px] truncate leading-tight mt-0.5 ${
                       isActive ? 'text-indigo-100' : 'text-slate-400'
                     }`}
                   >
-                    {stage.desc}
+                    {stageEval.isOptional && !isCompleted && !isCheck
+                      ? `${stage.desc} (İsteğe bağlı)`
+                      : stage.desc}
                   </div>
                 </div>
               </div>
 
-              <div className="shrink-0 flex items-center gap-1" title={statusMeta[stage.status].label}>
+              <div className="shrink-0 flex items-center gap-1" title={statusMeta[status].label}>
                 {isCompleted ? (
                   <CheckCircle2
-                    className={`w-4 h-4 ${isActive ? 'text-white' : 'text-emerald-500'}`}
+                    className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-emerald-500'}`}
                   />
                 ) : isCheck ? (
                   <AlertCircle
-                    className={`w-4 h-4 ${isActive ? 'text-amber-200' : 'text-rose-500'}`}
+                    className={`w-3.5 h-3.5 ${isActive ? 'text-amber-200' : 'text-rose-500'}`}
                   />
                 ) : (
                   <Clock
-                    className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-200' : 'text-amber-500'}`}
+                    className={`w-3.5 h-3.5 ${
+                      isActive
+                        ? 'text-indigo-200'
+                        : stageEval.isOptional
+                        ? 'text-slate-300'
+                        : 'text-amber-500'
+                    }`}
                   />
                 )}
                 <ChevronRight className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />

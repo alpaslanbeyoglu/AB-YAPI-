@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { USDZExporter } from 'three/examples/jsm/exporters/USDZExporter.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import {
@@ -33,9 +34,10 @@ import {
   Sunset,
   Sunrise,
   Moon,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { BuildingModelParams, CameraPresetType, FacadeStyleType, LightingPresetType } from '../types';
-import { generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon } from '../utils/footprintUtils';
+import { calculateFootprint, generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon } from '../utils/footprintUtils';
 import { WALL_COLOR_PRESETS, ROOF_COLOR_PRESETS, ACCENT_COLOR_PRESETS, FRAME_COLOR_PRESETS } from '../utils/buildingModelUtils';
 import { PhotorealisticRenderModal } from './PhotorealisticRenderModal';
 
@@ -522,6 +524,11 @@ interface ThreeBuildingViewProps {
   isSolarHeatmap?: boolean;
   forcedCameraPreset?: CameraPresetType;
   hideControls?: boolean;
+  presentationMode?: boolean;
+  projectName?: string;
+  projectAddress?: string;
+  landArea?: number;
+  onAttachToOffer?: (dataUrl: string) => void;
   onUpdateColors?: (colors: { wallColor?: string; roofColor?: string; accentColor?: string; frameColor?: string; slabColor?: string }) => void;
   onUpdateFacadeStyle?: (style: FacadeStyleType) => void;
   onUpdateSunTimeHour?: (hour: number) => void;
@@ -542,6 +549,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   isSolarHeatmap = false,
   forcedCameraPreset,
   hideControls = false,
+  presentationMode = false,
+  projectName,
+  projectAddress,
+  landArea,
+  onAttachToOffer,
   onUpdateColors,
   onUpdateFacadeStyle,
   onUpdateSunTimeHour,
@@ -557,11 +569,24 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const buildingGroupRef = useRef<THREE.Group | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const hemiLightRef = useRef<THREE.HemisphereLight | null>(null);
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
   const sunSphereMeshRef = useRef<THREE.Mesh | null>(null);
   const compassGroupRef = useRef<THREE.Group | null>(null);
   const roadsGroupRef = useRef<THREE.Group | null>(null);
   const skyMatRef = useRef<THREE.MeshBasicMaterial | null>(null);
+  const pmremGeneratorRef = useRef<THREE.PMREMGenerator | null>(null);
+  const envRenderTargetRef = useRef<THREE.WebGLRenderTarget | null>(null);
+  const isSoftwareGlRef = useRef<boolean>(false);
+  const cameraAnimRef = useRef<{
+    active: boolean;
+    pos: THREE.Vector3;
+    target: THREE.Vector3;
+  }>({
+    active: false,
+    pos: new THREE.Vector3(32, 24, 38),
+    target: new THREE.Vector3(0, 7, 0),
+  });
 
   // View settings
   const [explodeRatio, setExplodeRatio] = useState<number>(0);
@@ -569,13 +594,14 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [showDebugOverlay, setShowDebugOverlay] = useState<boolean>(params.showDebugOverlay3D || false);
   const [selectedFloor, setSelectedFloor] = useState<number | 'all' | 'basement'>('all');
   const [cameraPreset, setCameraPreset] = useState<CameraPresetType>(forcedCameraPreset || 'iso');
-  const [showStreetNames, setShowStreetNames] = useState<boolean>(true); // Show road names by default in 3D
+  const [lightingMode, setLightingMode] = useState<'day' | 'sunset' | 'night'>('day');
+  const [showStreetNames, setShowStreetNames] = useState<boolean>(true);
   const [buildingColor, setBuildingColor] = useState<string>('');
   const [isExportingUSDZ, setIsExportingUSDZ] = useState<boolean>(false);
   const [isExportingGLTF, setIsExportingGLTF] = useState<boolean>(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
   const [isColorQuickPickerOpen, setIsColorQuickPickerOpen] = useState<boolean>(false);
-  const [isAutoRotate, setIsAutoRotate] = useState<boolean>(false); // Auto-rotation OFF by default
+  const [isAutoRotate, setIsAutoRotate] = useState<boolean>(false);
   const [isPhotorealisticModalOpen, setIsPhotorealisticModalOpen] = useState<boolean>(false);
   const [activeLightingPreset, setActiveLightingPreset] = useState<LightingPresetType>('sunset');
 
@@ -583,6 +609,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
   const isGray = theme === 'gray';
   const isLight = !isGray;
+
+  const isNightScene = (!solarMode && lightingMode === 'night') || (solarMode && sunAltitude <= 0);
+  const effectiveWireframe = !presentationMode && isWireframe;
+  const effectiveDebugOverlay = !presentationMode && showDebugOverlay;
 
   // Helper to grab live high-res canvas image for renders
   const getCanvasDataUrl = useCallback((): string | null => {
@@ -594,6 +624,11 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   // Lighting preset switcher
   const handleApplyLightingPreset = useCallback((preset: LightingPresetType) => {
     setActiveLightingPreset(preset);
+    if (!solarMode) {
+      if (preset === 'sunset' || preset === 'sunrise') setLightingMode('sunset');
+      else if (preset === 'blue_hour') setLightingMode('night');
+      else setLightingMode('day');
+    }
     if (preset === 'sunset') {
       onUpdateSunTimeHour?.(19.2);
     } else if (preset === 'midday') {
@@ -603,7 +638,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     } else if (preset === 'blue_hour') {
       onUpdateSunTimeHour?.(20.8);
     }
-  }, [onUpdateSunTimeHour]);
+  }, [onUpdateSunTimeHour, solarMode]);
 
   // Helper to parse hex colors
   const parseHexColor = (hex?: string, fallback: number = 0xf1f5f9): number => {
@@ -646,8 +681,18 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       column: 0x475569,
       balcony: parseHexColor(params.accentColor, 0x18181b),
     };
-    let W = safeNum(params?.facadeWidth, 14.0, 1.0);
-    let D = safeNum(params?.facadeDepth, 18.0, 1.0);
+    const computedFootprint = calculateFootprint(
+      params?.footprintInputMode || 'directArea',
+      params || {}
+    );
+    const isDirectFootprint =
+      !params?.footprintInputMode || params.footprintInputMode === 'directArea';
+    let W = isDirectFootprint
+      ? safeNum(computedFootprint.effectiveWidth, 14.0, 1.0)
+      : safeNum(params?.facadeWidth, 14.0, 1.0);
+    let D = isDirectFootprint
+      ? safeNum(computedFootprint.effectiveDepth, 18.0, 1.0)
+      : safeNum(params?.facadeDepth, 18.0, 1.0);
 
     const isPolygonDraw = params.footprintInputMode === 'polygonDraw' && !!params.polygonPoints && params.polygonPoints.length >= 3;
     const isLShapeMode = params.footprintInputMode === 'lShape';
@@ -909,6 +954,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(2.0, 2.0);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = Math.min(8, rendererRef.current?.capabilities.getMaxAnisotropy() || 1);
       return tex;
     };
 
@@ -971,6 +1018,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(3.0, 3.0);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = Math.min(8, rendererRef.current?.capabilities.getMaxAnisotropy() || 1);
       return tex;
     };
 
@@ -1021,7 +1070,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       color: colors.slab,
       roughness: slabRoughness,
       metalness: slabMetalness,
-      wireframe: isWireframe,
+      wireframe: effectiveWireframe,
       side: THREE.DoubleSide,
     });
 
@@ -1031,7 +1080,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       roughness: wallRoughness,
       metalness: wallMetalness,
       map: wallTexture,
-      wireframe: isWireframe,
+      wireframe: effectiveWireframe,
       transparent: isXRay,
       opacity: isXRay ? 0.18 : 1.0,
       depthWrite: !isXRay,
@@ -1042,7 +1091,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       roughness: roofRoughness,
       metalness: roofMetalness,
       map: roofTexture,
-      wireframe: isWireframe,
+      wireframe: effectiveWireframe,
       side: THREE.DoubleSide,
     });
 
@@ -1050,7 +1099,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       color: colors.woodAccent,
       roughness: woodRoughness,
       metalness: woodMetalness,
-      wireframe: isWireframe,
+      wireframe: effectiveWireframe,
       transparent: isXRay,
       opacity: isXRay ? 0.22 : 1.0,
       depthWrite: !isXRay,
@@ -1060,23 +1109,25 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       color: colors.column,
       roughness: slabRoughness,
       metalness: slabMetalness,
-      wireframe: isWireframe,
+      wireframe: effectiveWireframe,
       transparent: isXRay,
       opacity: isXRay ? 0.45 : 1.0,
     });
 
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xbae6fd,
+      color: isNightScene ? 0xfef3c7 : 0xbae6fd,
+      emissive: isNightScene ? 0xf59e0b : 0x000000,
+      emissiveIntensity: isNightScene ? 0.32 : 0,
       roughness: 0.05,
       metalness: 0.1,
-      transmission: 0.95,
+      transmission: isNightScene ? 0.2 : 0.9,
       thickness: 0.5,
       transparent: true,
-      opacity: isXRay ? 0.25 : 0.6,
+      opacity: isXRay ? 0.25 : isNightScene ? 0.78 : 0.6,
       reflectivity: 0.9,
       clearcoat: 1.0,
       clearcoatRoughness: 0.03,
-      wireframe: isWireframe,
+      wireframe: effectiveWireframe,
     });
 
     const frameMaterial = new THREE.MeshStandardMaterial({
@@ -1095,7 +1146,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       transparent: true,
       opacity: isXRay ? 0.3 : 0.65,
       clearcoat: 1.0,
-      wireframe: isWireframe,
+      wireframe: effectiveWireframe,
     });
 
     const antraciteAluminumMat = new THREE.MeshStandardMaterial({
@@ -1114,7 +1165,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       color: isLight ? 0xe2e8f0 : 0xd4d4d8,
       roughness: 0.85,
       metalness: 0.05,
-      wireframe: isWireframe,
+      wireframe: effectiveWireframe,
     });
 
     const interiorDoorFrameMat = new THREE.MeshStandardMaterial({
@@ -2999,7 +3050,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         const bsMat = new THREE.MeshStandardMaterial({
           color: 0x52525b,
           roughness: 0.9,
-          wireframe: isWireframe,
+          wireframe: effectiveWireframe,
         });
 
         if (isCustomPoly && activePolyPts) {
@@ -3455,7 +3506,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     // -------------------------------------------------------------------------
     // HATA AYIKLAMA KATMANI (DEBUG OVERLAY) - Geometrik Sınırlar & Kesişim Noktaları
     // -------------------------------------------------------------------------
-    if (showDebugOverlay) {
+    if (effectiveDebugOverlay) {
       const debugGroup = new THREE.Group();
 
       let bbMinX = -W / 2;
@@ -3797,6 +3848,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             ctx.fillText(`GENİŞLİK: ${roadWidth.toFixed(1)}m`, 256, 128);
 
             const roadTex = new THREE.CanvasTexture(canvas);
+            roadTex.colorSpace = THREE.SRGBColorSpace;
+            roadTex.anisotropy = Math.min(8, rendererRef.current?.capabilities.getMaxAnisotropy() || 1);
             roadTex.needsUpdate = true;
 
             // Flat on road asphalt
@@ -3807,11 +3860,15 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             labelMesh.rotation.x = -Math.PI / 2;
             labelMesh.rotation.z = rotY;
             labelMesh.position.set(posX, 0.08, posZ);
+            labelMesh.userData.isRoadLabel = true;
+            labelMesh.visible = showStreetNames;
             roadsGroup.add(labelMesh);
 
             // Upright 3D Signpost Billboard on sidewalk
             const signGroup = new THREE.Group();
             signGroup.position.set(posX - nx_sw * (roadWidth / 2 + 1.2), 0, posZ - nz_sw * (roadWidth / 2 + 1.2));
+            signGroup.userData.isRoadLabel = true;
+            signGroup.visible = showStreetNames;
 
             const poleMesh = new THREE.Mesh(
               safeCylinder(0.06, 0.06, 2.8, 8),
@@ -3842,6 +3899,42 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       }
     }
 
+    // Schematic Parcel / Land Boundary Ring (when landArea is provided)
+    if (landArea && landArea > 0 && !isXRay) {
+      const footprintApprox = Math.max(1, W * D);
+      const scaleFactor = Math.sqrt(landArea / footprintApprox);
+      const parcelW = Math.max(2, W * scaleFactor);
+      const parcelD = Math.max(2, D * scaleFactor);
+      const exceedsLand = footprintApprox > landArea * 1.01;
+
+      const parcelEdges = new THREE.EdgesGeometry(safeBox(parcelW, 0.08, parcelD));
+      const parcelLine = new THREE.LineSegments(
+        parcelEdges,
+        new THREE.LineBasicMaterial({
+          color: exceedsLand ? 0xef4444 : 0x6366f1,
+          transparent: true,
+          opacity: exceedsLand ? 0.85 : 0.55,
+        })
+      );
+      parcelLine.position.set(0, 0.04, 0);
+      buildingGroup.add(parcelLine);
+
+      const parcelPad = new THREE.Mesh(
+        new THREE.PlaneGeometry(parcelW, parcelD),
+        new THREE.MeshStandardMaterial({
+          color: exceedsLand ? 0xfee2e2 : 0xe2e8f0,
+          roughness: 0.95,
+          metalness: 0.0,
+          transparent: true,
+          opacity: exceedsLand ? 0.28 : 0.22,
+        })
+      );
+      parcelPad.rotation.x = -Math.PI / 2;
+      parcelPad.position.set(0, -0.02, 0);
+      parcelPad.receiveShadow = true;
+      buildingGroup.add(parcelPad);
+    }
+
     // Center building at origin
     buildingGroup.position.set(0, 0, 0);
 
@@ -3855,14 +3948,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
     scene.add(buildingGroup);
 
-    // Adjust camera to frame the building properly
-    if (cameraRef.current && controlsRef.current) {
-      const maxDim = Math.max(W, D, N * H);
-      const camDist = maxDim * 1.7;
-      controlsRef.current.target.set(0, (N * H) / 2, 0);
+    // Adjust orbit target height when building changes
+    if (cameraRef.current && controlsRef.current && !cameraAnimRef.current.active) {
+      const focusY = selectedFloor === 'basement' ? -1.5 : (N * H) / 2;
+      controlsRef.current.target.set(0, focusY, 0);
       controlsRef.current.update();
     }
-  }, [params, isWireframe, showDebugOverlay, selectedFloor, explodeRatio, isLight, buildingColor]);
+  }, [params, effectiveWireframe, effectiveDebugOverlay, selectedFloor, explodeRatio, isLight, buildingColor, isNightScene, landArea, showStreetNames]);
 
   // Initialize Three.js Canvas & Animation Loop
   useEffect(() => {
@@ -3903,13 +3995,30 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       logarithmicDepthBuffer: true,
       powerPreference: 'high-performance'
     });
+    const gl = renderer.getContext();
+    const debugInfo = gl?.getExtension('WEBGL_debug_renderer_info');
+    const glRenderer = debugInfo ? String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '') : '';
+    const isSoftwareGl = /SwiftShader|llvmpipe|Software|Mesa/i.test(glRenderer);
+    isSoftwareGlRef.current = isSoftwareGl;
+
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isSoftwareGl ? 1 : 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = isLight ? 1.1 : 1.3;
+    renderer.toneMappingExposure = isLight ? 1.1 : 1.25;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    // Studio IBL Environment for realistic glass, aluminum & facade reflections
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
+    const roomEnv = new RoomEnvironment();
+    const envRenderTarget = pmremGenerator.fromScene(roomEnv, 0.04);
+    roomEnv.dispose();
+    scene.environment = envRenderTarget.texture;
+    scene.environmentIntensity = 0.82;
+    pmremGeneratorRef.current = pmremGenerator;
+    envRenderTargetRef.current = envRenderTarget;
 
     rendererRef.current = renderer;
     container.innerHTML = '';
@@ -3919,20 +4028,25 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    controls.dampingFactor = 0.06;
     controls.maxPolarAngle = Math.PI / 2 - 0.05; // Stay slightly above ground
     controls.minDistance = 8;
     controls.maxDistance = 350;
     controls.autoRotate = isAutoRotate;
     controls.autoRotateSpeed = 0.65;
+    const cancelCameraAnim = () => {
+      cameraAnimRef.current.active = false;
+    };
+    controls.addEventListener('start', cancelCameraAnim);
 
     // 5. Lighting
     // Cinematic Hemisphere Light (Sky illumination + Ground bounce)
     const hemiLight = new THREE.HemisphereLight(
       isLight ? 0xe0f2fe : 0xd1d5db, // Sky color
       isLight ? 0x166534 : 0x334155, // Ground/Grass bounce color
-      isLight ? 0.8 : 0.6
+      isLight ? 0.78 : 0.58
     );
+    hemiLightRef.current = hemiLight;
     scene.add(hemiLight);
 
     const ambientLight = new THREE.AmbientLight(
@@ -3944,12 +4058,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
     const sunLight = new THREE.DirectionalLight(
       isLight ? 0xfffaed : 0xffffff,
-      isLight ? 2.2 : 1.8
+      isLight ? 2.1 : 1.7
     );
     sunLight.position.set(35, 60, 45);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
+    const shadowSize = isSoftwareGl ? 1024 : 2048;
+    sunLight.shadow.mapSize.width = shadowSize;
+    sunLight.shadow.mapSize.height = shadowSize;
     sunLight.shadow.camera.near = 0.5;
     sunLight.shadow.camera.far = 250;
     const d = 35;
@@ -3961,7 +4076,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     sunLightRef.current = sunLight;
     scene.add(sunLight);
 
-    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.4);
+    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.35);
     fillLight.position.set(-30, 20, -30);
     scene.add(fillLight);
 
@@ -3994,6 +4109,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(12, 12);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy() || 1);
       return tex;
     };
 
@@ -4093,9 +4210,34 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     resizeObserver.observe(container);
     window.addEventListener('resize', handleResize);
 
-    // Animation Loop
+    // Animation Loop with smooth camera damping
+    let prevTime = performance.now();
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
+      const now = performance.now();
+      const dt = Math.min(0.05, Math.max(0.001, (now - prevTime) / 1000));
+      prevTime = now;
+
+      if (cameraAnimRef.current.active && cameraRef.current && controlsRef.current) {
+        const cam = cameraRef.current;
+        const ctrl = controlsRef.current;
+        const targetPos = cameraAnimRef.current.pos;
+        const targetLook = cameraAnimRef.current.target;
+
+        cam.position.x = THREE.MathUtils.damp(cam.position.x, targetPos.x, 8, dt);
+        cam.position.y = THREE.MathUtils.damp(cam.position.y, targetPos.y, 8, dt);
+        cam.position.z = THREE.MathUtils.damp(cam.position.z, targetPos.z, 8, dt);
+        ctrl.target.x = THREE.MathUtils.damp(ctrl.target.x, targetLook.x, 8, dt);
+        ctrl.target.y = THREE.MathUtils.damp(ctrl.target.y, targetLook.y, 8, dt);
+        ctrl.target.z = THREE.MathUtils.damp(ctrl.target.z, targetLook.z, 8, dt);
+
+        if (cam.position.distanceTo(targetPos) < 0.08 && ctrl.target.distanceTo(targetLook) < 0.08) {
+          cam.position.copy(targetPos);
+          ctrl.target.copy(targetLook);
+          cameraAnimRef.current.active = false;
+        }
+      }
+
       if (controlsRef.current) controlsRef.current.update();
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
@@ -4111,12 +4253,23 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
+      controls.removeEventListener('start', cancelCameraAnim);
 
       // Dispose OrbitControls
       if (controlsRef.current) {
         controlsRef.current.dispose();
         controlsRef.current = null;
       }
+
+      if (envRenderTargetRef.current) {
+        envRenderTargetRef.current.dispose();
+        envRenderTargetRef.current = null;
+      }
+      if (pmremGeneratorRef.current) {
+        pmremGeneratorRef.current.dispose();
+        pmremGeneratorRef.current = null;
+      }
+      hemiLightRef.current = null;
 
       // Comprehensive Three.js Memory Cleanup
       if (sceneRef.current) {
@@ -4173,6 +4326,16 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     buildScene();
   }, [buildScene]);
 
+  // Lightweight toggle for road labels without rebuilding building geometry
+  useEffect(() => {
+    if (!roadsGroupRef.current) return;
+    roadsGroupRef.current.children.forEach((child) => {
+      if (child.userData?.isRoadLabel) {
+        child.visible = showStreetNames;
+      }
+    });
+  }, [showStreetNames]);
+
   // Synchronize Solar Light, Sun Sphere & Building Compass Orientation
   useEffect(() => {
     if (controlsRef.current) {
@@ -4189,9 +4352,21 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       roadsGroupRef.current.rotation.y = (effectiveSurfaceRotation * Math.PI) / 180;
     }
 
-    // 2. Adjust Sun Position and Lighting
-    const effectiveSunAltitude = sunAltitude !== undefined ? sunAltitude : 45;
-    const effectiveSunAzimuth = sunAzimuth !== undefined ? sunAzimuth : 180;
+    // 2. Adjust Sun Position and Lighting (solar mode or quick day/sunset/night mood)
+    const effectiveSunAltitude = solarMode
+      ? (sunAltitude !== undefined ? sunAltitude : 45)
+      : lightingMode === 'sunset'
+      ? 10
+      : lightingMode === 'night'
+      ? -8
+      : 48;
+    const effectiveSunAzimuth = solarMode
+      ? (sunAzimuth !== undefined ? sunAzimuth : 180)
+      : lightingMode === 'sunset'
+      ? 255
+      : lightingMode === 'night'
+      ? 220
+      : 165;
 
     const R = 85;
     const altRad = (effectiveSunAltitude * Math.PI) / 180;
@@ -4216,12 +4391,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           sunLightRef.current.color.setHex(0xffdf99);
         } else {
           // Crisp midday sunlight
-          sunLightRef.current.intensity = isLight ? 1.8 : 1.5;
+          sunLightRef.current.intensity = isLight ? 1.85 : 1.55;
           sunLightRef.current.color.setHex(0xfffaed);
         }
       } else {
         // Night / twilight blue hour
-        sunLightRef.current.intensity = 0.2;
+        sunLightRef.current.intensity = 0.25;
         sunLightRef.current.color.setHex(0x38bdf8);
       }
     }
@@ -4237,15 +4412,33 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
     if (ambientLightRef.current) {
       if (effectiveSunAltitude < 15 && effectiveSunAltitude > 0) {
-        ambientLightRef.current.intensity = 0.48;
-        ambientLightRef.current.color.setHex(0xffeedd); // Warm sunset ambient bounce
+        ambientLightRef.current.intensity = 0.45;
+        ambientLightRef.current.color.setHex(0xffeedd);
       } else if (effectiveSunAltitude <= 0) {
-        ambientLightRef.current.intensity = 0.2;
+        ambientLightRef.current.intensity = 0.22;
         ambientLightRef.current.color.setHex(0x334155);
       } else {
-        ambientLightRef.current.intensity = isLight ? 0.55 : 0.4;
+        ambientLightRef.current.intensity = isLight ? 0.45 : 0.35;
         ambientLightRef.current.color.setHex(isLight ? 0xffffff : 0xd4d4d8);
       }
+    }
+
+    if (hemiLightRef.current) {
+      if (effectiveSunAltitude <= 0) {
+        hemiLightRef.current.intensity = 0.32;
+        hemiLightRef.current.color.setHex(0x1e293b);
+      } else if (effectiveSunAltitude < 16) {
+        hemiLightRef.current.intensity = 0.65;
+        hemiLightRef.current.color.setHex(0xfdba74);
+      } else {
+        hemiLightRef.current.intensity = isLight ? 0.78 : 0.58;
+        hemiLightRef.current.color.setHex(isLight ? 0xe0f2fe : 0xd1d5db);
+      }
+    }
+
+    if (sceneRef.current) {
+      sceneRef.current.environmentIntensity =
+        effectiveSunAltitude <= 0 ? 0.28 : effectiveSunAltitude < 16 ? 0.65 : 0.82;
     }
 
     // Dynamic sky and background for sunset & day moods
@@ -4261,51 +4454,59 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         sceneRef.current.background = new THREE.Color(isGray ? 0xd1d5db : 0xf0f9ff);
       }
     }
-  }, [solarMode, sunAltitude, sunAzimuth, effectiveSurfaceRotation, isLight, isGray]);
+  }, [solarMode, lightingMode, sunAltitude, sunAzimuth, effectiveSurfaceRotation, isLight, isGray]);
 
-  // Camera presets
+  // Smooth Camera presets
   const applyCameraPreset = useCallback((preset: CameraPresetType) => {
     if (!cameraRef.current || !controlsRef.current) return;
     setCameraPreset(preset);
-    const camera = cameraRef.current;
-    const controls = controlsRef.current;
     const H = (params?.floorHeight || 2.95) * (params?.floorCount || 5);
-    const targetY = H / 2;
+    const targetY = selectedFloor === 'basement' ? -1.5 : H / 2;
 
-    controls.target.set(0, targetY, 0);
-
-    const W = params?.facadeWidth || 14;
-    const D = params?.facadeDepth || 16;
+    const computedFootprint = calculateFootprint(
+      params?.footprintInputMode || 'directArea',
+      params || {}
+    );
+    const isDirect = !params?.footprintInputMode || params.footprintInputMode === 'directArea';
+    const W = isDirect ? (computedFootprint.effectiveWidth || 14) : (params?.facadeWidth || 14);
+    const D = isDirect ? (computedFootprint.effectiveDepth || 16) : (params?.facadeDepth || 16);
     const dist = Math.max(W, D, H) * 1.8;
+
+    const nextTarget = new THREE.Vector3(0, targetY, 0);
+    const nextPos = new THREE.Vector3();
 
     switch (preset) {
       case 'front':
-        camera.position.set(0, targetY + 2, dist);
+        nextPos.set(0, targetY + 2, dist);
         break;
       case 'rear':
-        camera.position.set(0, targetY + 2, -dist);
+        nextPos.set(0, targetY + 2, -dist);
         break;
       case 'right':
       case 'side':
-        camera.position.set(dist, targetY + 2, 0);
+        nextPos.set(dist, targetY + 2, 0);
         break;
       case 'left':
-        camera.position.set(-dist, targetY + 2, 0);
+        nextPos.set(-dist, targetY + 2, 0);
         break;
       case 'top':
-        camera.position.set(0, dist * 1.35, 0.05);
+        nextPos.set(0, dist * 1.35, 0.05);
         break;
       case 'iso':
       default:
-        camera.position.set(dist * 0.7, dist * 0.65, dist * 0.7);
+        nextPos.set(dist * 0.72, dist * 0.65, dist * 0.72);
         break;
     }
-    controls.update();
-  }, [params.floorHeight, params.floorCount, params.facadeWidth, params.facadeDepth]);
+
+    cameraAnimRef.current = {
+      active: true,
+      pos: nextPos,
+      target: nextTarget,
+    };
+  }, [params, selectedFloor]);
 
   useEffect(() => {
     if (forcedCameraPreset) {
-      // Use a small delay to ensure scene is built and refs are set
       const timer = setTimeout(() => {
         applyCameraPreset(forcedCameraPreset);
       }, 100);
@@ -4423,16 +4624,24 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       {!hideControls && (
         <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none z-20 max-w-[calc(100vw-120px)] sm:max-w-md">
           {/* Status Badge */}
-          <div className={`backdrop-blur-md px-3.5 py-2.5 rounded-2xl border shadow-md flex items-center gap-3 ${
+          <div className={`px-3.5 py-2.5 rounded-2xl border shadow-md flex items-center gap-3 ${
             isGray ? 'bg-white/95 text-slate-800 border-slate-300' : 'bg-white/95 text-slate-800 border-slate-200'
           }`}>
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <div className="text-xs">
+            <div className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
+            <div className="text-xs min-w-0">
+              {(projectName || projectAddress) && (
+                <div className="text-[11px] font-bold text-indigo-700 truncate">
+                  {projectName || 'Proje Modeli'}
+                  {projectAddress ? ` · ${projectAddress}` : ''}
+                </div>
+              )}
               <span className="font-bold tracking-wide block">
-                {params.floorCount} Kat + {params.basementCount} Bodrum ({params.roomType}) - Kat Başına {params.flatsPerFloor} Daire
+                {params.floorCount} Kat{params.basementCount > 0 ? ` + ${params.basementCount} Bodrum` : ''} ({params.roomType}) · Kat Başına {params.flatsPerFloor} Daire
               </span>
               <span className="text-[10px] font-mono text-slate-500">
-                Ön: {params.facadeWidth.toFixed(1)}m × Yan: {params.facadeDepth.toFixed(1)}m | Çatı:{' '}
+                Ön: {params.facadeWidth.toFixed(1)}m × Yan: {params.facadeDepth.toFixed(1)}m
+                {landArea && landArea > 0 ? ` · Arsa: ${Math.round(landArea)} m²` : ''}
+                {' '}· Çatı:{' '}
                 {params.roofType === 'duplex'
                   ? 'Çatı Dubleksi'
                   : params.roofType === 'mansard'
@@ -4449,7 +4658,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             <button
               type="button"
               onClick={() => setIsColorQuickPickerOpen(!isColorQuickPickerOpen)}
-              className={`backdrop-blur-md px-3 py-2 rounded-2xl border shadow-md flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] ${
+              className={`px-3 py-2 rounded-2xl border shadow-md flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] ${
                 isColorQuickPickerOpen
                   ? 'bg-indigo-600 text-white border-indigo-500 ring-2 ring-indigo-300'
                   : isGray
@@ -4491,8 +4700,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
             {/* Quick Color Picker Popover */}
             {isColorQuickPickerOpen && (
-              <div className={`mt-2 p-3.5 rounded-2xl border shadow-2xl backdrop-blur-xl animate-fade-in w-72 sm:w-80 space-y-3 ${
-                isGray ? 'bg-white/98 border-slate-300 text-slate-800' : 'bg-white/98 border-slate-200 text-slate-800'
+              <div className={`mt-2 p-3.5 rounded-2xl border shadow-2xl animate-fade-in w-72 sm:w-80 space-y-3 ${
+                isGray ? 'bg-white border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-800'
               }`}>
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
@@ -4597,173 +4806,215 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         </div>
       )}
 
-      {/* Right Toolbar: Camera & Render & Export Controls */}
+      {/* Right Toolbar: Camera & Lighting & Render & Export Controls */}
       {!hideControls && (
-        <>
-          {showStreetNames && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-              <div className="bg-slate-900/70 text-white px-4 py-2 rounded-lg text-sm font-bold backdrop-blur-sm">
-                Cadde / Sokak İsimleri (Önizleme)
-              </div>
+        <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-10 hidden sm:flex">
+          {/* Lighting Moods & Street Names */}
+          <div className={`flex flex-col gap-1 p-1.5 rounded-2xl border shadow-md ${
+            isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
+          }`}>
+            {!solarMode && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setLightingMode('day')}
+                  className={`p-1.5 rounded-xl text-xs flex items-center justify-center transition-all ${
+                    lightingMode === 'day'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                  title="Gündüz Işığı"
+                >
+                  <Sun className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLightingMode('sunset')}
+                  className={`p-1.5 rounded-xl text-xs flex items-center justify-center transition-all ${
+                    lightingMode === 'sunset'
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                  title="Gün Batımı Işığı"
+                >
+                  <Sunset className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLightingMode('night')}
+                  className={`p-1.5 rounded-xl text-xs flex items-center justify-center transition-all ${
+                    lightingMode === 'night'
+                      ? 'bg-slate-900 text-amber-300 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                  title="Gece / Aydınlatmalı Görünüm"
+                >
+                  <Moon className="w-4 h-4" />
+                </button>
+                <div className="h-px bg-slate-200/70 my-0.5 mx-1" />
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowStreetNames(!showStreetNames)}
+              className={`p-1.5 rounded-xl text-xs flex items-center justify-center transition-all ${
+                showStreetNames
+                  ? 'bg-emerald-600 text-white'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+              title="Cadde ve Sokak İsimlerini Göster / Gizle"
+            >
+              <MapPin className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Camera presets */}
+          <div className={`flex flex-col gap-1 p-1.5 rounded-2xl border shadow-md ${
+            isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
+          }`}>
+            <button
+              type="button"
+              onClick={() => setIsAutoRotate(!isAutoRotate)}
+              className={`p-1.5 rounded-xl text-xs flex items-center justify-center transition-all ${
+                isAutoRotate
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+              title={isAutoRotate ? 'Otomatik Sunumu Durdur' : 'Otomatik Sunumu Başlat (360°)'}
+            >
+              <RotateCcw className={`w-4 h-4 ${isAutoRotate ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
+            </button>
+            <div className="h-px bg-slate-200/70 my-0.5 mx-1" />
+            {[
+              { id: 'iso' as CameraPresetType, label: 'İZO', title: '3D İzometrik Görünüm' },
+              { id: 'front' as CameraPresetType, label: 'ÖN', title: 'Ön Cephe' },
+              { id: 'rear' as CameraPresetType, label: 'ARKA', title: 'Arka Cephe' },
+              { id: 'right' as CameraPresetType, label: 'SAĞ', title: 'Sağ Cephe' },
+              { id: 'left' as CameraPresetType, label: 'SOL', title: 'Sol Cephe' },
+              { id: 'top' as CameraPresetType, label: 'ÜST', title: 'Kuş Bakışı / Vaziyet' },
+            ].map((camBtn) => (
+              <button
+                key={camBtn.id}
+                type="button"
+                onClick={() => applyCameraPreset(camBtn.id)}
+                className={`px-1.5 py-1 rounded-xl text-[10px] font-bold flex items-center justify-center transition-all ${
+                  cameraPreset === camBtn.id
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+                title={camBtn.title}
+              >
+                {camBtn.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 📸 Fotogerçekçi Stüdyo Render */}
+          <div className="flex flex-col gap-1 p-1.5 rounded-2xl border shadow-lg bg-white/95 border-amber-400">
+            <button
+              type="button"
+              onClick={() => setIsPhotorealisticModalOpen(true)}
+              className="p-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white shadow-md shadow-amber-500/25 transition-all flex flex-col items-center gap-0.5 hover:scale-105 active:scale-95"
+              title="Sunum Stüdyosu & Yüksek Çözünürlüklü Render Al"
+            >
+              <Camera className="w-4 h-4" />
+              <span className="text-[8px] font-black uppercase tracking-wider">RENDER</span>
+            </button>
+          </div>
+
+          {/* Visibility & Offer Attach tools */}
+          <div className={`flex flex-col gap-1 p-1.5 rounded-2xl border shadow-md ${
+            isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
+          }`}>
+            {!presentationMode && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsWireframe(!isWireframe)}
+                  className={`p-2 rounded-xl text-xs transition-all ${
+                    isWireframe
+                      ? 'bg-amber-600 text-white'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                  title="Tel Kafes (Wireframe) Modu"
+                >
+                  <Layers className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDebugOverlay(!showDebugOverlay)}
+                  className={`p-2 rounded-xl text-xs transition-all ${
+                    showDebugOverlay
+                      ? 'bg-cyan-600 text-white shadow-md shadow-cyan-500/20'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                  title="Hata Ayıklama Katmanı (Geometrik Sınır Kutusu & Kesişim Noktaları)"
+                >
+                  <Bug className="w-4 h-4" />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={handleDownloadSnapshot}
+              className="p-2 rounded-xl transition-all text-xs text-slate-600 hover:text-emerald-600 hover:bg-slate-100"
+              title="3D Model Görüntüsünü İndir (PNG)"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            {onAttachToOffer && (
+              <button
+                type="button"
+                onClick={() => {
+                  const url = getCanvasDataUrl();
+                  if (url) onAttachToOffer(url);
+                }}
+                className="p-2 rounded-xl transition-all text-xs text-indigo-600 hover:bg-indigo-50 flex flex-col items-center gap-0.5"
+                title="Bu 3D Görünümü Müşteri Teklifine Ekle"
+              >
+                <ImageIcon className="w-4 h-4" />
+                <span className="text-[8px] font-bold">TEKLİF</span>
+              </button>
+            )}
+          </div>
+
+          {/* 3D Exports for iOS / AR Quick Look (Teknik modda) */}
+          {!presentationMode && (
+            <div className={`flex flex-col gap-1 p-1.5 rounded-2xl border shadow-md ${
+              isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
+            }`}>
+              <button
+                type="button"
+                onClick={handleExportUSDZ}
+                disabled={isExportingUSDZ}
+                className={`p-2 rounded-xl transition-all text-xs flex flex-col items-center gap-0.5 ${
+                  isExportingUSDZ
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800'
+                }`}
+                title="iPhone/iPad AR Quick Look (.usdz)"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span className="text-[8px] font-bold">AR</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportGLTF}
+                disabled={isExportingGLTF}
+                className={`p-2 rounded-xl transition-all text-xs flex flex-col items-center gap-0.5 ${
+                  isExportingGLTF
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-100'
+                }`}
+                title="Evrensel 3D Modeli İndir (.glb)"
+              >
+                <Box className="w-4 h-4" />
+                <span className="text-[8px] font-bold">GLB</span>
+              </button>
             </div>
           )}
-          <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-10 hidden sm:flex">
-          {/* Street names toggle */}
-          <button
-            type="button"
-            onClick={() => setShowStreetNames(!showStreetNames)}
-            className={`p-2 rounded-xl text-xs transition-all ${
-              showStreetNames
-                ? 'bg-emerald-600 text-white'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Cadde ve Sokak İsimlerini Göster"
-          >
-            <MapPin className="w-4 h-4" />
-          </button>
-          {/* Color picker */}
-          <div className="p-1.5 rounded-2xl border bg-white/95 border-slate-200">
-            <input
-              type="color"
-              value={buildingColor || params.wallColor || '#f1f5f9'}
-              onChange={(e) => {
-                setBuildingColor(e.target.value);
-                onUpdateColors?.({ wallColor: e.target.value });
-              }}
-              className="w-8 h-8 rounded cursor-pointer"
-              title="Manuel Bina Rengi Seç"
-            />
-          </div>
-        {/* Camera presets */}
-        <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
-          isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
-        }`}>
-          <button
-            type="button"
-            onClick={() => setIsAutoRotate(!isAutoRotate)}
-            className={`p-1.5 rounded-xl text-xs flex items-center justify-center transition-all ${
-              isAutoRotate
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title={isAutoRotate ? "Otomatik Sunumu Durdur" : "Otomatik Sunumu Başlat (360°)"}
-          >
-            <RotateCcw className={`w-4 h-4 ${isAutoRotate ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
-          </button>
-          <div className="h-px bg-slate-200/50 my-0.5 mx-1" />
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('iso')}
-            className={`p-1.5 rounded-xl text-xs flex items-center justify-center transition-all ${
-              cameraPreset === 'iso'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="3D İzometrik Görünüm"
-          >
-            <Compass className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('front')}
-            className={`px-1.5 py-1 rounded-xl text-xs flex items-center justify-center transition-all ${
-              cameraPreset === 'front'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Ön Cephe"
-          >
-            <span className="text-[10px] font-bold">ÖN</span>
-          </button>
         </div>
-
-        {/* 📸 Fotogerçekçi 4K Stüdyo & ArchViz Render */}
-        <div className="flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-lg bg-gradient-to-b from-amber-500/10 to-indigo-500/10 border-amber-500/40">
-          <button
-            type="button"
-            onClick={() => setIsPhotorealisticModalOpen(true)}
-            className="p-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white shadow-md shadow-amber-500/25 transition-all flex flex-col items-center gap-0.5 hover:scale-105 active:scale-95"
-            title="Fotogerçekçi 3D Stüdyo & AI ArchViz Render Al (4K & Gün Batımı)"
-          >
-            <Camera className="w-4 h-4" />
-            <span className="text-[8px] font-black uppercase tracking-wider">RENDER</span>
-          </button>
-        </div>
-
-        {/* Visibility tools */}
-        <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
-          isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
-        }`}>
-          <button
-            type="button"
-            onClick={() => setIsWireframe(!isWireframe)}
-            className={`p-2 rounded-xl text-xs transition-all ${
-              isWireframe
-                ? 'bg-amber-600 text-white'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Tel Kafes (Wireframe) Modu"
-          >
-            <Layers className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowDebugOverlay(!showDebugOverlay)}
-            className={`p-2 rounded-xl text-xs transition-all ${
-              showDebugOverlay
-                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-500/20'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Hata Ayıklama Katmanı (Geometrik Sınır Kutusu & Kesişim Noktaları)"
-          >
-            <Bug className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleDownloadSnapshot}
-            className="p-2 rounded-xl transition-all text-xs text-slate-600 hover:text-emerald-600 hover:bg-slate-100"
-            title="3D Model Görüntüsünü İndir (PNG)"
-          >
-            <Download className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* 3D Exports for iOS / AR Quick Look */}
-        <div className={`flex flex-col gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-md ${
-          isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
-        }`}>
-          <button
-            type="button"
-            onClick={handleExportUSDZ}
-            disabled={isExportingUSDZ}
-            className={`p-2 rounded-xl transition-all text-xs flex flex-col items-center gap-0.5 ${
-              isExportingUSDZ
-                ? 'opacity-50 cursor-not-allowed'
-                : 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800'
-            }`}
-            title="iPhone/iPad AR Quick Look (.usdz)"
-          >
-            <Smartphone className="w-4 h-4" />
-            <span className="text-[8px] font-bold">AR</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportGLTF}
-            disabled={isExportingGLTF}
-            className={`p-2 rounded-xl transition-all text-xs flex flex-col items-center gap-0.5 ${
-              isExportingGLTF
-                ? 'opacity-50 cursor-not-allowed'
-                : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-100'
-            }`}
-            title="Evrensel 3D Modeli İndir (.glb)"
-          >
-            <Box className="w-4 h-4" />
-            <span className="text-[8px] font-bold">GLB</span>
-          </button>
-        </div>
-      </div>
-        </>
       )}
 
       {/* Bottom Bar: Explode Floors Slider & Floor Isolation */}
@@ -4771,31 +5022,33 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-center sm:justify-between gap-3 pointer-events-none">
         
         <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
-          {/* Explode Floors Slider */}
-          <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ${
-            isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
-          }`}>
-            <span className="text-[11px] font-semibold flex items-center gap-1.5 text-slate-700">
-              <Layers className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Katları Patlat:</span>
-            </span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={explodeRatio}
-              onChange={(e) => setExplodeRatio(parseFloat(e.target.value))}
-              className="w-24 sm:w-36 accent-indigo-600 cursor-pointer"
-            />
-            <span className="font-mono text-[11px] text-indigo-600 font-bold">
-              {Math.round(explodeRatio * 100)}%
-            </span>
-          </div>
+          {/* Explode Floors Slider (Teknik modda) */}
+          {!presentationMode && (
+            <div className={`pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-2xl border shadow-md text-xs ${
+              isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
+            }`}>
+              <span className="text-[11px] font-semibold flex items-center gap-1.5 text-slate-700">
+                <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Katları Patlat:</span>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={explodeRatio}
+                onChange={(e) => setExplodeRatio(parseFloat(e.target.value))}
+                className="w-24 sm:w-36 accent-indigo-600 cursor-pointer"
+              />
+              <span className="font-mono text-[11px] text-indigo-600 font-bold">
+                {Math.round(explodeRatio * 100)}%
+              </span>
+            </div>
+          )}
 
           {/* Surface / Parcel Rotation Slider (Overlay) */}
-          {onUpdateBuildingRotation && (
-            <div className={`pointer-events-auto flex items-center gap-3 backdrop-blur-md px-4 py-2.5 rounded-2xl border shadow-md text-xs ring-1 ring-indigo-200/50 ${
+          {!presentationMode && onUpdateBuildingRotation && (
+            <div className={`pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-2xl border shadow-md text-xs ring-1 ring-indigo-200/50 ${
               isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
             }`}>
               <span className="text-[11px] font-bold flex items-center gap-1.5 text-slate-700">
@@ -4820,17 +5073,18 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         </div>
 
         {/* Floor selector */}
-        <div className={`pointer-events-auto flex items-center gap-2 backdrop-blur-md px-3.5 py-2 rounded-2xl border shadow-md text-xs ${
+        <div className={`pointer-events-auto flex items-center gap-2 px-3.5 py-2 rounded-2xl border shadow-md text-xs ${
           isGray ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-white/95 border-slate-200 text-slate-800'
         }`}>
           <span className="text-[11px] text-slate-600">
             Kat İncele:
           </span>
           <select
-            value={selectedFloor === 'all' ? 'all' : String(selectedFloor)}
-            onChange={(e) =>
-              setSelectedFloor(e.target.value === 'all' ? 'all' : Number(e.target.value))
-            }
+            value={selectedFloor === 'all' ? 'all' : selectedFloor === 'basement' ? 'basement' : String(selectedFloor)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedFloor(val === 'all' ? 'all' : val === 'basement' ? 'basement' : Number(val));
+            }}
             className="rounded-xl px-2.5 py-1 text-xs font-semibold focus:outline-hidden border bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-600"
           >
             <option value="all">Tüm Bina</option>
@@ -4853,10 +5107,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       </div>
       )}
       {/* Bottom Left: Debug Overlay Legend Panel */}
-      {showDebugOverlay && !hideControls && (
-        <div className="absolute bottom-4 left-4 z-20 pointer-events-auto bg-slate-900/90 backdrop-blur-md text-white px-3.5 py-3 rounded-2xl border border-cyan-500/40 shadow-xl max-w-xs text-xs space-y-1.5 animate-fade-in">
+      {effectiveDebugOverlay && !hideControls && (
+        <div className="absolute bottom-4 left-4 z-20 pointer-events-auto bg-slate-900/95 text-white px-3.5 py-3 rounded-2xl border border-cyan-500/40 shadow-xl max-w-xs text-xs space-y-1.5 animate-fade-in">
           <div className="flex items-center gap-2 font-bold text-cyan-400 border-b border-slate-700/80 pb-1.5">
-            <Bug className="w-4 h-4 text-cyan-400 animate-pulse" />
+            <Bug className="w-4 h-4 text-cyan-400" />
             <span>HATA AYIKLAMA (DEBUG MODE)</span>
           </div>
           <div className="text-[11px] text-slate-300 space-y-1 font-mono">
@@ -4881,7 +5135,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         isOpen={isPhotorealisticModalOpen}
         onClose={() => setIsPhotorealisticModalOpen(false)}
         params={params}
+        projectName={projectName}
+        projectAddress={projectAddress}
         getCanvasDataUrl={getCanvasDataUrl}
+        onAttachToOffer={onAttachToOffer}
         onApplyFacadeStyle={(style) => {
           onUpdateFacadeStyle?.(style);
         }}

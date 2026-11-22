@@ -153,6 +153,21 @@ export interface FlatItem {
   marketValuationNotes?: string; // Emlak değerleme notu/özeti
   landShareNumerator?: number; // Mevcut Arsa Payı Payı (Örn: 10)
   landShareDenominator?: number; // Mevcut Arsa Payı Paydası (Örn: 240)
+  ownerId?: string; // Stage 7: Kayıtlı Arsa Maliki ID bağlantısı (tekil tahsis için)
+}
+
+export interface LandownerItem {
+  id: string;
+  name: string; // Ad Soyad / Şirket Unvanı
+  companyName?: string; // Şirket unvanı (kurumsal malik ise opsiyonel ek bilgi)
+  phone?: string;
+  email?: string;
+  tcOrTaxNo?: string; // T.C. Kimlik / Vergi No
+  landShareNumerator?: number; // Tapu arsa payı payı
+  landShareDenominator?: number; // Tapu arsa payı paydası
+  sharePercent?: number; // Hisse oranı (%)
+  existingUnitInfo?: string; // Mevcut bağımsız bölüm bilgisi (Örn: "2. Kat Daire 4 • 105 m²")
+  specialAgreement?: string; // Özel anlaşma ve açıklamalar
 }
 
 export type FacadeStyleType =
@@ -458,6 +473,9 @@ export interface ProjectParams {
   customInflationNoticeText?: string;  // Özel açıklama metni
   showLegalTaahhut?: boolean;      // 6. Kurumsal Taahhütler ve Hukuki Protokol
   showContractorSignature?: boolean; // Yetkili İmza ve Kaşe Alanı
+
+  // Landowners (Arsa Malikleri Kayıt Defteri - Opsiyonel)
+  landowners?: LandownerItem[];
 
   // Flats
   flats: FlatItem[];

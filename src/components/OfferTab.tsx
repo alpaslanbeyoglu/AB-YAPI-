@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { resolveProjectProgressKeys } from '../utils/syncKeys';
 import { 
   Building2, 
@@ -57,6 +57,8 @@ import {
   MessageSquare,
   Copy,
   Globe,
+  Save,
+  AlertTriangle,
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { sanitizeCustomerMessageText } from '../utils/textSanitizer';
@@ -72,6 +74,7 @@ import { useCompanyProfile } from '../context/CompanyProfileContext';
 import { getRoofTypeShortTitle } from '../utils/roofUtils';
 import { computeDualOffer, DUAL_OFFER_NAMING_PRESETS, DualOfferNamingPresetItem } from '../utils/dualOfferUtils';
 import { PreOfferModularWorkbench } from './PreOfferModularWorkbench';
+import type { WorkbenchEvaluation } from './ProjectWorkbench/WorkbenchLiveSummary';
 
 interface OfferTabProps {
   params: ProjectParams;
@@ -79,6 +82,10 @@ interface OfferTabProps {
   onUpdateParam?: (key: keyof ProjectParams, val: any) => void;
   onUpdateAllParams?: (newParams: Partial<ProjectParams>) => void;
   onNavigateToSurec?: () => void;
+  onSaveOffer?: () => void;
+  onNavigateToContract?: () => void;
+  onSelectWorkbenchStage?: (stage: number, focusFieldId?: string) => void;
+  evaluation?: WorkbenchEvaluation;
   theme?: AppTheme;
 }
 
@@ -90,6 +97,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   onUpdateParam,
   onUpdateAllParams,
   onNavigateToSurec,
+  onSaveOffer,
+  onNavigateToContract,
+  onSelectWorkbenchStage,
+  evaluation,
   theme = 'light',
 }) => {
   const { profile } = useCompanyProfile();
@@ -97,6 +108,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
   // Grouped Navigation Sub-Tab State
   const [activeSubTab, setActiveSubTab] = useState<OfferSubTabId>('edit_workbench');
+  const [offerSavedNotice, setOfferSavedNotice] = useState<boolean>(false);
 
   // AI Proposal Generator State
   const [aiPromptText, setAiPromptText] = useState('');
@@ -121,9 +133,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const [whatsAppRecipientPhone, setWhatsAppRecipientPhone] = useState<string>('');
   const [whatsAppCopied, setWhatsAppCopied] = useState<boolean>(false);
 
-  // Live Control Panel State
+  // Live Control Panel State (collapsed by default; hidden in customer preview & internal financials)
   const [activeControlTab, setActiveControlTab] = useState<'inflation' | 'pricing' | 'payment' | 'features' | 'visibility'>('inflation');
-  const [isLiveControlPanelExpanded, setIsLiveControlPanelExpanded] = useState<boolean>(true);
+  const [isLiveControlPanelExpanded, setIsLiveControlPanelExpanded] = useState<boolean>(false);
 
   const generateWhatsAppMessageText = () => {
     const compName = profile?.companyName || 'AB YAPI';
@@ -336,9 +348,79 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
   };
 
   // Image & Document Upload State and Handlers
-  const [uploadedImages, setUploadedImages] = useState<Array<{ id: string; url: string; name: string; caption: string }>>([]);
+  const [saved3DPreview, setSaved3DPreview] = useState<{
+    url: string;
+    caption: string;
+    projectAddress?: string;
+    updatedAt?: string;
+  } | null>(() => {
+    try {
+      const raw = localStorage.getItem('ab_yapi_offer_3d_preview');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.url === 'string' && parsed.url.startsWith('data:image/')) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return null;
+  });
+
+  const [uploadedImages, setUploadedImages] = useState<Array<{ id: string; url: string; name: string; caption: string }>>(() => {
+    try {
+      const raw = localStorage.getItem('ab_yapi_offer_3d_preview');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.url === 'string' && parsed.url.startsWith('data:image/')) {
+          return [
+            {
+              id: `stage6-3d-${parsed.updatedAt || 'preview'}`,
+              url: parsed.url,
+              name: '3D_Bina_Modeli.png',
+              caption: parsed.caption || '3D Mimari Bina Perspektif Görünümü',
+            },
+          ];
+        }
+      }
+    } catch (e) {}
+    return [];
+  });
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const syncPreview = () => {
+      try {
+        const raw = localStorage.getItem('ab_yapi_offer_3d_preview');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.url === 'string' && parsed.url.startsWith('data:image/')) {
+          setSaved3DPreview(parsed);
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('focus', syncPreview);
+    return () => window.removeEventListener('focus', syncPreview);
+  }, []);
+
+  const handleAttachSaved3DPreview = () => {
+    if (!saved3DPreview) return;
+    if (uploadedImages.length >= 6) {
+      alert('En fazla 6 adet görsel ekleyebilirsiniz.');
+      return;
+    }
+    const previewId = `stage6-3d-${saved3DPreview.updatedAt || 'preview'}`;
+    if (uploadedImages.some((img) => img.id === previewId || img.url === saved3DPreview.url)) return;
+    setUploadedImages((prev) => [
+      {
+        id: previewId,
+        url: saved3DPreview.url,
+        name: '3D_Bina_Modeli.png',
+        caption: saved3DPreview.caption || '3D Mimari Bina Perspektif Görünümü',
+      },
+      ...prev,
+    ]);
+  };
 
   const processFiles = (files: FileList) => {
     // Math & boundary check: maximum 6 images allowed
@@ -416,6 +498,21 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
     );
   };
 
+  const opts = profile?.printOptions || {};
+  const showLogo = opts.showLogo !== false;
+  const showLegal = opts.showLegalName !== false;
+  const showSlogan = opts.showSlogan !== false;
+  const showAddr = opts.showAddress !== false;
+  const showPhone = opts.showPhone !== false;
+  const showEmail = opts.showEmail !== false;
+  const showWeb = opts.showWebsite !== false;
+  const showTax = opts.showTaxInfo !== false;
+  const showFirstAuth = opts.showFirstAuthorized !== false;
+  const showFirstAuthChamber = opts.showFirstAuthorizedChamber !== false;
+  const showSecondAuth = opts.showSecondAuthorized === true && !!profile?.authorizedPerson2;
+  const showSecondAuthChamber = opts.showSecondAuthorizedChamber !== false;
+  const showStamp = opts.showStamp !== false;
+
   const compName = profile?.companyName || 'AB YAPI';
   const compLegal = profile?.legalName || 'AB YAPI MÜTEAHHİTLİK VE MÜHENDİSLİK TİC. LTD. ŞTİ.';
   const compSlogan = profile?.slogan || 'Depreme Dayanıklı, Güvenli ve Modern Yaşam Alanları';
@@ -423,9 +520,14 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
   const compPhone = profile?.phone || '+90 (212) 588 00 00';
   const compEmail = profile?.email || 'info@abyapi.com.tr';
   const compWeb = profile?.website || (profile?.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
-  const compTax = profile?.taxOffice && profile?.taxNumber ? `${profile.taxOffice} V.D. / V.No: ${profile.taxNumber}` : 'Fatih V.D. / V.No: 1234567890';
+  const compTax = profile?.taxOffice && profile?.taxNumber ? `${profile.taxOffice} - V.No: ${profile.taxNumber}` : '';
   const compAuth = profile?.authorizedPerson || 'Müh. Alpaslan Beyoğlu';
   const compAuthTitle = profile?.authorizedTitle || 'Genel Müdür / İnşaat Mühendisi';
+  const compAuthChamber = profile?.authorizedChamberNo || '';
+  const compAuth2 = profile?.authorizedPerson2 || '';
+  const compAuthTitle2 = profile?.authorizedTitle2 || '';
+  const compAuthChamber2 = profile?.authorizedChamberNo2 || '';
+  const compStamp = profile?.stampBase64 || '';
 
   // Math safety & dimension boundaries
   const residentialFloors = params.hasGroundFloorShop ? Math.max(1, (params.floorCount || 5) - 1) : Math.max(1, params.floorCount || 5);
@@ -436,9 +538,16 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
   const shopCount = results.flatResults.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop').length;
   const residentialCount = residentialFlats.length;
   const totalUnits = results.flatResults.length;
-  const contractorCount = results.flatResults.filter(f => f.isContractorShare).length;
-  const ownerCount = totalUnits - contractorCount;
   const contractorFlats = results.flatResults.filter(f => f.isContractorShare);
+  const ownerFlats = results.flatResults.filter(f => !f.isContractorShare);
+  const contractorCount = contractorFlats.length;
+  const ownerCount = ownerFlats.length;
+  const totalAllocatedArea = results.flatResults.reduce((s, f) => s + (f.area || 0), 0);
+  const ownerAllocatedArea = ownerFlats.reduce((s, f) => s + (f.area || 0), 0);
+  const contractorAllocatedArea = contractorFlats.reduce((s, f) => s + (f.area || 0), 0);
+  const ownerSharePercent = totalAllocatedArea > 0 ? Math.round((ownerAllocatedArea / totalAllocatedArea) * 100) : 100;
+  const contractorSharePercent = totalAllocatedArea > 0 ? 100 - ownerSharePercent : 0;
+
   const contractorMansardCount = contractorFlats.filter(f => f.flatType === 'mansard' || f.flatType === 'duplex').length;
   const contractorNormalCount = contractorFlats.filter(f => f.flatType !== 'mansard' && f.flatType !== 'duplex' && f.flatType !== 'shop' && f.flatType !== 'basement_shop').length;
 
@@ -448,7 +557,11 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
   const physicalNetArea = residentialFlats.length > 0
     ? Math.round((residentialFlats.reduce((s, f) => s + (f.netArea || f.area * 0.8), 0) / residentialFlats.length) * 10) / 10
     : Math.max(15, Math.round((physicalGrossArea * 0.8) * 10) / 10);
-  const estimatedLandArea = params.landArea && params.landArea > 0 ? params.landArea : Math.round((params.baseBuildArea || 150) / 0.4);
+  const landAreaVal = params.landArea || 0;
+  const baseAreaVal = results.baseArea || params.baseBuildArea || 0;
+  const taksPercent = landAreaVal > 0 ? (baseAreaVal / landAreaVal) * 100 : 0;
+  const kaksRatio = landAreaVal > 0 ? results.totalArea / landAreaVal : 0;
+  const estimatedLandArea = landAreaVal > 0 ? landAreaVal : Math.round((params.baseBuildArea || 150) / 0.4);
 
   const isContractorShareModel = params.projectModel === 'contractorShare';
 
@@ -648,16 +761,29 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
     printHtmlContent(html, `${safeName}_Teklif_${params.projectAddress || 'Proje'}`);
   };
 
-  // Copy protection side effects and handlers
+  // Copy protection side effects only during customer document preview (never block editor inputs)
   React.useEffect(() => {
+    if (activeSubTab !== 'preview') return;
     const blockShortcuts = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
       if ((e.ctrlKey || e.metaKey) && ['c', 'C', 'x', 'X', 'a', 'A'].includes(e.key)) {
         e.preventDefault();
       }
     };
     window.addEventListener('keydown', blockShortcuts);
     return () => window.removeEventListener('keydown', blockShortcuts);
-  }, []);
+  }, [activeSubTab]);
+
+  const criticalMissingIssues = (evaluation?.issues || []).filter((i) => i.severity === 'critical');
+
+  const handleSaveCurrentOffer = () => {
+    if (onSaveOffer) {
+      onSaveOffer();
+      setOfferSavedNotice(true);
+      setTimeout(() => setOfferSavedNotice(false), 3000);
+    }
+  };
 
   const offerSubTabs: Array<{
     id: OfferSubTabId;
@@ -665,23 +791,24 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
     badge?: string;
     icon: any;
   }> = [
-    { id: 'edit_workbench', label: '🎛️ Modüler Teklif Düzenleyici', badge: 'Canlı Modüller', icon: Sliders },
-    { id: 'preview', label: '📑 Resmî Teklif (PDF)', badge: uploadedImages.length > 0 ? `${uploadedImages.length} Görsel` : undefined, icon: FileText },
-    { id: 'package', label: '⚡ Paket & Sunum Modu', badge: isDualOffer ? '2 Seçenekli (Baz+Plus)' : 'Tek Paket', icon: Layers },
-    { id: 'ai_assistant', label: '✨ AI Teklif Asistanı', badge: 'Gemini 3.8', icon: Sparkles },
+    { id: 'edit_workbench', label: '🎛️ Teklif Düzenleyici', badge: 'Canlı Modüller', icon: Sliders },
+    { id: 'preview', label: '📑 Müşteri Teklifi (Önizleme & PDF)', badge: uploadedImages.length > 0 ? `${uploadedImages.length} Görsel` : undefined, icon: FileText },
+    { id: 'package', label: '⚡ Paket & Sunum Modu', badge: isDualOffer ? '2 Seçenekli' : 'Tek Paket', icon: Layers },
+    { id: 'ai_assistant', label: '✨ AI Teklif Asistanı', badge: 'Gemini', icon: Sparkles },
     { id: 'cards_and_clauses', label: '📜 Kartlar & Ek Maddeler', badge: `${clauses.length} Madde`, icon: Settings2 },
     { id: 'company_history', label: '🏢 Önsöz & Firma Profili', badge: params.showCompanyHistory ? 'Aktif' : 'Pasif', icon: Award },
-    { id: 'contractor_financials', label: '🔒 Müteahhit Kâr Analizi', badge: 'Gizli', icon: ShieldCheck },
+    { id: 'contractor_financials', label: '🔒 Şirket İçi Maliyet & Kâr Analizi', badge: 'Gizli', icon: ShieldCheck },
   ];
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto">
       {/* Grouped Sub-Tab Navigation Header Bar */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-2 shadow-xs print:hidden">
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
           {offerSubTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeSubTab === tab.id;
+            const isInternal = tab.id === 'contractor_financials';
             return (
               <button
                 key={tab.id}
@@ -689,15 +816,23 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 onClick={() => setActiveSubTab(tab.id)}
                 className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                   isActive
-                    ? 'bg-slate-900 text-white shadow-md font-black scale-[1.01]'
+                    ? isInternal
+                      ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                      : 'bg-slate-900 text-white shadow-md font-black'
+                    : isInternal
+                    ? 'text-amber-800 bg-amber-50/70 hover:bg-amber-100 border border-amber-200/80'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/90'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? (isInternal ? 'text-slate-950' : 'text-amber-400') : isInternal ? 'text-amber-600' : 'text-slate-400'}`} />
                 <span>{tab.label}</span>
                 {tab.badge && (
                   <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-extrabold ${
-                    isActive ? 'bg-slate-800 text-amber-300 border border-amber-400/30' : 'bg-slate-100 text-slate-600 border border-slate-200'
+                    isActive
+                      ? isInternal
+                        ? 'bg-slate-950/15 text-slate-950'
+                        : 'bg-slate-800 text-amber-300 border border-amber-400/30'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200'
                   }`}>
                     {tab.badge}
                   </span>
@@ -709,39 +844,50 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
       </div>
 
       {/* Top Action Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-slate-200 shadow-sm print:hidden">
-        <div>
-          <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm print:hidden">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
               <FileSignature className="w-3.5 h-3.5" />
-              Kurumsal Resmî Teklifname
+              {activeSubTab === 'contractor_financials' ? 'Şirket İçi Maliyet & Kâr Analizi' : 'Müşteri Teklif Dosyası'}
             </span>
             <span className="text-xs text-slate-400 font-mono">Ref: {proposalNumber}</span>
+            {params.projectName && (
+              <span className="text-xs font-bold text-slate-700 truncate max-w-[260px]">
+                • {params.projectName}
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Kat maliklerine, genel kurula ve bina yönetimine sunulmak üzere hazırlanmış resmî maliyet, imalat ve ödeme protokolü
+            {activeSubTab === 'preview'
+              ? 'Müşteriye sunulacak resmî teklif görünümü. Şirket içi maliyet ve kâr analizleri bu çıktıya dahil edilmez.'
+              : 'Proje künyesi, metraj, paylaşım ve ödeme verileri teklif dosyasına otomatik aktarılır.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveSubTab('contractor_financials');
-              if (params.offerPresentationMode !== 'dual' && onUpdateParam) {
-                onUpdateParam('offerPresentationMode', 'dual');
-              }
-              setTimeout(() => {
-                const el = document.getElementById('contractor-financial-reflection-panel');
-                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }, 60);
-            }}
-            className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:to-indigo-900 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold shadow-md shadow-slate-900/30 transition-all active:scale-95 cursor-pointer"
-            title="Plus paketin müteahhite (size) yansıyan maliyet, kâr ve hak ediş farkını inceleyin"
-          >
-            <ShieldCheck className="w-4 h-4 text-amber-400" />
-            <span>🔒 Bana (Müteahhite) Yansıyan Fark</span>
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {onSaveOffer && (
+            <button
+              type="button"
+              onClick={handleSaveCurrentOffer}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+              title="Teklif parametrelerini ve proje kaydını arşive kaydet"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{offerSavedNotice ? '✓ Kaydedildi' : 'Teklifi Kaydet'}</span>
+            </button>
+          )}
+          {onNavigateToContract && (
+            <button
+              type="button"
+              onClick={onNavigateToContract}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
+              title="Mevcut proje ve teklif bilgileriyle sözleşme hazırlığına geç"
+            >
+              <FileText className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Sözleşmeye Geç</span>
+            </button>
+          )}
           {onNavigateToSurec && (
             <button
               type="button"
@@ -758,32 +904,39 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 } catch (e) {}
                 onNavigateToSurec();
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Teklif Kabul Edildi ➔ Süreç Takibini Başlat</span>
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Kabul Edildi ➔ Şantiye Başlat</span>
             </button>
           )}
           <button
             type="button"
-            onClick={() => setIsWhatsAppModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
-            title="Teklifi WhatsApp Mesajı veya PDF Özeti Olarak Hızlıca Paylaşın"
+            onClick={() => {
+              setActiveSubTab('contractor_financials');
+              if (params.offerPresentationMode !== 'dual' && onUpdateParam) {
+                onUpdateParam('offerPresentationMode', 'dual');
+              }
+              setTimeout(() => {
+                const el = document.getElementById('contractor-financial-reflection-panel');
+                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 60);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
+            title="Yalnızca şirket içi maliyet ve müteahhit kâr analizini aç (müşteri teklifine yansımaz)"
           >
-            <MessageSquare className="w-3.5 h-3.5 text-emerald-200" />
-            <span>💬 WhatsApp Teklif Özeti Paylaş</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+            <span>🔒 İç Kâr Analizi</span>
           </button>
-
           <button
             type="button"
-            onClick={() => setIsValuationModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
-            title="İstanbul Emlak Piyasası İlçe, Kat, Cadde ve Cepheye Göre Satış Fiyatlama Uzmanı"
+            onClick={() => setIsWhatsAppModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl transition-all active:scale-95 cursor-pointer"
+            title="Teklifi WhatsApp Mesajı Olarak Paylaş"
           >
-            <Building2 className="w-3.5 h-3.5 text-amber-200" />
-            <span>🏢 İstanbul Emlak Değerleme</span>
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+            <span>WhatsApp</span>
           </button>
-
           <PrintAndPdfButtons
             onExportPdf={handleExportPdf}
             onPrint={handlePrint}
@@ -794,9 +947,36 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
         </div>
       </div>
 
+      {/* Non-Blocking Missing Data Banner */}
+      {criticalMissingIssues.length > 0 && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 print:hidden">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-900">
+              <span className="font-bold">Eksik proje bilgileri tespit edildi</span>
+              <span className="text-amber-800"> — Mevcut verilerle teklif hazırlamaya ve PDF almaya devam edebilirsiniz; tam doğruluk için eksikleri tamamlayabilirsiniz:</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            {criticalMissingIssues.slice(0, 4).map((issue) => (
+              <button
+                key={issue.id}
+                type="button"
+                onClick={() => onSelectWorkbenchStage && onSelectWorkbenchStage(issue.stage, issue.focusFieldId)}
+                className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold transition-colors cursor-pointer"
+                title={`${issue.stageLabel} ekranına git`}
+              >
+                {issue.stageLabel}: {issue.message} →
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ========================================================
-          ÇIKTI ÖNCESİ CANLI TEKLİF & RİSK KONTROL PANELİ
+          ÇIKTI ÖNCESİ CANLI TEKLİF & RİSK KONTROL PANELİ (Yalnızca düzenleme sekmelerinde; Müşteri Önizleme & İç Analizde gizli)
          ======================================================== */}
+      {activeSubTab !== 'preview' && activeSubTab !== 'contractor_financials' && activeSubTab !== 'edit_workbench' && (
       <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-amber-500/30 rounded-3xl p-6 shadow-xl space-y-5 print:hidden text-white">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-indigo-800/60">
           <div className="flex items-center gap-3">
@@ -1509,6 +1689,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
           </div>
         )}
       </div>
+      )}
 
       {/* ========================================================
           PRE-OFFER MODULAR WORKBENCH (TEKLİF ÖNCESİ MODÜLER DÜZENLEME)
@@ -1705,7 +1886,22 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
               Kat planları, vaziyet planları veya resmi kentsel dönüşüm evraklarını ekleyerek teklifinizi zenginleştirin (Maksimum 6 adet, her biri en fazla 4MB).
             </p>
           </div>
-          <div className="shrink-0">
+          <div className="shrink-0 flex items-center gap-2 flex-wrap">
+            {saved3DPreview &&
+              !uploadedImages.some(
+                (img) =>
+                  img.id === `stage6-3d-${saved3DPreview.updatedAt || 'preview'}` ||
+                  img.url === saved3DPreview.url
+              ) && (
+                <button
+                  type="button"
+                  onClick={handleAttachSaved3DPreview}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                >
+                  <Image className="w-3.5 h-3.5" />
+                  <span>3D Model Görselini Ekle</span>
+                </button>
+              )}
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-700 rounded-full text-xs font-mono border border-slate-200">
               Yüklenen: <strong className="text-indigo-600 font-bold">{uploadedImages.length} / 6</strong>
             </span>
@@ -3477,17 +3673,17 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             {/* Left: Brand / Logo / Legal */}
             <div className="flex items-start gap-4">
-              <Logo size="lg" variant="full" theme={theme} />
+              {showLogo && <Logo size="lg" variant="full" theme={theme} />}
               <div className="space-y-0.5">
                 <h1 className="text-lg font-bold text-slate-950 tracking-tight leading-tight">
-                  {compLegal}
+                  {showLegal ? compLegal : compName}
                 </h1>
-                <p className="text-xs text-indigo-700 font-medium">{compSlogan}</p>
+                {showSlogan && <p className="text-xs text-indigo-700 font-medium">{compSlogan}</p>}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 pt-1 font-mono">
-                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400" /> {compAddress}</span>
-                  <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-400" /> {compPhone}</span>
-                  <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" /> {compEmail}</span>
-                  {compWeb && profile?.printOptions?.showWebsite !== false && (
+                  {showAddr && compAddress && <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400" /> {compAddress}</span>}
+                  {showPhone && compPhone && <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-400" /> {compPhone}</span>}
+                  {showEmail && compEmail && <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-slate-400" /> {compEmail}</span>}
+                  {compWeb && showWeb && (
                     <a
                       href={compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}
                       target="_blank"
@@ -3498,7 +3694,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                       <Globe className="w-3 h-3 text-indigo-500" /> {compWeb}
                     </a>
                   )}
-                  <span className="flex items-center gap-1"><Hash className="w-3 h-3 text-slate-400" /> {compTax}</span>
+                  {showTax && compTax && <span className="flex items-center gap-1"><Hash className="w-3 h-3 text-slate-400" /> {compTax}</span>}
                 </div>
               </div>
             </div>
@@ -3509,7 +3705,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
               <div className="text-slate-900 font-bold text-sm text-indigo-900">{proposalNumber}</div>
               <div className="text-slate-600 text-[11px]">Tarih: <span className="font-semibold text-slate-900">{proposalDate}</span></div>
               <div className="text-slate-600 text-[11px]">Geçerlilik: <span className="font-semibold text-emerald-700">{validityDate} (30 Gün)</span></div>
-              <div className="text-slate-500 text-[10px] pt-1 border-t border-slate-200">Yetkili: {compAuth}</div>
+              {showFirstAuth && <div className="text-slate-500 text-[10px] pt-1 border-t border-slate-200">Yetkili: {compAuth}</div>}
             </div>
           </div>
 
@@ -3517,7 +3713,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
           <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <span className="text-[10px] font-bold tracking-widest uppercase text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-md">
-                BİNA YAPIM VE KENTSEL DÖNÜŞÜM TEKLİFİ
+                {params.projectName ? `${params.projectName} — ` : ''}BİNA YAPIM VE KENTSEL DÖNÜŞÜM TEKLİFİ
               </span>
               <h2 className="text-xl font-extrabold text-slate-900 mt-1">
                 {isContractorShareModel 
@@ -3565,28 +3761,38 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
               </div>
               <h4 className="text-sm font-bold text-slate-900 mb-2">Şeffaf ve Adil Süreç</h4>
               <p className="text-[11px] text-slate-600 leading-relaxed">
-                Tüm maliyetleri ve planlamayı en başından paylaşıyor, her aşamada tam şeffaflıkla haklarınızı ve geleceğinizi koruyoruz.
+                Tüm teknik kapsamı ve planlamayı en başından paylaşıyor, her aşamada tam şeffaflıkla haklarınızı ve geleceğinizi koruyoruz.
               </p>
             </div>
           </div>
         </div>
 
         {/* ========================================================
-            3. PROJECT & LAND SPECIFICATION MATRIX (PROJE KÜNYESİ)
+            3. PROJECT & LAND SPECIFICATION MATRIX (PROJE KÜNYESİ & ARSA/BİNA)
            ======================================================== */}
-        <div className="relative z-10 mb-10 space-y-4">
+        <div className="relative z-10 mb-10 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-3">
               <div className="w-1 h-4 bg-indigo-600 rounded-full" />
-              <span>I. MİMARİ VE TEKNİK KÜNYE</span>
+              <span>I. PROJE KÜNYESİ, ARSA VE BİNA ÖZELLİKLERİ</span>
             </h3>
-            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+            <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
               <MapPin className="w-3 h-3" />
               <span>{params.projectAddress || 'Proje Uygulama Sahası'}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+            <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Arsa & İmar</span>
+              <div className="text-sm font-bold text-slate-900">
+                {landAreaVal > 0 ? `${landAreaVal.toLocaleString('tr-TR')} m² Arsa` : 'Belirtilmedi'}
+              </div>
+              <span className="text-[10px] text-slate-500">
+                Taban: {Math.round(baseAreaVal).toLocaleString('tr-TR')} m²{landAreaVal > 0 ? ` • TAKS %${taksPercent.toFixed(1)}` : ''}
+              </span>
+            </div>
+
             <div 
               onClick={handleOpenUnitConfig}
               className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group relative"
@@ -3594,15 +3800,15 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kat Yapısı</span>
-                <span className="text-[9px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-indigo-50 px-1.5 py-0.5 rounded">
+                <span className="text-[9px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-indigo-50 px-1.5 py-0.5 rounded print:hidden">
                   <Sliders className="w-2.5 h-2.5" /> Düzenle
                 </span>
               </div>
               <div className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                {results.floorStructure?.shortLabel || `Z+${(params.floorCount || 5) - 1} Kat`}
+                {results.floorStructure?.shortLabel || `Z+${Math.max(0, (params.floorCount || 5) - 1)} Kat`}
               </div>
               <span className="text-[10px] text-slate-500">
-                {results.floorStructure?.detailedLabel || `${params.floorCount || 5} Katlı Yapı`}
+                {results.floorStructure?.detailedLabel || `${params.floorCount || 5} Katlı Yapı`}{landAreaVal > 0 ? ` • KAKS ${kaksRatio.toFixed(2)}` : ''}
               </span>
             </div>
 
@@ -3613,7 +3819,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Bağımsız Bölüm</span>
-                <span className="text-[9px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-indigo-50 px-1.5 py-0.5 rounded">
+                <span className="text-[9px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-indigo-50 px-1.5 py-0.5 rounded print:hidden">
                   <Sliders className="w-2.5 h-2.5" /> Düzenle
                 </span>
               </div>
@@ -3621,31 +3827,21 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 {results.unitBreakdown?.shortLabel || `${residentialCount} Daire ${shopCount > 0 ? `+ ${shopCount} Dükkan` : ''}`}
               </div>
               <span className="text-[10px] text-slate-500 font-medium">
-                {results.unitBreakdown?.detailedLabel || `${residentialCount + shopCount} Bağımsız Bölüm`}
+                {results.totalArea.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m² İnşaat Alanı
               </span>
             </div>
 
             <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-100 transition-colors">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">İmalat Birim Fiyatları</span>
-              <div className="space-y-1.5">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">İmalat Birim Fiyatı</span>
+              <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-900">
-                  <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                    <span>🏠</span> Konut:
-                  </span>
-                  <div className="text-right">
-                    <span className="text-emerald-700 font-mono">~{dualData.baseFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²</span>
-                    <span className="text-[9px] text-slate-400 block font-normal">Ort. {dualData.baseFlatShare.toLocaleString('tr-TR')} ₺/daire</span>
-                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">🏠 Konut:</span>
+                  <span className="text-emerald-700 font-mono">~{dualData.baseFlatUnitPrice.toLocaleString('tr-TR')} ₺/m²</span>
                 </div>
                 {params.hasGroundFloorShop && (
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-900 pt-1.5 border-t border-slate-100">
-                    <span className="text-[10px] text-indigo-700 font-medium flex items-center gap-1">
-                      <span>🏪</span> Dükkan:
-                    </span>
-                    <div className="text-right">
-                      <span className="text-indigo-700 font-mono">~{dualData.baseShopUnitPrice.toLocaleString('tr-TR')} ₺/m²</span>
-                      <span className="text-[9px] text-indigo-400 block font-normal">Ort. {dualData.baseShopShare.toLocaleString('tr-TR')} ₺/dükkan</span>
-                    </div>
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-900 pt-1 border-t border-slate-100">
+                    <span className="text-[10px] text-indigo-700 font-medium">🏪 Dükkan:</span>
+                    <span className="text-indigo-700 font-mono">~{dualData.baseShopUnitPrice.toLocaleString('tr-TR')} ₺/m²</span>
                   </div>
                 )}
               </div>
@@ -3659,6 +3855,165 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
               <span className="text-[10px] text-slate-500">Anahtar Teslim</span>
             </div>
           </div>
+
+          {/* Bağımsız Bölüm Paylaşımı Özeti ve Tablosu */}
+          {totalUnits > 0 && (
+            <div className="p-5 bg-slate-50/70 rounded-2xl border border-slate-200/80 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                  Bağımsız Bölüm Paylaşımı ve Kat Dağılımı
+                </h4>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-200">
+                    Arsa Sahipleri: {ownerCount} Bölüm ({Math.round(ownerAllocatedArea).toLocaleString('tr-TR')} m² • %{ownerSharePercent})
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-900 border border-indigo-200">
+                    {contractorCount > 0
+                      ? `Yüklenici Payı: ${contractorCount} Bölüm (${Math.round(contractorAllocatedArea).toLocaleString('tr-TR')} m² • %${contractorSharePercent})`
+                      : 'Tamamı Arsa Sahiplerine Tahsisli'}
+                  </span>
+                </div>
+              </div>
+
+              {(params.landowners || []).length > 0 && (
+                <div className="overflow-x-auto rounded-xl border border-emerald-200/80 bg-white">
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead>
+                      <tr className="bg-emerald-50/70 border-b border-emerald-200/70 text-emerald-950 font-bold">
+                        <th className="py-2 px-3">Arsa Maliki / Şirket</th>
+                        <th className="py-2 px-3 text-right">Arsa Hisse / Payı</th>
+                        <th className="py-2 px-3">Mevcut Bölüm</th>
+                        <th className="py-2 px-3">Yeni Projede Tahsisli Bölümler</th>
+                        <th className="py-2 px-3">Özel Mutabakat</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(params.landowners || []).map((owner) => {
+                        const den = owner.landShareDenominator || params.totalLandShareDenominator || 1000;
+                        const sharePct =
+                          owner.sharePercent && owner.sharePercent > 0
+                            ? owner.sharePercent
+                            : owner.landShareNumerator && den > 0
+                            ? Math.round(((owner.landShareNumerator / den) * 100) * 10) / 10
+                            : 0;
+                        const landM2 =
+                          params.landArea && params.landArea > 0
+                            ? Math.round(((params.landArea * sharePct) / 100) * 10) / 10
+                            : 0;
+                        const assignedUnits = (params.flats || []).filter(
+                          (fl) => fl.ownerId === owner.id && !(params.contractorFlatIds?.includes(fl.id) || fl.isContractorShare)
+                        );
+                        return (
+                          <tr key={owner.id} className="hover:bg-slate-50/60">
+                            <td className="py-1.5 px-3 font-bold text-slate-900">
+                              {owner.name}
+                              {owner.companyName ? ` (${owner.companyName})` : ''}
+                            </td>
+                            <td className="py-1.5 px-3 text-right font-mono text-slate-800">
+                              %{sharePct.toFixed(1)}
+                              {landM2 > 0 ? ` (${landM2} m²)` : ''}
+                            </td>
+                            <td className="py-1.5 px-3 text-slate-600">{owner.existingUnitInfo || '—'}</td>
+                            <td className="py-1.5 px-3 font-mono font-semibold text-emerald-800">
+                              {assignedUnits.length > 0
+                                ? assignedUnits.map((u) => `No ${u.id} (${Math.round(u.area)} m²)`).join(', ')
+                                : 'Belirlenecek'}
+                            </td>
+                            <td className="py-1.5 px-3 text-slate-600">{owner.specialAgreement || '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                <table className="w-full text-left text-[11px] border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
+                      <th className="py-2 px-3">Bölüm / Tahsis</th>
+                      <th className="py-2 px-3">Kat</th>
+                      <th className="py-2 px-3">Bölüm Türü</th>
+                      <th className="py-2 px-3 text-right">Brüt / Net Alan</th>
+                      <th className="py-2 px-3 text-center">Tahsis Tarafı</th>
+                      {!isContractorShareModel && <th className="py-2 px-3 text-right">Destek Sonrası Net Pay</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {results.flatResults.map((flat) => {
+                      const origFlat = params.flats?.find((f) => f.id === flat.id);
+                      const linkedOwner = !flat.isContractorShare && origFlat?.ownerId
+                        ? (params.landowners || []).find((o) => o.id === origFlat.ownerId)
+                        : undefined;
+                      const rawName = (linkedOwner
+                        ? (linkedOwner.companyName ? `${linkedOwner.name} (${linkedOwner.companyName})` : linkedOwner.name)
+                        : (flat.name || origFlat?.name || '')).trim();
+                      const isPlaceholderName = !rawName || /^(kat\s*maliki|malik|daire|bölüm|hak\s*sahibi)\s*\d*$/i.test(rawName);
+                      const netVal = Math.round(flat.netArea || flat.area * 0.8);
+                      const typeLabel =
+                        flat.flatType === 'shop'
+                          ? 'Zemin Dükkan'
+                          : flat.flatType === 'basement_shop'
+                          ? 'Bodrum Dükkan'
+                          : flat.flatType === 'mansard'
+                          ? 'Mansart / Çatı'
+                          : flat.flatType === 'duplex'
+                          ? 'Çatı Dubleks'
+                          : flat.flatType === 'basement_flat'
+                          ? 'Bodrum Daire'
+                          : 'Konut Dairesi';
+                      const floorLabel =
+                        flat.flatType === 'basement_shop' || flat.flatType === 'basement_flat'
+                          ? 'Bodrum Kat'
+                          : flat.flatType === 'shop' || origFlat?.floorNumber === 0
+                          ? 'Zemin Kat'
+                          : origFlat?.floorNumber
+                          ? `${origFlat.floorNumber}. Kat`
+                          : 'Normal Kat';
+                      return (
+                        <tr key={flat.id} className={flat.isContractorShare ? 'bg-indigo-50/40' : 'hover:bg-slate-50/60'}>
+                          <td className="py-1.5 px-3 font-bold text-slate-900">
+                            <span>Bölüm #{flat.id}</span>
+                            {!flat.isContractorShare && !isPlaceholderName && (
+                              <span className="ml-1.5 font-semibold text-slate-600">— {rawName}</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-3 text-slate-600">{floorLabel}</td>
+                          <td className="py-1.5 px-3 text-slate-700">{typeLabel}</td>
+                          <td className="py-1.5 px-3 text-right font-mono text-slate-800">
+                            {Math.round(flat.area)} m² / {netVal} m²
+                          </td>
+                          <td className="py-1.5 px-3 text-center">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                flat.isContractorShare
+                                  ? 'bg-indigo-100 text-indigo-800'
+                                  : isPlaceholderName
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {flat.isContractorShare
+                                ? 'Yüklenici Firma'
+                                : isPlaceholderName
+                                ? 'Arsa Sahibi (Atanacak)'
+                                : 'Arsa Sahibi'}
+                            </span>
+                          </td>
+                          {!isContractorShareModel && (
+                            <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">
+                              {flat.isContractorShare ? '—' : `${Math.round(flat.netRemainingDebt || 0).toLocaleString('tr-TR')} ₺`}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ========================================================
@@ -4593,7 +4948,9 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                 
                 <div className="space-y-6">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">Toplam Proje Değeri</span>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold block mb-1">
+                      {isContractorShareModel ? 'Proje Yapım Hacmi (Referans)' : 'Toplam Teklif Bedeli'}
+                    </span>
                     <div className="text-3xl font-black text-emerald-400 font-mono">
                       {results.grandTotal.toLocaleString('tr-TR')} ₺
                     </div>
@@ -4602,7 +4959,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                     <button
                       type="button"
                       onClick={() => setIsDiagnosticModalOpen(true)}
-                      className="mt-3 w-full py-2.5 px-3 bg-indigo-600/40 hover:bg-indigo-600/60 border border-indigo-400/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                      className="mt-3 w-full py-2.5 px-3 bg-indigo-600/40 hover:bg-indigo-600/60 border border-indigo-400/30 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 print:hidden"
                     >
                       <Scale className="w-4 h-4 text-indigo-300" />
                       <span>🔍 Malik Dağılım Mutabakat Teşhisini Aç</span>
@@ -4612,7 +4969,7 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
                     <button
                       type="button"
                       onClick={() => setIsValuationModalOpen(true)}
-                      className="mt-2 w-full py-2.5 px-3 bg-amber-600/40 hover:bg-amber-600/60 border border-amber-400/30 text-amber-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                      className="mt-2 w-full py-2.5 px-3 bg-amber-600/40 hover:bg-amber-600/60 border border-amber-400/30 text-amber-200 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 print:hidden"
                     >
                       <Building2 className="w-4 h-4 text-amber-300" />
                       <span>🏢 İstanbul Emlak Piyasa Değerlemesi</span>
@@ -4985,8 +5342,20 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
         </div>
 
         {/* ========================================================
-            7.5. ADDITIONAL CLAUSES / SPECIAL PROVISIONS ON-SCREEN
+            7.5. ADDITIONAL CLAUSES & CUSTOM PROJECT NOTES ON-SCREEN
            ======================================================== */}
+        {params.customContractNotes && params.customContractNotes.trim().length > 0 && (
+          <div className="relative z-10 mb-8 border border-slate-200 rounded-2xl p-5 bg-slate-50/50">
+            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2 mb-3">
+              <FileText className="w-4 h-4 text-indigo-600" />
+              <span>PROJE AÇIKLAMALARI VE ÖZEL NOTLAR</span>
+            </h3>
+            <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {params.customContractNotes.trim()}
+            </p>
+          </div>
+        )}
+
         {clauses.length > 0 && (
           <div className="relative z-10 mb-8 border border-slate-200 rounded-2xl p-5 bg-slate-50/50">
             <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2 mb-3">
@@ -5044,20 +5413,43 @@ ${params.hasInflationBuffer ? '✓ TEFE/TÜFE Enflasyon Farkı Talep Edilmez (Fi
               <div className="font-extrabold text-slate-950 uppercase tracking-wide">
                 YÜKLENİCİ FİRMA KAŞE / İMZA
               </div>
-              <p className="text-[11px] text-slate-500 font-medium">{compLegal}</p>
-              <div className="h-20 flex flex-col items-center justify-center text-slate-600">
-                <span className="font-bold text-xs text-indigo-900">{compAuth}</span>
-                <span className="text-[10px] text-slate-500">{compAuthTitle}</span>
+              <p className="text-[11px] text-slate-500 font-medium">{showLegal ? compLegal : compName}</p>
+              <div className="h-20 relative flex items-center justify-center gap-4 text-slate-600">
+                {showStamp && compStamp && (
+                  <img
+                    src={compStamp}
+                    alt="Kaşe/İmza"
+                    className="max-h-16 object-contain absolute opacity-90 pointer-events-none"
+                  />
+                )}
+                {showFirstAuth && (
+                  <div className="relative z-10 flex flex-col items-center">
+                    <span className="font-bold text-xs text-indigo-900">{compAuth}</span>
+                    <span className="text-[10px] text-slate-500">{compAuthTitle}</span>
+                    {showFirstAuthChamber && compAuthChamber && (
+                      <span className="text-[9px] text-slate-400 font-mono">{compAuthChamber}</span>
+                    )}
+                  </div>
+                )}
+                {showSecondAuth && compAuth2 && (
+                  <div className="relative z-10 flex flex-col items-center border-l border-slate-200 pl-4">
+                    <span className="font-bold text-xs text-indigo-900">{compAuth2}</span>
+                    <span className="text-[10px] text-emerald-700">{compAuthTitle2}</span>
+                    {showSecondAuthChamber && compAuthChamber2 && (
+                      <span className="text-[9px] text-slate-400 font-mono">{compAuthChamber2}</span>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="text-slate-400 font-mono text-[11px]">Tarih: ..... / ..... / 2026</div>
+              <div className="text-slate-400 font-mono text-[11px]">Tarih: {proposalDate}</div>
             </div>
           </div>
 
           {/* Proposal Document Verification & Web Footer */}
-          {compWeb && profile?.printOptions?.showWebsite !== false && (
+          {compWeb && showWeb && (
             <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-500 font-mono">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-700">{compLegal}</span>
+                <span className="font-semibold text-slate-700">{showLegal ? compLegal : compName}</span>
               </div>
               <a
                 href={compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}

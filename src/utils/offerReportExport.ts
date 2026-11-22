@@ -64,8 +64,8 @@ export function generateOfferHtml(
 
   // Categorize unit metrics matching OfferTab
   const shopUnits = res.flatResults.filter(f => f.flatType === 'shop' || f.flatType === 'basement_shop');
-  const normalUnits = res.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'basement_shop' && f.flatType !== 'mansard');
-  const mansardUnits = res.flatResults.filter(f => f.flatType === 'mansard');
+  const normalUnits = res.flatResults.filter(f => f.flatType !== 'shop' && f.flatType !== 'basement_shop' && f.flatType !== 'mansard' && f.flatType !== 'duplex');
+  const mansardUnits = res.flatResults.filter(f => f.flatType === 'mansard' || f.flatType === 'duplex');
 
   const avgShopArea = shopUnits.length > 0 ? Math.round(shopUnits.reduce((acc, f) => acc + f.area, 0) / shopUnits.length) : 0;
   const avgNormalArea = normalUnits.length > 0 ? Math.round(normalUnits.reduce((acc, f) => acc + f.area, 0) / normalUnits.length) : Math.round(res.totalArea / (res.flatCount || 1));
@@ -73,6 +73,46 @@ export function generateOfferHtml(
 
   const flatUnitPriceVal = params.manualFlatUnitPrice || res.grossCostPerSqM;
   const shopUnitPriceVal = params.manualShopUnitPrice || res.grossCostPerSqM;
+
+  // Bağımsız Bölüm Paylaşımı (Arsa Sahibi vs Yüklenici — iç maliyet/kâr bilgisi olmadan)
+  const totalUnitCount = res.flatResults.length;
+  const ownerUnitResults = res.flatResults.filter(f => !f.isContractorShare);
+  const contractorUnitResults = res.flatResults.filter(f => f.isContractorShare);
+  const totalAllocatedArea = res.flatResults.reduce((sum, f) => sum + (f.area || 0), 0);
+  const ownerAllocatedArea = ownerUnitResults.reduce((sum, f) => sum + (f.area || 0), 0);
+  const contractorAllocatedArea = contractorUnitResults.reduce((sum, f) => sum + (f.area || 0), 0);
+  const ownerSharePercent = totalAllocatedArea > 0 ? Math.round((ownerAllocatedArea / totalAllocatedArea) * 100) : 100;
+  const contractorSharePercent = totalAllocatedArea > 0 ? 100 - ownerSharePercent : 0;
+
+  const landAreaVal = params.landArea || 0;
+  const baseAreaVal = res.baseArea || params.baseBuildArea || 0;
+  const taksText = landAreaVal > 0 ? `%${((baseAreaVal / landAreaVal) * 100).toFixed(1)}` : '-';
+  const kaksText = landAreaVal > 0 ? `${(res.totalArea / landAreaVal).toFixed(2)}` : '-';
+
+  const formatUnitTypeLabel = (ft?: string) => {
+    switch (ft) {
+      case 'shop': return 'Zemin Dükkan';
+      case 'basement_shop': return 'Bodrum Dükkan';
+      case 'mansard': return 'Mansart / Çatı';
+      case 'duplex': return 'Çatı Dubleks';
+      case 'basement_flat': return 'Bodrum Daire';
+      default: return 'Konut Dairesi';
+    }
+  };
+
+  const formatFloorLabel = (floorNum?: number, ft?: string) => {
+    if (ft === 'basement_shop' || ft === 'basement_flat') return 'Bodrum Kat';
+    if (ft === 'shop' || floorNum === 0) return 'Zemin Kat';
+    if (floorNum !== undefined && floorNum > 0) return `${floorNum}. Kat`;
+    return 'Normal Kat';
+  };
+
+  const paymentPlanLabel =
+    params.paymentPlanType === 'hybrid'
+      ? 'Karma Ödeme (Peşinat + Ara Ödeme + Taksit)'
+      : params.paymentPlanType === 'stages'
+      ? '5 Aşamalı Fiziki İlerleme Hakedişi'
+      : `Aylık Eşit Taksit (${params.installmentCount || 12} Ay Vade)`;
 
   let introPageHtml = '';
   if (params.showIntroPresentation) {
@@ -307,7 +347,9 @@ export function generateOfferHtml(
         <span class="badge ${isContractorShareModel ? 'badge-emerald' : 'badge-indigo'}">
           ${isContractorShareModel ? 'Kat Karşılığı İnşaat ve Bağımsız Bölüm Paylaşım Modeli' : supportText}
         </span>
-        <h1 style="font-size:16px;font-weight:bold;color:#0f172a;margin:6px 0 2px 0;">BİNA YAPIM VE KENTSEL DÖNÜŞÜM TEKLİFİ</h1>
+        <h1 style="font-size:16px;font-weight:bold;color:#0f172a;margin:6px 0 2px 0;">
+          ${params.projectName ? `${params.projectName} — ` : ''}BİNA YAPIM VE KENTSEL DÖNÜŞÜM TEKLİFİ
+        </h1>
         <p style="font-size:10px;color:#64748b;margin:0;">
           ${isContractorShareModel ? 'Kat Karşılığı İnşaat ve Bağımsız Bölüm Paylaşım Teklifi' : 'Anahtar Teslim Bina Yapım ve Hakedişli Finansman Teklifi'} • Adres: <strong>${params.projectAddress || 'Belirtilen Adres'}</strong>
         </p>
@@ -340,28 +382,37 @@ export function generateOfferHtml(
       <div class="card-muted" style="border-left:3px solid #0284c7;">
         <div style="font-weight:bold;font-size:11px;color:#082f49;margin-bottom:4px;">🤝 Şeffaf ve Adil Süreç</div>
         <p style="font-size:9.5px;color:#475569;margin:0;line-height:1.45;">
-          Tüm maliyetleri ve planlamayı en başından paylaşıyor, her aşamada tam şeffaflıkla haklarınızı ve geleceğinizi koruyoruz.
+          Tüm teknik kapsamı ve planlamayı en başından paylaşıyor, her aşamada tam şeffaflıkla haklarınızı ve geleceğinizi koruyoruz.
         </p>
       </div>
     </div>
   </div>` : ''}
 
-  <!-- I. MİMARİ VE TEKNİK KÜNYE (4 SUMMARY CARDS - NO ARSA ALANI) -->
+  <!-- I. PROJE KÜNYESİ, ARSA VE BİNA ÖZELLİKLERİ -->
   ${showTechnicalSummary ? `
   <div class="avoid-break" style="margin-bottom:14px;">
-    <div class="section-header">I. Mimari ve Teknik Künye</div>
-    <div class="grid-4">
+    <div class="section-header">I. Proje Künyesi, Arsa ve Bina Özellikleri</div>
+    <div class="grid-4" style="margin-bottom:8px;">
       <div class="card-muted">
-        <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Kat Yapısı</div>
+        <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Arsa & İmar Alanı</div>
         <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">
-          ${res.floorStructure?.shortLabel || `Z+${(params.floorCount || 5) - 1} Kat`}
+          ${landAreaVal > 0 ? `${landAreaVal.toLocaleString('tr-TR')} m² Arsa` : 'Belirtilmedi'}
         </div>
         <div class="text-muted" style="font-size:9px;margin-top:2px;">
-          ${res.floorStructure?.detailedLabel || `${params.floorCount || 5} Katlı Yapı`}
+          Taban: ${Math.round(baseAreaVal).toLocaleString('tr-TR')} m²${landAreaVal > 0 ? ` • TAKS ${taksText}` : ''}
         </div>
       </div>
       <div class="card-muted">
-        <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Bağımsız Bölüm</div>
+        <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Kat & Yapı Düzeni</div>
+        <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">
+          ${res.floorStructure?.shortLabel || `Z+${Math.max(0, (params.floorCount || 5) - 1)} Kat`}
+        </div>
+        <div class="text-muted" style="font-size:9px;margin-top:2px;">
+          ${res.floorStructure?.detailedLabel || `${params.floorCount || 5} Katlı Yapı`}${landAreaVal > 0 ? ` • KAKS ${kaksText}` : ''}
+        </div>
+      </div>
+      <div class="card-muted">
+        <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Bağımsız Bölüm & Metraj</div>
         <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">
           ${res.unitBreakdown?.shortLabel || `${res.flatCount} Bağımsız Bölüm`}
         </div>
@@ -370,22 +421,112 @@ export function generateOfferHtml(
         </div>
       </div>
       <div class="card-muted" style="background:#eef2ff;border-color:#c7d2fe;">
-        <div style="color:#4338ca;font-size:9px;font-weight:bold;text-transform:uppercase;">İmalat Bedelleri</div>
-        <div style="font-size:11px;font-weight:bold;color:#1e1b4b;margin-top:2px;">
-          Konut: ~${flatUnitPriceVal.toLocaleString('tr-TR')} ₺/m²
+        <div style="color:#4338ca;font-size:9px;font-weight:bold;text-transform:uppercase;">Teslim & İmalat Bedeli</div>
+        <div style="font-size:11.5px;font-weight:bold;color:#1e1b4b;margin-top:2px;">
+          ${res.finalMonths} Ay Anahtar Teslim
         </div>
         <div style="font-size:9px;color:#4338ca;margin-top:1px;">
-          Dükkan: ~${shopUnitPriceVal.toLocaleString('tr-TR')} ₺/m²
+          Konut: ~${flatUnitPriceVal.toLocaleString('tr-TR')} ₺/m²${params.hasGroundFloorShop ? ` • Dükkan: ~${shopUnitPriceVal.toLocaleString('tr-TR')} ₺/m²` : ''}
         </div>
-      </div>
-      <div class="card-muted">
-        <div class="text-muted" style="font-size:9px;font-weight:bold;text-transform:uppercase;">Teslim Süresi</div>
-        <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">
-          ${res.finalMonths} Ay
-        </div>
-        <div class="text-muted" style="font-size:9px;margin-top:2px;">Anahtar Teslim Taahhüdü</div>
       </div>
     </div>
+  </div>` : ''}
+
+  <!-- BAĞIMSIZ BÖLÜM PAYLAŞIMI VE KAT DAĞILIMI -->
+  ${totalUnitCount > 0 ? `
+  <div style="margin-bottom:14px;">
+    <div class="section-header">Bağımsız Bölüm Paylaşımı ve Kat Dağılımı</div>
+    <div class="grid-3 avoid-break" style="margin-bottom:8px;">
+      <div class="card-muted">
+        <div class="text-muted" style="font-size:8.5px;font-weight:bold;text-transform:uppercase;">Toplam Bağımsız Bölüm</div>
+        <div style="font-size:11.5px;font-weight:bold;color:#0f172a;margin-top:2px;">${totalUnitCount} Bölüm (${Math.round(totalAllocatedArea).toLocaleString('tr-TR')} m²)</div>
+      </div>
+      <div class="card-muted" style="background:#ecfdf5;border-color:#a7f3d0;">
+        <div style="font-size:8.5px;font-weight:bold;text-transform:uppercase;color:#065f46;">Arsa Sahiplerine Ayrılan</div>
+        <div style="font-size:11.5px;font-weight:bold;color:#064e3b;margin-top:2px;">${ownerUnitResults.length} Bölüm • ${Math.round(ownerAllocatedArea).toLocaleString('tr-TR')} m² (%${ownerSharePercent})</div>
+      </div>
+      <div class="card-muted" style="background:#eef2ff;border-color:#c7d2fe;">
+        <div style="font-size:8.5px;font-weight:bold;text-transform:uppercase;color:#3730a3;">Yüklenici Payı (Kat Karşılığı)</div>
+        <div style="font-size:11.5px;font-weight:bold;color:#1e1b4b;margin-top:2px;">${contractorUnitResults.length > 0 ? `${contractorUnitResults.length} Bölüm • ${Math.round(contractorAllocatedArea).toLocaleString('tr-TR')} m² (%${contractorSharePercent})` : 'Tamamı Arsa Sahiplerine Tahsisli'}</div>
+      </div>
+    </div>
+    ${(params.landowners || []).length > 0 ? `
+    <table style="width:100%;border-collapse:collapse;font-size:8.5px;background:#ffffff;border:1px solid #a7f3d0;border-radius:8px;overflow:hidden;margin-bottom:8px;">
+      <thead>
+        <tr style="background:#ecfdf5;color:#064e3b;border-bottom:1.5px solid #a7f3d0;text-align:left;">
+          <th style="padding:5px 8px;">Arsa Maliki / Şirket</th>
+          <th style="padding:5px 8px;text-align:right;">Arsa Hisse / Payı</th>
+          <th style="padding:5px 8px;">Mevcut Bölüm</th>
+          <th style="padding:5px 8px;">Tahsis Edilen Yeni Bölümler</th>
+          <th style="padding:5px 8px;">Özel Mutabakat</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(params.landowners || []).map((owner) => {
+          const den = owner.landShareDenominator || params.totalLandShareDenominator || 1000;
+          const sharePct = owner.sharePercent && owner.sharePercent > 0
+            ? owner.sharePercent
+            : owner.landShareNumerator && den > 0
+            ? Math.round(((owner.landShareNumerator / den) * 100) * 10) / 10
+            : 0;
+          const landM2 = params.landArea && params.landArea > 0
+            ? Math.round(((params.landArea * sharePct) / 100) * 10) / 10
+            : 0;
+          const assignedUnits = (params.flats || []).filter(
+            (fl) => fl.ownerId === owner.id && !(params.contractorFlatIds?.includes(fl.id) || fl.isContractorShare)
+          );
+          const unitsStr = assignedUnits.length > 0
+            ? assignedUnits.map((u) => `No ${u.id} (${Math.round(u.area)} m²)`).join(', ')
+            : 'Belirlenecek';
+          return `
+        <tr style="border-bottom:1px solid #e2e8f0;page-break-inside:avoid;">
+          <td style="padding:4px 8px;font-weight:bold;color:#0f172a;">${owner.name}${owner.companyName ? ` (${owner.companyName})` : ''}</td>
+          <td style="padding:4px 8px;text-align:right;font-family:monospace;color:#0f172a;">%${sharePct.toFixed(1)}${landM2 > 0 ? ` (${landM2} m²)` : ''}</td>
+          <td style="padding:4px 8px;color:#475569;">${owner.existingUnitInfo || '—'}</td>
+          <td style="padding:4px 8px;font-family:monospace;font-weight:bold;color:#065f46;">${unitsStr}</td>
+          <td style="padding:4px 8px;color:#475569;">${owner.specialAgreement || '—'}</td>
+        </tr>`;
+        }).join('')}
+      </tbody>
+    </table>` : ''}
+    <table style="width:100%;border-collapse:collapse;font-size:8.5px;background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">
+      <thead>
+        <tr style="background:#f1f5f9;color:#0f172a;border-bottom:1.5px solid #cbd5e1;text-align:left;">
+          <th style="padding:5px 8px;">Bölüm / Tahsis</th>
+          <th style="padding:5px 8px;">Kat</th>
+          <th style="padding:5px 8px;">Bölüm Türü</th>
+          <th style="padding:5px 8px;text-align:right;">Brüt / Net Alan</th>
+          <th style="padding:5px 8px;text-align:center;">Tahsis Tarafı</th>
+          ${!isContractorShareModel ? `<th style="padding:5px 8px;text-align:right;">Destek Sonrası Net Pay</th>` : ''}
+        </tr>
+      </thead>
+      <tbody>
+        ${res.flatResults.map((flat, idx) => {
+          const origFlat = params.flats?.find(f => f.id === flat.id);
+          const linkedOwner = !flat.isContractorShare && origFlat?.ownerId
+            ? (params.landowners || []).find(o => o.id === origFlat.ownerId)
+            : undefined;
+          const rawName = (linkedOwner
+            ? (linkedOwner.companyName ? `${linkedOwner.name} (${linkedOwner.companyName})` : linkedOwner.name)
+            : (flat.name || origFlat?.name || '')).trim();
+          const isPlaceholder = !rawName || /^(kat\s*maliki|malik|daire|bölüm|hak\s*sahibi)\s*\d*$/i.test(rawName);
+          const netAreaVal = Math.round(flat.netArea || flat.area * 0.8);
+          return `
+        <tr style="border-bottom:1px solid #e2e8f0;background:${flat.isContractorShare ? '#f5f3ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc'};page-break-inside:avoid;">
+          <td style="padding:4px 8px;font-weight:bold;color:#0f172a;">Bölüm #${flat.id}${!flat.isContractorShare && !isPlaceholder ? ` — ${rawName}` : ''}</td>
+          <td style="padding:4px 8px;color:#475569;">${formatFloorLabel(origFlat?.floorNumber, flat.flatType)}</td>
+          <td style="padding:4px 8px;color:#334155;">${formatUnitTypeLabel(flat.flatType)}</td>
+          <td style="padding:4px 8px;text-align:right;font-family:monospace;color:#0f172a;">${Math.round(flat.area)} m² / ${netAreaVal} m²</td>
+          <td style="padding:4px 8px;text-align:center;">
+            <span style="display:inline-block;padding:1.5px 6px;border-radius:10px;font-weight:bold;font-size:8px;background:${flat.isContractorShare ? '#e0e7ff' : isPlaceholder ? '#fef3c7' : '#d1fae5'};color:${flat.isContractorShare ? '#3730a3' : isPlaceholder ? '#92400e' : '#065f46'};">
+              ${flat.isContractorShare ? 'Yüklenici Firma' : isPlaceholder ? 'Arsa Sahibi (Atanacak)' : 'Arsa Sahibi'}
+            </span>
+          </td>
+          ${!isContractorShareModel ? `<td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:bold;color:#0f172a;">${flat.isContractorShare ? '—' : `${Math.round(flat.netRemainingDebt || 0).toLocaleString('tr-TR')} ₺`}</td>` : ''}
+        </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
   </div>` : ''}
 
   <!-- III. YAPISAL KALİTE VE TEKNİK STANDARTLAR -->
@@ -428,7 +569,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.underfloorHeatingCost ? res.underfloorHeatingCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -445,7 +586,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.waterFiltrationCost ? res.waterFiltrationCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -462,7 +603,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.acCostTotal ? res.acCostTotal.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -479,7 +620,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.thermostaticMixerCost ? res.thermostaticMixerCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -496,7 +637,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.linearDrainCost ? res.linearDrainCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -513,7 +654,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.bathroomHumidityFanCost ? res.bathroomHumidityFanCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -530,7 +671,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.touchlessKitchenFaucetCost ? res.touchlessKitchenFaucetCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -547,7 +688,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.smartDoorLockCost ? res.smartDoorLockCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -564,7 +705,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.generatorCost ? res.generatorCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -581,7 +722,7 @@ export function generateOfferHtml(
             </p>
           </div>
           <div style="font-size:8.5px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:4px;display:flex;justify-content:space-between;align-items:center;">
-            <span>Yatırım Maliyeti:</span>
+            <span>Paket / Donanım Bedeli:</span>
             <span style="font-weight:bold;color:#6b21a8;">${res.porcelainCountertopCost ? res.porcelainCountertopCost.toLocaleString('tr-TR') : '0'} ₺</span>
           </div>
         </div>
@@ -738,27 +879,33 @@ export function generateOfferHtml(
       <div class="card-dark" style="display:flex;flex-direction:column;justify-content:space-between;">
         <div>
           <div style="color:#94a3b8;font-size:9.5px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;">
-            Yatırım ve Finansman Özeti
+            ${isContractorShareModel ? 'Proje Yapım Hacmi ve Finansman Modeli' : 'Teklif Bedeli ve Finansman Özeti'}
           </div>
           <div style="font-size:20px;font-weight:800;color:#ffffff;margin-top:6px;font-family:monospace;">
             ${res.grandTotal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
           </div>
-          <div style="font-size:9.5px;color:#cbd5e1;margin-top:1px;">Toplam Tahmini Proje Değeri</div>
+          <div style="font-size:9.5px;color:#cbd5e1;margin-top:1px;">
+            ${isContractorShareModel ? 'Toplam Tahmini Yapım Değeri (Yüklenici Tarafından Finanse Edilir)' : 'Toplam Anahtar Teslim Teklif Bedeli'}
+          </div>
 
           <div style="margin-top:12px;border-top:1px solid #334155;padding-top:10px;display:flex;flex-direction:column;gap:6px;font-size:10px;">
             <div style="display:flex;justify-content:space-between;color:#cbd5e1;">
-              <span>İnşaat ve İmalat Bedeli (%85):</span>
+              <span>Yapım & İmalat Kapsamı (%85):</span>
               <span style="font-family:monospace;font-weight:bold;color:#ffffff;">${(res.grandTotal * 0.85).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺</span>
             </div>
             <div style="display:flex;justify-content:space-between;color:#cbd5e1;">
-              <span>Ruhsat, Harç ve Müşavirlik (%15):</span>
+              <span>Proje, Ruhsat ve Müşavirlik (%15):</span>
               <span style="font-family:monospace;font-weight:bold;color:#ffffff;">${(res.grandTotal * 0.15).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺</span>
             </div>
+            ${isContractorShareModel ? `
+            <div style="margin-top:4px;padding:6px 8px;background:#064e3b;border:1px solid #059669;border-radius:6px;font-size:9px;color:#d1fae5;">
+              ✓ Kat Karşılığı Model: Hak sahiplerinden nakit inşaat bedeli talep edilmez.
+            </div>` : ''}
           </div>
         </div>
 
         <div style="margin-top:12px;padding:8px 10px;background:#1e293b;border-radius:8px;font-size:9px;color:#cbd5e1;border:1px solid #334155;">
-          <strong style="color:#38bdf8;">Finansman Modeli:</strong> ${supportText}
+          <strong style="color:#38bdf8;">Finansman Modeli:</strong> ${isContractorShareModel ? `Kat Karşılığı (${ownerUnitResults.length} Malik / ${contractorUnitResults.length} Yüklenici)` : supportText}
         </div>
       </div>
     </div>
@@ -778,7 +925,9 @@ export function generateOfferHtml(
       <div class="card-muted">
         <div style="font-weight:bold;font-size:11px;color:#0f172a;margin-bottom:3px;">💳 Ödeme Prensibi</div>
         <p style="font-size:9.5px;color:#475569;margin:0;line-height:1.45;">
-          Ödemeler inşaatın fiziki ilerleme seviyesine göre hakediş usulü veya sözleşmede belirlenen eşit vadeli taksit planı ile güvenli ve şeffaf şekilde gerçekleştirilir.
+          ${isContractorShareModel
+            ? 'Arsa payı karşılığı modelde kat maliklerinin nakit yapım ödemesi yükümlülüğü yoktur; tüm imalat finansmanı yüklenici tarafından karşılanır.'
+            : `Seçili ödeme planı: <strong>${paymentPlanLabel}</strong>. Ödemeler sözleşmede kararlaştırılan takvim ve fiziki ilerleme seviyelerine paralel olarak şeffaf biçimde yürütülür.`}
         </p>
       </div>
     </div>
@@ -861,7 +1010,13 @@ export function generateOfferHtml(
     </div>
   </div>` : ''}
 
-  <!-- TEKLİF EK MADDELERİ VE ÖZEL HÜKÜMLER -->
+  <!-- TEKLİF EK MADDELERİ VE ÖZEL AÇIKLAMALAR -->
+  ${(params.customContractNotes && params.customContractNotes.trim().length > 0) ? `
+  <div class="avoid-break" style="margin-bottom:14px;">
+    <div class="section-header">Proje Açıklamaları ve Özel Notlar</div>
+    <div class="card-muted" style="font-size:9.5px;color:#334155;line-height:1.5;white-space:pre-wrap;">${params.customContractNotes.trim()}</div>
+  </div>
+  ` : ''}
   ${params.additionalOfferClauses && params.additionalOfferClauses.length > 0 ? `
   <div class="avoid-break" style="margin-bottom:14px;">
     <div class="section-header">Teklif Ek Maddeleri ve Özel Hükümler</div>

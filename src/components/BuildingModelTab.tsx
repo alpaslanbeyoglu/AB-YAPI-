@@ -78,12 +78,17 @@ import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel
 
 interface BuildingModelTabProps {
   params?: BuildingModelParams;
+  projectParams?: ProjectParams;
+  projectName?: string;
+  projectAddress?: string;
+  landArea?: number;
   onUpdateParams?: (updates: Partial<BuildingModelParams>) => void;
   onSyncWithCalculator?: (newParams: Partial<ProjectParams>) => void;
   onNavigateToFloorPlan?: () => void;
   onNavigateToSetup?: () => void;
   onNavigateToCost?: () => void;
   onNavigateToOwners?: () => void;
+  onNavigateToOffer?: () => void;
   theme?: AppTheme;
 }
 
@@ -96,12 +101,17 @@ const ROAD_TYPES_DATA: { id: RoadType; label: string; width: number; color: stri
 
 export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   params: propParams,
+  projectParams,
+  projectName,
+  projectAddress,
+  landArea,
   onUpdateParams,
   onSyncWithCalculator,
   onNavigateToFloorPlan,
   onNavigateToSetup,
   onNavigateToCost,
   onNavigateToOwners,
+  onNavigateToOffer,
   theme = 'light',
 }) => {
   const isGray = theme === 'gray';
@@ -123,6 +133,8 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
   // Active subview: 3D Model vs Solar Exposure vs 2D Floor Plan
   const [viewMode, setViewMode] = useState<'3d' | 'solar' | '2d'>('3d');
+  // Teknik Düzenleme vs Müşteri Sunumu Modu
+  const [presentationMode, setPresentationMode] = useState<boolean>(false);
   const [syncedFeedback, setSyncedFeedback] = useState<string | null>(null);
 
   // Auto-sync when propParams change
@@ -221,6 +233,34 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   };
 
   const metrics = calculateBuildingMetrics(modelParams);
+  const effectiveLandArea = landArea ?? projectParams?.landArea ?? 0;
+  const effectiveProjectName = projectName ?? projectParams?.projectName ?? '';
+  const effectiveProjectAddress = projectAddress ?? projectParams?.projectAddress ?? '';
+  const effectiveFootprint = calculateFootprint(modelParams.footprintInputMode || 'directArea', modelParams);
+  const isProportionalFootprint =
+    !modelParams.footprintInputMode || modelParams.footprintInputMode === 'directArea';
+  const footprintExceedsLand =
+    effectiveLandArea > 0 && metrics.footprintArea > effectiveLandArea * 1.01;
+
+  // Save 3D view snapshot for OfferTab attachments
+  const handleAttachSnapshotToOffer = (dataUrl: string) => {
+    try {
+      const payload = {
+        url: dataUrl,
+        caption: `${effectiveProjectName || '3D Mimari Model'} — 3D Perspektif Görünüm`,
+        projectAddress: effectiveProjectAddress,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('ab_yapi_offer_3d_preview', JSON.stringify(payload));
+      setSyncedFeedback(
+        '3D görsel Teklif eklerine kaydedildi. 8. Aşama (Teklif & Sunum) ekranından müşteri teklifine dahil edebilirsiniz.'
+      );
+      setTimeout(() => setSyncedFeedback(null), 5000);
+    } catch (e) {
+      setSyncedFeedback('3D görsel kaydedilemedi (tarayıcı depolama limiti).');
+      setTimeout(() => setSyncedFeedback(null), 4000);
+    }
+  };
 
   // Sync dimensions to main calculation engine
   const handleSyncToCalculator = () => {
@@ -334,13 +374,15 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
             <div className="flex items-center justify-between gap-2 flex-wrap mb-4 pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-600" />
                   <h3 className={`text-sm font-bold ${textTitle}`}>
                     {viewMode === '3d'
-                      ? '3D İnteraktif Yapı Modeli'
+                      ? presentationMode
+                        ? 'Müşteri Sunumu — 3D Yapı Görselleştirme'
+                        : '3D İnteraktif Yapı Modeli'
                       : viewMode === 'solar'
                       ? 'Güneş Alma & Gölge Analizi Simülasyonu'
-                      : 'Nano Banana Mimari Çizim & Kat Planı'}
+                      : 'Mimari Çizim & Kat Planı'}
                   </h3>
                 </div>
 
@@ -381,13 +423,41 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                     }`}
                   >
                     <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Nano Banana Çizim</span>
+                    <span>2D Plan & Çizim</span>
+                  </button>
+                </div>
+
+                {/* Teknik Düzenleme vs Müşteri Sunumu */}
+                <div className={`flex items-center p-0.5 rounded-xl border ${subCardBg}`}>
+                  <button
+                    type="button"
+                    onClick={() => setPresentationMode(false)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      !presentationMode
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Teknik Düzenleme</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresentationMode(true)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      presentationMode
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Müşteri Sunumu</span>
                   </button>
                 </div>
 
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  <span>Hesap ile Canlı Senkron</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Hesap ile Senkron</span>
                 </div>
               </div>
 
@@ -404,7 +474,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                           : 'text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      🏢 Dış
+                      Dış Görünüm
                     </button>
                     <button
                       type="button"
@@ -415,7 +485,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                           : 'text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      🔍 Odalar
+                      İç Plan
                     </button>
                     <button
                       type="button"
@@ -426,43 +496,93 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                           : 'text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      📐 Açık Kesit
+                      Açık Kesit
                     </button>
                   </div>
                 )}
 
-                {/* Yüzey / Parsel Rotasyonu Kontrolü */}
-                <div className="flex items-center gap-2 p-1 px-2.5 rounded-xl border bg-slate-50 border-slate-200">
-                  <div className="flex items-center gap-1.5 py-0.5">
-                    <Compass className="w-3.5 h-3.5 text-indigo-600" />
-                    <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">Yüzey Açısı:</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="359"
-                      step="1"
-                      value={modelParams.surfaceRotation || 0}
-                      onChange={(e) => updateParams({ surfaceRotation: parseInt(e.target.value) || 0, buildingRotation: parseInt(e.target.value) || 0 })}
-                      className="w-20 sm:w-28 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                      title="Yüzey / Parsel Rotasyonu"
-                    />
-                    <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md min-w-[36px] text-center">
-                      {modelParams.surfaceRotation || 0}°
-                    </span>
+                {/* Yüzey / Parsel Rotasyonu Kontrolü (Teknik modda) */}
+                {!presentationMode && (
+                  <div className="flex items-center gap-2 p-1 px-2.5 rounded-xl border bg-slate-50 border-slate-200">
+                    <div className="flex items-center gap-1.5 py-0.5">
+                      <Compass className="w-3.5 h-3.5 text-indigo-600" />
+                      <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">Yüzey Açısı:</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="359"
+                        step="1"
+                        value={modelParams.surfaceRotation || 0}
+                        onChange={(e) => updateParams({ surfaceRotation: parseInt(e.target.value) || 0, buildingRotation: parseInt(e.target.value) || 0 })}
+                        className="w-20 sm:w-28 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                        title="Yüzey / Parsel Rotasyonu"
+                      />
+                      <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md min-w-[36px] text-center">
+                        {modelParams.surfaceRotation || 0}°
+                      </span>
+                    </div>
                   </div>
-                </div>
-
-                <span className={`text-[11px] font-mono font-semibold px-2.5 py-1 rounded-xl border ${subCardBg} ${textMuted}`}>
-                  Yol İsimleri & Yüzey Rotasyonu Aktif
-                </span>
+                )}
               </div>
             </div>
+
+            {/* Honest Model Data Source & Assumptions Banner */}
+            {!presentationMode && (
+              <div
+                className={`mb-3 px-3.5 py-2.5 rounded-2xl border text-xs flex flex-wrap items-center justify-between gap-2 ${
+                  footprintExceedsLand
+                    ? 'bg-red-50 border-red-200 text-red-900'
+                    : isProportionalFootprint || effectiveLandArea <= 0
+                    ? 'bg-amber-50/70 border-amber-200 text-amber-900'
+                    : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}
+              >
+                <div className="flex items-start sm:items-center gap-2">
+                  {footprintExceedsLand ? (
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5 sm:mt-0" />
+                  ) : (
+                    <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
+                  )}
+                  <div className="leading-relaxed">
+                    <span className="font-bold">Model Veri Kaynağı: </span>
+                    <span>
+                      Taban oturumu ({Math.round(metrics.footprintArea)} m²), {modelParams.floorCount} kat ve{' '}
+                      {effectiveLandArea > 0 ? `${Math.round(effectiveLandArea)} m² arsa` : 'arsa girilmemiş'} verisi proje formundan alınır.
+                    </span>
+                    {isProportionalFootprint && (
+                      <span className="ml-1 font-medium">
+                        Ön/yan cephe ölçüleri ({effectiveFootprint.effectiveWidth.toFixed(1)}m × {effectiveFootprint.effectiveDepth.toFixed(1)}m) taban alanından orantılı türetilmiştir (varsayılan oran).
+                      </span>
+                    )}
+                    {footprintExceedsLand && (
+                      <span className="ml-1 font-bold text-red-700">
+                        Uyarı: Bina taban alanı arsa alanını aşıyor!
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {onNavigateToOffer && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToOffer}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-indigo-400 text-[11px] font-bold text-indigo-700 shrink-0 transition-colors cursor-pointer"
+                  >
+                    8. Teklife Geç →
+                  </button>
+                )}
+              </div>
+            )}
 
             {viewMode === '3d' && (
               <div className="space-y-3">
                 <ThreeBuildingView
                   params={modelParams}
                   theme={theme}
+                  presentationMode={presentationMode}
+                  projectName={effectiveProjectName}
+                  projectAddress={effectiveProjectAddress}
+                  landArea={effectiveLandArea}
+                  onAttachToOffer={handleAttachSnapshotToOffer}
                   surfaceRotation={modelParams.surfaceRotation || 0}
                   buildingRotation={modelParams.surfaceRotation || 0}
                   onUpdateColors={(colors) => updateParams(colors)}
@@ -978,6 +1098,11 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 <ThreeBuildingView
                   params={modelParams}
                   theme={theme}
+                  presentationMode={presentationMode}
+                  projectName={effectiveProjectName}
+                  projectAddress={effectiveProjectAddress}
+                  landArea={effectiveLandArea}
+                  onAttachToOffer={handleAttachSnapshotToOffer}
                   solarMode={true}
                   sunAltitude={solarPos.altitude}
                   sunAzimuth={solarPos.azimuth}
@@ -1018,7 +1143,9 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
           </div>
         </div>
 
-        {/* BOTTOM SECTION: Dimension & Structural Parameter Input Cards */}
+        {/* BOTTOM SECTION: Dimension & Structural Parameter Input Cards (Teknik Düzenleme modunda) */}
+        {!presentationMode && (
+        <>
         <div className="flex items-center justify-between px-1 py-1">
           <div className="flex items-center gap-2">
             <Palette className="w-4 h-4 text-indigo-600" />
@@ -1026,7 +1153,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
               Mimari Cephe & Dış Görünüm Parametreleri
             </span>
             <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold border border-indigo-200">
-              Tek Doğruluk Kaynağı: Boyut ve Katlar 1. Kurulumdan Yönetilir
+              Boyut ve Katlar Proje Girişiyle Senkronize
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -1036,7 +1163,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 onClick={onNavigateToSetup}
                 className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer"
               >
-                ← 1. Kurulumda Ölçüleri Değiştir
+                ← Proje Girişine Dön
               </button>
             )}
             <button
@@ -2876,48 +3003,70 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
         {/* İmar & Yangın Mevzuatı Otomatik Denetim Paneli */}
         <ZoningAuditPanel params={modelParams} theme={theme} />
+        </>
+        )}
 
         {/* Informational Technical Note */}
         <div className="border border-indigo-200/70 rounded-2xl p-4 text-xs flex items-start gap-3 bg-indigo-50/50 text-slate-700">
           <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <span className={`font-bold ${textTitle}`}>
-              AB YAPI İnşaat ve Mimari Hesap Modeli
+              {presentationMode ? 'Mimari Proje Sunum Özeti' : 'AB YAPI İnşaat ve Mimari Hesap Modeli'}
             </span>
             <p className={`leading-relaxed ${textMuted}`}>
-              Burada girdiğiniz ölçüler (Ön cephe: {modelParams.facadeWidth}m, Yan cephe: {modelParams.facadeDepth}m, Kat: Z+{(modelParams.floorCount || 5) - 1}, {modelParams.hasGroundFloorShop ? `Zemin Dükkan: ${modelParams.shopCount} adet, ` : ''}Çatı:{' '}
+              Model özeti: Ön cephe {modelParams.facadeWidth.toFixed(1)}m, Yan cephe {modelParams.facadeDepth.toFixed(1)}m, Kat: Z+{(modelParams.floorCount || 5) - 1}
+              {modelParams.hasGroundFloorShop ? `, Zemin Dükkan: ${modelParams.shopCount} adet` : ''}, Çatı:{' '}
               {modelParams.roofType === 'duplex'
                 ? 'Çatı Dubleksi'
                 : modelParams.roofType === 'mansard'
                 ? 'Mansart Çatı'
                 : modelParams.roofType === 'gable'
                 ? 'Kırma Çatı'
-                : 'Teras Çatı'}
-              ), Türk İmar Yönetmeliği ve Mimarlar Odası standartlarına göre merdiven, asansör, balkon ve iç oda bölmelerini anlık simüle eder.{' '}
-              <strong>"Maliyete Aktar"</strong> butonuyla tek tıkla resmi teklif ve hakediş tablolarına bağlanır.
+                : 'Teras Çatı'}.
+              {!presentationMode && ' Sağ üstteki "Teklife Ekle" veya Render stüdyosu ile 3D perspektif görsellerini doğrudan müşteri teklifine ekleyebilirsiniz.'}
             </p>
           </div>
         </div>
 
         {/* Workflow Adım Geçiş Butonları */}
         <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
-          {onNavigateToSetup && (
-            <button
-              type="button"
-              onClick={onNavigateToSetup}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <span>← 1. Adım: Proje Kurulumu</span>
-            </button>
-          )}
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-2">
+            {onNavigateToCost ? (
+              <button
+                type="button"
+                onClick={onNavigateToCost}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <span>← 5. Aşama: Maliyet & Fiyat</span>
+              </button>
+            ) : onNavigateToSetup ? (
+              <button
+                type="button"
+                onClick={onNavigateToSetup}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <span>← Proje Kurulumu</span>
+              </button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2.5 ml-auto flex-wrap">
+            {onNavigateToOffer && (
+              <button
+                type="button"
+                onClick={onNavigateToOffer}
+                className="px-4 py-2.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold rounded-xl flex items-center gap-1.5 text-xs transition-all cursor-pointer"
+              >
+                <span>8. Teklif & Sunuma Geç</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
             {onNavigateToOwners && (
               <button
                 type="button"
                 onClick={onNavigateToOwners}
-                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-2 text-xs sm:text-sm transition-all hover:translate-x-0.5 cursor-pointer active:scale-95"
               >
-                <span>3. Adıma Devam Et (Müşteriler & Malikler)</span>
+                <span>7. Aşama: Malik Paylaşımı</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             )}
