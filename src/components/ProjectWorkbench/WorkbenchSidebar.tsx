@@ -15,11 +15,13 @@ import {
   Clock,
   AlertCircle,
   ChevronRight,
+  PanelLeftClose,
 } from 'lucide-react';
 
 interface WorkbenchSidebarProps {
   activeWorkbenchStage: number;
   onSelectWorkbenchStage: (stage: number) => void;
+  onClose?: () => void;
   params: ProjectParams;
   results: CalculationResult;
   isProjectSaved?: boolean;
@@ -30,6 +32,7 @@ interface WorkbenchSidebarProps {
 export const WorkbenchSidebar: React.FC<WorkbenchSidebarProps> = ({
   activeWorkbenchStage,
   onSelectWorkbenchStage,
+  onClose,
   params,
   results,
   isProjectSaved = false,
@@ -72,17 +75,30 @@ export const WorkbenchSidebar: React.FC<WorkbenchSidebarProps> = ({
   return (
     <div className={`${bgCard} rounded-2xl p-3 border shadow-xs space-y-2`}>
       <div className="px-2 py-1.5 border-b border-slate-100 flex items-center justify-between gap-2">
-        <div>
-          <h3 className={`text-[11px] font-black uppercase tracking-wider ${textTitle}`}>
-            Proje Akışı
+        <div className="min-w-0">
+          <h3 className={`text-[11px] font-black uppercase tracking-wider ${textTitle} truncate`}>
+            Proje Akış Şeması
           </h3>
           <p className="text-[10px] text-slate-500">
             Zorunlu: <strong className="text-indigo-700 font-mono">%{evaluation.requiredPercent}</strong>
           </p>
         </div>
-        <span className="text-[10px] font-black font-mono px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
-          {evaluation.completedStageCount}/9
-        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] font-black font-mono px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+            {evaluation.completedStageCount}/9
+          </span>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Akış şemasını kapat ve sol navigasyona dön"
+              aria-label="Proje akış şemasını kapat"
+            >
+              <PanelLeftClose className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-1">

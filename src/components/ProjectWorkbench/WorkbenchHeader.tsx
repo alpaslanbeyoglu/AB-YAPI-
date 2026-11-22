@@ -1,7 +1,7 @@
 import React from 'react';
 import { ProjectParams, CalculationResult, AppTheme } from '../../types';
 import { WorkbenchEvaluation } from './WorkbenchLiveSummary';
-import { FileUp, Save, FileText, CheckCircle2, Clock, ArrowRight, MapPin, AlertCircle } from 'lucide-react';
+import { FileUp, Save, FileText, CheckCircle2, Clock, ArrowRight, MapPin, AlertCircle, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 
 interface WorkbenchHeaderProps {
   params: ProjectParams;
@@ -10,6 +10,8 @@ interface WorkbenchHeaderProps {
   isProjectSaved?: boolean;
   activeStage?: number;
   evaluation?: WorkbenchEvaluation;
+  isFlowOpen?: boolean;
+  onToggleFlow?: () => void;
   onSelectStage?: (stage: number, focusFieldId?: string) => void;
   onOpenTransferModal?: () => void;
   onExportPdf?: () => void;
@@ -41,6 +43,8 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
   isProjectSaved = false,
   activeStage = 1,
   evaluation,
+  isFlowOpen = false,
+  onToggleFlow,
   onSelectStage,
   onOpenTransferModal,
   onExportPdf,
@@ -182,6 +186,42 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
 
         {/* Sağ: Hızlı Karar ve Geçiş İşlemleri */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {onToggleFlow && (
+            <button
+              type="button"
+              onClick={onToggleFlow}
+              aria-expanded={isFlowOpen}
+              className={`px-3 py-2 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 border ${
+                isFlowOpen
+                  ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title={
+                isFlowOpen
+                  ? 'Proje akış şemasını kapat ve sol navigasyona dön'
+                  : 'Proje akış şemasını aç (sol navigasyon otomatik gizlenir)'
+              }
+            >
+              {isFlowOpen ? (
+                <PanelLeftClose className="w-3.5 h-3.5" />
+              ) : (
+                <PanelLeftOpen className="w-3.5 h-3.5 text-indigo-600" />
+              )}
+              <span>{isFlowOpen ? 'Akış Şemasını Kapat' : 'Proje Akış Şeması'}</span>
+              {evaluation && (
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
+                    isFlowOpen
+                      ? 'bg-white/15 text-slate-100'
+                      : 'bg-indigo-50 text-indigo-700'
+                  }`}
+                >
+                  {evaluation.completedStageCount}/9
+                </span>
+              )}
+            </button>
+          )}
+
           {onOpenTransferModal && (
             <button
               type="button"

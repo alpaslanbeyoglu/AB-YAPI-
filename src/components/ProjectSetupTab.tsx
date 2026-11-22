@@ -115,6 +115,8 @@ interface ProjectSetupTabProps {
   onAddNewConstructionProject?: (newProject: SavedProjectData) => void;
   onDeleteHistoryProject?: (address: string) => void;
   onNavigateToContract?: () => void;
+  isFlowOpen?: boolean;
+  onToggleFlow?: () => void;
 }
 
 export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
@@ -139,6 +141,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   onAddNewConstructionProject,
   onDeleteHistoryProject,
   onNavigateToContract,
+  isFlowOpen,
+  onToggleFlow,
 }) => {
   const isGray = theme === 'gray';
   const textTitle = isGray ? 'text-gray-100' : 'text-slate-900';
@@ -187,9 +191,11 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
   // Interactive Scenario Flow States
   const [wizardMode, setWizardMode] = useState<boolean>(true);
+  const [internalFlowOpen, setInternalFlowOpen] = useState<boolean>(false);
+  const effectiveFlowOpen = isFlowOpen !== undefined ? isFlowOpen : internalFlowOpen;
+  const handleToggleFlow = onToggleFlow || (() => setInternalFlowOpen((prev) => !prev));
   const [workbenchStage, setWorkbenchStage] = useState<number>(() => {
-    if (requestedStep === 1) return 1;
-    if (requestedStep === 3) return 4;
+    if (requestedStep && requestedStep >= 1 && requestedStep <= 9) return requestedStep;
     return 1;
   });
   const [internalBuildingModelParams, setInternalBuildingModelParams] = useState<BuildingModelParams>(() => {
@@ -307,11 +313,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   };
 
   useEffect(() => {
-    if (requestedStep !== undefined) {
+    if (requestedStep !== undefined && requestedStep >= 1 && requestedStep <= 9) {
       setActiveStepState(requestedStep);
-      if (requestedStep === 1) setWorkbenchStage(1);
-      else if (requestedStep === 2) setWorkbenchStage((prev) => (prev === 2 || prev === 3 ? prev : 2));
-      else if (requestedStep === 3) setWorkbenchStage(4);
+      setWorkbenchStage(requestedStep);
     }
   }, [requestedStep]);
   const [activeScenario, setActiveScenario] = useState<number | null>(null);
@@ -320,10 +324,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const [equalizeSuccessToast, setEqualizeSuccessToast] = useState<string | null>(null);
 
   const goToStage = (stage: number, focusFieldId?: string) => {
-    setWorkbenchStage(stage);
-    if (stage === 1) setActiveStep(1);
-    else if (stage === 2 || stage === 3) setActiveStep(2);
-    else if (stage === 4) setActiveStep(3);
+    const normalized = Math.min(9, Math.max(1, stage));
+    setWorkbenchStage(normalized);
+    setActiveStep(normalized);
 
     if (focusFieldId) {
       window.setTimeout(() => {
@@ -909,6 +912,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
         isProjectSaved={isProjectSaved}
         activeStage={workbenchStage}
         evaluation={workbenchEvaluation}
+        isFlowOpen={effectiveFlowOpen}
+        onToggleFlow={handleToggleFlow}
         onSelectStage={goToStage}
         onOpenTransferModal={onOpenTransferModal}
         onExportPdf={() => goToStage(8)}
@@ -916,82 +921,35 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
         onNavigateToSite={() => goToStage(9)}
       />
 
-      {/* 2. Ana Çalışma Masası Grid Düzeni (Masaüstü Odaklı Geniş Orta Alan) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[235px_minmax(0,1fr)_290px] xl:grid-cols-[255px_minmax(0,1fr)_310px] gap-5 items-start">
-        {/* Sol Bölüm: Aşamalar ve Gezinme */}
-        <div className="lg:sticky lg:top-6">
-          <WorkbenchSidebar
-            activeWorkbenchStage={workbenchStage}
-            onSelectWorkbenchStage={goToStage}
-            params={params}
-            results={results}
-            isProjectSaved={isProjectSaved}
-            evaluation={workbenchEvaluation}
-            theme={theme}
-          />
-        </div>
+      {/* 2. Ana Çalışma Masası Grid Düzeni (Akış Şeması Açıldığında Sol Navigasyon Gizlenerek İçerik Genişler) */}
+      <div
+        className={`grid grid-cols-1 gap-5 items-start ${
+          effectiveFlowOpen
+            ? 'lg:grid-cols-[250px_minmax(0,1fr)_290px] xl:grid-cols-[265px_minmax(0,1fr)_310px]'
+            : 'lg:grid-cols-[minmax(0,1fr)_290px] xl:grid-cols-[minmax(0,1fr)_310px]'
+        }`}
+      >
+        {/* Sol Bölüm: Proje Akış Şeması (Genişletildiğinde Gösterilir) */}
+        {effectiveFlowOpen && (
+          <div className="lg:sticky lg:top-6">
+            <WorkbenchSidebar
+              activeWorkbenchStage={workbenchStage}
+              onSelectWorkbenchStage={goToStage}
+              onClose={handleToggleFlow}
+              params={params}
+              results={results}
+              isProjectSaved={isProjectSaved}
+              evaluation={workbenchEvaluation}
+              theme={theme}
+            />
+          </div>
+        )}
 
         {/* Orta Bölüm: Aktif Aşama Çalışma Alanı */}
         <div className="space-y-5 min-w-0">
-          {workbenchStage >= 4 && (
-            <div className="bg-white border border-slate-200/90 rounded-xl px-3.5 py-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
-                  Hızlı Geçiş:
-                </span>
-                {[
-                  { id: 4, label: '4. Daire Matrisi' },
-                  { id: 5, label: '5. Maliyet & Metraj' },
-                  { id: 6, label: '6. 3D Model' },
-                  { id: 7, label: '7. Malik Payı' },
-                  { id: 8, label: '8. Müşteri Teklifi' },
-                  { id: 9, label: '9. Şantiye' },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => goToStage(item.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                      workbenchStage === item.id
-                        ? 'bg-indigo-600 text-white shadow-2xs'
-                        : item.id === 8
-                        ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/70'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-              {workbenchStage !== 8 && (
-                <button
-                  type="button"
-                  onClick={() => goToStage(8)}
-                  className="text-[11px] font-bold text-indigo-700 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Teklif Ekranına Git</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          )}
           {workbenchStage === 1 && (
       <div className="space-y-6">
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-6 animate-fade-in`}>
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 font-bold">
-                <Home className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className={`text-base sm:text-lg font-bold ${textTitle}`}>
-                  1. Müşteri & Proje Bilgileri
-                </h2>
-                <p className={`text-xs ${textMuted}`}>
-                  Projeyi tanımlamak, resmi sözleşme ve teklif belgelerinde kullanılmak üzere isim ve konum bilgilerini girin.
-                </p>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -1176,20 +1134,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       {/* 2. AŞAMA: ARSA & MEVCUT YAPI ANALİZİ */}
       {workbenchStage === 2 && (
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-5 animate-fade-in`}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 font-bold">
-                <Compass className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className={`text-base sm:text-lg font-bold ${textTitle}`}>
-                  2. Arsa & Mevcut Yapı Analizi
-                </h2>
-                <p className={`text-xs ${textMuted}`}>
-                  Parsel geometrisini seçin ve varsa arsadaki mevcut eski binaları hak paylaşımı için kaydedin.
-                </p>
-              </div>
-            </div>
+          <div className="flex items-center justify-end">
             <button
               type="button"
               onClick={() => goToStage(1)}
@@ -1504,27 +1449,14 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       {/* 3. AŞAMA: YENİ BİNA TASARIMI & YAPI PARAMETRELERİ */}
       {workbenchStage === 3 && (
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-5 animate-fade-in`}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 font-bold">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className={`text-base sm:text-lg font-bold ${textTitle}`}>
-                  3. Yeni Bina Tasarımı & Yapı Parametreleri
-                </h2>
-                <p className={`text-xs ${textMuted}`}>
-                  Kat sayısı, bölüm planlaması, bodrum, dükkan, çatı ve konsol çıkma detaylarını belirleyin.
-                </p>
-              </div>
-            </div>
+          <div className="flex items-center justify-end">
             <button
               type="button"
               onClick={() => goToStage(1)}
               className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
-              title="Taban oturumu ve proje modelini 1. aşamada düzenle"
+              title="Taban oturumu ve proje modelini düzenle"
             >
-              Taban: {Math.round(params.baseBuildArea || 0)} m² • Z+{(params.floorCount || 5) - 1} Kat (1. Aşama)
+              Taban: {Math.round(params.baseBuildArea || 0)} m² • Z+{(params.floorCount || 5) - 1} Kat (Düzenle)
             </button>
           </div>
 
@@ -2218,23 +2150,13 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
         </div>
       )}
 
-      {/* 3. BÖLÜM: KAT BAZLI BAĞIMSIZ BÖLÜM ŞEMASI & DAİRE DAĞILIMI */}
+      {/* 4. AŞAMA: KAT BAZLI BAĞIMSIZ BÖLÜM ŞEMASI & DAİRE DAĞILIMI */}
       {workbenchStage === 4 && (
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-4 animate-fade-in`}>
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 font-bold">
-                <Building className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className={`text-base sm:text-lg font-bold ${textTitle}`}>
-                  3. Kat Bazlı Bağımsız Bölüm Şeması & Daire Dağılımı
-                </h2>
-                <p className={`text-xs ${textMuted}`}>
-                  Z+{(params.floorCount || 5) - 1} Kat Yapısı • {params.hasGroundFloorShop ? `${params.shopCount || 1} Dükkan + ` : ''}{newFlatCount} Bağımsız Bölüm • Katta {params.flatsPerFloor || 2} Daire {params.roofType === 'mansard' ? '• Mansart Çatı' : params.roofType === 'duplex' ? '• Çatı Dubleksi' : ''}
-                </p>
-              </div>
-            </div>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <p className={`text-xs ${textMuted}`}>
+              Z+{(params.floorCount || 5) - 1} Kat Yapısı • {params.hasGroundFloorShop ? `${params.shopCount || 1} Dükkan + ` : ''}{newFlatCount} Bağımsız Bölüm • Katta {params.flatsPerFloor || 2} Daire {params.roofType === 'mansard' ? '• Mansart Çatı' : params.roofType === 'duplex' ? '• Çatı Dubleksi' : ''}
+            </p>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Sığınak, otopark, kazan dairesi, merdiven ve asansör şaftları inşaat alanı ve maliyet hesaplamalarına dahil edilmiştir.">
                 🛡️ Ortak Alanlar Hesaba Dahil
@@ -2245,12 +2167,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               {wizardMode && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveStep(2);
-                    setWorkbenchStage(2);
-                  }}
+                  onClick={() => goToStage(2)}
                   className="px-3 py-1 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  title="2. Aşamaya dönerek parametreleri düzenle"
+                  title="Arsa ve ölçü parametrelerini düzenle"
                 >
                   <Edit2 className="w-3 h-3" />
                   <span>Ölçüleri Düzenle</span>
@@ -3994,12 +3913,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               landArea={params.landArea}
               onUpdateParams={handleUpdateBuildingModel}
               onSyncWithCalculator={onSyncModelToCalculator}
-              onNavigateToSetup={() => {
-                setWorkbenchStage(2);
-                setActiveStep(2);
-              }}
-              onNavigateToCost={() => setWorkbenchStage(5)}
-              onNavigateToOwners={() => setWorkbenchStage(7)}
+              onNavigateToSetup={() => goToStage(2)}
+              onNavigateToCost={() => goToStage(5)}
+              onNavigateToOwners={() => goToStage(7)}
               onNavigateToOffer={() => goToStage(8)}
               theme={theme}
             />
@@ -4024,7 +3940,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               results={results}
               onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
               onUpdateAllParams={(partial) => onChangeParams({ ...params, ...partial })}
-              onNavigateToSurec={() => setWorkbenchStage(9)}
+              onNavigateToSurec={() => goToStage(9)}
               onSaveOffer={onCalculate || onQuickSave}
               onNavigateToContract={onNavigateToContract}
               onSelectWorkbenchStage={goToStage}
@@ -4044,33 +3960,10 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               onDeleteProject={onDeleteHistoryProject}
               onSaveCurrentProject={onCalculate || onQuickSave}
               onUpdateParam={(k, v) => onChangeParams({ ...params, [k]: v })}
-              onNavigateToOffer={() => setWorkbenchStage(8)}
+              onNavigateToOffer={() => goToStage(8)}
               onNavigateToContract={onNavigateToContract}
             />
           )}
-
-          {/* Universal Stage Navigation Footer */}
-          <div className="pt-4 border-t border-slate-200/80 flex items-center justify-between bg-white/90 backdrop-blur-md p-3.5 rounded-2xl border shadow-xs mt-5">
-            <button
-              type="button"
-              disabled={workbenchStage <= 1}
-              onClick={() => goToStage(Math.max(1, workbenchStage - 1))}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed"
-            >
-              <span>← Önceki Aşama</span>
-            </button>
-            <div className="text-xs font-black text-indigo-950 font-mono bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-200">
-              Aşama {workbenchStage} / 9
-            </div>
-            <button
-              type="button"
-              disabled={workbenchStage >= 9}
-              onClick={() => goToStage(Math.min(9, workbenchStage + 1))}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm shadow-indigo-600/20 transition-all cursor-pointer disabled:cursor-not-allowed"
-            >
-              <span>Sonraki Aşama →</span>
-            </button>
-          </div>
         </div>
 
         {/* Sağ Bölüm: Canlı Karar Özeti ve Tıklanabilir Kontroller */}

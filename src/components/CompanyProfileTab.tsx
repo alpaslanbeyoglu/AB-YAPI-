@@ -99,7 +99,9 @@ const resolveProjectStatus = (proj: SavedProjectData): ProposalStatus => {
   if (status === 'active_site') return 'active_site';
   if (status === 'contracted') return 'contracted';
   if (status === 'accepted') return 'accepted';
+  if (status === 'rejected') return 'rejected';
   if (status === 'presented') return 'presented';
+  if (status === 'in_review') return 'in_review';
   if (proj.params?.isOfferAccepted) return 'active_site';
   return 'draft';
 };
@@ -112,8 +114,12 @@ const getStatusMeta = (status: ProposalStatus): { label: string; textClass: stri
       return { label: 'Sözleşmeli', textClass: 'text-indigo-700 font-semibold' };
     case 'accepted':
       return { label: 'Kabul Edildi', textClass: 'text-emerald-700 font-medium' };
+    case 'rejected':
+      return { label: 'Reddedildi', textClass: 'text-rose-700 font-medium' };
     case 'presented':
       return { label: 'Teklif Sunuldu', textClass: 'text-amber-700 font-semibold' };
+    case 'in_review':
+      return { label: 'İncelemede', textClass: 'text-violet-700 font-medium' };
     case 'archived':
       return { label: 'Arşiv', textClass: 'text-slate-500 font-medium' };
     default:

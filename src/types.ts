@@ -921,7 +921,15 @@ export interface Subcontractor {
 
 export type CRMContactRole = 'landowner' | 'buyer' | 'subcontractor' | 'supplier' | 'consultant';
 
-export type ProposalStatus = 'draft' | 'presented' | 'accepted' | 'contracted' | 'active_site' | 'archived';
+export type ProposalStatus =
+  | 'draft'
+  | 'in_review'
+  | 'presented'
+  | 'accepted'
+  | 'rejected'
+  | 'contracted'
+  | 'active_site'
+  | 'archived';
 
 // -------------------------------------------------------------
 // TEKLİF SÜRÜM, KİMLİK VE MÜŞTERİ VERİ SINIRI (CUSTOMER PAYLOAD)

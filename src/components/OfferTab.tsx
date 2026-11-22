@@ -51,6 +51,7 @@ import {
   Coins,
   Percent,
   ChevronRight,
+  ChevronDown,
   Minus,
   Store,
   X,
@@ -59,8 +60,9 @@ import {
   Globe,
   Save,
   AlertTriangle,
+  History,
 } from 'lucide-react';
-import { ProjectParams, CalculationResult, AppTheme } from '../types';
+import { ProjectParams, CalculationResult, AppTheme, ProposalStatus } from '../types';
 import { sanitizeCustomerMessageText } from '../utils/textSanitizer';
 import { getAcOptionById } from '../utils/acOptions';
 import { generateOfferHtmlFromPayload } from '../utils/offerReportExport';
@@ -97,7 +99,31 @@ interface OfferTabProps {
   theme?: AppTheme;
 }
 
-type OfferSubTabId = 'edit_workbench' | 'preview' | 'package' | 'ai_assistant' | 'cards_and_clauses' | 'company_history' | 'contractor_financials';
+type OfferMainViewId = 'prepare' | 'preview' | 'history';
+type OfferAdvancedGroupId =
+  | 'cost_profit'
+  | 'risk_inflation'
+  | 'package'
+  | 'technical'
+  | 'cards_clauses'
+  | 'ai_assistant'
+  | 'company_docs'
+  | 'other_tools';
+
+const OFFER_STATUS_OPTIONS: Array<{
+  value: ProposalStatus;
+  label: string;
+  toneClass: string;
+}> = [
+  { value: 'draft', label: 'Taslak', toneClass: 'text-slate-700' },
+  { value: 'in_review', label: 'İncelemede', toneClass: 'text-violet-700' },
+  { value: 'presented', label: 'Sunuldu', toneClass: 'text-blue-700' },
+  { value: 'accepted', label: 'Kabul Edildi', toneClass: 'text-emerald-700' },
+  { value: 'rejected', label: 'Reddedildi', toneClass: 'text-rose-700' },
+  { value: 'contracted', label: 'Sözleşmeli', toneClass: 'text-indigo-700' },
+  { value: 'active_site', label: 'Aktif Şantiye', toneClass: 'text-emerald-800' },
+  { value: 'archived', label: 'Arşivlendi', toneClass: 'text-slate-500' },
+];
 
 export const OfferTab: React.FC<OfferTabProps> = ({
   params,
@@ -114,9 +140,13 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const { profile } = useCompanyProfile();
   const offerDocRef = useRef<HTMLDivElement>(null);
 
-  // Grouped Navigation Sub-Tab State
-  const [activeSubTab, setActiveSubTab] = useState<OfferSubTabId>('edit_workbench');
+  // Sade Ana Ekran + Kapalı Başlayan Gelişmiş Ayarlar
+  const [activeView, setActiveView] = useState<OfferMainViewId>('prepare');
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
+  const [activeAdvancedGroup, setActiveAdvancedGroup] = useState<OfferAdvancedGroupId>('cost_profit');
+  const [isPreviewAttachmentsOpen, setIsPreviewAttachmentsOpen] = useState<boolean>(false);
   const [offerSavedNotice, setOfferSavedNotice] = useState<boolean>(false);
+  const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
 
   // AI Proposal Generator State
   const [aiPromptText, setAiPromptText] = useState('');
@@ -140,10 +170,6 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
   const [whatsAppRecipientPhone, setWhatsAppRecipientPhone] = useState<string>('');
   const [whatsAppCopied, setWhatsAppCopied] = useState<boolean>(false);
-
-  // Live Control Panel State (collapsed by default; hidden in customer preview & internal financials)
-  const [activeControlTab, setActiveControlTab] = useState<'inflation' | 'pricing' | 'payment' | 'features' | 'visibility'>('inflation');
-  const [isLiveControlPanelExpanded, setIsLiveControlPanelExpanded] = useState<boolean>(false);
 
   // Teklif Sürüm Notu & Bildirim Durumu (Firma İçi)
   const [versionNoteInput, setVersionNoteInput] = useState<string>('');
@@ -765,15 +791,79 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       onUpdateParam('offerMeta', nextOfferMeta);
     }
     setVersionNoteInput('');
-    setVersionSavedNotice(`✓ Sürüm v${snapshot.version} (${snapshot.proposalNumber}) oluşturuldu`);
+    setVersionSavedNotice(`Sürüm v${snapshot.version} (${snapshot.proposalNumber}) kaydedildi`);
     setTimeout(() => setVersionSavedNotice(null), 3500);
+  };
+
+  const handleChangeOfferStatus = (newStatus: ProposalStatus, note?: string) => {
+    const prevStatus: ProposalStatus = params.proposalStatus || 'draft';
+    if (prevStatus === newStatus) return;
+    const label = OFFER_STATUS_OPTIONS.find((s) => s.value === newStatus)?.label || newStatus;
+    const updatedMeta = appendOfferStatusHistory(
+      params,
+      compName,
+      prevStatus,
+      newStatus,
+      note || `Durum "${label}" olarak güncellendi`
+    );
+    const isAccepted =
+      newStatus === 'accepted' ||
+      newStatus === 'contracted' ||
+      newStatus === 'active_site';
+
+    if (onUpdateAllParams) {
+      onUpdateAllParams({
+        proposalStatus: newStatus,
+        isOfferAccepted: isAccepted,
+        offerMeta: updatedMeta,
+      });
+    } else if (onUpdateParam) {
+      onUpdateParam('proposalStatus', newStatus);
+      onUpdateParam('isOfferAccepted', isAccepted);
+      onUpdateParam('offerMeta', updatedMeta);
+    }
+
+    setStatusFeedback(`Teklif durumu "${label}" olarak güncellendi.`);
+    setTimeout(() => setStatusFeedback(null), 3500);
+  };
+
+  const handleStartSiteFromOffer = () => {
+    const prevStatus: ProposalStatus = params.proposalStatus || 'draft';
+    const updatedMeta = appendOfferStatusHistory(
+      params,
+      compName,
+      prevStatus,
+      'active_site',
+      'Teklif onaylandı ve şantiye süreci başlatıldı'
+    );
+    if (onUpdateAllParams) {
+      onUpdateAllParams({
+        isOfferAccepted: true,
+        proposalStatus: 'active_site',
+        offerMeta: updatedMeta,
+      });
+    } else if (onUpdateParam) {
+      onUpdateParam('isOfferAccepted', true);
+      onUpdateParam('proposalStatus', 'active_site');
+      onUpdateParam('offerMeta', updatedMeta);
+    }
+    const safeAddr = resolveProjectProgressKeys({
+      projectAddress: params.projectAddress,
+      projectName: params.projectName,
+    }).primaryKey;
+    try {
+      localStorage.setItem('ab_yapi_progress_' + safeAddr + '_offer_accepted', 'true');
+    } catch (e) {}
+    if (onNavigateToSurec) {
+      onNavigateToSurec();
+    }
   };
 
   const handleExportPdf = async () => {
     const safeAddr = (params.projectAddress || 'Proje').replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_').slice(0, 25);
     const safeName = compName.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ]/g, '_');
     const fileName = `${safeName}_Teklif_${proposalNumber}_v${offerVersion}_${safeAddr}.pdf`;
-    if (offerDocRef.current && activeSubTab === 'preview') {
+    if (offerDocRef.current && activeView === 'preview') {
       await exportElementToPdf(offerDocRef.current, fileName);
       return;
     }
@@ -789,7 +879,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
 
   // Copy protection side effects only during customer document preview (never block editor inputs)
   React.useEffect(() => {
-    if (activeSubTab !== 'preview') return;
+    if (activeView !== 'preview') return;
     const blockShortcuts = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
@@ -799,7 +889,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     };
     window.addEventListener('keydown', blockShortcuts);
     return () => window.removeEventListener('keydown', blockShortcuts);
-  }, [activeSubTab]);
+  }, [activeView]);
 
   const criticalMissingIssues = (evaluation?.issues || []).filter((i) => i.severity === 'critical');
 
@@ -820,199 +910,93 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     }
   };
 
-  const offerSubTabs: Array<{
-    id: OfferSubTabId;
+  const currentStatus: ProposalStatus = params.proposalStatus || 'draft';
+  const currentStatusMeta =
+    OFFER_STATUS_OPTIONS.find((s) => s.value === currentStatus) || OFFER_STATUS_OPTIONS[0];
+
+  const isContractorShare = customerPayload.project.isContractorShareModel;
+  const subTotalCostVal = Math.round(results.subTotalCost || 0);
+  const grandTotalVal = customerPayload.pricing.grandTotal;
+  const grossProfitVal = Math.round(results.profitAmount ?? Math.max(0, grandTotalVal - subTotalCostVal));
+  const realizedMarginPct =
+    grandTotalVal > 0 ? Math.round(((grandTotalVal - subTotalCostVal) / grandTotalVal) * 1000) / 10 : 0;
+
+  const advancedGroups: Array<{
+    id: OfferAdvancedGroupId;
     label: string;
-    badge?: string;
-    icon: any;
+    internalOnly?: boolean;
   }> = [
-    { id: 'edit_workbench', label: '🎛️ Teklif Düzenleyici', badge: 'Canlı Modüller', icon: Sliders },
-    { id: 'preview', label: '📑 Müşteri Teklifi (Önizleme & PDF)', badge: uploadedImages.length > 0 ? `${uploadedImages.length} Görsel` : undefined, icon: FileText },
-    { id: 'package', label: '⚡ Paket & Sunum Modu', badge: isDualOffer ? '2 Seçenekli' : 'Tek Paket', icon: Layers },
-    { id: 'ai_assistant', label: '✨ AI Teklif Asistanı', badge: 'Gemini', icon: Sparkles },
-    { id: 'cards_and_clauses', label: '📜 Kartlar & Ek Maddeler', badge: `${clauses.length} Madde`, icon: Settings2 },
-    { id: 'company_history', label: '🏢 Önsöz & Firma Profili', badge: params.showCompanyHistory ? 'Aktif' : 'Pasif', icon: Award },
-    { id: 'contractor_financials', label: '🔒 Şirket İçi Maliyet & Kâr Analizi', badge: 'Gizli', icon: ShieldCheck },
+    { id: 'cost_profit', label: 'Maliyet ve Kâr Analizi', internalOnly: true },
+    { id: 'risk_inflation', label: 'Risk ve Enflasyon', internalOnly: true },
+    { id: 'package', label: 'Paket ve Sunum' },
+    { id: 'technical', label: 'İmalat ve Teknik Modüller' },
+    { id: 'cards_clauses', label: 'Kartlar ve Ek Maddeler' },
+    { id: 'ai_assistant', label: 'AI Teklif Asistanı' },
+    { id: 'company_docs', label: 'Firma ve Belge Ayarları' },
+    { id: 'other_tools', label: 'Diğer Araçlar' },
   ];
 
+  const openAdvancedGroup = (group: OfferAdvancedGroupId) => {
+    setActiveView('prepare');
+    setIsAdvancedOpen(true);
+    setActiveAdvancedGroup(group);
+  };
+
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
-      {/* Grouped Sub-Tab Navigation Header Bar */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-2 shadow-xs print:hidden">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-          {offerSubTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeSubTab === tab.id;
-            const isInternal = tab.id === 'contractor_financials';
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* ÜST SEÇİM ÇUBUĞU: 3 TEMİZ ANA BÖLÜM + SADE METADATA */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 print:hidden">
+        <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit max-w-full overflow-x-auto no-scrollbar">
+          {[
+            { id: 'prepare' as OfferMainViewId, label: 'Teklif Hazırlama' },
+            { id: 'preview' as OfferMainViewId, label: 'Müşteri Teklifi' },
+            { id: 'history' as OfferMainViewId, label: 'Teklif Geçmişi ve Yönetimi' },
+          ].map((tab) => {
+            const isActive = activeView === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveSubTab(tab.id)}
-                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                onClick={() => setActiveView(tab.id)}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   isActive
-                    ? isInternal
-                      ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                      : 'bg-slate-900 text-white shadow-md font-black'
-                    : isInternal
-                    ? 'text-amber-800 bg-amber-50/70 hover:bg-amber-100 border border-amber-200/80'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/90'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? (isInternal ? 'text-slate-950' : 'text-amber-400') : isInternal ? 'text-amber-600' : 'text-slate-400'}`} />
-                <span>{tab.label}</span>
-                {tab.badge && (
-                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-extrabold ${
-                    isActive
-                      ? isInternal
-                        ? 'bg-slate-950/15 text-slate-950'
-                        : 'bg-slate-800 text-amber-300 border border-amber-400/30'
-                      : 'bg-slate-100 text-slate-600 border border-slate-200'
-                  }`}>
-                    {tab.badge}
-                  </span>
-                )}
+                {tab.label}
               </button>
             );
           })}
         </div>
+
+        <div className="flex items-center gap-2 text-xs text-slate-500 font-mono tabular-nums flex-wrap">
+          <span className="font-semibold text-slate-700">{proposalNumber}</span>
+          <span aria-hidden="true">·</span>
+          <span>v{offerVersion}</span>
+          <span aria-hidden="true">·</span>
+          <span className={`font-sans font-semibold ${currentStatusMeta.toneClass}`}>
+            {currentStatusMeta.label}
+          </span>
+        </div>
       </div>
 
-      {/* Top Action Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm print:hidden">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-              <FileSignature className="w-3.5 h-3.5" />
-              {activeSubTab === 'contractor_financials' ? 'Şirket İçi Maliyet & Kâr Analizi' : 'Müşteri Teklif Dosyası'}
+      {/* EKSİK BİLGİ UYARISI (ENGELLEYİCİ OLMAYAN, SADE) */}
+      {criticalMissingIssues.length > 0 && activeView !== 'preview' && (
+        <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 print:hidden">
+          <div className="flex items-center gap-2 text-xs text-amber-900">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong className="font-semibold">Eksik proje verisi:</strong> Mevcut bilgilerle devam edebilir veya ilgili ekrandan tamamlayabilirsiniz.
             </span>
-            <span className="text-xs text-slate-400 font-mono">Ref: {proposalNumber} • v{offerVersion}</span>
-            {params.projectName && (
-              <span className="text-xs font-bold text-slate-700 truncate max-w-[260px]">
-                • {params.projectName}
-              </span>
-            )}
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            {activeSubTab === 'preview'
-              ? 'Müşteriye sunulacak resmî teklif görünümü. Şirket içi maliyet, kâr ve iç notlar bu çıktıya kesinlikle dahil edilmez.'
-              : 'Proje künyesi, metraj, paylaşım ve ödeme verileri teklif dosyasına otomatik aktarılır.'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {onSaveOffer && (
-            <button
-              type="button"
-              onClick={handleSaveCurrentOffer}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
-              title="Teklif parametrelerini ve proje kaydını arşive kaydet"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>{offerSavedNotice ? '✓ Kaydedildi' : 'Teklifi Kaydet'}</span>
-            </button>
-          )}
-          {onNavigateToContract && (
-            <button
-              type="button"
-              onClick={onNavigateToContract}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
-              title="Mevcut proje ve teklif bilgileriyle sözleşme hazırlığına geç"
-            >
-              <FileText className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Sözleşmeye Geç</span>
-            </button>
-          )}
-          {onNavigateToSurec && (
-            <button
-              type="button"
-              onClick={() => {
-                const prevStatus = params.proposalStatus || 'draft';
-                const updatedMeta = appendOfferStatusHistory(
-                  params,
-                  compName,
-                  prevStatus,
-                  'active_site',
-                  'Teklif kabul edildi ve şantiye süreci başlatıldı'
-                );
-                if (onUpdateAllParams) {
-                  onUpdateAllParams({
-                    isOfferAccepted: true,
-                    proposalStatus: 'active_site',
-                    offerMeta: updatedMeta,
-                  });
-                } else if (onUpdateParam) {
-                  onUpdateParam('isOfferAccepted', true);
-                  onUpdateParam('proposalStatus', 'active_site');
-                  onUpdateParam('offerMeta', updatedMeta);
-                }
-                const safeAddr = resolveProjectProgressKeys({
-                  projectAddress: params.projectAddress,
-                  projectName: params.projectName,
-                }).primaryKey;
-                try {
-                  localStorage.setItem('ab_yapi_progress_' + safeAddr + '_offer_accepted', 'true');
-                } catch (e) {}
-                onNavigateToSurec();
-              }}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Kabul Edildi ➔ Şantiye Başlat</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveSubTab('contractor_financials');
-              setTimeout(() => {
-                const el = document.getElementById('contractor-financial-reflection-panel');
-                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }, 60);
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
-            title="Yalnızca şirket içi maliyet, kâr, sürüm ve gizli not analizini aç (müşteri teklifine yansımaz)"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-            <span>🔒 İç Kâr Analizi</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsWhatsAppModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl transition-all active:scale-95 cursor-pointer"
-            title="Teklifi WhatsApp Mesajı Olarak Paylaş"
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-            <span>WhatsApp</span>
-          </button>
-          <PrintAndPdfButtons
-            onExportPdf={handleExportPdf}
-            onPrint={handlePrint}
-            getHtmlContent={() => generateOfferHtmlFromPayload(customerPayload)}
-            documentTitle={`${compName} - Resmî Teklifname (${proposalNumber})`}
-            theme={theme}
-          />
-        </div>
-      </div>
-
-      {/* Non-Blocking Missing Data Banner */}
-      {criticalMissingIssues.length > 0 && (
-        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 print:hidden">
-          <div className="flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-xs text-amber-900">
-              <span className="font-bold">Eksik proje bilgileri tespit edildi</span>
-              <span className="text-amber-800"> — Mevcut verilerle teklif hazırlamaya ve PDF almaya devam edebilirsiniz; tam doğruluk için eksikleri tamamlayabilirsiniz:</span>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-            {criticalMissingIssues.slice(0, 4).map((issue) => (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {criticalMissingIssues.slice(0, 3).map((issue) => (
               <button
                 key={issue.id}
                 type="button"
                 onClick={() => onSelectWorkbenchStage && onSelectWorkbenchStage(issue.stage, issue.focusFieldId)}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold transition-colors cursor-pointer"
-                title={`${issue.stageLabel} ekranına git`}
+                className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap"
               >
                 {issue.stageLabel}: {issue.message} →
               </button>
@@ -1021,748 +1005,1137 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         </div>
       )}
 
-      {/* ========================================================
-          ÇIKTI ÖNCESİ CANLI TEKLİF & RİSK KONTROL PANELİ (Yalnızca düzenleme sekmelerinde; Müşteri Önizleme & İç Analizde gizli)
-         ======================================================== */}
-      {activeSubTab !== 'preview' && activeSubTab !== 'contractor_financials' && activeSubTab !== 'edit_workbench' && (
-      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-amber-500/30 rounded-3xl p-6 shadow-xl space-y-5 print:hidden text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-indigo-800/60">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-md text-slate-950 font-black shrink-0">
-              <Sliders className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-black text-white">
-                  Çıktı Öncesi Canlı Fiyatlandırma, TEFE/TÜFE Risk ve Ödeme Paneli
-                </h3>
-                <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-[10px] font-extrabold uppercase tracking-wide">
-                  ● Anında Canlı Güncelleme
-                </span>
+      {/* ====================================================================
+          A. TEKLİF HAZIRLAMA — SADE ANA EKRAN
+         ==================================================================== */}
+      {activeView === 'prepare' && (
+        <div className="space-y-6 print:hidden">
+          {/* Proje Başlığı ve Ana Aksiyonlar */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-5 border-b border-slate-100">
+              <div className="space-y-1 min-w-0">
+                <h2 className="text-xl font-semibold text-slate-900 tracking-tight truncate">
+                  {customerPayload.project.projectName || 'Proje Teklifi'}
+                </h2>
+                <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                  <span>{customerPayload.project.projectAddress}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{isContractorShare ? 'Kat Karşılığı Model' : 'Anahtar Teslim / Hakedişli Model'}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{isDualOffer ? '2 Seçenekli Paket (Baz + Plus)' : 'Tek Paket Sunum'}</span>
+                </div>
               </div>
-              <p className="text-xs text-indigo-200 mt-1">
-                Çıktı almadan veya PDF indirmeden önce TEFE/TÜFE enflasyon risk oranlarını, müteahhit kâr marjını, m² birim fiyatlarını ve vade takvimini canlı güncelleyin.
-              </p>
+
+              <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                {onSaveOffer && (
+                  <button
+                    type="button"
+                    onClick={handleSaveCurrentOffer}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <Save className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{offerSavedNotice ? 'Kaydedildi' : 'Teklifi Kaydet'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveView('preview')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <span>Müşteri Önizlemesine Geç</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Ana Odak Noktası: Müşteriye Sunulacak Teklif Tutarı / Paylaşım Çerçevesi */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-5 rounded-xl bg-slate-50 border border-slate-200/80">
+              {isContractorShare ? (
+                <div className="space-y-1.5">
+                  <div className="text-xs font-medium text-slate-500">
+                    Müşteriye Sunulacak Paylaşım Modeli
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900 font-mono tabular-nums tracking-tight">
+                    %{customerPayload.sharing.ownerSharePercent} Arsa Sahibi · %{customerPayload.sharing.contractorSharePercent} Yüklenici
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    Arsa sahipleri {customerPayload.sharing.ownerUnitsCount} bölüm ({customerPayload.sharing.ownerAllocatedArea.toLocaleString('tr-TR')} m²), yüklenici {customerPayload.sharing.contractorUnitsCount} bölüm ({customerPayload.sharing.contractorAllocatedArea.toLocaleString('tr-TR')} m²) · Nakit inşaat bedeli talep edilmez.
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="text-xs font-medium text-slate-500">
+                    Müşteriye Sunulacak Teklif Tutarı
+                  </div>
+                  <div className="flex items-baseline gap-3 flex-wrap">
+                    <span className="text-2xl sm:text-3xl font-bold text-slate-900 font-mono tabular-nums tracking-tight">
+                      {grandTotalVal.toLocaleString('tr-TR')} ₺
+                    </span>
+                    <span className="text-xs text-slate-500 font-mono tabular-nums">
+                      Bölüm başı ort. {customerPayload.pricing.avgFlatShare.toLocaleString('tr-TR')} ₺
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
+                    {customerPayload.pricing.firstOwnerNetDebt > 0 && (
+                      <>
+                        <span>
+                          Destek sonrası örnek net ödeme:{' '}
+                          <strong className="font-mono tabular-nums text-slate-900">
+                            {customerPayload.pricing.firstOwnerNetDebt.toLocaleString('tr-TR')} ₺
+                          </strong>
+                        </span>
+                        <span aria-hidden="true">·</span>
+                      </>
+                    )}
+                    {isDualOffer && customerPayload.dualOffer ? (
+                      <span>
+                        {customerPayload.dualOffer.baseTitle}:{' '}
+                        <strong className="font-mono tabular-nums">
+                          {customerPayload.dualOffer.customerBaseGrandTotal.toLocaleString('tr-TR')} ₺
+                        </strong>{' '}
+                        / {customerPayload.dualOffer.plusTitle}:{' '}
+                        <strong className="font-mono tabular-nums text-slate-900">
+                          {customerPayload.dualOffer.customerPlusGrandTotal.toLocaleString('tr-TR')} ₺
+                        </strong>
+                      </span>
+                    ) : (
+                      <span>{customerPayload.project.supportModelTitle}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Hızlı Paket Modu Seçimi */}
+              <div className="flex flex-col sm:items-end gap-2 shrink-0">
+                <span className="text-xs font-medium text-slate-500">Sunum Paketi</span>
+                <div className="inline-flex items-center p-1 bg-white border border-slate-200 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePresentationMode('single')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                      !isDualOffer
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Tek Paket
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePresentationMode('dual')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                      isDualOffer
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    2 Seçenekli (Baz + Plus)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 3 Sütunlu Sade Özet Grid (Arsa & Yapı · Malik Paylaşımı · Ödeme & Teslimat) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
+              {/* 1. Arsa ve Yapı Özeti */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="text-xs font-semibold text-slate-900">Arsa ve Yapı Özeti</h3>
+                  <button
+                    type="button"
+                    onClick={handleOpenUnitConfig}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                  >
+                    Düzenle
+                  </button>
+                </div>
+                <dl className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Arsa Alanı</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {customerPayload.project.landArea.toLocaleString('tr-TR')} m²
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Taban Oturumu</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {customerPayload.project.baseArea.toLocaleString('tr-TR')} m² ({customerPayload.project.taksText})
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Toplam İnşaat Alanı</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {customerPayload.project.totalArea.toLocaleString('tr-TR')} m²
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Kat ve Bölüm Düzeni</dt>
+                    <dd className="font-medium text-slate-900 text-right">
+                      {customerPayload.project.floorStructureShort} · {customerPayload.project.unitBreakdownShort}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* 2. Malik Paylaşım Özeti */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="text-xs font-semibold text-slate-900">Malik Paylaşım Özeti</h3>
+                  {onSelectWorkbenchStage && (
+                    <button
+                      type="button"
+                      onClick={() => onSelectWorkbenchStage(7)}
+                      className="text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                    >
+                      Malikler
+                    </button>
+                  )}
+                </div>
+                <dl className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Toplam Bağımsız Bölüm</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {customerPayload.sharing.totalUnitCount} adet
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Arsa Sahipleri Payı</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {customerPayload.sharing.ownerUnitsCount} bölüm · %{customerPayload.sharing.ownerSharePercent}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Yüklenici Payı</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {customerPayload.sharing.contractorUnitsCount} bölüm · %{customerPayload.sharing.contractorSharePercent}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Kayıtlı Malik</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {customerPayload.sharing.landowners.length > 0
+                        ? `${customerPayload.sharing.landowners.length} kişi`
+                        : 'Belirtilmedi'}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* 3. Ödeme ve Teslimat Özeti */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="text-xs font-semibold text-slate-900">Ödeme ve Teslimat Özeti</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('history')}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                  >
+                    Durum ve Geçerlilik
+                  </button>
+                </div>
+                <dl className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Ödeme Planı</dt>
+                    <dd className="font-medium text-slate-900 text-right">
+                      {isContractorShare ? 'Kat Karşılığı (Nakit Bedelsiz)' : customerPayload.pricing.paymentPlanLabel}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Teslim Süresi</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {customerPayload.project.finalMonths} ay
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Teklif Geçerliliği</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {validityDate} ({validityDays} gün)
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-slate-500">Ekler / Maddeler</dt>
+                    <dd className="font-mono tabular-nums font-medium text-slate-900">
+                      {uploadedImages.length} görsel · {clauses.length} madde
+                    </dd>
+                  </div>
+                </dl>
+              </div>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsLiveControlPanelExpanded(!isLiveControlPanelExpanded)}
-            className="px-3 py-1.5 bg-indigo-900/80 hover:bg-indigo-800 text-amber-300 border border-indigo-700/60 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 self-start sm:self-auto"
-          >
-            {isLiveControlPanelExpanded ? '▲ Paneli Daralt' : '▼ Paneli Genişlet'}
-          </button>
-        </div>
+          {/* ================================================================
+              B. GELİŞMİŞ AYARLAR (KAPALI BAŞLAR, İHTİYAÇ OLDUĞUNDA AÇILIR)
+             ================================================================ */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsAdvancedOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between gap-4 px-6 py-4 text-left hover:bg-slate-50/80 transition-colors cursor-pointer"
+              aria-expanded={isAdvancedOpen}
+            >
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Gelişmiş Ayarlar</div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Maliyet ve kâr analizi, risk/enflasyon, paket seçenekleri, teknik modüller, ek maddeler, AI asistanı ve firma ayarları
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 shrink-0 whitespace-nowrap">
+                <span>{isAdvancedOpen ? 'Gizle' : 'Aç'}</span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
+                    isAdvancedOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </span>
+            </button>
 
-        {isLiveControlPanelExpanded && (
-          <div className="space-y-5 animate-in fade-in duration-200">
-            {/* Control Panel Tabs */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-indigo-800/50">
-              <button
-                type="button"
-                onClick={() => setActiveControlTab('inflation')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  activeControlTab === 'inflation'
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>1. Enflasyon & TEFE/TÜFE Risk Payı</span>
-                {params.hasInflationBuffer && (
-                  <span className="px-1.5 py-0.2 bg-slate-950/20 text-slate-950 rounded text-[9px] font-black">
-                    %{params.inflationBufferRate ?? 15}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveControlTab('pricing')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  activeControlTab === 'pricing'
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
-                }`}
-              >
-                <BadgePercent className="w-3.5 h-3.5" />
-                <span>2. Birim Fiyatlar & Müteahhit Kârı</span>
-                {params.profitRate ? (
-                  <span className="px-1.5 py-0.2 bg-slate-950/20 text-slate-950 rounded text-[9px] font-black">
-                    %{params.profitRate}
-                  </span>
-                ) : null}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveControlTab('payment')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  activeControlTab === 'payment'
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
-                }`}
-              >
-                <Receipt className="w-3.5 h-3.5" />
-                <span>3. Ödeme Modeli & Vade Takvimi</span>
-                <span className="px-1.5 py-0.2 bg-slate-950/20 text-slate-950 rounded text-[9px] font-black">
-                  {params.installmentCount || 12} Ay
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveControlTab('features')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  activeControlTab === 'features'
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>4. Sunum Modu & Paket Seçenekleri</span>
-                <span className="px-1.5 py-0.2 bg-slate-950/20 text-slate-950 rounded text-[9px] font-black">
-                  {params.offerPresentationMode === 'dual' ? 'Çift Paket' : 'Tek Paket'}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveControlTab('visibility')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  activeControlTab === 'visibility'
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                    : 'bg-indigo-950/70 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60'
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>5. Rapor Görünürlük & Sadeleştirme</span>
-              </button>
-            </div>
-
-            {/* TAB 1: ENFLASYON & TEFE/TÜFE RISK PAYI */}
-            {activeControlTab === 'inflation' && (
-              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-indigo-800/60">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-amber-300 uppercase tracking-wide">
-                        🛡️ TEFE/TÜFE & Yİ-ÜFE Enflasyon Risk Sigortası
-                      </span>
-                    </div>
-                    <p className="text-xs text-indigo-200">
-                      Teklif hazırlama ile şantiye başlangıcı/tamamlanması arasında oluşabilecek TEFE/TÜFE malzeme ve işçilik artış riskini teklife yansıtın.
-                    </p>
-                  </div>
-
-                  {/* Toggle Button */}
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={!!params.hasInflationBuffer}
-                      onChange={(e) => onUpdateParam && onUpdateParam('hasInflationBuffer', e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-indigo-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                    <span className="ml-2.5 text-xs font-bold text-white">
-                      {params.hasInflationBuffer ? '✅ Risk Payı Aktif' : '❌ Risk Payı Kapalı'}
-                    </span>
-                  </label>
+            {isAdvancedOpen && (() => {
+              const hasInlineAccordionContent =
+                activeAdvancedGroup === 'cost_profit' ||
+                activeAdvancedGroup === 'risk_inflation' ||
+                activeAdvancedGroup === 'technical' ||
+                activeAdvancedGroup === 'other_tools';
+              return (
+              <div className={`border-t border-slate-200 bg-slate-50/40 ${hasInlineAccordionContent ? 'p-5 sm:p-6 space-y-5' : 'px-5 py-3.5 sm:px-6'}`}>
+                {/* Gelişmiş Ayar Grup Seçici */}
+                <div className={`flex items-center gap-1.5 overflow-x-auto no-scrollbar ${hasInlineAccordionContent ? 'pb-2 border-b border-slate-200' : ''}`}>
+                  {advancedGroups.map((grp) => {
+                    const isActive = activeAdvancedGroup === grp.id;
+                    return (
+                      <button
+                        key={grp.id}
+                        type="button"
+                        onClick={() => setActiveAdvancedGroup(grp.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                          isActive
+                            ? grp.internalOnly
+                              ? 'bg-slate-900 text-amber-300'
+                              : 'bg-slate-900 text-white'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                        }`}
+                      >
+                        {grp.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {params.hasInflationBuffer ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Slider and Input */}
-                      <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
-                        <div className="flex items-center justify-between text-xs">
-                          <label className="font-bold text-amber-200">Enflasyon & Risk Oranı (%):</label>
-                          <span className="font-mono font-black text-amber-400 text-sm">
-                            %{params.inflationBufferRate ?? 15}
-                          </span>
+                {/* 1. MALİYET VE KÂR ANALİZİ (YALNIZCA ŞİRKET İÇİ) */}
+                {activeAdvancedGroup === 'cost_profit' && (
+                  <div className="space-y-5" data-internal-only="true">
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-900">
+                            Maliyet ve Kâr Analizi
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Yalnızca şirket içi yönetim ekranıdır · Müşteri teklif belgesinde, PDF ve WhatsApp çıktısında yer almaz.
+                          </p>
                         </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="40"
-                          step="1"
-                          value={params.inflationBufferRate ?? 15}
-                          onChange={(e) => onUpdateParam && onUpdateParam('inflationBufferRate', Number(e.target.value))}
-                          className="w-full accent-amber-400 cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[10px] text-indigo-300 font-mono">
-                          <span>%0 (Risksiz)</span>
-                          <span>%15 (Varsayılan)</span>
-                          <span>%40 (Maks Risk)</span>
-                        </div>
-                      </div>
-
-                      {/* Fast Presets */}
-                      <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
-                        <label className="block text-xs font-bold text-amber-200">Hızlı Oran Seçenekleri:</label>
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { rate: 5, label: '%5 Düşük' },
-                            { rate: 10, label: '%10 Makul' },
-                            { rate: 15, label: '%15 Standart TEFE' },
-                            { rate: 20, label: '%20 Yüksek TÜFE' },
-                            { rate: 25, label: '%25 Maksimum Risk' },
-                          ].map((item) => (
-                            <button
-                              key={item.rate}
-                              type="button"
-                              onClick={() => onUpdateParam && onUpdateParam('inflationBufferRate', item.rate)}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                (params.inflationBufferRate ?? 15) === item.rate
-                                  ? 'bg-amber-400 text-slate-950 font-black shadow-md'
-                                  : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
-                              }`}
-                            >
-                              {item.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Calculated Effect Badge */}
-                    <div className="p-3 bg-indigo-900/90 border border-emerald-500/50 rounded-xl text-xs flex flex-wrap items-center justify-between gap-3 text-emerald-200">
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>
-                          <strong>Proje Risk Teminat Hacmi:</strong>{' '}
-                          {(results.inflationBufferAmount || Math.round((results.grandTotal || 0) * ((params.inflationBufferRate || 15) / 100))).toLocaleString('tr-TR')} ₺
+                        <span className="text-xs font-medium text-amber-800 whitespace-nowrap">
+                          Şirket içi gizli alan
                         </span>
                       </div>
-                      <span className="text-[11px] text-indigo-200 font-mono">
-                        (Daire Başı Ort.: ~{Math.round((results.inflationBufferAmount || Math.round((results.grandTotal || 0) * ((params.inflationBufferRate || 15) / 100))) / (results.flatCount || 1)).toLocaleString('tr-TR')} ₺)
-                      </span>
+
+                      {/* 4 Temel İç Maliyet & Kâr Özeti */}
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pb-4 border-b border-slate-100">
+                        <div>
+                          <div className="text-xs text-slate-500">Toplam Maliyet</div>
+                          <div className="text-lg font-bold font-mono tabular-nums text-slate-900 mt-0.5">
+                            {subTotalCostVal.toLocaleString('tr-TR')} ₺
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500">Müşteri Satış Bedeli</div>
+                          <div className="text-lg font-bold font-mono tabular-nums text-slate-900 mt-0.5">
+                            {grandTotalVal.toLocaleString('tr-TR')} ₺
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500">Brüt Kâr</div>
+                          <div className={`text-lg font-bold font-mono tabular-nums mt-0.5 ${grossProfitVal >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {grossProfitVal.toLocaleString('tr-TR')} ₺
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500">Gerçekleşen Kâr Marjı</div>
+                          <div className={`text-lg font-bold font-mono tabular-nums mt-0.5 ${realizedMarginPct > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                            %{realizedMarginPct}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Kâr Oranı ve m² Birim Fiyat Kontrolleri */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-xs">
+                            <label className="font-semibold text-slate-700">Müteahhit Kâr Oranı</label>
+                            <span className="font-mono tabular-nums font-bold text-slate-900">
+                              %{params.profitRate || 0}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="35"
+                            step="1"
+                            value={params.profitRate || 0}
+                            onChange={(e) => onUpdateParam && onUpdateParam('profitRate', Number(e.target.value))}
+                            className="w-full accent-slate-900 cursor-pointer"
+                          />
+                          <div className="flex flex-wrap gap-1.5">
+                            {[0, 10, 15, 20, 25].map((pr) => (
+                              <button
+                                key={pr}
+                                type="button"
+                                onClick={() => onUpdateParam && onUpdateParam('profitRate', pr)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                                  (params.profitRate || 0) === pr
+                                    ? 'bg-slate-900 text-white'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                }`}
+                              >
+                                %{pr} {pr === 0 ? '(Maliyetine)' : ''}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                            <label className="block text-xs font-medium text-slate-600">
+                              Kâr oranı malik borçlanmasına yansısın mı?
+                            </label>
+                            <div className="inline-flex items-center p-1 bg-slate-100 rounded-lg">
+                              <button
+                                type="button"
+                                onClick={() => onUpdateParam && onUpdateParam('includeProfitOwner', 'yes')}
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                                  params.includeProfitOwner !== 'no'
+                                    ? 'bg-white text-slate-900 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                Evet, eklensin
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onUpdateParam && onUpdateParam('includeProfitOwner', 'no')}
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                                  params.includeProfitOwner === 'no'
+                                    ? 'bg-white text-slate-900 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                Hayır, yalnızca maliyet
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-semibold text-slate-700">Konut m² Birim Fiyatı (₺/m²)</label>
+                              {params.manualFlatUnitPrice && (
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateParam && onUpdateParam('manualFlatUnitPrice', undefined)}
+                                  className="text-xs text-indigo-600 hover:underline cursor-pointer"
+                                >
+                                  Sistem hesabına dön
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              type="number"
+                              value={params.manualFlatUnitPrice ?? ''}
+                              onChange={(e) => onUpdateParam && onUpdateParam('manualFlatUnitPrice', e.target.value ? Number(e.target.value) : undefined)}
+                              placeholder={`Sistem hesabı: ${results.grossCostPerSqM?.toLocaleString('tr-TR')} ₺/m²`}
+                              className="w-full text-xs font-mono tabular-nums px-3 py-2 rounded-lg bg-white text-slate-900 border border-slate-300 focus:outline-none focus:border-slate-900"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-semibold text-slate-700">Dükkan m² Birim Fiyatı (₺/m²)</label>
+                              {params.manualShopUnitPrice && (
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateParam && onUpdateParam('manualShopUnitPrice', undefined)}
+                                  className="text-xs text-indigo-600 hover:underline cursor-pointer"
+                                >
+                                  Sistem hesabına dön
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              type="number"
+                              value={params.manualShopUnitPrice ?? ''}
+                              onChange={(e) => onUpdateParam && onUpdateParam('manualShopUnitPrice', e.target.value ? Number(e.target.value) : undefined)}
+                              placeholder={`Sistem hesabı: ${(params.manualFlatUnitPrice || results.grossCostPerSqM)?.toLocaleString('tr-TR')} ₺/m²`}
+                              className="w-full text-xs font-mono tabular-nums px-3 py-2 rounded-lg bg-white text-slate-900 border border-slate-300 focus:outline-none focus:border-slate-900"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>Enflasyon risk payı kapalıdır. Teklif fiyatlarında herhangi bir TEFE/TÜFE veya fiyat artış risk payı eklenmemektedir.</span>
                   </div>
                 )}
 
-                {/* Notice Box Output Toggle & Customization */}
-                <div className="pt-3 border-t border-indigo-800/60 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <span className="text-xs font-bold text-amber-200 block">
-                        📄 Teklif Çıktısında "Enflasyon / TEFE-TÜFE Güvencesi Notu" Görünsün mü?
-                      </span>
-                      <span className="text-[11px] text-indigo-300 block">
-                        Raporun ödeme takvimi altındaki mor renkli TEFE/TÜFE ve sabit fiyat güvence kutusunun son çıktıda (PDF/Baskı) yer alıp almayacağını belirlersiniz.
-                      </span>
+                {/* 2. RİSK VE ENFLASYON HESAPLARI */}
+                {activeAdvancedGroup === 'risk_inflation' && (
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5" data-internal-only="true">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-900">
+                          Risk ve Enflasyon Hesapları
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          İnşaat süresince oluşabilecek malzeme ve işçilik maliyet artışı tamponunu yönetin.
+                        </p>
+                      </div>
+                      <label className="inline-flex items-center gap-2.5 cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={!!params.hasInflationBuffer}
+                          onChange={(e) => onUpdateParam && onUpdateParam('hasInflationBuffer', e.target.checked)}
+                          className="w-4 h-4 text-slate-900 rounded border-slate-300 cursor-pointer"
+                        />
+                        <span className="text-xs font-semibold text-slate-800">
+                          Enflasyon risk payı aktif
+                        </span>
+                      </label>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => onUpdateParam && onUpdateParam('showInflationGuaranteeNotice', true)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          params.showInflationGuaranteeNotice !== false
-                            ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
-                            : 'bg-indigo-900 hover:bg-indigo-800 text-indigo-300 border border-indigo-700/50'
-                        }`}
-                      >
-                        ✓ Çıktıda Göster
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onUpdateParam && onUpdateParam('showInflationGuaranteeNotice', false)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          params.showInflationGuaranteeNotice === false
-                            ? 'bg-rose-600 text-white font-black shadow-md'
-                            : 'bg-indigo-900 hover:bg-indigo-800 text-indigo-300 border border-indigo-700/50'
-                        }`}
-                      >
-                        ✕ Çıktıdan Kaldır
-                      </button>
-                    </div>
-                  </div>
+                    {params.hasInflationBuffer ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <label className="font-semibold text-slate-700">Risk Oranı (%)</label>
+                              <span className="font-mono tabular-nums font-bold text-slate-900">
+                                %{params.inflationBufferRate ?? 15}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="40"
+                              step="1"
+                              value={params.inflationBufferRate ?? 15}
+                              onChange={(e) => onUpdateParam && onUpdateParam('inflationBufferRate', Number(e.target.value))}
+                              className="w-full accent-slate-900 cursor-pointer"
+                            />
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {[5, 10, 15, 20, 25].map((rate) => (
+                                <button
+                                  key={rate}
+                                  type="button"
+                                  onClick={() => onUpdateParam && onUpdateParam('inflationBufferRate', rate)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer ${
+                                    (params.inflationBufferRate ?? 15) === rate
+                                      ? 'bg-slate-900 text-white'
+                                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                  }`}
+                                >
+                                  %{rate}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
 
-                  {params.showInflationGuaranteeNotice !== false && (
-                    <div className="p-3 bg-indigo-900/40 rounded-xl border border-indigo-700/40 space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-indigo-200">Not Başlığı (Dilediğiniz gibi düzenleyin):</label>
-                        {(params.customInflationNoticeTitle || params.customInflationNoticeText) && (
+                          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-center space-y-1">
+                            <span className="text-xs text-slate-500">Hesaplanan Enflasyon Risk Tamponu (Şirket İçi)</span>
+                            <span className="text-lg font-bold font-mono tabular-nums text-slate-900">
+                              {(results.inflationBufferAmount || Math.round((results.grandTotal || 0) * ((params.inflationBufferRate || 15) / 100))).toLocaleString('tr-TR')} ₺
+                            </span>
+                            <span className="text-xs text-slate-500 font-mono tabular-nums">
+                              Bölüm başı ortalama: ~{Math.round((results.inflationBufferAmount || Math.round((results.grandTotal || 0) * ((params.inflationBufferRate || 15) / 100))) / (results.flatCount || 1)).toLocaleString('tr-TR')} ₺
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+                        Enflasyon risk payı kapalıdır. Teklif bedeline ilave enflasyon tamponu eklenmez.
+                      </p>
+                    )}
+
+                    {/* Müşteri Belgesi Sabit Fiyat Notu Ayarı */}
+                    <div className="pt-4 border-t border-slate-100 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-semibold text-slate-900">
+                            Müşteri Belgesinde Sabit Fiyat Bilgilendirme Notu
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            Müşteri çıktısında ödeme takvimi altında gösterilecek fiyat sabitleme metni.
+                          </p>
+                        </div>
+                        <div className="inline-flex items-center p-1 bg-slate-100 rounded-lg shrink-0">
                           <button
                             type="button"
-                            onClick={() => {
-                              if (onUpdateParam) {
-                                onUpdateParam('customInflationNoticeTitle', undefined);
-                                onUpdateParam('customInflationNoticeText', undefined);
-                              }
-                            }}
-                            className="text-[10px] text-amber-300 hover:underline cursor-pointer"
+                            onClick={() => onUpdateParam && onUpdateParam('showInflationGuaranteeNotice', true)}
+                            className={`px-3 py-1 rounded-md text-xs font-medium cursor-pointer ${
+                              params.showInflationGuaranteeNotice !== false
+                                ? 'bg-white text-slate-900 shadow-xs'
+                                : 'text-slate-600'
+                            }`}
                           >
-                            Sıfırla
+                            Göster
                           </button>
-                        )}
+                          <button
+                            type="button"
+                            onClick={() => onUpdateParam && onUpdateParam('showInflationGuaranteeNotice', false)}
+                            className={`px-3 py-1 rounded-md text-xs font-medium cursor-pointer ${
+                              params.showInflationGuaranteeNotice === false
+                                ? 'bg-white text-slate-900 shadow-xs'
+                                : 'text-slate-600'
+                            }`}
+                          >
+                            Gizle
+                          </button>
+                        </div>
                       </div>
-                      <input
-                        type="text"
-                        value={params.customInflationNoticeTitle ?? ''}
-                        onChange={(e) => onUpdateParam && onUpdateParam('customInflationNoticeTitle', e.target.value || undefined)}
-                        placeholder={params.hasInflationBuffer ? '🛡️ Enflasyon Risk Güvencesi (İmalat Bedeline Dahildir)' : '🛡️ Enflasyon ve Vade Farkı Güvencesi (TEFE/TÜFE Farkı Yoktur)'}
-                        className="w-full text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-950 text-white border border-indigo-700 focus:outline-none focus:border-amber-400"
-                      />
-                      <label className="font-bold text-indigo-200 block pt-1">Not Açıklama Metni (Dilediğiniz gibi düzenleyin):</label>
-                      <textarea
-                        rows={2}
-                        value={params.customInflationNoticeText ?? ''}
-                        onChange={(e) => onUpdateParam && onUpdateParam('customInflationNoticeText', e.target.value || undefined)}
-                        placeholder={params.hasInflationBuffer ? 'Anlaşma anında belirlenen imalat bedeline enflasyon risk payı dahil edilmiş olup, inşaat süresince kat maliklerinden ayrıca TEFE/TÜFE veya ilave maliyet farkı talep edilmeyecektir.' : 'Firmamız kentsel dönüşüm sürecinde kat maliklerinden herhangi bir TEFE/TÜFE, enflasyon farkı veya vade farkı talep etmemektedir. Anlaşma anında belirlenen ödeme takvimi ve rakamlar, inşaat süresi boyunca tamamen sabit kalır ve kesinlikle artırılmaz.'}
-                        className="w-full text-xs px-3 py-1.5 rounded-lg bg-indigo-950 text-white border border-indigo-700 focus:outline-none focus:border-amber-400"
-                      />
+
+                      {params.showInflationGuaranteeNotice !== false && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium text-slate-700">Not Başlığı</label>
+                            {(params.customInflationNoticeTitle || params.customInflationNoticeText) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onUpdateParam) {
+                                    onUpdateParam('customInflationNoticeTitle', undefined);
+                                    onUpdateParam('customInflationNoticeText', undefined);
+                                  }
+                                }}
+                                className="text-xs text-indigo-600 hover:underline cursor-pointer"
+                              >
+                                Varsayılana dön
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={params.customInflationNoticeTitle ?? ''}
+                            onChange={(e) => onUpdateParam && onUpdateParam('customInflationNoticeTitle', e.target.value || undefined)}
+                            placeholder="Sabit Fiyat ve Vade Güvencesi"
+                            className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:border-slate-900"
+                          />
+                          <label className="text-xs font-medium text-slate-700 block pt-1">Açıklama Metni</label>
+                          <textarea
+                            rows={2}
+                            value={params.customInflationNoticeText ?? ''}
+                            onChange={(e) => onUpdateParam && onUpdateParam('customInflationNoticeText', e.target.value || undefined)}
+                            placeholder="Sözleşme tarihinde mutabık kalınan teklif bedeli ve ödeme planı inşaat süresi boyunca sabit kalır."
+                            className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 focus:outline-none focus:border-slate-900"
+                          />
+                        </div>
+                      )}
                     </div>
+                  </div>
+                )}
+
+                {/* 4. İMALAT VE TEKNİK MODÜLLER (ÖDEME + MODÜLER DÜZENLEYİCİ) */}
+                {activeAdvancedGroup === 'technical' && (
+                  <div className="space-y-5">
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-900">
+                            Ödeme Planı ve Kentsel Dönüşüm Destek Modeli
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Ödeme biçimini, vade süresini ve devlet destek modelini buradan hızlıca güncelleyin.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleOpenUnitConfig}
+                          className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold cursor-pointer whitespace-nowrap self-start sm:self-center"
+                        >
+                          Kat ve Bölüm Yapılandırıcı
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-slate-700">Ödeme Planı Tipi</label>
+                          <div className="space-y-1.5">
+                            {[
+                              { id: 'installments', label: 'Aylık Eşit Taksit' },
+                              { id: 'hybrid', label: 'Karma (Peşinat + Ara Ödeme + Taksit)' },
+                              { id: 'stages', label: '5 Aşamalı İlerleme Hakedişi' },
+                            ].map((plan) => (
+                              <button
+                                key={plan.id}
+                                type="button"
+                                onClick={() => onUpdateParam && onUpdateParam('paymentPlanType', plan.id)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
+                                  (params.paymentPlanType || 'installments') === plan.id
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                {plan.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-slate-700">Vade / Taksit Sayısı (Ay)</label>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[6, 12, 18, 24, 36, 48].map((count) => (
+                              <button
+                                key={count}
+                                type="button"
+                                onClick={() => onUpdateParam && onUpdateParam('installmentCount', count)}
+                                className={`py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer border font-mono tabular-nums ${
+                                  (params.installmentCount || 12) === count
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                {count} Ay
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            type="number"
+                            value={params.installmentCount || 12}
+                            onChange={(e) => onUpdateParam && onUpdateParam('installmentCount', Math.max(1, Number(e.target.value)))}
+                            className="w-full text-xs font-mono tabular-nums px-3 py-2 rounded-lg bg-white text-slate-900 border border-slate-300 focus:outline-none focus:border-slate-900"
+                            placeholder="Özel ay sayısı..."
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-slate-700">Destek Modeli</label>
+                          <div className="space-y-1.5">
+                            {[
+                              { id: 'currentSupport', label: 'Yarısı Bizden (875k Hibe + 875k Kredi)' },
+                              { id: 'futureSupport2027', label: '2027 Kredi Modeli (3 Milyon TL)' },
+                              { id: 'none', label: 'Öz Kaynaklı / Desteksiz Model' },
+                            ].map((sup) => (
+                              <button
+                                key={sup.id}
+                                type="button"
+                                onClick={() => onUpdateParam && onUpdateParam('transformationStatus', sup.id)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
+                                  params.transformationStatus === sup.id
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                {sup.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <PreOfferModularWorkbench
+                      params={params}
+                      results={results}
+                      profile={profile}
+                      onUpdateParam={onUpdateParam}
+                      onUpdateAllParams={onUpdateAllParams}
+                      uploadedImages={uploadedImages}
+                      setUploadedImages={setUploadedImages}
+                      onNavigateToPreview={() => setActiveView('preview')}
+                      onOpenWhatsApp={() => setIsWhatsAppModalOpen(true)}
+                      onExportPdf={handleExportPdf}
+                      onPrint={handlePrint}
+                      onOpenUnitConfig={handleOpenUnitConfig}
+                    />
+                  </div>
+                )}
+
+                {/* 8. DİĞER GELİŞMİŞ ARAÇLAR */}
+                {activeAdvancedGroup === 'other_tools' && (
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                    <div className="pb-3 border-b border-slate-100">
+                      <h3 className="text-sm font-semibold text-slate-900">Diğer Gelişmiş Araçlar</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Dahili mutabakat kontrolü, piyasa değerlemesi, bağımsız bölüm yapılandırması ve sözleşme geçişi.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsDiagnosticModalOpen(true)}
+                        className="p-4 rounded-xl border border-slate-200 hover:border-slate-400 bg-white text-left transition-colors cursor-pointer space-y-1"
+                      >
+                        <div className="text-xs font-semibold text-slate-900 flex items-center gap-2">
+                          <Scale className="w-4 h-4 text-slate-600" />
+                          <span>Malik Dağılım Mutabakat Teşhisi</span>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Arsa payı ve bağımsız bölüm dağılım tutarlılığını şirket içinde denetleyin.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsValuationModalOpen(true)}
+                        className="p-4 rounded-xl border border-slate-200 hover:border-slate-400 bg-white text-left transition-colors cursor-pointer space-y-1"
+                      >
+                        <div className="text-xs font-semibold text-slate-900 flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-slate-600" />
+                          <span>İstanbul Emlak Piyasa Değerlemesi</span>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Bölgesel m² satış emsallerini ve proje satış potansiyelini inceleyin.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleOpenUnitConfig}
+                        className="p-4 rounded-xl border border-slate-200 hover:border-slate-400 bg-white text-left transition-colors cursor-pointer space-y-1"
+                      >
+                        <div className="text-xs font-semibold text-slate-900 flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-slate-600" />
+                          <span>Bağımsız Bölüm ve Kat Yapılandırıcı</span>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Daire, dükkan ve kat adetlerini doğrudan teklif ekranından güncelleyin.
+                        </p>
+                      </button>
+
+                      {onNavigateToContract && (
+                        <button
+                          type="button"
+                          onClick={onNavigateToContract}
+                          className="p-4 rounded-xl border border-slate-200 hover:border-slate-400 bg-white text-left transition-colors cursor-pointer space-y-1"
+                        >
+                          <div className="text-xs font-semibold text-slate-900 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-slate-600" />
+                            <span>Sözleşme Hazırlığına Geç</span>
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            Mevcut teklif ve proje bilgileriyle sözleşme taslağı ekranını açın.
+                          </p>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          C. MÜŞTERİ TEKLİFİ ÜST İŞLEM ÇUBUĞU
+         ==================================================================== */}
+      {activeView === 'preview' && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 print:hidden">
+          <div className="space-y-0.5">
+            <h2 className="text-sm font-semibold text-slate-900">Müşteri Teklif Belgesi</h2>
+            <p className="text-xs text-slate-500">
+              Yalnızca müşteriye açık bilgiler gösterilir · Şirket içi maliyet, kâr, risk ve gizli notlar bu çıktıya dahil edilmez.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setIsPreviewAttachmentsOpen((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Upload className="w-3.5 h-3.5 text-slate-500" />
+              <span>Görsel ve 3D Ekleri ({uploadedImages.length}/6)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsWhatsAppModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+              <span>WhatsApp</span>
+            </button>
+            <PrintAndPdfButtons
+              onExportPdf={handleExportPdf}
+              onPrint={handlePrint}
+              getHtmlContent={() => generateOfferHtmlFromPayload(customerPayload)}
+              documentTitle={`${compName} - Resmî Teklifname (${proposalNumber})`}
+              theme={theme}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          D. TEKLİF GEÇMİŞİ VE YÖNETİMİ
+         ==================================================================== */}
+      {activeView === 'history' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 print:hidden" data-internal-only="true">
+          {/* Sol: Durum Takibi, Geçerlilik ve Proje Aksiyonları */}
+          <div className="lg:col-span-5 space-y-5">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
+              <div className="pb-3 border-b border-slate-100">
+                <h2 className="text-sm font-semibold text-slate-900">Teklif Durumu ve Geçerlilik</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Kalıcı teklif numarası, geçerlilik süresi ve aşama takibi.
+                </p>
+              </div>
+
+              <dl className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <dt className="text-slate-500">Teklif Numarası</dt>
+                  <dd className="font-mono font-semibold text-slate-900 mt-0.5">{proposalNumber}</dd>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <dt className="text-slate-500">Aktif Sürüm</dt>
+                  <dd className="font-mono font-semibold text-slate-900 mt-0.5">v{offerVersion}</dd>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <dt className="text-slate-500">Oluşturulma Tarihi</dt>
+                  <dd className="font-mono font-semibold text-slate-900 mt-0.5">{proposalDate}</dd>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <dt className="text-slate-500">Geçerlilik Bitiş</dt>
+                  <dd className="font-mono font-semibold text-slate-900 mt-0.5">{validityDate}</dd>
+                </div>
+              </dl>
+
+              {/* Geçerlilik Süresi */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-700 block">
+                  Geçerlilik Süresi ({validityDays} gün)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[7, 15, 30, 45, 60].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => handleUpdateValidityDays(d)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer font-mono tabular-nums ${
+                        validityDays === d
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {d} Gün
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Durum Seçici */}
+              <div className="space-y-2 pt-3 border-t border-slate-100">
+                <label className="text-xs font-semibold text-slate-700 block">Teklif Durumu</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {OFFER_STATUS_OPTIONS.map((opt) => {
+                    const isCurrent = currentStatus === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handleChangeOfferStatus(opt.value)}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer border ${
+                          isCurrent
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {statusFeedback && (
+                  <div className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                    {statusFeedback}
+                  </div>
+                )}
+              </div>
+
+              {/* Kaydetme, Sözleşme ve Şantiye Geçişi */}
+              <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+                {onSaveOffer && (
+                  <button
+                    type="button"
+                    onClick={handleSaveCurrentOffer}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{offerSavedNotice ? 'Teklif Kaydedildi' : 'Teklifi Arşive Kaydet'}</span>
+                  </button>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {onNavigateToContract && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToContract}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Sözleşmeye Geç</span>
+                    </button>
+                  )}
+                  {onNavigateToSurec && (
+                    <button
+                      type="button"
+                      onClick={handleStartSiteFromOffer}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Şantiye Başlat</span>
+                    </button>
                   )}
                 </div>
               </div>
-            )}
+            </div>
+          </div>
 
-            {/* TAB 2: BİRİM FİYATLAR & MÜTEAHHİT KÂRI */}
-            {activeControlTab === 'pricing' && (
-              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Profit Rate Control */}
-                  <div className="space-y-3 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
-                    <div className="flex items-center justify-between text-xs">
-                      <label className="font-bold text-amber-200">Müteahhit Kâr Oranı (%):</label>
-                      <span className="font-mono font-black text-amber-400 text-sm">
-                        %{params.profitRate || 0}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="35"
-                      step="1"
-                      value={params.profitRate || 0}
-                      onChange={(e) => onUpdateParam && onUpdateParam('profitRate', Number(e.target.value))}
-                      className="w-full accent-amber-400 cursor-pointer"
-                    />
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {[0, 10, 15, 20, 25].map((pr) => (
-                        <button
-                          key={pr}
-                          type="button"
-                          onClick={() => onUpdateParam && onUpdateParam('profitRate', pr)}
-                          className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            (params.profitRate || 0) === pr
-                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
-                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
-                          }`}
-                        >
-                          %{pr} {pr === 0 ? '(Maliyetine)' : ''}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Include profit in owner share toggle */}
-                    <div className="pt-2 border-t border-indigo-800/60 space-y-1.5">
-                      <label className="block text-[11px] font-bold text-indigo-200">
-                        Kâr Oranı Kat Malikleri Borçlanmasına Yansısın mı?
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onUpdateParam && onUpdateParam('includeProfitOwner', 'yes')}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            params.includeProfitOwner !== 'no'
-                              ? 'bg-emerald-500 text-slate-950 font-black'
-                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-300 border border-indigo-700/50'
-                          }`}
-                        >
-                          ✓ Evet (Malik Borcuna Ekle)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onUpdateParam && onUpdateParam('includeProfitOwner', 'no')}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            params.includeProfitOwner === 'no'
-                              ? 'bg-amber-500 text-slate-950 font-black'
-                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-300 border border-indigo-700/50'
-                          }`}
-                        >
-                          ✕ Hayır (Sırf İmalat Maliyeti)
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Manual Unit Price Overrides */}
-                  <div className="space-y-3 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
-                    <div className="flex items-center justify-between border-b border-indigo-800/60 pb-2">
-                      <label className="text-xs font-bold text-amber-200">Konut m² Birim Fiyatı (TL/m²):</label>
-                      {params.manualFlatUnitPrice && (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateParam && onUpdateParam('manualFlatUnitPrice', undefined)}
-                          className="text-[10px] text-amber-300 hover:text-white underline cursor-pointer"
-                        >
-                          Sistem Hesabına Dön
-                        </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={params.manualFlatUnitPrice ?? ''}
-                        onChange={(e) => onUpdateParam && onUpdateParam('manualFlatUnitPrice', e.target.value ? Number(e.target.value) : undefined)}
-                        placeholder={`Sistem Hesabı: ${results.grossCostPerSqM?.toLocaleString('tr-TR')} ₺/m²`}
-                        className="w-full text-xs font-bold px-3 py-2.5 rounded-xl bg-indigo-950 text-white placeholder-indigo-300/50 border border-indigo-700 focus:outline-none focus:border-amber-400"
-                      />
-                      <span className="absolute right-3 top-2.5 text-xs text-indigo-300 font-bold">TL/m²</span>
-                    </div>
-
-                    <div className="flex items-center justify-between border-b border-indigo-800/60 pb-2 pt-2">
-                      <label className="text-xs font-bold text-amber-200">Dükkan m² Birim Fiyatı (TL/m²):</label>
-                      {params.manualShopUnitPrice && (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateParam && onUpdateParam('manualShopUnitPrice', undefined)}
-                          className="text-[10px] text-amber-300 hover:text-white underline cursor-pointer"
-                        >
-                          Sistem Hesabına Dön
-                        </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={params.manualShopUnitPrice ?? ''}
-                        onChange={(e) => onUpdateParam && onUpdateParam('manualShopUnitPrice', e.target.value ? Number(e.target.value) : undefined)}
-                        placeholder={`Sistem Hesabı: ${(params.manualFlatUnitPrice || results.grossCostPerSqM)?.toLocaleString('tr-TR')} ₺/m²`}
-                        className="w-full text-xs font-bold px-3 py-2.5 rounded-xl bg-indigo-950 text-white placeholder-indigo-300/50 border border-indigo-700 focus:outline-none focus:border-amber-400"
-                      />
-                      <span className="absolute right-3 top-2.5 text-xs text-indigo-300 font-bold">TL/m²</span>
-                    </div>
-                  </div>
-                </div>
+          {/* Sağ: Sürüm Geçmişi, Durum Geçmişi ve Firma İçi Notlar */}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Teklif Sürümleri */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+              <div className="pb-3 border-b border-slate-100">
+                <h3 className="text-sm font-semibold text-slate-900">Teklif Sürümleri</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Mevcut müşteri teklifini yeni sürüm olarak dondurun; eski sürümler korunur.
+                </p>
               </div>
-            )}
 
-            {/* TAB 3: ÖDEME MODELİ & VADE TAKVİMİ */}
-            {activeControlTab === 'payment' && (
-              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Payment Plan Type */}
-                  <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
-                    <label className="block text-xs font-bold text-amber-200">Ödeme Planı Tipi:</label>
-                    <div className="space-y-1.5">
-                      {[
-                        { id: 'installments', label: '1. Aylık Eşit Taksitli Ödeme' },
-                        { id: 'hybrid', label: '2. Karma (Peşinat + Ara Ödeme + Taksit)' },
-                        { id: 'stages', label: '3. 5 Aşamalı İlerleme Hakedişi' },
-                      ].map((plan) => (
-                        <button
-                          key={plan.id}
-                          type="button"
-                          onClick={() => onUpdateParam && onUpdateParam('paymentPlanType', plan.id)}
-                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            (params.paymentPlanType || 'installments') === plan.id
-                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
-                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
-                          }`}
-                        >
-                          {plan.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Installment Count */}
-                  <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
-                    <label className="block text-xs font-bold text-amber-200">Vade / Taksit Sayısı (Ay):</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[6, 12, 18, 24, 36, 48].map((count) => (
-                        <button
-                          key={count}
-                          type="button"
-                          onClick={() => onUpdateParam && onUpdateParam('installmentCount', count)}
-                          className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            (params.installmentCount || 12) === count
-                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
-                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
-                          }`}
-                        >
-                          {count} Ay
-                        </button>
-                      ))}
-                    </div>
-                    <div className="pt-1">
-                      <input
-                        type="number"
-                        value={params.installmentCount || 12}
-                        onChange={(e) => onUpdateParam && onUpdateParam('installmentCount', Math.max(1, Number(e.target.value)))}
-                        className="w-full text-xs font-bold px-3 py-1.5 rounded-xl bg-indigo-950 text-white border border-indigo-700 focus:outline-none focus:border-amber-400"
-                        placeholder="Özel Ay Sayısı..."
-                      />
-                    </div>
-                  </div>
-
-                  {/* Transformation Support Model */}
-                  <div className="space-y-2 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
-                    <label className="block text-xs font-bold text-amber-200">Kentsel Dönüşüm Destek Modeli:</label>
-                    <div className="space-y-1.5">
-                      {[
-                        { id: 'currentSupport', label: 'Yarısı Bizden (875k Hibe + 875k Kredi)' },
-                        { id: 'futureSupport2027', label: '2027 Kredi Modeli (3 Milyon TL)' },
-                        { id: 'custom', label: 'Öz Kaynaklı / Desteksiz Model' },
-                      ].map((sup) => (
-                        <button
-                          key={sup.id}
-                          type="button"
-                          onClick={() => onUpdateParam && onUpdateParam('transformationStatus', sup.id)}
-                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            params.transformationStatus === sup.id
-                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
-                              : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
-                          }`}
-                        >
-                          {sup.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  type="text"
+                  value={versionNoteInput}
+                  onChange={(e) => setVersionNoteInput(e.target.value)}
+                  placeholder="Sürüm açıklaması (örn. Revize ödeme takvimi eklendi)"
+                  className="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-slate-900"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveOfferVersionSnapshot}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  Yeni Sürüm Kaydet
+                </button>
               </div>
-            )}
 
-            {/* TAB 4: SUNUM MODU & PAKET SEÇENEKLERİ */}
-            {activeControlTab === 'features' && (
-              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Presentation Mode & Presets */}
-                  <div className="space-y-3 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
-                    <label className="block text-xs font-bold text-amber-200">Teklif Sunum Modu:</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onUpdateParam && onUpdateParam('offerPresentationMode', 'dual')}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          params.offerPresentationMode === 'dual'
-                            ? 'bg-amber-400 text-slate-950 font-black shadow-md'
-                            : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
-                        }`}
-                      >
-                        ⚡ İkili Karşılaştırmalı (Çift Paket)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onUpdateParam && onUpdateParam('offerPresentationMode', 'single')}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          params.offerPresentationMode !== 'dual'
-                            ? 'bg-amber-400 text-slate-950 font-black shadow-md'
-                            : 'bg-indigo-950 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50'
-                        }`}
-                      >
-                        📄 Tek Paket Standart
-                      </button>
-                    </div>
-
-                    {params.offerPresentationMode === 'dual' && (
-                      <div className="pt-2 border-t border-indigo-800/60 space-y-2">
-                        <label className="block text-xs font-bold text-amber-200">Çift Paket İsim Şablonu:</label>
-                        <select
-                          value={params.offerNamingPreset || 'standard_plus'}
-                          onChange={(e) => handleSelectPreset(e.target.value)}
-                          className="w-full text-xs font-bold px-3 py-2 rounded-xl bg-indigo-950 text-white border border-indigo-700 focus:outline-none focus:border-amber-400"
-                        >
-                          {DUAL_OFFER_NAMING_PRESETS.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.label} ({p.baseTitle} / {p.plusTitle})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Plus Package Equipment Toggles */}
-                  <div className="space-y-3 bg-indigo-900/60 p-4 rounded-xl border border-indigo-700/50">
-                    <label className="block text-xs font-bold text-amber-200">
-                      Plus Paket Konfor Donanımları (Tıkla-Aç/Kapat):
-                    </label>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {[
-                        { key: 'underfloorHeating', label: '♨️ Yerden Isıtma' },
-                        { key: 'acOption', label: '❄️ Klima Altyapısı' },
-                        { key: 'smartHome', label: '🔑 Akıllı Kilit/Sistem' },
-                        { key: 'waterFiltration', label: '💧 Su Arıtma Cihazı' },
-                        { key: 'thermostaticShowerMixer', label: '🚿 Termostatik Batarya' },
-                        { key: 'linearShowerDrain', label: '📐 Lineer Süzgeç' },
-                        { key: 'bathroomHumidityFan', label: '🌀 Nem Sensörlü Fan' },
-                        { key: 'touchlessKitchenFaucet', label: '🫧 Fotoselli Batarya' },
-                        { key: 'generator', label: '⚡ Otomatik Jeneratör' },
-                        { key: 'porcelainCountertop', label: '🍳 Porselen Tezgah' },
-                      ].map((item) => {
-                        const feats = params.plusOfferFeatures || {
-                          underfloorHeating: true,
-                          waterFiltration: true,
-                          acOption: true,
-                          thermostaticShowerMixer: true,
-                          linearShowerDrain: true,
-                          bathroomHumidityFan: true,
-                          touchlessKitchenFaucet: true,
-                          smartHome: true,
-                          generator: true,
-                          porcelainCountertop: true,
-                        };
-                        const isActive = feats[item.key as keyof typeof feats] !== false;
-                        return (
-                          <button
-                            key={item.key}
-                            type="button"
-                            onClick={() => handleTogglePlusFeature(item.key as any)}
-                            className={`p-2 rounded-xl text-[11px] font-bold text-left transition-all cursor-pointer border ${
-                              isActive
-                                ? 'bg-emerald-950/80 text-emerald-200 border-emerald-500/50'
-                                : 'bg-indigo-950/50 text-indigo-400 border-indigo-800/40 line-through opacity-60'
-                            }`}
-                          >
-                            {isActive ? '✓ ' : '✕ '} {item.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+              {versionSavedNotice && (
+                <div className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                  {versionSavedNotice}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* TAB 5: RAPOR GÖRÜNÜRLÜK & SADELEŞTİRME */}
-            {activeControlTab === 'visibility' && (
-              <div className="p-5 rounded-2xl bg-indigo-950/80 border border-indigo-700/50 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-800/60">
-                  <div>
-                    <h4 className="text-xs font-bold text-amber-200">
-                      📄 Teklif Çıktısı (PDF/Baskı) Sayfa & Kart Görünürlük Yönetimi
-                    </h4>
-                    <p className="text-[11px] text-indigo-300">
-                      Kat maliklerine veya bina yönetimine sunulacak teklif raporunu sadeleştirebilir veya tüm detaylı teknik analizleri açabilirsiniz.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onUpdateAllParams) {
-                          onUpdateAllParams({
-                            showIntroPresentation: false,
-                            showCompanyHistory: false,
-                            showTechnicalSummary: true,
-                            showQualityStandards: false,
-                            showInnovativeOptions: false,
-                            showDualOfferMatrix: params.offerPresentationMode === 'dual',
-                            showFinancialSummary: true,
-                            showPaymentTimeline: true,
-                            showInflationGuaranteeNotice: true,
-                            showLegalTaahhut: false,
-                            showContractorSignature: true,
-                          });
-                        }
-                      }}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md cursor-pointer transition-all"
-                    >
-                      ⚡ Sade Müşteri Sunum Paketi (Özet)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onUpdateAllParams) {
-                          onUpdateAllParams({
-                            showIntroPresentation: true,
-                            showCompanyHistory: true,
-                            showTechnicalSummary: true,
-                            showQualityStandards: true,
-                            showInnovativeOptions: true,
-                            showDualOfferMatrix: true,
-                            showFinancialSummary: true,
-                            showPaymentTimeline: true,
-                            showInflationGuaranteeNotice: true,
-                            showLegalTaahhut: true,
-                            showContractorSignature: true,
-                          });
-                        }
-                      }}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-800 hover:bg-indigo-700 text-indigo-100 border border-indigo-600 cursor-pointer transition-all"
-                    >
-                      📑 Tüm Detaylar Açık (Tam Şeffaf Bütçe)
-                    </button>
-                  </div>
+              {(params.offerMeta?.versions || []).length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-500">
+                        <th className="py-2 text-left font-medium">Sürüm</th>
+                        <th className="py-2 text-left font-medium">Tarih</th>
+                        <th className="py-2 text-left font-medium">Açıklama</th>
+                        <th className="py-2 text-right font-medium">Teklif Tutarı</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {[...(params.offerMeta?.versions || [])].reverse().map((v) => (
+                        <tr key={`${v.proposalNumber}-v${v.version}-${v.createdAt}`} className="hover:bg-slate-50">
+                          <td className="py-2.5 font-mono font-semibold text-slate-900 whitespace-nowrap">
+                            v{v.version}
+                          </td>
+                          <td className="py-2.5 font-mono tabular-nums text-slate-600 whitespace-nowrap">
+                            {new Date(v.createdAt).toLocaleDateString('tr-TR')}
+                          </td>
+                          <td className="py-2.5 text-slate-700">
+                            {v.summaryNote || 'Kayıtlı teklif sürümü'}
+                          </td>
+                          <td className="py-2.5 text-right font-mono tabular-nums font-semibold text-slate-900 whitespace-nowrap">
+                            {v.grandTotal.toLocaleString('tr-TR')} ₺
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+              ) : (
+                <p className="text-xs text-slate-500 py-2">
+                  Henüz kaydedilmiş ek sürüm yok. Değişiklikleri arşivlemek için yukarıdan yeni sürüm kaydedebilirsiniz.
+                </p>
+              )}
+            </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 text-xs">
-                  {[
-                    { key: 'showIntroPresentation', label: ' Sayfa I Önsöz Sunumu' },
-                    { key: 'showCompanyHistory', label: ' Şirket Geçmişi & Profil' },
-                    { key: 'showTechnicalSummary', label: ' I. Mimari & Teknik Künye' },
-                    { key: 'showQualityStandards', label: ' III. Kalite Standartları' },
-                    { key: 'showInnovativeOptions', label: ' İnovatif Konfor Özellikleri' },
-                    { key: 'showDualOfferMatrix', label: ' Çift Teklif Karşılaştırma' },
-                    { key: 'showFinancialSummary', label: ' II. Bütçe & Finansal Özet' },
-                    { key: 'showPaymentTimeline', label: ' IV. Ödeme & Teslim Takvimi' },
-                    { key: 'showInflationGuaranteeNotice', label: ' 🛡️ TEFE/TÜFE Fiyat Güvencesi' },
-                    { key: 'showLegalTaahhut', label: ' 6. Hukuki Taahhütler' },
-                    { key: 'showContractorSignature', label: ' 7. Yetkili İmza Bloğu' },
-                  ].map((item) => {
-                    const isVisible = (params as any)[item.key] !== false;
+            {/* Durum Değişiklik Geçmişi */}
+            {(params.offerMeta?.statusHistory || []).length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <History className="w-4 h-4 text-slate-500" />
+                  <h3 className="text-sm font-semibold text-slate-900">Durum Geçmişi</h3>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {[...(params.offerMeta?.statusHistory || [])].reverse().map((entry, idx) => {
+                    const fromLabel =
+                      OFFER_STATUS_OPTIONS.find((s) => s.value === entry.fromStatus)?.label || entry.fromStatus;
+                    const toLabel =
+                      OFFER_STATUS_OPTIONS.find((s) => s.value === entry.toStatus)?.label || entry.toStatus;
                     return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => onUpdateParam && onUpdateParam(item.key as any, !isVisible)}
-                        className={`p-2.5 rounded-xl text-left font-bold transition-all cursor-pointer border flex items-center justify-between ${
-                          isVisible
-                            ? 'bg-emerald-950/80 text-emerald-200 border-emerald-500/50 shadow-xs'
-                            : 'bg-indigo-950/60 text-indigo-400 border-indigo-800/40 opacity-60'
-                        }`}
+                      <div
+                        key={`${entry.changedAt}-${idx}`}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-2 border-b border-slate-100 last:border-b-0 text-xs"
                       >
-                        <span>{item.label}</span>
-                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-950/40">
-                          {isVisible ? 'AÇIK' : 'GİZLİ'}
+                        <div className="text-slate-700">
+                          <span className="font-medium text-slate-500">{fromLabel}</span>
+                          <span className="mx-1.5 text-slate-400">→</span>
+                          <span className="font-semibold text-slate-900">{toLabel}</span>
+                          {entry.note && <span className="text-slate-500 ml-2">· {entry.note}</span>}
+                        </div>
+                        <span className="font-mono tabular-nums text-slate-400 shrink-0">
+                          {new Date(entry.changedAt).toLocaleString('tr-TR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </span>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
               </div>
             )}
-          </div>
-        )}
-      </div>
-      )}
 
-      {/* ========================================================
-          PRE-OFFER MODULAR WORKBENCH (TEKLİF ÖNCESİ MODÜLER DÜZENLEME)
-         ======================================================== */}
-      {activeSubTab === 'edit_workbench' && (
-        <PreOfferModularWorkbench
-          params={params}
-          results={results}
-          profile={profile}
-          onUpdateParam={onUpdateParam}
-          onUpdateAllParams={onUpdateAllParams}
-          uploadedImages={uploadedImages}
-          setUploadedImages={setUploadedImages}
-          onNavigateToPreview={() => setActiveSubTab('preview')}
-          onOpenWhatsApp={() => setIsWhatsAppModalOpen(true)}
-          onExportPdf={handleExportPdf}
-          onPrint={handlePrint}
-          onOpenUnitConfig={handleOpenUnitConfig}
-        />
+            {/* Firma İçi Notlar */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Firma İçi Notlar</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Pazarlık tabanı, malik talepleri ve risk notları · Müşteri belgesine ve WhatsApp çıktısına aktarılmaz.
+                  </p>
+                </div>
+                <span className="text-xs font-medium text-amber-800 whitespace-nowrap shrink-0">
+                  Gizli
+                </span>
+              </div>
+              <textarea
+                rows={4}
+                value={params.offerMeta?.internalNotes || ''}
+                onChange={(e) => handleUpdateInternalNotes(e.target.value)}
+                placeholder="Şirket içi görüşme notları, hedeflenen marj ve özel hatırlatmalar..."
+                className="w-full p-3 rounded-xl border border-slate-300 bg-white text-xs text-slate-800 focus:outline-none focus:border-slate-900 resize-y"
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ========================================================
           AI PROPOSAL GENERATOR FROM TEXT INPUT (YAPAY ZEKA İLE TEKLİF OLUŞTURUCU)
          ======================================================== */}
-      {activeSubTab === 'ai_assistant' && (
+      {activeView === 'prepare' && isAdvancedOpen && activeAdvancedGroup === 'ai_assistant' && (
       <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 shadow-xl space-y-4 print:hidden border border-indigo-500/30 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-700/50">
           <div>
@@ -1906,11 +2279,11 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                 <span>💡 Resmi teklif evrakı, 3D model ve birim hesaplamalar bu verilere göre güncellendi.</span>
                 <button
                   type="button"
-                  onClick={() => setActiveSubTab('preview')}
+                  onClick={() => setActiveView('preview')}
                   className="text-amber-400 hover:text-amber-300 underline font-bold cursor-pointer inline-flex items-center gap-1"
                 >
                   <span>Teklifi Önizle ve PDF İndir</span>
-                  <span>➔</span>
+                  <span>→</span>
                 </button>
               </div>
             </div>
@@ -1922,7 +2295,8 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       {/* ========================================================
           INTERACTIVE IMAGE & ATTACHMENTS UPLOAD PANEL (GÖRSEL VE EVRAK UPLOAD)
          ======================================================== */}
-      {activeSubTab === 'preview' && (
+      {((activeView === 'preview' && isPreviewAttachmentsOpen) ||
+        (activeView === 'prepare' && isAdvancedOpen && activeAdvancedGroup === 'company_docs')) && (
       <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 print:hidden animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div>
@@ -2040,22 +2414,40 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       {/* ========================================================
           TEKLİF RAPORU KART SEÇİMİ VE GÖRÜNÜRLÜK AYARLARI (OFFER ENGINE SECTION SELECTION)
          ======================================================== */}
-      {activeSubTab === 'cards_and_clauses' && (
+      {activeView === 'prepare' && isAdvancedOpen && activeAdvancedGroup === 'cards_clauses' && (
       <div className="space-y-6 animate-fade-in">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5 print:hidden">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5 print:hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg">
-                <Settings2 className="w-4 h-4" />
-              </span>
-              <h3 className="text-sm font-black text-slate-900">Teklif Raporu Kart Seçimi ve Görünürlük Ayarları</h3>
-            </div>
+            <h3 className="text-sm font-semibold text-slate-900">Teklif Raporu Bölüm ve Görünürlük Ayarları</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Resmî teklif raporunda (PDF) hangi bölümlerin yer alacağını buradan özelleştirebilirsiniz. İhtiyaca göre kartları açıp kapatarak raporu sadeleştirebilir veya detaylandırabilirsiniz.
+              Müşteri teklifinde ve PDF çıktısında hangi bölümlerin yer alacağını seçin veya hazır sunum şablonu uygulayın.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                if (onUpdateAllParams) {
+                  onUpdateAllParams({
+                    showIntroPresentation: false,
+                    showCompanyHistory: false,
+                    showTechnicalSummary: true,
+                    showQualityStandards: false,
+                    showInnovativeOptions: false,
+                    showDualOfferMatrix: params.offerPresentationMode === 'dual',
+                    showFinancialSummary: true,
+                    showPaymentTimeline: true,
+                    showInflationGuaranteeNotice: true,
+                    showLegalTaahhut: false,
+                    showContractorSignature: true,
+                  });
+                }
+              }}
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer"
+            >
+              Sade Özet Sunum
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -2073,9 +2465,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   cardKeys.forEach(k => onUpdateParam(k as any, true));
                 }
               }}
-              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer border border-indigo-200 shadow-2xs active:scale-95"
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-slate-200"
             >
-              ✓ Tümünü Seç
+              Tümünü Seç
             </button>
             <button
               type="button"
@@ -2094,9 +2486,9 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   cardKeys.forEach(k => onUpdateParam(k as any, false));
                 }
               }}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer border border-slate-200 shadow-2xs active:scale-95"
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-medium transition-colors cursor-pointer border border-slate-200"
             >
-              ✕ Tümünü Kaldır
+              Tümünü Kaldır
             </button>
           </div>
         </div>
@@ -2194,7 +2586,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       {/* ========================================================
           TEKLİF ÖNCESİ SUNUM VE FİRMA GEÇMİŞİ PANELİ (PRE-OFFER PRESENTATION EDITOR)
          ======================================================== */}
-      {activeSubTab === 'company_history' && (
+      {activeView === 'prepare' && isAdvancedOpen && activeAdvancedGroup === 'company_docs' && (
       <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5 print:hidden animate-fade-in">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
@@ -2334,7 +2726,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       {/* ========================================================
           DUAL OFFER PRESENTATION MODE & CUSTOMIZATION PANEL
          ======================================================== */}
-      {activeSubTab === 'package' && (
+      {activeView === 'prepare' && isAdvancedOpen && activeAdvancedGroup === 'package' && (
       <div className="bg-white border-2 border-indigo-100 rounded-3xl p-6 shadow-sm space-y-5 print:hidden animate-fade-in">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
@@ -2647,7 +3039,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveSubTab('contractor_financials');
+                      openAdvancedGroup('cost_profit');
                       setTimeout(() => {
                         const el = document.getElementById('contractor-financial-reflection-panel');
                         el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2656,7 +3048,7 @@ export const OfferTab: React.FC<OfferTabProps> = ({
                     className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
                   >
                     <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>🔒 Şirket İçi Maliyet &amp; Kâr Analizini Aç</span>
+                    <span>Şirket İçi Maliyet ve Kâr Analizini Aç</span>
                     <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                   </button>
                 </div>
@@ -2722,10 +3114,10 @@ export const OfferTab: React.FC<OfferTabProps> = ({
       )}
 
       {/* ========================================================
-          CONTRACTOR PRIVATE FINANCIAL CONTROL PANEL
+          CONTRACTOR PRIVATE FINANCIAL CONTROL PANEL (PLUS PAKET YANSIMASI)
          ======================================================== */}
-      {activeSubTab === 'contractor_financials' && (
-      <div className="space-y-6 animate-fade-in">
+      {activeView === 'prepare' && isAdvancedOpen && activeAdvancedGroup === 'cost_profit' && (
+      <div className="space-y-6 animate-fade-in" data-internal-only="true">
         <div
           id="contractor-financial-reflection-panel"
           className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white border-2 border-amber-500/40 shadow-2xl space-y-6"
@@ -3124,171 +3516,11 @@ export const OfferTab: React.FC<OfferTabProps> = ({
             </span>
           </div>
         </div>
-
-        {/* FİRMA İÇİ TEKLİF KİMLİĞİ, SÜRÜM YÖNETİMİ, GİZLİ NOTLAR VE TEŞHİS ARAÇLARI */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5" data-internal-only="true">
-          {/* Sol: Kalıcı Teklif Kimliği, Geçerlilik & Sürüm Geçmişi */}
-          <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-200">
-                  <Hash className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide">
-                    Teklif Kimliği, Geçerlilik ve Sürüm Yönetimi
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Kalıcı teklif numarası, geçerlilik süresi ve dondurulmuş müşteri teklif sürümleri
-                  </p>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 font-mono text-[11px] font-black">
-                {proposalNumber} • v{offerVersion}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">Oluşturulma Tarihi</span>
-                <span className="font-mono font-bold text-slate-900">{proposalDate}</span>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">Geçerlilik Bitiş</span>
-                <span className="font-mono font-bold text-emerald-700">{validityDate} ({validityDays} Gün)</span>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-700 block">Teklif Geçerlilik Süresi (Gün):</label>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {[7, 15, 30, 45, 60].map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => handleUpdateValidityDays(d)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                      validityDays === d
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {d} Gün
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 space-y-2">
-              <label className="text-[11px] font-bold text-slate-700 block">
-                Yeni Sürüm Anlık Görüntüsü Kaydet (Yalnızca Müşteri Çıktısı Saklanır):
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={versionNoteInput}
-                  onChange={(e) => setVersionNoteInput(e.target.value)}
-                  placeholder="Örn: Revize ödeme planı eklendi..."
-                  className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveOfferVersionSnapshot}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
-                >
-                  + Sürüm Kaydet
-                </button>
-              </div>
-              {versionSavedNotice && (
-                <div className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
-                  {versionSavedNotice}
-                </div>
-              )}
-
-              {(params.offerMeta?.versions || []).length > 0 && (
-                <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
-                  {[...(params.offerMeta?.versions || [])].reverse().map((v) => (
-                    <div
-                      key={`${v.proposalNumber}-v${v.version}-${v.createdAt}`}
-                      className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px]"
-                    >
-                      <div className="min-w-0">
-                        <span className="font-mono font-bold text-indigo-800">v{v.version}</span>
-                        <span className="text-slate-500 ml-2">{new Date(v.createdAt).toLocaleDateString('tr-TR')}</span>
-                        {v.summaryNote && <span className="text-slate-700 ml-2 truncate">• {v.summaryNote}</span>}
-                      </div>
-                      <span className="font-mono font-bold text-slate-900 shrink-0">
-                        {v.grandTotal.toLocaleString('tr-TR')} ₺
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Sağ: Firma İçi Gizli Notlar + Dahili Teşhis Araçları */}
-          <div className="p-5 rounded-3xl bg-white border border-amber-200 shadow-sm space-y-4 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2 pb-3 border-b border-amber-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-amber-50 text-amber-700 rounded-xl border border-amber-200">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide">
-                      Firma İçi Gizli Notlar (Müşteri Görmez)
-                    </h4>
-                    <p className="text-[11px] text-slate-500">
-                      Pazarlık tabanı, malik talepleri ve risk değerlendirmeleri
-                    </p>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-extrabold border border-amber-300">
-                  🔒 PDF &amp; WhatsApp&apos;a Çıkmaz
-                </span>
-              </div>
-
-              <textarea
-                rows={4}
-                value={params.offerMeta?.internalNotes || ''}
-                onChange={(e) => handleUpdateInternalNotes(e.target.value)}
-                placeholder="Örn: Arsa sahipleriyle görüşme notları, kabul edilebilir en düşük kâr marjı, taşeron teklif notları..."
-                className="w-full p-3 rounded-xl border border-amber-200 bg-amber-50/30 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y"
-              />
-            </div>
-
-            {/* Dahili Teşhis ve Değerleme Araçları (Müşteri Teklif Belgesinden Taşındı) */}
-            <div className="pt-3 border-t border-slate-100 space-y-2">
-              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
-                Dahili Analiz ve Mutabakat Araçları
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsDiagnosticModalOpen(true)}
-                  className="py-2.5 px-3 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Scale className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span>🔍 Malik Dağılım Mutabakat Teşhisi</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsValuationModalOpen(true)}
-                  className="py-2.5 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Building2 className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>🏢 İstanbul Emlak Piyasa Değerlemesi</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
       )}
 
       {/* Main Corporate Proposal Sheet */}
-      {activeSubTab === 'preview' && (
+      {activeView === 'preview' && (
       <div
         ref={offerDocRef}
         onCopy={(e) => e.preventDefault()}

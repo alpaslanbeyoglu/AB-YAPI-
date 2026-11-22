@@ -135,7 +135,8 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<TabId>('profile');
-  const [requestedSetupStep, setRequestedSetupStep] = useState<number | undefined>(2);
+  const [requestedSetupStep, setRequestedSetupStep] = useState<number | undefined>(1);
+  const [isProjectFlowOpen, setIsProjectFlowOpen] = useState<boolean>(false);
   const [isMenuSettingsOpen, setIsMenuSettingsOpen] = useState(false);
   const [isProjectTransferOpen, setIsProjectTransferOpen] = useState(false);
   const [isQuickProposalOpen, setIsQuickProposalOpen] = useState(false);
@@ -165,26 +166,26 @@ export default function App() {
     switch (itemId) {
       case 'taban-alani':
         targetTab = 'kurulum';
-        setupStep = 2;
-        targetId = 'minimalBaseAreaInput';
+        setupStep = 1;
+        targetId = 'projectBaseAreaInput';
         break;
       case 'cikmali-taban':
         targetTab = 'kurulum';
-        setupStep = 2;
+        setupStep = 3;
         targetId = 'facade-cantilever-controls';
         break;
       case 'kat-bolum':
         targetTab = 'kurulum';
-        setupStep = 2;
+        setupStep = 3;
         targetId = 'minimalFloorCountInput';
         break;
       case 'toplam-insaat':
         targetTab = 'kurulum';
-        setupStep = 2;
+        setupStep = 3;
         break;
       case 'birim-satis':
         targetTab = 'kurulum';
-        setupStep = 2;
+        setupStep = 3;
         break;
       case 'net-maliyet':
         targetTab = 'maliyet';
@@ -192,11 +193,11 @@ export default function App() {
         break;
       case 'hedef-bedel':
         targetTab = 'kurulum';
-        setupStep = 2;
+        setupStep = 3;
         break;
       case 'teslim-suresi':
         targetTab = 'kurulum';
-        setupStep = 2;
+        setupStep = 3;
         break;
       default:
         break;
@@ -1375,9 +1376,11 @@ const handleQuickSave = () => {
       }`}
     >
       <div className="flex flex-1 relative w-full min-w-0">
-        {/* DESKTOP SIDEBAR (Hidden on mobile) */}
+        {/* DESKTOP SIDEBAR (Hidden on mobile and automatically hidden when Project Flow Diagram is expanded) */}
         <aside
-          className={`hidden md:flex flex-col shrink-0 border-r transition-all duration-300 print:hidden sticky top-0 h-screen z-20 ${
+          className={`${
+            activeTab === 'kurulum' && isProjectFlowOpen ? 'hidden' : 'hidden md:flex'
+          } flex-col shrink-0 border-r transition-all duration-300 print:hidden sticky top-0 h-screen z-20 ${
             sidebarOpen ? 'w-64' : 'w-16'
           } ${
             isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200/60'
@@ -1518,16 +1521,29 @@ const handleQuickSave = () => {
               onSelectProject={(proj) => handleLoadProject(proj, activeTab)}
               currentProposalStatus={params.proposalStatus || (params.isOfferAccepted ? 'accepted' : 'draft')}
               onChangeProposalStatus={(newStatus) => {
-                const isAccepted = newStatus === 'accepted' || newStatus === 'active_site';
+                const isAccepted =
+                  newStatus === 'accepted' ||
+                  newStatus === 'contracted' ||
+                  newStatus === 'active_site';
+                const statusLabels: Record<string, string> = {
+                  draft: 'Taslak',
+                  in_review: 'İncelemede',
+                  presented: 'Sunuldu',
+                  accepted: 'Kabul Edildi',
+                  rejected: 'Reddedildi',
+                  contracted: 'Sözleşmeli',
+                  active_site: 'Aktif Şantiye',
+                  archived: 'Arşivlendi',
+                };
                 updateCalculatorParams({
                   proposalStatus: newStatus,
                   isOfferAccepted: isAccepted,
                 });
-                if (newStatus === 'accepted' || newStatus === 'active_site') {
-                  showNotification('success', 'Teklif kabul edildi olarak işaretlendi. Şantiye süreci başlatıldı!');
+                if (newStatus === 'active_site') {
+                  showNotification('success', 'Şantiye süreci başlatıldı.');
                   setActiveTab('surec');
                 } else {
-                  showNotification('success', `Teklif durumu güncellendi: ${newStatus}`);
+                  showNotification('success', `Teklif durumu güncellendi: ${statusLabels[newStatus] || newStatus}`);
                 }
               }}
             />
@@ -1608,9 +1624,9 @@ const handleQuickSave = () => {
             </div>
           )}
 
-          <main className={`flex-1 w-full ${activeTab === 'kurulum' ? 'max-w-[1600px]' : 'max-w-7xl'} mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 overflow-x-hidden min-w-0`}>
-            {/* Proje Yaşam Döngüsü & Hiyerarşik Faz Çubuğu (Yalnızca Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
-            {tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
+          <main className={`flex-1 w-full ${activeTab === 'kurulum' ? (isProjectFlowOpen ? 'max-w-none' : 'max-w-[1600px]') : 'max-w-7xl'} mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 overflow-x-hidden min-w-0`}>
+            {/* Proje Yaşam Döngüsü & Hiyerarşik Faz Çubuğu (Proje Kurulumu hariç diğer Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
+            {activeTab !== 'kurulum' && tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
               <ProjectLifecycleBar
                 activeTab={activeTab}
                 onNavigate={setActiveTab}
@@ -1628,17 +1644,13 @@ const handleQuickSave = () => {
               />
             )}
 
-            {/* Top Navigation (Yalnızca Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
-            {tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
+            {/* Top Navigation (Proje Kurulumu hariç diğer Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
+            {activeTab !== 'kurulum' && tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
               <TabNavigation
                 activeTab={activeTab}
                 tabs={tabsConfig}
                 onNavigate={setActiveTab}
                 theme={theme}
-                internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
-                totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
-                stepLabels={['Mevcut Durum', 'Yeni Tasarım', 'Daire Matrisi']}
-                onInternalStepChange={setRequestedSetupStep}
               />
             )}
 
@@ -1705,6 +1717,8 @@ const handleQuickSave = () => {
                 if (idx !== -1) handleDeleteHistoryItem(idx);
               }}
               onNavigateToContract={() => setActiveTab('sozlesme')}
+              isFlowOpen={isProjectFlowOpen}
+              onToggleFlow={() => setIsProjectFlowOpen((prev) => !prev)}
             />
           )}
 
@@ -1857,16 +1871,12 @@ const handleQuickSave = () => {
           </Suspense>
         </ErrorBoundary>
         
-        {tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
+        {activeTab !== 'kurulum' && tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
           <TabNavigation
             activeTab={activeTab}
             tabs={tabsConfig}
             onNavigate={setActiveTab}
             theme={theme}
-            internalStep={activeTab === 'kurulum' ? requestedSetupStep : undefined}
-            totalInternalSteps={activeTab === 'kurulum' ? 3 : undefined}
-            stepLabels={['Mevcut Durum', 'Yeni Tasarım', 'Daire Matrisi']}
-            onInternalStepChange={setRequestedSetupStep}
           />
         )}
       </div>

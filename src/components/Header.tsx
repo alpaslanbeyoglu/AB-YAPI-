@@ -116,6 +116,10 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                         ? 'bg-indigo-50 text-indigo-800 border-indigo-300'
                         : currentProposalStatus === 'presented'
                         ? 'bg-blue-50 text-blue-800 border-blue-300'
+                        : currentProposalStatus === 'in_review'
+                        ? 'bg-violet-50 text-violet-800 border-violet-300'
+                        : currentProposalStatus === 'rejected'
+                        ? 'bg-rose-50 text-rose-800 border-rose-300'
                         : currentProposalStatus === 'archived'
                         ? 'bg-slate-200 text-slate-700 border-slate-300'
                         : 'bg-amber-50 text-amber-800 border-amber-300'
@@ -123,8 +127,10 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                     title="Teklif Yaşam Döngüsü Durumu"
                   >
                     <option value="draft">⏳ Taslak</option>
+                    <option value="in_review">🔍 İncelemede</option>
                     <option value="presented">📤 Sunuldu</option>
                     <option value="accepted">✅ Kabul Edildi</option>
+                    <option value="rejected">✕ Reddedildi</option>
                     <option value="contracted">📝 Sözleşmeli</option>
                     <option value="active_site">🏗️ Faal Şantiye</option>
                     <option value="archived">📦 Arşivlendi</option>

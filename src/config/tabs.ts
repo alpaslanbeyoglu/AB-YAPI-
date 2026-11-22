@@ -58,9 +58,15 @@ export const DEFAULT_TABS: TabConfig[] = [
     order: 3,
     category: 'project_studio',
     subTabs: [
-      { id: 'step-1', label: '1. Müşteri, Proje & Yapım Türü', step: 1 },
-      { id: 'step-2', label: '2. Ölçüler, 2D Çizim & Cepheler', step: 2 },
-      { id: 'step-3', label: '3. Harç, Daire Matrisi & Seçenekler', step: 3 },
+      { id: 'step-1', label: '1. Müşteri & Proje', step: 1 },
+      { id: 'step-2', label: '2. Arsa & Mevcut Yapı', step: 2 },
+      { id: 'step-3', label: '3. Yeni Bina Tasarımı', step: 3 },
+      { id: 'step-4', label: '4. Kat & Daire Matrisi', step: 4 },
+      { id: 'step-5', label: '5. Metraj & Maliyet', step: 5 },
+      { id: 'step-6', label: '6. 3D Bina & Cephe', step: 6 },
+      { id: 'step-7', label: '7. Malik Paylaşımı', step: 7 },
+      { id: 'step-8', label: '8. Müşteri Teklifi', step: 8 },
+      { id: 'step-9', label: '9. Kayıt & Şantiye', step: 9 },
     ]
   },
   { id: 'model', label: '2. 3D Yapı & Dış Cephe Tasarımı', shortLabel: '2. 3D Tasarım', icon: Box, visible: false, order: 4, category: 'project_studio' },
