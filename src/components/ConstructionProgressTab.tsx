@@ -2473,7 +2473,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                             type="button"
                             onClick={() => {
                               if (window.confirm(`"${site.name}" şantiyesini ve tüm verilerini silmek istediğinize emin misiniz?`)) {
-                                onDeleteProject(site.rawProject!.savedAt);
+                                onDeleteProject(site.rawProject!.projectAddress || site.address);
                                 showToast(`"${site.name}" şantiyesi silindi.`, 'info');
                               }
                             }}

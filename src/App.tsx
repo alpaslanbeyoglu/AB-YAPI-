@@ -22,6 +22,7 @@ import { Logo } from './components/Logo';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useFirebaseSync } from './context/FirebaseSyncContext';
+import { getSafeProjectKey } from './utils/syncKeys';
 
 // Primary tabs imported directly for instant, rock-solid mobile & Safari initial paint
 import { ProjectSetupTab } from './components/ProjectSetupTab';
@@ -1080,10 +1081,21 @@ const handleQuickSave = () => {
 
   const handleDeleteHistoryItem = (index: number) => {
     const targetProject = historyList[index];
+    if (!targetProject) return;
     const updated = historyList.filter((_, idx) => idx !== index);
     setHistoryList(updated);
     try {
       localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
+    } catch (e) {}
+
+    // Permanent cleanup of local storage progress records and 3D preview for this project
+    try {
+      const safeKey = getSafeProjectKey(targetProject.projectAddress);
+      const suffixes = ['stages', 'logs', 'subcontractors', 'notif_history', 'contract_date', 'target_date', 'offer_accepted'];
+      for (const suffix of suffixes) {
+        localStorage.removeItem(`ab_yapi_progress_${safeKey}_${suffix}`);
+      }
+      localStorage.removeItem(`ab_yapi_offer_3d_${safeKey}`);
     } catch (e) {}
 
     if (user && targetProject) {
@@ -1091,6 +1103,18 @@ const handleQuickSave = () => {
         console.warn("Failed to delete project from cloud:", err)
       );
     }
+
+    // Silinen şantiye aktif projeyse aktif proje seçimini güvenli biçimde temizle veya başka projeye geç
+    if (params.projectAddress === targetProject.projectAddress) {
+      if (updated.length > 0) {
+        handleLoadProjectForProgress(updated[0]);
+      } else {
+        const fresh = applyCalculatorParamsUpdate(DEFAULT_PARAMS, {});
+        setParams(fresh);
+        setBuildingModelParams(syncProjectParamsToBuildingModel(DEFAULT_BUILDING_PARAMS, fresh));
+      }
+    }
+
     showNotification('success', 'Seçilen proje kaydı başarıyla silindi.');
   };
 
