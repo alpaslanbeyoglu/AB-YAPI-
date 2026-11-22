@@ -81,6 +81,10 @@ import {
   DEFAULT_CUSTOM_FACADES_6,
   DEFAULT_CUSTOM_FACADES_8,
 } from '../utils/footprintUtils';
+import { TabId } from '../config/tabs';
+import { WorkbenchHeader } from './ProjectWorkbench/WorkbenchHeader';
+import { WorkbenchSidebar } from './ProjectWorkbench/WorkbenchSidebar';
+import { WorkbenchLiveSummary } from './ProjectWorkbench/WorkbenchLiveSummary';
 
 interface ProjectSetupTabProps {
   params: ProjectParams;
@@ -92,6 +96,9 @@ interface ProjectSetupTabProps {
   onOpenTransferModal?: () => void;
   requestedStep?: number;
   onStepChange?: (step: number) => void;
+  onNavigateToTab?: (tabId: TabId) => void;
+  onQuickSave?: () => void;
+  onNavigateToSite?: () => void;
 }
 
 export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
@@ -104,6 +111,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   onOpenTransferModal,
   requestedStep,
   onStepChange,
+  onNavigateToTab,
+  onQuickSave,
+  onNavigateToSite,
 }) => {
   const isGray = theme === 'gray';
   const textTitle = isGray ? 'text-gray-100' : 'text-slate-900';
@@ -800,44 +810,34 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   };
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header Banner */}
-      <div className={`${bgCard} rounded-2xl p-6 border shadow-xs relative overflow-hidden`}>
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
-                1. AŞAMA: PROJE & PARSEL KURULUMU
-              </span>
-              <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Kentsel Dönüşüm Başlangıcı
-              </span>
-            </div>
-            <h1 className={`text-xl sm:text-2xl font-black tracking-tight ${textTitle}`}>
-              Mevcut Binalar, Parsel Çizimi & Hak Dağılımı Başlangıcı
-            </h1>
-            <p className={`text-xs sm:text-sm ${textMuted} max-w-3xl`}>
-              Birleşecek mevcut binaların bağımsız bölümlerini (konut & dükkan) envantere ekleyin, parsel
-              ve bina taban geometrisini milimetrik ölçüleriyle çizin; yeni yapının hak dağılım dengesini
-              sağlayın.
-            </p>
-          </div>
+    <div className="space-y-6 pb-12">
+      {/* 1. Üst Bölüm: Proje Künyesi ve Hızlı İşlemler */}
+      <WorkbenchHeader
+        params={params}
+        results={results}
+        theme={theme}
+        onOpenTransferModal={onOpenTransferModal}
+        onExportPdf={() => exportSchematic('pdf')}
+        onQuickSave={onQuickSave}
+        onNavigateToSite={onNavigateToSite}
+      />
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {onOpenTransferModal && (
-              <button
-                type="button"
-                onClick={onOpenTransferModal}
-                className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-                title="Projeyi Bilgisayardan İçe Aktar veya Dışa Aktar (JSON)"
-              >
-                <FileUp className="w-4 h-4 text-indigo-600" />
-                <span>İçe / Dışa Aktar</span>
-              </button>
-            )}
-          </div>
+      {/* 2. Ana Çalışma Masası Grid Düzeni (Sol: Navigasyon, Orta: Form Sihirbazı, Sağ: Canlı Özet) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Sol Bölüm: Aşamalar ve Gezinme (3 Sütun) */}
+        <div className="lg:col-span-3 lg:sticky lg:top-6">
+          <WorkbenchSidebar
+            activeStep={activeStep}
+            onSelectStep={setActiveStep}
+            params={params}
+            results={results}
+            theme={theme}
+            onNavigateToTab={onNavigateToTab}
+          />
         </div>
-      </div>
+
+        {/* Orta Bölüm: Mevcut Proje Giriş Alanları & Adımlar (6 Sütun) */}
+        <div className="lg:col-span-6 space-y-6 min-w-0">
 
       {wizardMode && activeStep === 1 && (
         <div className="space-y-6">
@@ -3972,8 +3972,17 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           </div>
         </div>
       )}
+        </div>
 
-      {/* Pro Tips & Multi-step Wizard Navigation Panel - REMOVED internal footer, now handled by unified TabNavigation */}
+        {/* Sağ Bölüm: Canlı Hesaplama Özeti ve Uyarılar (3 Sütun) */}
+        <div className="lg:col-span-3 lg:sticky lg:top-6">
+          <WorkbenchLiveSummary
+            params={params}
+            results={results}
+            theme={theme}
+          />
+        </div>
+      </div>
     </div>
   );
 };

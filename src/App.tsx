@@ -1655,6 +1655,9 @@ const handleQuickSave = () => {
               theme={theme}
               requestedStep={requestedSetupStep}
               onStepChange={setRequestedSetupStep}
+              onNavigateToTab={setActiveTab}
+              onQuickSave={handleQuickSave}
+              onNavigateToSite={() => setActiveTab('surec')}
             />
           )}
 
