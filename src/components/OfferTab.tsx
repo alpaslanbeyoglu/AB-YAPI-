@@ -76,6 +76,12 @@ import {
   appendOfferStatusHistory,
   generateCustomerWhatsAppSummary,
 } from '../utils/customerOfferBoundary';
+import {
+  doesOffer3DPreviewMatchProject,
+  loadProjectScopedOffer3DPreview,
+  resolveOffer3DPreviewProjectId,
+  Offer3DPreviewRecord,
+} from '../utils/workflowConsistencyUtils';
 import { ReconciliationDiagnosticModal } from './ReconciliationDiagnosticModal';
 import { IstanbulRealEstateValuationModal } from './IstanbulRealEstateValuationModal';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
@@ -324,61 +330,144 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     }
   };
 
-  // Image & Document Upload State and Handlers
-  const [saved3DPreview, setSaved3DPreview] = useState<{
-    url: string;
-    caption: string;
-    projectAddress?: string;
-    updatedAt?: string;
-  } | null>(() => {
-    try {
-      const raw = localStorage.getItem('ab_yapi_offer_3d_preview');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed.url === 'string' && parsed.url.startsWith('data:image/')) {
-          return parsed;
-        }
-      }
-    } catch (e) {}
-    return null;
-  });
+  // Image & Document Upload State and Handlers (Y-3 & 2B-3: Project-scoped 3D preview isolation)
+  const currentOfferProjectKey = useMemo(
+    () =>
+      resolveOffer3DPreviewProjectId({
+        projectAddress: params.projectAddress,
+        projectName: params.projectName,
+      }),
+    [params.projectAddress, params.projectName]
+  );
 
-  const [uploadedImages, setUploadedImages] = useState<Array<{ id: string; url: string; name: string; caption: string }>>(() => {
-    try {
-      const raw = localStorage.getItem('ab_yapi_offer_3d_preview');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed.url === 'string' && parsed.url.startsWith('data:image/')) {
-          return [
-            {
-              id: `stage6-3d-${parsed.updatedAt || 'preview'}`,
-              url: parsed.url,
-              name: '3D_Bina_Modeli.png',
-              caption: parsed.caption || '3D Mimari Bina Perspektif Görünümü',
-            },
-          ];
-        }
-      }
-    } catch (e) {}
+  const [saved3DPreview, setSaved3DPreview] = useState<Offer3DPreviewRecord | null>(() =>
+    loadProjectScopedOffer3DPreview({
+      projectAddress: params.projectAddress,
+      projectName: params.projectName,
+    })
+  );
+
+  const [uploadedImagesState, setUploadedImagesState] = useState<
+    Array<{
+      id: string;
+      url: string;
+      name: string;
+      caption: string;
+      projectKey?: string;
+      projectAddress?: string;
+      projectName?: string;
+    }>
+  >(() => {
+    const initialPreview = loadProjectScopedOffer3DPreview({
+      projectAddress: params.projectAddress,
+      projectName: params.projectName,
+    });
+    if (initialPreview) {
+      return [
+        {
+          id: `stage6-3d-${initialPreview.updatedAt || 'preview'}`,
+          url: initialPreview.url,
+          name: '3D_Bina_Modeli.png',
+          caption: initialPreview.caption || '3D Mimari Bina Perspektif Görünümü',
+          projectKey: resolveOffer3DPreviewProjectId({
+            projectAddress: params.projectAddress,
+            projectName: params.projectName,
+          }),
+          projectAddress: initialPreview.projectAddress ?? params.projectAddress,
+          projectName: initialPreview.projectName ?? params.projectName,
+        },
+      ];
+    }
     return [];
   });
+
+  const doesUploadedImageMatchActiveProject = (img: {
+    url: string;
+    caption: string;
+    projectKey?: string;
+    projectAddress?: string;
+    projectName?: string;
+  }) =>
+    doesOffer3DPreviewMatchProject(
+      {
+        url: img.url.startsWith('data:image/') ? img.url : 'data:image/png;base64,valid',
+        caption: img.caption,
+        projectKey: img.projectKey,
+        projectAddress: img.projectAddress,
+        projectName: img.projectName,
+      },
+      {
+        projectAddress: params.projectAddress,
+        projectName: params.projectName,
+      }
+    );
+
+  const uploadedImages = useMemo(
+    () => uploadedImagesState.filter((img) => doesUploadedImageMatchActiveProject(img)),
+    [uploadedImagesState, currentOfferProjectKey, params.projectAddress, params.projectName]
+  );
+
+  const setUploadedImages: React.Dispatch<
+    React.SetStateAction<Array<{ id: string; url: string; name: string; caption: string }>>
+  > = (updater) => {
+    setUploadedImagesState((prev) => {
+      const currentFiltered = prev.filter((img) => doesUploadedImageMatchActiveProject(img));
+      const nextList =
+        typeof updater === 'function' ? updater(currentFiltered) : updater;
+      return nextList.map((img) => ({
+        ...img,
+        projectKey: currentOfferProjectKey,
+        projectAddress: params.projectAddress,
+        projectName: params.projectName,
+      }));
+    });
+  };
+
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const syncPreview = () => {
-      try {
-        const raw = localStorage.getItem('ab_yapi_offer_3d_preview');
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed.url === 'string' && parsed.url.startsWith('data:image/')) {
-          setSaved3DPreview(parsed);
+      const matched = loadProjectScopedOffer3DPreview({
+        projectAddress: params.projectAddress,
+        projectName: params.projectName,
+      });
+      setSaved3DPreview(matched);
+      setUploadedImagesState((prev) => {
+        const currentProjectUploads = prev
+          .filter((img) => doesUploadedImageMatchActiveProject(img))
+          .map((img) => ({
+            ...img,
+            projectKey: currentOfferProjectKey,
+            projectAddress: params.projectAddress || img.projectAddress,
+            projectName: params.projectName || img.projectName,
+          }));
+        if (matched && currentOfferProjectKey) {
+          const previewId = `stage6-3d-${matched.updatedAt || 'preview'}`;
+          const alreadyAttached = currentProjectUploads.some(
+            (img) => img.id === previewId || img.url === matched.url
+          );
+          if (!alreadyAttached && currentProjectUploads.length === 0) {
+            return [
+              {
+                id: previewId,
+                url: matched.url,
+                name: '3D_Bina_Modeli.png',
+                caption: matched.caption || '3D Mimari Bina Perspektif Görünümü',
+                projectKey: currentOfferProjectKey,
+                projectAddress: params.projectAddress,
+                projectName: params.projectName,
+              },
+            ];
+          }
         }
-      } catch (e) {}
+        return currentProjectUploads;
+      });
     };
+    syncPreview();
     window.addEventListener('focus', syncPreview);
     return () => window.removeEventListener('focus', syncPreview);
-  }, []);
+  }, [currentOfferProjectKey, params.projectAddress, params.projectName]);
 
   const handleAttachSaved3DPreview = () => {
     if (!saved3DPreview) return;
@@ -388,14 +477,17 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     }
     const previewId = `stage6-3d-${saved3DPreview.updatedAt || 'preview'}`;
     if (uploadedImages.some((img) => img.id === previewId || img.url === saved3DPreview.url)) return;
-    setUploadedImages((prev) => [
+    setUploadedImagesState((prev) => [
       {
         id: previewId,
         url: saved3DPreview.url,
         name: '3D_Bina_Modeli.png',
         caption: saved3DPreview.caption || '3D Mimari Bina Perspektif Görünümü',
+        projectKey: currentOfferProjectKey,
+        projectAddress: params.projectAddress,
+        projectName: params.projectName,
       },
-      ...prev,
+      ...prev.filter((img) => doesUploadedImageMatchActiveProject(img)),
     ]);
   };
 
@@ -425,13 +517,16 @@ export const OfferTab: React.FC<OfferTabProps> = ({
         if (typeof resultUrl === 'string') {
           // Default caption from filename (remove extension)
           const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-          setUploadedImages((prev) => [
-            ...prev,
+          setUploadedImagesState((prev) => [
+            ...prev.filter((img) => doesUploadedImageMatchActiveProject(img)),
             {
               id: `${Date.now()}-${Math.random()}`,
               url: resultUrl,
               name: file.name,
               caption: baseName.charAt(0).toUpperCase() + baseName.slice(1),
+              projectKey: currentOfferProjectKey,
+              projectAddress: params.projectAddress,
+              projectName: params.projectName,
             },
           ]);
         }

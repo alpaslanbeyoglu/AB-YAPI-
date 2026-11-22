@@ -6,6 +6,12 @@ import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { getRoofInfo, getRoomTypeDescription } from '../utils/roofUtils';
 import { getSteelTypeName, getConcreteGradeName } from '../utils/calculatorEngine';
+import {
+  getSelectedSpecificationComfortFeatures,
+  formatSpecificationBasementSummary,
+  formatSpecificationUnitLabels,
+  SPECIFICATION_EMPTY_COMFORT_MESSAGE,
+} from '../utils/workflowConsistencyUtils';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
 
 interface SpecificationTabProps {
@@ -55,6 +61,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
   const currentRoof = getRoofInfo(params.roofType);
   const currentRoom = getRoomTypeDescription(params.roomType);
+  const selectedComfortFeatures = getSelectedSpecificationComfortFeatures(params, results);
+  const basementSummary = formatSpecificationBasementSummary(params);
   const totalUnitsDisplay = results.unitBreakdown?.detailedLabel || (params.hasGroundFloorShop 
     ? `${safeFlatCount + (safeShopCount || 1)} Adet, ${safeFlatCount} Daire, ${safeShopCount || 1} Dükkan`
     : `${safeFlatCount} Adet, ${safeFlatCount} Daire, 0 Dükkan`);
@@ -293,9 +301,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
       const cantDesc = params.hasCantilever 
         ? `Var (Konsol Çıkma: ${Math.max(0, params.cantileverDepth || 1.2)}m, Yön: ${params.cantileverDirection === 'front_back' ? 'Ön-Arka Cepheler' : params.cantileverDirection === 'front' ? 'Yalnızca Ön Cephe' : 'Ayrık / Tüm Cepheler'})` 
         : 'Yok (Düz Prizmatik Kütle)';
-      const basementDesc = safeBasementCount > 0 
-        ? `${safeBasementCount} Kat Bodrum (${params.basementPurpose === 'commercial_shop' ? `${params.basementShopCount || 1} Adet Ticari İşyeri / Dükkan, Sığınak & Ortak Alanlar` : params.basementPurpose === 'parking' ? 'Kapalı Otopark & Teknik Alanlar' : params.basementPurpose === 'shop' ? 'Dükkan Deposu & Ortak Alanlar' : 'Sığınak, Su Deposu, Ortak Alan & Kapalı Otopark'})` 
-        : 'Bodrum Kat Yok';
+      const basementDesc = basementSummary.htmlSummary;
       const totalUnits = params.hasGroundFloorShop 
         ? `${safeFlatCount} Adet Konut + ${safeShopCount} Adet Ticari Dükkan (Toplam ${safeFlatCount + safeShopCount} Bağımsız Bölüm)` 
         : `${safeFlatCount} Adet Konut`;
@@ -431,7 +437,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </tr>
     <tr>
       <th>Bodrum & Ortak Alanlar</th>
-      <td>${basementDesc}</td>
+      <td>${basementSummary.detailedSummary}</td>
     </tr>
     <tr>
       <th>Dış Cephe Yalıtımı (Mantolama) & Renk</th>
@@ -440,17 +446,13 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     <tr>
       <th>İç Mekân, Banyo & Konfor Donanımları</th>
       <td>
-        ${[
-          params.hasUnderfloorHeating ? '<strong>Yerden Isıtma:</strong> Sulu yerden ısıtma sistemi ile homojen zemin ısınması ve enerji tasarrufu.' : null,
-          params.hasWaterFiltration ? '<strong>Su Arıtma:</strong> Bina şebeke girişinde merkezi klor, tortu ve kireç filtrasyon sistemi.' : null,
-          params.hasAcOption ? `<strong>İklimlendirme:</strong> A++ Inverter klima sistemi (${results.acBtuInfo || '18.000 BTU/h'}) ${params.acScope === 'residential_only' ? '(Yalnızca Konutlar)' : '(Tüm Birimler)'}.` : null,
-          params.hasThermostaticShowerMixer ? '<strong>Banyo Duş Bataryası:</strong> 38°C emniyet kilitli, haşlanma korumalı ve %30 su tasarruflu termostatik duş bataryası seti (Yalnızca Konutlar — Dükkanlar Hariç).' : '<strong>Banyo Duş Bataryası:</strong> 1. sınıf TSE belgeli aç-kapa pirinç duş bataryası (Konutlar).',
-          params.hasLinearShowerDrain ? '<strong>Duş Drenajı:</strong> Duş kabinlerinde 304 kalite paslanmaz çelik ızgaralı, koku önleyici çekvalfli hemzemin lineer duş süzgeci (Yalnızca Konutlar — Dükkanlar Hariç).' : '<strong>Duş Drenajı:</strong> Standart koku perdeli banyo süzgeci (Konutlar).',
-          params.hasTouchlessKitchenFaucet ? '<strong>Mutfak & Banyo Bataryası:</strong> Mutfak eviyesi ve banyo lavabosunda temassız kızılötesi sensörlü, hijyenik ve %40 su tasarruflu fotoselli akıllı batarya seti veya muadili.' : null,
-          params.hasSmartDoorLock ? '<strong>Akıllı Daire Kapısı Kilidi:</strong> Daire çelik giriş kapılarında parmak izli okuyucu, dokunmatik şifre tuş takımı ve mobil uygulama (Bluetooth/Wi-Fi) kontrollü DESİ / Kale / Smart veya muadili motorlu kilit sistemi.' : '<strong>Daire Giriş Kapısı Kilidi:</strong> Monoblok emniyetli 1. sınıf mekanik göbekli çelik daire giriş kapısı kilidi.',
-          params.hasGenerator ? `<strong>Jeneratör Sistemi:</strong> Aksa / Alimar / Teksan veya muadili otomatik transfer panolu (ATS) kabinli dizel jeneratör sistemi ${params.generatorScope === 'full_building' ? '(Tüm Bina & Daireler)' : '(Asansör, Hidrofor & Ortak Alanlar)'}.` : null,
-          params.hasPorcelainCountertop ? '<strong>Mutfak Tezgahı:</strong> Lamar / Neolith / Belenco veya muadili 12-15mm lüks porselen plaka tezgah ve süpürgelik/alınlık kaplaması; sıcağa, yanmaya ve çizilmeye %100 dayanıklı leke tutmaz hijyenik yüzey (Konutlar).' : null,
-        ].filter(Boolean).join('<br>')}
+        ${
+          selectedComfortFeatures.length > 0
+            ? selectedComfortFeatures
+                .map((item) => `<strong>${item.title}:</strong> ${item.description}`)
+                .join('<br>')
+            : SPECIFICATION_EMPTY_COMFORT_MESSAGE
+        }
       </td>
     </tr>
     ${params.hasGroundFloorShop || safeBasementCount > 0 ? `
@@ -475,17 +477,16 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
     </thead>
     <tbody>
       ${results.flatResults.map(f => {
-        const floorText = f.floorNumber !== undefined 
-          ? (f.floorNumber === 0 ? 'Zemin Kat' : f.floorNumber === -1 ? 'Bodrum Kat' : `${f.floorNumber}. Kat`)
-          : (f.flatType === 'shop' ? 'Zemin Kat' : f.flatType === 'basement_shop' ? 'Bodrum Kat' : `${Math.ceil(f.id / (params.flatsPerFloor || 2))}. Kat`);
-        const title = f.flatType === 'basement_shop' ? `🏬 Bodrum İşyeri ${f.id}` : f.flatType === 'shop' ? `🏪 Dükkan ${f.id}` : (f.flatType === 'mansard' ? `🏚️ Daire ${f.id}` : `🏠 Daire ${f.id}`);
-        const typeLabel = f.flatType === 'basement_shop' ? 'Bodrum İşyeri' : f.flatType === 'shop' ? 'Ticari Dükkan' : (f.flatType === 'mansard' ? 'Mansart Katı' : f.flatType === 'duplex' ? 'Çatı Dubleksi' : 'Konut');
+        const { floorText, unitTitle, unitTypeBadge } = formatSpecificationUnitLabels(
+          f,
+          params.flatsPerFloor || 2
+        );
         return `
       <tr>
-        <td><strong>${title}</strong> (${floorText})</td>
+        <td><strong>${unitTitle}</strong> (${floorText})</td>
         <td>${f.name}</td>
         <td>${f.tc}</td>
-        <td>${typeLabel}</td>
+        <td>${unitTypeBadge}</td>
         <td>${f.area} m²</td>
       </tr>`;
       }).join('')}
@@ -961,9 +962,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Bodrum Kat & Altyapı</span>
                   <p className="text-xs font-semibold text-slate-800">
-                    {safeBasementCount > 0 
-                      ? `${safeBasementCount} Kat Bodrum (${params.basementPurpose === 'commercial_shop' ? `${params.basementShopCount || 1} Adet Ticari İşyeri / Dükkan, Sığınak & Ortak Alan` : 'Sığınak, Su Deposu, Otopark'})` 
-                      : 'Bodrum Kat Planlanmamıştır'}
+                    {highlightText(basementSummary.shortSummary)}
                   </p>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
@@ -1069,33 +1068,33 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">İç Mekân, Banyo & Konfor Donanımları</span>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                    <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
-                      <span className="font-bold text-slate-800 block text-[11px]">🚿 Banyo Duş Bataryası</span>
-                      <p className="text-slate-600 text-[11px]">
-                        {params.hasThermostaticShowerMixer
-                          ? '38°C emniyet kilitli, haşlanma korumalı, anlık basınç dengeleyici ve %30 su tasarruflu termostatik banyo bataryası seti.'
-                          : '1. sınıf TSE belgeli aç-kapa pirinç gövdeli seramik kartuşlu duş bataryası.'}
-                      </p>
+                  {selectedComfortFeatures.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      {selectedComfortFeatures.map((feature) => (
+                        <div
+                          key={feature.key}
+                          className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1"
+                        >
+                          <span className="font-bold text-slate-800 block text-[11px]">
+                            {feature.icon} {highlightText(feature.title)}
+                          </span>
+                          <p className="text-slate-600 text-[11px]">
+                            {highlightText(feature.description)}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-
-                    <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
-                      <span className="font-bold text-slate-800 block text-[11px]">🔑 Daire Giriş Kapısı Kilidi</span>
-                      <p className="text-slate-600 text-[11px]">
-                        {params.hasSmartDoorLock
-                          ? 'DESİ / Kale / Smart marka parmak izli okuyucu, şifreli tuş takımı ve mobil uygulama (Bluetooth/Wi-Fi) entegreli motorlu akıllı kilit sistemi.'
-                          : 'Monoblok emniyetli 1. sınıf mekanik kilitli çelik daire giriş kapısı.'}
-                      </p>
-                    </div>
-                  </div>
+                  ) : (
+                    <p className="text-xs font-medium text-slate-600 italic mt-0.5">
+                      {highlightText(SPECIFICATION_EMPTY_COMFORT_MESSAGE)}
+                    </p>
+                  )}
                 </div>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Bodrum Kat & Sığınak / Otopark Altyapısı</span>
                   <p className="text-xs font-semibold text-slate-800 mt-0.5">
-                    {safeBasementCount > 0
-                      ? `${safeBasementCount} Kat Bodrum İmalatı: ${params.basementPurpose === 'commercial_shop' ? `${params.basementShopCount || 1} Adet Bodrum kat ticari işyeri/dükkan alanı, deprem ve sığınak yönetmeliğine tam uyumlu sığınak, su deposu (hidroforlu), yangın tesisatı ve ortak hacimler.` : 'Deprem ve sığınak yönetmeliğine tam uyumlu sığınak, su deposu (hidroforlu), yangın tesisatı ve kapalı otopark alanları.'}`
-                      : 'Bodrum kat planlanmamış olup sığınak ve teknik hacimler zemin katta yönetmelik şartlarına göre ayrılacaktır.'}
+                    {highlightText(basementSummary.detailedSummary)}
                   </p>
                 </div>
               </div>
@@ -1123,15 +1122,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {results.flatResults.map((flat) => {
-                      const floorText = flat.floorNumber !== undefined 
-                        ? (flat.floorNumber === 0 ? 'Zemin Kat' : flat.floorNumber < 0 ? `${Math.abs(flat.floorNumber)}. Bodrum Kat` : `${flat.floorNumber}. Kat`)
-                        : (flat.flatType === 'shop' ? 'Zemin Kat' : `${Math.ceil(flat.id / (params.flatsPerFloor || 2))}. Kat`);
-                      const unitTitle = flat.flatType === 'shop' 
-                        ? `🏪 Dükkan ${flat.id}` 
-                        : (flat.flatType === 'mansard' ? `🏚️ Daire ${flat.id}` : `🏠 Daire ${flat.id}`);
-                      const unitTypeBadge = flat.flatType === 'shop' 
-                        ? 'Ticari Dükkan' 
-                        : (flat.flatType === 'mansard' ? 'Mansart Katı' : flat.flatType === 'duplex' ? 'Çatı Dubleksi' : 'Konut');
+                      const { floorText, unitTitle, unitTypeBadge } =
+                        formatSpecificationUnitLabels(flat, params.flatsPerFloor || 2);
 
                       return (
                         <tr key={flat.id} className="hover:bg-slate-50/50">

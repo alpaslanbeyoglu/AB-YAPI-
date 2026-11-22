@@ -37,6 +37,7 @@ import {
   Users
 } from 'lucide-react';
 import { BuildingModelParams, ProjectParams, RoomType, RoofType, AppTheme, FootprintInputMode, CustomFacadeSide, FacadeDetailConfig, RoadConfig, RoadType } from '../types';
+import { saveProjectScopedOffer3DPreview } from '../utils/workflowConsistencyUtils';
 import {
   DEFAULT_BUILDING_PARAMS,
   calculateBuildingMetrics,
@@ -244,16 +245,16 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   const footprintExceedsLand =
     effectiveLandArea > 0 && metrics.footprintArea > effectiveLandArea * 1.01;
 
-  // Save 3D view snapshot for OfferTab attachments
+  // Save 3D view snapshot for OfferTab attachments (project-scoped for Y-3)
   const handleAttachSnapshotToOffer = (dataUrl: string) => {
     try {
-      const payload = {
+      saveProjectScopedOffer3DPreview({
         url: dataUrl,
         caption: `${effectiveProjectName || '3D Mimari Model'} — 3D Perspektif Görünüm`,
         projectAddress: effectiveProjectAddress,
+        projectName: effectiveProjectName,
         updatedAt: new Date().toISOString(),
-      };
-      localStorage.setItem('ab_yapi_offer_3d_preview', JSON.stringify(payload));
+      });
       setSyncedFeedback(
         '3D görsel Teklif eklerine kaydedildi. 8. Aşama (Teklif & Sunum) ekranından müşteri teklifine dahil edebilirsiniz.'
       );
@@ -274,7 +275,16 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
         hasGroundFloorShop: modelParams.hasGroundFloorShop,
         shopCount: modelParams.shopCount,
         shopHeight: modelParams.shopHeight,
+        ...(modelParams.shopArea !== undefined ? { shopArea: modelParams.shopArea } : {}),
         roofType: modelParams.roofType,
+        ...(modelParams.roofType === 'mansard'
+          ? { roofAtticType: 'independent' }
+          : modelParams.roofType === 'duplex'
+          ? { roofAtticType: 'duplex_unified' }
+          : {}),
+        ...(modelParams.mansardFlatCount !== undefined
+          ? { mansardFlatCount: modelParams.mansardFlatCount }
+          : {}),
         roomType: modelParams.roomType,
         basementCount: modelParams.basementCount,
         hasCantilever: modelParams.hasCantilever,

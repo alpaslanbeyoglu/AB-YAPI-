@@ -1949,7 +1949,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                               min={2.8}
                               max={5.5}
                               value={params.shopHeight || 3.8}
-                              onChange={(e) => onChangeParams({ ...params, shopHeight: parseFloat(e.target.value) || 3.8 })}
+                              onChange={(e) => onChangeParams({ shopHeight: parseFloat(e.target.value) || 3.8 })}
                               className="w-10 text-xs font-black font-mono bg-transparent text-amber-700 outline-none"
                             />
                             <span className="text-[9px] text-amber-400 font-black">m</span>
@@ -1968,7 +1968,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                               min={10}
                               max={2000}
                               value={params.shopArea || 80}
-                              onChange={(e) => onChangeParams({ ...params, shopArea: parseFloat(e.target.value) || 80 })}
+                              onChange={(e) => onChangeParams({ shopArea: parseFloat(e.target.value) || 80 })}
                               className="w-12 text-xs font-black font-mono bg-transparent text-amber-700 outline-none"
                             />
                             <span className="text-[10px] text-amber-400 font-bold">m²</span>
@@ -1989,7 +1989,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     <div className="space-y-2.5">
                       <select
                         value={params.roofType || 'gable'}
-                        onChange={(e) => onChangeParams({ ...params, roofType: e.target.value as any })}
+                        onChange={(e) => onChangeParams({ roofType: e.target.value as any })}
                         className="w-full text-[11px] font-bold px-2.5 py-1.5 rounded-lg border bg-white border-slate-200"
                       >
                         <option value="gable">📐 Kırma Çatı</option>
@@ -1997,11 +1997,11 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         <option value="mansard">🏢 Mansart Çatı</option>
                         <option value="duplex">💎 Çatı Dubleksi</option>
                       </select>
-                      {params.roofType !== 'flat' && (
+                      {(params.roofType === 'mansard' || params.roofType === 'duplex') && (
                         <div className="flex items-center gap-2 p-1.5 bg-white rounded-lg border border-slate-100">
                           <select
-                            value={params.roofAtticType || 'duplex_unified'}
-                            onChange={(e) => onChangeParams({ ...params, roofAtticType: e.target.value as any })}
+                            value={params.roofAtticType || (params.roofType === 'mansard' ? 'independent' : 'duplex_unified')}
+                            onChange={(e) => onChangeParams({ roofAtticType: e.target.value as any })}
                             className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-600"
                           >
                             <option value="duplex_unified">🔗 Alt Katla Birleşik</option>

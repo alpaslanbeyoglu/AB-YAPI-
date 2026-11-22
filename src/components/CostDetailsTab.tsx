@@ -34,6 +34,12 @@ import {
 } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { getSteelTypeName, getConcreteGradeName } from '../utils/calculatorEngine';
+import {
+  buildComfortSystemTakeoffItems,
+  buildCommonCategoryTakeoffItems,
+  buildKitchenAndDoorTakeoffItems,
+  computeTakeoffCategoryTotals,
+} from '../utils/workflowConsistencyUtils';
 import { useMarketData } from '../hooks/useMarketData';
 
 interface CostDetailsTabProps {
@@ -362,26 +368,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         total: Math.round(totalArea * effTilesPrice * 100) / 100,
         laborShare: 50,
       },
-      {
-        id: 'i5',
-        category: 'ince',
-        name: 'Lake / Akrilik Mutfak Dolabı & Tezgah',
-        unit: 'Daire',
-        quantity: flatCount,
-        unitPrice: effKitchenPrice,
-        total: Math.round(flatCount * effKitchenPrice * 100) / 100,
-        laborShare: 20,
-      },
-      {
-        id: 'i6',
-        category: 'ince',
-        name: 'Ahşap Panel & Çelik Kapı Setleri',
-        unit: 'Daire',
-        quantity: flatCount,
-        unitPrice: effDoorsPrice,
-        total: Math.round(flatCount * effDoorsPrice * 100) / 100,
-        laborShare: 20,
-      },
+      ...buildKitchenAndDoorTakeoffItems(params, results, flatCount, inceFactor),
       {
         id: 'i7',
         category: 'ince',
@@ -434,114 +421,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         total: Math.round(effIntercomPrice * 100) / 100,
         laborShare: 20,
       },
-      ...(params.hasUnderfloorHeating && results.underfloorHeatingCost ? [
-        {
-          id: 't5',
-          category: 'tesisat' as const,
-          name: 'Lüks Sulu Yerden Isıtma Sistemi (Konfor Upgrade)',
-          unit: 'm²',
-          quantity: Math.round(results.underfloorHeatingCost / 750),
-          unitPrice: 750,
-          total: results.underfloorHeatingCost,
-          laborShare: 30,
-        }
-      ] : []),
-      ...(params.hasWaterFiltration && results.waterFiltrationCost ? [
-        {
-          id: 't6',
-          category: 'tesisat' as const,
-          name: 'Bina Girişi Endüstriyel Merkezi Su Arıtma & Filtrasyon Sistemi',
-          unit: 'Sistem',
-          quantity: 1,
-          unitPrice: results.waterFiltrationCost,
-          total: results.waterFiltrationCost,
-          laborShare: 10,
-        }
-      ] : []),
-      ...(params.hasAcOption && results.acCostTotal ? [
-        {
-          id: 't7',
-          category: 'tesisat' as const,
-          name: `A++ Inverter Klima Sistemi (${results.acBtuInfo || '18.000 BTU/h'}) - Salon Konfor Paketi`,
-          unit: 'Daire',
-          quantity: results.acUnitCount || flatCount,
-          unitPrice: results.acCostPerFlat || Math.round(results.acCostTotal / (results.acUnitCount || flatCount || 1)),
-          total: results.acCostTotal,
-          laborShare: results.acLaborShare || 15,
-        }
-      ] : []),
-      ...(params.hasThermostaticShowerMixer && results.thermostaticMixerCost ? [
-        {
-          id: 't8',
-          category: 'tesisat' as const,
-          name: 'Termostatik Banyo Duş Bataryası (38°C Emniyet Kilitli, Haşlanma Önleyici Kartuş)',
-          unit: 'Daire/Banyo',
-          quantity: flatCount,
-          unitPrice: results.thermostaticMixerPricePerFlat || 6500,
-          total: results.thermostaticMixerCost,
-          laborShare: 15,
-        }
-      ] : []),
-      ...(params.hasLinearShowerDrain && results.linearDrainCost ? [
-        {
-          id: 't9',
-          category: 'tesisat' as const,
-          name: 'Duş Kabini Lineer Su Süzgeci / Duş Kanalı (304 Paslanmaz Çelik, Koku Çekvalfli, Etekli Yalıtım)',
-          unit: 'Daire/Duş',
-          quantity: flatCount,
-          unitPrice: results.linearDrainPricePerFlat || 2800,
-          total: results.linearDrainCost,
-          laborShare: 25,
-        }
-      ] : []),
-      ...(params.hasTouchlessKitchenFaucet && results.touchlessKitchenFaucetCost ? [
-        {
-          id: 't10',
-          category: 'tesisat' as const,
-          name: 'Fotoselli Mutfak & Banyo Batarya Seti (Temassız Kızılötesi Sensörlü, Hijyenik & Su Tasarruflu)',
-          unit: 'Daire/Set',
-          quantity: results.touchlessKitchenFaucetUnits || flatCount,
-          unitPrice: results.touchlessKitchenFaucetPricePerFlat || 8500,
-          total: results.touchlessKitchenFaucetCost,
-          laborShare: 15,
-        }
-      ] : []),
-      ...(params.hasSmartDoorLock && results.smartDoorLockCost ? [
-        {
-          id: 't11',
-          category: 'tesisat' as const,
-          name: 'Motorlu & Biyometrik Akıllı Daire Kapısı Kilit Sistemi (Parmak İzli + Dokunmatik Şifreli + Mobil Uygulamalı DESİ/Kale/Smart)',
-          unit: 'Daire Kapısı',
-          quantity: results.smartDoorLockUnits || flatCount,
-          unitPrice: results.smartDoorLockPricePerFlat || 8500,
-          total: results.smartDoorLockCost,
-          laborShare: 15,
-        }
-      ] : []),
-      ...(params.hasGenerator && results.generatorCost ? [
-        {
-          id: 't12',
-          category: 'tesisat' as const,
-          name: `Otomatik Dizel Jeneratör & ATS Transfer Panosu (${params.generatorScope === 'full_building' ? 'Tam Bina & Daireler' : 'Ortak Alan, Asansör & Hidrofor'}) (Aksa / Alimar / Teksan veya muadili)`,
-          unit: 'Sistem',
-          quantity: 1,
-          unitPrice: results.generatorCost,
-          total: results.generatorCost,
-          laborShare: 15,
-        }
-      ] : []),
-      ...(params.hasPorcelainCountertop && results.porcelainCountertopCost ? [
-        {
-          id: 'i8',
-          category: 'ince' as const,
-          name: '12-15mm Lüks Porselen Mutfak Tezgahı ve Alınlığı (Lamar / Neolith / Belenco veya muadili)',
-          unit: 'Daire/Mutfak',
-          quantity: results.porcelainCountertopUnits || flatCount,
-          unitPrice: results.porcelainCountertopPricePerFlat || 25000,
-          total: results.porcelainCountertopCost,
-          laborShare: 15,
-        }
-      ] : []),
+      ...buildComfortSystemTakeoffItems(params, results, flatCount),
 
       // RESMİ & İDARİ GİDERLER
       {
@@ -616,18 +496,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
           laborShare: 0,
         }
       ] : []),
-      // ORTAK EKSTRA MALİK GİDERLERİ
-      {
-        id: 'o1',
-        category: 'ortak',
-        name: params.manualEqualExtraCostLabel || 'Ortak Ekstra Malik Gideri',
-        unit: 'Lump-sum',
-        quantity: 1,
-        unitPrice: Math.max(0, params.manualEqualExtraCost || 0),
-        total: Math.max(0, params.manualEqualExtraCost || 0),
-        laborShare: 0,
-      },
-      // ZEMİN & ENFLASYON GÜVENCE GİDERLERİ
+      // ZEMİN İYİLEŞTİRME GİDERLERİ
       ...(params.hasSoilImprovement && results.soilImprovementCost ? [
         {
           id: 'k_soil_improvement',
@@ -652,18 +521,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
           laborShare: 50,
         } as MaterialTakeoffItem
       ] : []),
-      ...(params.hasInflationBuffer && results.inflationBufferAmount ? [
-        {
-          id: 'o_inflation_buffer',
-          category: 'ortak' as const,
-          name: `Fiyat İstikrar Sigortası / Enflasyon Risk Payı (%${params.inflationBufferRate || 15})`,
-          unit: 'Risk Payı',
-          quantity: 1,
-          unitPrice: results.inflationBufferAmount,
-          total: results.inflationBufferAmount,
-          laborShare: 50,
-        } as MaterialTakeoffItem
-      ] : []),
+      // ORTAK EKSTRA MALİK GİDERLERİ & ENFLASYON RİSK PAYI
+      ...buildCommonCategoryTakeoffItems(params, results),
     ];
   }, [
     params,
@@ -682,53 +541,27 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
     paintPlasterAreaFactor,
   ]);
 
-  // Sum up exact values per category from materialItems
-  const roughCost = useMemo(
-    () => materialItems.filter((i) => i.category === 'kaba').reduce((sum, i) => sum + i.total, 0),
-    [materialItems]
-  );
-  const fineCost = useMemo(
-    () => materialItems.filter((i) => i.category === 'ince').reduce((sum, i) => sum + i.total, 0),
-    [materialItems]
-  );
-  const systemsCost = useMemo(
-    () => materialItems.filter((i) => i.category === 'tesisat').reduce((sum, i) => sum + i.total, 0),
-    [materialItems]
-  );
-  const officialCostCombined = useMemo(
-    () => materialItems.filter((i) => i.category === 'resmi').reduce((sum, i) => sum + i.total, 0),
-    [materialItems]
-  );
-
-  const roughLabor = useMemo(
-    () => materialItems.filter((i) => i.category === 'kaba').reduce((sum, i) => sum + (i.total * i.laborShare) / 100, 0),
-    [materialItems]
-  );
-  const roughMaterial = Math.max(0, roughCost - roughLabor);
-
-  const fineLabor = useMemo(
-    () => materialItems.filter((i) => i.category === 'ince').reduce((sum, i) => sum + (i.total * i.laborShare) / 100, 0),
-    [materialItems]
-  );
-  const fineMaterial = Math.max(0, fineCost - fineLabor);
-
-  const systemsLabor = useMemo(
-    () =>
-      materialItems.filter((i) => i.category === 'tesisat').reduce((sum, i) => sum + (i.total * i.laborShare) / 100, 0),
-    [materialItems]
-  );
-  const systemsMaterial = Math.max(0, systemsCost - systemsLabor);
-
-  const officialLabor = useMemo(
-    () =>
-      materialItems.filter((i) => i.category === 'resmi').reduce((sum, i) => sum + (i.total * i.laborShare) / 100, 0),
-    [materialItems]
-  );
-  const officialMaterial = Math.max(0, officialCostCombined - officialLabor);
-
-  const totalSum = roughCost + fineCost + systemsCost + officialCostCombined;
-  const totalLabor = roughLabor + fineLabor + systemsLabor + officialLabor;
-  const totalMaterial = roughMaterial + fineMaterial + systemsMaterial + officialMaterial;
+  // Sum up exact values per category from materialItems (including 'ortak' without double counting)
+  const {
+    roughCost,
+    fineCost,
+    systemsCost,
+    officialCostCombined,
+    commonCost,
+    roughLabor,
+    roughMaterial,
+    fineLabor,
+    fineMaterial,
+    systemsLabor,
+    systemsMaterial,
+    officialLabor,
+    officialMaterial,
+    commonLabor,
+    commonMaterial,
+    totalSum,
+    totalLabor,
+    totalMaterial,
+  } = useMemo(() => computeTakeoffCategoryTotals(materialItems), [materialItems]);
 
   const costGroups: CostGroup[] = [
     {
@@ -763,6 +596,18 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
       material: officialMaterial,
       color: '#8b5cf6', // purple-500
     },
+    ...(commonCost > 0
+      ? [
+          {
+            name: 'Ortak Gider & Enflasyon Risk Payı',
+            key: 'ortak',
+            total: commonCost,
+            labor: commonLabor,
+            material: commonMaterial,
+            color: '#f43f5e', // rose-500
+          },
+        ]
+      : []),
   ];
 
   // Update simBase once totalSum is known
@@ -979,6 +824,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'resmi':
         return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'ortak':
+        return 'bg-rose-50 text-rose-700 border-rose-200';
       default:
         return 'bg-slate-50 text-slate-700 border-slate-200';
     }
@@ -994,6 +841,8 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
         return 'Mekanik/Elektrik';
       case 'resmi':
         return 'Resmi/SGK';
+      case 'ortak':
+        return 'Ortak/Risk';
       default:
         return category;
     }
@@ -1154,19 +1003,21 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
             </div>
           </div>
 
-          {/* Mekanik & Resmi Harçlar */}
+          {/* Mekanik, Resmi Harçlar & Ortak Giderler */}
           <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 shadow-xs">
             <div className="flex items-center justify-between text-amber-900 mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Tesisat & Resmi/SGK</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">
+                {commonCost > 0 ? 'Tesisat, Resmi & Ortak' : 'Tesisat & Resmi/SGK'}
+              </span>
               <ShieldCheck className="w-4 h-4 text-amber-600" />
             </div>
             <div className="text-lg font-black text-amber-950 font-mono">
-              {sym}{((systemsCost + officialCostCombined) * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+              {sym}{((systemsCost + officialCostCombined + commonCost) * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
             </div>
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-amber-100 text-[11px] text-amber-800">
-              <span>Ruhsat & SGK:</span>
+              <span>{commonCost > 0 ? 'Ruhsat/SGK & Ortak:' : 'Ruhsat & SGK:'}</span>
               <span className="font-bold font-mono">
-                {sym}{(officialCostCombined * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                {sym}{((officialCostCombined + commonCost) * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
               </span>
             </div>
           </div>
@@ -2266,15 +2117,17 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
 
                 <div>
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-slate-600 font-medium">Tesisat, Montaj & SGK İşçilik</span>
+                    <span className="text-slate-600 font-medium">
+                      {commonLabor > 0 ? 'Tesisat, Montaj, SGK & Risk İşçilik' : 'Tesisat, Montaj & SGK İşçilik'}
+                    </span>
                     <span className="font-bold text-slate-800 font-mono">
-                      {sym}{((systemsLabor + officialLabor) * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
+                      {sym}{((systemsLabor + officialLabor + commonLabor) * rate).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
                     </span>
                   </div>
                   <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                     <div
                       className="bg-amber-500 h-full rounded-full transition-all"
-                      style={{ width: `${totalLabor > 0 ? ((systemsLabor + officialLabor) / totalLabor) * 100 : 0}%` }}
+                      style={{ width: `${totalLabor > 0 ? ((systemsLabor + officialLabor + commonLabor) / totalLabor) * 100 : 0}%` }}
                     />
                   </div>
                 </div>

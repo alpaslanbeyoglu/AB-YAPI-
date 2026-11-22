@@ -79,6 +79,7 @@ import {
   resolveEffectiveProposalStatus,
   sanitizeContractorFlatIds,
   syncFlatsContractorShareFlags,
+  syncProjectParamsToBuildingModel,
 } from './utils/workflowConsistencyUtils';
 import {
   ProjectParams,
@@ -330,6 +331,7 @@ export default function App() {
           flatsPerFloor: params.flatsPerFloor || 2,
           roomType: params.roomType || '3+1',
           roofType: params.roofType || 'gable',
+          mansardFlatCount: params.mansardFlatCount !== undefined ? params.mansardFlatCount : parsed.mansardFlatCount,
           wallColor: parsed.wallColor || params.wallColor || DEFAULT_BUILDING_PARAMS.wallColor,
           roofColor: parsed.roofColor || params.roofColor || DEFAULT_BUILDING_PARAMS.roofColor,
           accentColor: parsed.accentColor || params.accentColor || DEFAULT_BUILDING_PARAMS.accentColor,
@@ -351,6 +353,7 @@ export default function App() {
           shopLocation: params.shopLocation,
           basementConfig: params.basementConfig,
           shopCount: params.shopCount || 1,
+          shopArea: params.shopArea !== undefined ? params.shopArea : parsed.shopArea,
           shopHeight: params.shopHeight || 3.8,
           flatCount: params.flatCount,
           hasCantilever: params.hasCantilever,
@@ -384,6 +387,7 @@ export default function App() {
       flatsPerFloor: params.flatsPerFloor || 2,
       roomType: params.roomType || '3+1',
       roofType: params.roofType || 'gable',
+      mansardFlatCount: params.mansardFlatCount,
       wallColor: params.wallColor || DEFAULT_BUILDING_PARAMS.wallColor,
       roofColor: params.roofColor || DEFAULT_BUILDING_PARAMS.roofColor,
       accentColor: params.accentColor || DEFAULT_BUILDING_PARAMS.accentColor,
@@ -400,6 +404,7 @@ export default function App() {
       balconyDepth: params.balconyDepth !== undefined ? params.balconyDepth : 1.4,
       hasGroundFloorShop: !!params.hasGroundFloorShop,
       shopCount: params.shopCount || 1,
+      shopArea: params.shopArea,
       shopHeight: params.shopHeight || 3.8,
       flatCount: params.flatCount,
       flats: params.flats,
@@ -428,90 +433,8 @@ export default function App() {
     setParams((prevParams) => {
       const sanitizedParams = applyCalculatorParamsUpdate(prevParams, newParamsOrUpdates);
 
-      const resFloors = sanitizedParams.hasGroundFloorShop
-        ? Math.max(0, sanitizedParams.floorCount - 1)
-        : sanitizedParams.floorCount;
-      const totalFlats = sanitizedParams.flatCount;
-
       // Live Sync from Proje Künyesi / Hesap to Building Model:
-      setBuildingModelParams((prevModel) => {
-        const fpSync = calculateFootprint(
-          sanitizedParams.footprintInputMode || prevModel.footprintInputMode || 'directArea',
-          sanitizedParams
-        );
-        const isDirectMode =
-          !sanitizedParams.footprintInputMode || sanitizedParams.footprintInputMode === 'directArea';
-
-        let newW = isDirectMode
-          ? fpSync.effectiveWidth
-          : sanitizedParams.facadeWidth || prevModel.facadeWidth;
-        let newD = isDirectMode
-          ? fpSync.effectiveDepth
-          : sanitizedParams.facadeDepth || prevModel.facadeDepth;
-        let newBackW = isDirectMode
-          ? fpSync.effectiveWidth
-          : sanitizedParams.backFacadeLength !== undefined
-          ? sanitizedParams.backFacadeLength
-          : prevModel.backFacadeLength ?? newW;
-        let newLeftD = isDirectMode
-          ? fpSync.effectiveDepth
-          : sanitizedParams.leftFacadeLength !== undefined
-          ? sanitizedParams.leftFacadeLength
-          : prevModel.leftFacadeLength ?? newD;
-
-        const nextModel: BuildingModelParams = {
-          ...prevModel,
-          footprintInputMode: sanitizedParams.footprintInputMode || prevModel.footprintInputMode,
-          facadeWidth: newW,
-          facadeDepth: newD,
-          backFacadeLength: newBackW,
-          leftFacadeLength: newLeftD,
-          baseBuildArea: sanitizedParams.baseBuildArea,
-          customFacadeCount: sanitizedParams.customFacadeCount || prevModel.customFacadeCount,
-          customFacades: sanitizedParams.customFacades || prevModel.customFacades,
-          lShapeFrontMain: sanitizedParams.lShapeFrontMain || prevModel.lShapeFrontMain,
-          lShapeDepthMain: sanitizedParams.lShapeDepthMain || prevModel.lShapeDepthMain,
-          lShapeRecessFront: sanitizedParams.lShapeRecessFront || prevModel.lShapeRecessFront,
-          lShapeRecessDepth: sanitizedParams.lShapeRecessDepth || prevModel.lShapeRecessDepth,
-          floorCount: sanitizedParams.floorCount,
-          floorHeight: sanitizedParams.floorHeight || prevModel.floorHeight || 2.90,
-          elevatorCount: sanitizedParams.elevatorCount !== undefined ? sanitizedParams.elevatorCount : prevModel.elevatorCount,
-          flatsPerFloor: sanitizedParams.flatsPerFloor || Math.max(1, Math.round(totalFlats / Math.max(1, resFloors))),
-          hasGroundFloorShop: !!sanitizedParams.hasGroundFloorShop,
-          hasBasementShop: sanitizedParams.hasBasementShop !== undefined ? sanitizedParams.hasBasementShop : prevModel.hasBasementShop,
-          basementPurpose: sanitizedParams.basementPurpose !== undefined ? sanitizedParams.basementPurpose : prevModel.basementPurpose,
-          basementShopCount: sanitizedParams.basementShopCount !== undefined ? sanitizedParams.basementShopCount : prevModel.basementShopCount,
-          shopLocation: sanitizedParams.shopLocation !== undefined ? sanitizedParams.shopLocation : prevModel.shopLocation,
-          basementConfig: sanitizedParams.basementConfig !== undefined ? sanitizedParams.basementConfig : prevModel.basementConfig,
-          shopCount: sanitizedParams.shopCount || 1,
-          shopHeight: sanitizedParams.shopHeight || 3.8,
-          contractorFlatIds: sanitizedParams.contractorFlatIds,
-          showContractorShare3D: sanitizedParams.showContractorShare3D,
-          contractorShareRate: sanitizedParams.contractorShareRate,
-          projectModel: sanitizedParams.projectModel,
-          flatCount: totalFlats,
-          roomType: sanitizedParams.roomType || prevModel.roomType,
-          hasCantilever: sanitizedParams.hasCantilever,
-          cantileverDepth: sanitizedParams.cantileverDepth,
-          cantileverDirection: sanitizedParams.cantileverDirection,
-          facadeCantilevers: sanitizedParams.facadeCantilevers || prevModel.facadeCantilevers,
-          roofType: sanitizedParams.roofType || prevModel.roofType,
-          wallColor: sanitizedParams.wallColor || prevModel.wallColor,
-          roofColor: sanitizedParams.roofColor || prevModel.roofColor,
-          accentColor: sanitizedParams.accentColor || prevModel.accentColor,
-          frameColor: sanitizedParams.frameColor || prevModel.frameColor,
-          slabColor: sanitizedParams.slabColor || prevModel.slabColor,
-          basementCount: sanitizedParams.basementCount !== undefined ? sanitizedParams.basementCount : prevModel.basementCount,
-          facadeStyle: sanitizedParams.facadeStyle || prevModel.facadeStyle,
-          balconyDepth: sanitizedParams.balconyDepth !== undefined ? sanitizedParams.balconyDepth : prevModel.balconyDepth,
-          polygonPoints: sanitizedParams.polygonPoints || prevModel.polygonPoints,
-          facadeConfigs: sanitizedParams.facadeConfigs || prevModel.facadeConfigs,
-          mainEntranceFacadeIndex: sanitizedParams.mainEntranceFacadeIndex !== undefined ? sanitizedParams.mainEntranceFacadeIndex : prevModel.mainEntranceFacadeIndex,
-          flats: sanitizedParams.flats || prevModel.flats,
-        };
-
-        return nextModel;
-      });
+      setBuildingModelParams((prevModel) => syncProjectParamsToBuildingModel(prevModel, sanitizedParams));
 
       return sanitizedParams;
     });
@@ -523,10 +446,13 @@ export default function App() {
     setParams((prev) => {
       const nextParams = applyBuildingModelUpdateToProjectParams(prev, updates);
 
-      // 2. Update 3D Building Model state with validated contractorFlatIds & synchronized flats
+      // 2. Update 3D Building Model state with validated contractorFlatIds & synchronized architectural params
       setBuildingModelParams((prevModel) => ({
         ...prevModel,
         ...updates,
+        roofType: nextParams.roofType || prevModel.roofType,
+        mansardFlatCount: nextParams.mansardFlatCount,
+        shopArea: nextParams.shopArea !== undefined ? nextParams.shopArea : prevModel.shopArea,
         flatCount: nextParams.flatCount,
         flats: nextParams.flats,
         contractorFlatIds: nextParams.contractorFlatIds,
@@ -537,63 +463,7 @@ export default function App() {
   };
 
   const handleSyncModelToCalculator = (modelUpdates: Partial<ProjectParams>) => {
-    setParams((prev) => {
-      const next = { ...prev, ...modelUpdates };
-      
-      const prevCount = prev.flatCount;
-      const nextCount = next.flatCount;
-      
-      if (nextCount !== prevCount || next.baseBuildArea !== prev.baseBuildArea || next.floorCount !== prev.floorCount) {
-        const footprintResult = calculateFootprint(next.footprintInputMode, next);
-        const baseArea = next.baseBuildArea || footprintResult.area;
-        const cantileverInfo = calculateCantileverDetails(next, baseArea, footprintResult);
-        const upperFloorArea = cantileverInfo.upperFloorArea;
-        const roofType = next.roofType || 'gable';
-        const isMansard = roofType === 'mansard';
-        const isDuplex = roofType === 'duplex';
-        const roofAtticArea = isDuplex
-          ? Math.round(upperFloorArea * 0.65 * 100) / 100
-          : isMansard
-          ? Math.round(upperFloorArea * 0.70 * 100) / 100
-          : 0;
-
-        next.flats = synchronizeFlats(
-          next.flats || prev.flats,
-          nextCount,
-          baseArea,
-          next.floorCount,
-          next.transformationStatus,
-          roofType,
-          next.flatsPerFloor || 2,
-          next.mansardFlatCount,
-          roofAtticArea,
-          next.hasGroundFloorShop,
-          next.shopCount || 1,
-          upperFloorArea,
-          next.basementPurpose,
-          next.basementShopCount || 1,
-          next.basementCount !== undefined ? next.basementCount : 1,
-          next.basementConfig || prev.basementConfig
-        );
-        // Keep contractor IDs valid and synchronized with flat flags
-        next.contractorFlatIds = sanitizeContractorFlatIds(
-          next.contractorFlatIds || prev.contractorFlatIds,
-          nextCount
-        );
-        next.flats = syncFlatsContractorShareFlags(next.flats, next.contractorFlatIds);
-      } else if (modelUpdates.contractorFlatIds !== undefined) {
-        next.contractorFlatIds = sanitizeContractorFlatIds(
-          modelUpdates.contractorFlatIds,
-          next.flatCount
-        );
-        next.flats = syncFlatsContractorShareFlags(
-          next.flats || prev.flats,
-          next.contractorFlatIds
-        );
-      }
-
-      return next;
-    });
+    setParams((prev) => applyCalculatorParamsUpdate(prev, modelUpdates));
     showNotification(
       'success',
       '3D Model, Kat Planı ve Hesaplama Paneli ölçüleri anlık olarak senkronize edildi.'
@@ -1064,8 +934,17 @@ const handleQuickSave = () => {
         const data = JSON.parse(content);
         const paramsObj = data.params || data;
         if (paramsObj && (paramsObj.landArea !== undefined || paramsObj.projectAddress)) {
-          setParams(paramsObj);
-          if (data.buildingModelParams) setBuildingModelParams(data.buildingModelParams);
+          const sanitizedLoadedParams = applyCalculatorParamsUpdate(DEFAULT_PARAMS, paramsObj);
+          setParams(sanitizedLoadedParams);
+          if (data.buildingModelParams) {
+            setBuildingModelParams(
+              syncProjectParamsToBuildingModel(data.buildingModelParams, sanitizedLoadedParams)
+            );
+          } else {
+            setBuildingModelParams(
+              syncProjectParamsToBuildingModel(DEFAULT_BUILDING_PARAMS, sanitizedLoadedParams)
+            );
+          }
           if (data.historyList && Array.isArray(data.historyList)) {
             setHistoryList(data.historyList);
             try {
@@ -1091,8 +970,17 @@ const handleQuickSave = () => {
   }) => {
     try {
       if (imported.params) {
-        setParams(imported.params);
-        if (imported.buildingModelParams) setBuildingModelParams(imported.buildingModelParams);
+        const sanitizedLoadedParams = applyCalculatorParamsUpdate(DEFAULT_PARAMS, imported.params);
+        setParams(sanitizedLoadedParams);
+        if (imported.buildingModelParams) {
+          setBuildingModelParams(
+            syncProjectParamsToBuildingModel(imported.buildingModelParams, sanitizedLoadedParams)
+          );
+        } else {
+          setBuildingModelParams(
+            syncProjectParamsToBuildingModel(DEFAULT_BUILDING_PARAMS, sanitizedLoadedParams)
+          );
+        }
         if (imported.historyList && Array.isArray(imported.historyList)) {
           setHistoryList(imported.historyList);
           try {
@@ -1109,36 +997,30 @@ const handleQuickSave = () => {
 
   const handleLoadProject = (savedData: SavedProjectData, targetTab: TabId = 'kurulum') => {
     if (savedData && savedData.params) {
-      setParams(savedData.params);
+      const sanitizedLoadedParams = applyCalculatorParamsUpdate(DEFAULT_PARAMS, savedData.params);
+      setParams(sanitizedLoadedParams);
       if (savedData.buildingModelParams) {
-        setBuildingModelParams(savedData.buildingModelParams);
+        const syncedModel: BuildingModelParams = syncProjectParamsToBuildingModel(
+          savedData.buildingModelParams,
+          sanitizedLoadedParams
+        );
+        setBuildingModelParams(syncedModel);
         try {
-          localStorage.setItem('ab_yapi_building_model', JSON.stringify(savedData.buildingModelParams));
+          localStorage.setItem('ab_yapi_building_model', JSON.stringify(syncedModel));
         } catch (e) {}
       } else {
         // Eğer kayıtlı projede 3D model yoksa, o projenin params verileriyle sıfırdan oluştur
-        const freshModel: BuildingModelParams = {
-          ...DEFAULT_BUILDING_PARAMS,
-          floorCount: savedData.params.floorCount || 5,
-          flatsPerFloor: savedData.params.flatsPerFloor || 2,
-          hasGroundFloorShop: !!savedData.params.hasGroundFloorShop,
-          shopCount: savedData.params.shopCount || 1,
-          baseBuildArea: savedData.params.baseBuildArea || 140,
-          facadeWidth: savedData.params.facadeWidth || 14.0,
-          facadeDepth: savedData.params.facadeDepth || 18.0,
-          roofType: savedData.params.roofType || 'gable',
-          basementCount: savedData.params.basementCount !== undefined ? savedData.params.basementCount : 1,
-          contractorFlatIds: savedData.params.contractorFlatIds || [],
-          contractorShareRate: savedData.params.contractorShareRate || 50,
-          projectModel: savedData.params.projectModel,
-        };
+        const freshModel: BuildingModelParams = syncProjectParamsToBuildingModel(
+          DEFAULT_BUILDING_PARAMS,
+          sanitizedLoadedParams
+        );
         setBuildingModelParams(freshModel);
         try {
           localStorage.setItem('ab_yapi_building_model', JSON.stringify(freshModel));
         } catch (e) {}
       }
       try {
-        localStorage.setItem('ab_yapi_last_params', JSON.stringify(savedData.params));
+        localStorage.setItem('ab_yapi_last_params', JSON.stringify(sanitizedLoadedParams));
       } catch (e) {}
 
       activateProjectTabs();
@@ -1163,9 +1045,16 @@ const handleQuickSave = () => {
         showNotification('error', 'Şantiye yerel olarak oluşturuldu ancak buluta kaydedilemedi.');
       });
     }
-    setParams(newProj.params);
+    const sanitizedNewParams = applyCalculatorParamsUpdate(DEFAULT_PARAMS, newProj.params);
+    setParams(sanitizedNewParams);
     if (newProj.buildingModelParams) {
-      setBuildingModelParams(newProj.buildingModelParams);
+      setBuildingModelParams(
+        syncProjectParamsToBuildingModel(newProj.buildingModelParams, sanitizedNewParams)
+      );
+    } else {
+      setBuildingModelParams(
+        syncProjectParamsToBuildingModel(DEFAULT_BUILDING_PARAMS, sanitizedNewParams)
+      );
     }
     activateProjectTabs();
     showNotification('success', `Yeni şantiye "${newProj.projectAddress}" başarıyla oluşturuldu ve yüklendi.`);

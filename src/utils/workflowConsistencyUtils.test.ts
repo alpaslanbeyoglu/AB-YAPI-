@@ -1,15 +1,29 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DEFAULT_PARAMS, calculateProject } from './calculatorEngine';
+import { DEFAULT_BUILDING_PARAMS } from './buildingModelUtils';
 import { DUAL_OFFER_NAMING_PRESETS } from './dualOfferUtils';
 import { resolveProjectProgressKeys, getLocalProgressItemByKeys } from './syncKeys';
 import {
   applyCalculatorParamsUpdate,
   applyBuildingModelUpdateToProjectParams,
+  buildComfortSystemTakeoffItems,
+  buildCommonCategoryTakeoffItems,
+  buildKitchenAndDoorTakeoffItems,
   buildOfferAcceptanceTransitionPatch,
   buildProposalStatusChangePatch,
+  computeTakeoffCategoryTotals,
+  formatSpecificationBasementSummary,
+  formatSpecificationUnitLabels,
+  getSelectedSpecificationComfortFeatures,
+  getSpecificationComfortFeatures,
+  loadProjectScopedOffer3DPreview,
+  OFFER_3D_PREVIEW_GLOBAL_STORAGE_KEY,
   resolveEffectiveOfferAccepted,
   resolveEffectiveProposalStatus,
+  saveProjectScopedOffer3DPreview,
   sanitizeContractorFlatIds,
+  SPECIFICATION_EMPTY_COMFORT_MESSAGE,
+  syncProjectParamsToBuildingModel,
 } from './workflowConsistencyUtils';
 import type { ProjectParams } from '../types';
 
@@ -326,3 +340,668 @@ describe('FAZ 3 / UYGULAMA 1: Kritik Veri Tutarlılığı Regresyon Testleri (K-
     });
   });
 });
+
+describe('FAZ 3 / UYGULAMA 2A: Yüksek Öncelikli Veri Tutarlılığı Regresyon Testleri (Y-1..Y-4)', () => {
+  describe('Y-1: Banyo Nem Fanı Maliyet Kaleminin Metraj ve Sistem Toplamıyla Tutarlılığı', () => {
+    it('hasBathroomHumidityFan açıkken bathroomHumidityFanCost tam olarak bir kez eklenir ve konfor sistemleri toplamı motorla eşleşir', () => {
+      const paramsWithFan = createSampleProject({
+        hasBathroomHumidityFan: true,
+        hasUnderfloorHeating: true,
+        hasThermostaticShowerMixer: true,
+        hasLinearShowerDrain: true,
+        hasTouchlessKitchenFaucet: true,
+        hasSmartDoorLock: true,
+        hasPorcelainCountertop: true,
+        hasWaterFiltration: true,
+        hasGenerator: true,
+        hasAcOption: true,
+      });
+
+      const resultsWithFan = calculateProject(paramsWithFan);
+      expect(resultsWithFan.bathroomHumidityFanCost).toBeGreaterThan(0);
+
+      const itemsWithFan = buildComfortSystemTakeoffItems(
+        paramsWithFan,
+        resultsWithFan,
+        paramsWithFan.flatCount
+      );
+
+      const fanItems = itemsWithFan.filter((item) => item.id === 't9b');
+      expect(fanItems).toHaveLength(1);
+      expect(fanItems[0].total).toBe(resultsWithFan.bathroomHumidityFanCost);
+      expect(fanItems[0].category).toBe('tesisat');
+
+      // Tesisat konfor kalemleri toplamı (t5..t12 + t9b) motorun hesapladığı konfor tesisat toplamına eşit olmalı
+      const tesisatComfortSum = itemsWithFan
+        .filter((item) => item.category === 'tesisat')
+        .reduce((acc, item) => acc + item.total, 0);
+
+      const expectedMotorComfortSystemsSum =
+        (resultsWithFan.underfloorHeatingCost || 0) +
+        (resultsWithFan.waterFiltrationCost || 0) +
+        (resultsWithFan.acCostTotal || 0) +
+        (resultsWithFan.thermostaticMixerCost || 0) +
+        (resultsWithFan.linearDrainCost || 0) +
+        (resultsWithFan.bathroomHumidityFanCost || 0) +
+        (resultsWithFan.touchlessKitchenFaucetCost || 0) +
+        (resultsWithFan.smartDoorLockCost || 0) +
+        (resultsWithFan.generatorCost || 0);
+
+      expect(tesisatComfortSum).toBe(expectedMotorComfortSystemsSum);
+
+      // hasBathroomHumidityFan kapalıyken t9b listeye eklenmemeli
+      const paramsWithoutFan = applyCalculatorParamsUpdate(paramsWithFan, {
+        hasBathroomHumidityFan: false,
+      });
+      const resultsWithoutFan = calculateProject(paramsWithoutFan);
+      const itemsWithoutFan = buildComfortSystemTakeoffItems(
+        paramsWithoutFan,
+        resultsWithoutFan,
+        paramsWithoutFan.flatCount
+      );
+      expect(itemsWithoutFan.find((item) => item.id === 't9b')).toBeUndefined();
+    });
+  });
+
+  describe('Y-2: On Konfor Özelliğinin ve Bodrum Birim Etiketlerinin Teknik Şartname Tutarlılığı', () => {
+    it('10 konfor özelliğinin tamamı tek ortak kaynaktan yönetilir ve yalnızca seçili olanlar (bathroomHumidityFan dahil) döner', () => {
+      const params = createSampleProject({
+        hasUnderfloorHeating: true,
+        hasWaterFiltration: false,
+        hasAcOption: false,
+        hasThermostaticShowerMixer: false,
+        hasLinearShowerDrain: true,
+        hasBathroomHumidityFan: true,
+        hasTouchlessKitchenFaucet: false,
+        hasSmartDoorLock: true,
+        hasGenerator: false,
+        hasPorcelainCountertop: true,
+      });
+      const results = calculateProject(params);
+
+      const allTen = getSpecificationComfortFeatures(params, results);
+      expect(allTen).toHaveLength(10);
+
+      const selected = getSelectedSpecificationComfortFeatures(params, results);
+      expect(selected.map((f) => f.key)).toEqual([
+        'underfloorHeating',
+        'linearShowerDrain',
+        'bathroomHumidityFan',
+        'smartDoorLock',
+        'porcelainCountertop',
+      ]);
+
+      const fanFeature = selected.find((f) => f.key === 'bathroomHumidityFan')!;
+      expect(fanFeature.title).toContain('Banyo Nem');
+      expect(fanFeature.selected).toBe(true);
+    });
+
+    it('formatSpecificationUnitLabels bodrum dükkânı ve bodrum dairesi etiketlerini ekran ve yazdırma için doğru üretir', () => {
+      const basementShopLabels = formatSpecificationUnitLabels(
+        { id: 1, floorNumber: -1, flatType: 'basement_shop' },
+        2
+      );
+      expect(basementShopLabels.floorText).toBe('Bodrum Kat');
+      expect(basementShopLabels.unitTitle).toContain('Bodrum İşyeri');
+      expect(basementShopLabels.unitTypeBadge).toBe('Bodrum İşyeri');
+
+      const basementFlatLabels = formatSpecificationUnitLabels(
+        { id: 2, floorNumber: -1, flatType: 'basement_flat' },
+        2
+      );
+      expect(basementFlatLabels.floorText).toBe('Bodrum Kat');
+      expect(basementFlatLabels.unitTitle).toContain('Bodrum Daire');
+      expect(basementFlatLabels.unitTypeBadge).toBe('Bodrum Dairesi');
+    });
+  });
+
+  describe('Y-3: 3D Teklif Görselinin Projeye Özel Olması ve İzolasyonu', () => {
+    const storageMap = new Map<string, string>();
+    const mockStorage = {
+      getItem: (key: string) => (storageMap.has(key) ? storageMap.get(key)! : null),
+      setItem: (key: string, val: string) => {
+        storageMap.set(key, val);
+      },
+      clear: () => storageMap.clear(),
+    };
+
+    beforeEach(() => {
+      storageMap.clear();
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: mockStorage,
+        configurable: true,
+        writable: true,
+      });
+    });
+
+    it('Proje A için kaydedilen 3D görsel Proje B açıldığında teklif veya PDF önizlemesine sızmaz', () => {
+      const projectA = {
+        projectName: 'Proje A Konutları',
+        projectAddress: 'Cerrahpaşa Mah. 101 Ada 5 Parsel',
+      };
+      const projectB = {
+        projectName: 'Proje B Rezidans',
+        projectAddress: 'Kocamustafapaşa Mah. 202 Ada 9 Parsel',
+      };
+
+      saveProjectScopedOffer3DPreview({
+        url: 'data:image/jpeg;base64,PROJE_A_3D',
+        caption: 'Proje A 3D Perspektif',
+        ...projectA,
+      });
+
+      // Proje A kendi 3D görselini okuyabilmeli
+      const loadedForA = loadProjectScopedOffer3DPreview(projectA);
+      expect(loadedForA).not.toBeNull();
+      expect(loadedForA?.url).toBe('data:image/jpeg;base64,PROJE_A_3D');
+
+      // Proje B açıldığında Proje A'nın 3D görseli kesinlikle yüklenmemeli
+      const loadedForB = loadProjectScopedOffer3DPreview(projectB);
+      expect(loadedForB).toBeNull();
+
+      // Proje B kendi görselini kaydettiğinde Proje A'nın görseli de kaybolmamalı
+      saveProjectScopedOffer3DPreview({
+        url: 'data:image/jpeg;base64,PROJE_B_3D',
+        caption: 'Proje B 3D Perspektif',
+        ...projectB,
+      });
+      expect(loadProjectScopedOffer3DPreview(projectB)?.url).toBe(
+        'data:image/jpeg;base64,PROJE_B_3D'
+      );
+      expect(loadProjectScopedOffer3DPreview(projectA)?.url).toBe(
+        'data:image/jpeg;base64,PROJE_A_3D'
+      );
+    });
+
+    it('Kimliği doğrulanamayan veya başka projeye ait eski format (legacy) kayıtları reddeder, yalnızca adres eşleşirse kabul eder', () => {
+      const activeProject = {
+        projectName: 'Fatih Palas',
+        projectAddress: 'Haseki Sultan Mah. 500 Ada 12 Parsel',
+      };
+
+      // 1) Proje kimliği olmayan eski kayıt -> reddedilmeli
+      localStorage.setItem(
+        OFFER_3D_PREVIEW_GLOBAL_STORAGE_KEY,
+        JSON.stringify({
+          url: 'data:image/jpeg;base64,UNKNOWN_LEGACY',
+          caption: '3D Model',
+        })
+      );
+      expect(loadProjectScopedOffer3DPreview(activeProject)).toBeNull();
+
+      // 2) Başka projeye ait eski kayıt -> reddedilmeli
+      localStorage.setItem(
+        OFFER_3D_PREVIEW_GLOBAL_STORAGE_KEY,
+        JSON.stringify({
+          url: 'data:image/jpeg;base64,OTHER_LEGACY',
+          caption: '3D Model',
+          projectAddress: 'Fındıkzade Mah. 999 Ada 1 Parsel',
+        })
+      );
+      expect(loadProjectScopedOffer3DPreview(activeProject)).toBeNull();
+
+      // 3) Aktif projeyle adres eşleşmesi olan eski kayıt -> kabul edilmeli
+      localStorage.setItem(
+        OFFER_3D_PREVIEW_GLOBAL_STORAGE_KEY,
+        JSON.stringify({
+          url: 'data:image/jpeg;base64,MATCHING_LEGACY',
+          caption: '3D Model',
+          projectAddress: 'Haseki Sultan Mah. 500 Ada 12 Parsel',
+        })
+      );
+      expect(loadProjectScopedOffer3DPreview(activeProject)?.url).toBe(
+        'data:image/jpeg;base64,MATCHING_LEGACY'
+      );
+    });
+  });
+
+  describe('Y-4: Mimari Parametrelerin (mansardFlatCount, roofAtticType, shopArea) Çift Yönlü Senkronizasyonu', () => {
+    it('Aşama 3 <-> Aşama 4 arasında mansardFlatCount, roofType/roofAtticType ve shopArea kayıpsız senkronize olur', () => {
+      // 1) Aşama 3'te mansard çatı, 3 mansard dairesi ve 135 m² dükkan alanı seçilsin
+      let projectState = createSampleProject({
+        hasGroundFloorShop: true,
+        shopCount: 2,
+        shopArea: 135,
+        roofType: 'mansard',
+        mansardFlatCount: 3,
+      });
+
+      expect(projectState.roofType).toBe('mansard');
+      expect(projectState.roofAtticType).toBe('independent');
+      expect(projectState.mansardFlatCount).toBe(3);
+      expect(projectState.shopArea).toBe(135);
+
+      const mansardUnits = projectState.flats.filter((f) => f.flatType === 'mansard');
+      expect(mansardUnits).toHaveLength(3);
+
+      // 2) ProjectParams -> BuildingModelParams senkronizasyonu
+      let modelState = syncProjectParamsToBuildingModel(DEFAULT_BUILDING_PARAMS, projectState);
+      expect(modelState.roofType).toBe('mansard');
+      expect(modelState.mansardFlatCount).toBe(3);
+      expect(modelState.shopArea).toBe(135);
+
+      // 3) Aşama 4 (3D Model) üzerinden mansardFlatCount=4 ve shopArea=160 olarak güncellensin
+      projectState = applyBuildingModelUpdateToProjectParams(projectState, {
+        mansardFlatCount: 4,
+        shopArea: 160,
+      });
+      expect(projectState.mansardFlatCount).toBe(4);
+      expect(projectState.shopArea).toBe(160);
+      expect(projectState.flats.filter((f) => f.flatType === 'mansard')).toHaveLength(4);
+
+      // 4) Aşama 3'te roofAtticType='duplex_unified' seçildiğinde roofType otomatik 'duplex' olmalı ve 3D modele yansımalı
+      projectState = applyCalculatorParamsUpdate(projectState, {
+        roofAtticType: 'duplex_unified',
+      });
+      expect(projectState.roofType).toBe('duplex');
+      expect(projectState.roofAtticType).toBe('duplex_unified');
+
+      modelState = syncProjectParamsToBuildingModel(modelState, projectState);
+      expect(modelState.roofType).toBe('duplex');
+    });
+  });
+});
+
+describe('FAZ 3 / UYGULAMA 2B: Bağımsız Denetim Tutarsızlık Düzeltmeleri Regresyon Testleri', () => {
+  describe('2B-1: Dükkan Mutfak/Kapı (i5/i6) ve Ortak Kategori (manualEqualExtraCost, inflationBufferAmount) Maliyet Tutarlılığı', () => {
+    it('Dükkansız ve dükkanlı projelerde i5 (mutfak) ve i6 (kapı) kalemleri motorun residential/shop ağırlıklarıyla (%20 mutfak, %40 kapı) birebir eşleşir ve birimleri karıştırmaz', () => {
+      // 1) Dükkansız proje: 10 konut dairesi
+      const noShopParams = createSampleProject({
+        floorCount: 5,
+        flatsPerFloor: 2,
+        hasGroundFloorShop: false,
+        priceKitchen: 135000,
+        priceDoors: 85000,
+        costMultiplier: 1.0,
+      });
+      const noShopResults = calculateProject(noShopParams);
+      const noShopItems = buildKitchenAndDoorTakeoffItems(
+        noShopParams,
+        noShopResults,
+        noShopParams.flatCount,
+        1.0
+      );
+
+      expect(noShopItems).toHaveLength(2);
+      expect(noShopItems.find((i) => i.id === 'i5')?.quantity).toBe(10);
+      expect(noShopItems.find((i) => i.id === 'i5')?.unit).toBe('Daire');
+      expect(noShopItems.find((i) => i.id === 'i5')?.total).toBe(10 * 135000);
+      expect(noShopItems.find((i) => i.id === 'i6')?.quantity).toBe(10);
+      expect(noShopItems.find((i) => i.id === 'i6')?.unit).toBe('Daire');
+      expect(noShopItems.find((i) => i.id === 'i6')?.total).toBe(10 * 85000);
+
+      // 2) Zemin katta 2 ticari dükkan + üst katlarda 8 konut dairesi olan proje
+      const withShopParams = createSampleProject({
+        floorCount: 5,
+        flatsPerFloor: 2,
+        hasGroundFloorShop: true,
+        shopCount: 2,
+        priceKitchen: 135000,
+        priceDoors: 85000,
+        costMultiplier: 1.0,
+      });
+      const withShopResults = calculateProject(withShopParams);
+      expect(withShopResults.residentialUnitsCount).toBe(8);
+      expect(withShopResults.shopUnitsCount).toBe(2);
+
+      const withShopItems = buildKitchenAndDoorTakeoffItems(
+        withShopParams,
+        withShopResults,
+        withShopParams.flatCount,
+        1.0
+      );
+
+      const resKitchen = withShopItems.find((i) => i.id === 'i5')!;
+      const shopKitchen = withShopItems.find((i) => i.id === 'i5_shop')!;
+      const resDoors = withShopItems.find((i) => i.id === 'i6')!;
+      const shopDoors = withShopItems.find((i) => i.id === 'i6_shop')!;
+
+      // Konut ve dükkan miktarları ayrı kalemlerde ve ayrı birimlerde ('Daire' vs 'Dükkan') tutulmalı
+      expect(resKitchen.unit).toBe('Daire');
+      expect(resKitchen.quantity).toBe(8);
+      expect(resKitchen.unitPrice).toBe(135000);
+      expect(resKitchen.total).toBe(8 * 135000);
+
+      expect(shopKitchen.unit).toBe('Dükkan');
+      expect(shopKitchen.quantity).toBe(2);
+      expect(shopKitchen.unitPrice).toBe(Math.round(135000 * 0.2)); // %20 = 27.000
+      expect(shopKitchen.total).toBe(2 * 27000);
+
+      expect(resDoors.unit).toBe('Daire');
+      expect(resDoors.quantity).toBe(8);
+      expect(resDoors.unitPrice).toBe(85000);
+      expect(resDoors.total).toBe(8 * 85000);
+
+      expect(shopDoors.unit).toBe('Dükkan');
+      expect(shopDoors.quantity).toBe(2);
+      expect(shopDoors.unitPrice).toBe(Math.round(85000 * 0.4)); // %40 = 34.000
+      expect(shopDoors.total).toBe(2 * 34000);
+
+      // İnce inşaat toplamının motorun finishingTotalCost değeriyle birebir eşleştiğini doğrula
+      const totalArea = withShopResults.totalArea;
+      const pvcM2 = Math.round(totalArea * 0.18 * 10) / 10;
+      const paintPlasterM2 = Math.round(totalArea * 2.8 * 10) / 10;
+      const allInceTotal =
+        withShopParams.flatCount * (withShopParams.pricePlumbing ?? 75000) +
+        withShopParams.flatCount * (withShopParams.priceElectric ?? 60000) +
+        pvcM2 * (withShopParams.pricePvc ?? 4800) +
+        totalArea * (withShopParams.priceTiles ?? 850) +
+        paintPlasterM2 * (withShopParams.pricePaintPlaster ?? 520) +
+        withShopItems.reduce((sum, i) => sum + i.total, 0);
+
+      expect(Math.round(allInceTotal)).toBe(withShopResults.finishingTotalCost);
+    });
+
+    it('manualEqualExtraCost ve inflationBufferAmount açık/kapalıyken commonCost ve totalSum çift sayım olmadan motorla tutarlıdır', () => {
+      // 1) İkisi de kapalıyken
+      const baseParams = createSampleProject({
+        manualEqualExtraCost: 0,
+        hasInflationBuffer: false,
+      });
+      const baseResults = calculateProject(baseParams);
+      const baseCommonItems = buildCommonCategoryTakeoffItems(baseParams, baseResults);
+      const baseTotals = computeTakeoffCategoryTotals([
+        {
+          id: 'k_all',
+          category: 'kaba',
+          name: 'Kaba',
+          unit: 'Set',
+          quantity: 1,
+          unitPrice: baseResults.kabaTotalCost,
+          total: baseResults.kabaTotalCost,
+          laborShare: 30,
+        },
+        {
+          id: 'i_all',
+          category: 'ince',
+          name: 'İnce',
+          unit: 'Set',
+          quantity: 1,
+          unitPrice: baseResults.finishingTotalCost,
+          total: baseResults.finishingTotalCost,
+          laborShare: 40,
+        },
+        {
+          id: 't_all',
+          category: 'tesisat',
+          name: 'Tesisat',
+          unit: 'Set',
+          quantity: 1,
+          unitPrice: baseResults.systemsCost,
+          total: baseResults.systemsCost,
+          laborShare: 20,
+        },
+        {
+          id: 'r_all',
+          category: 'resmi',
+          name: 'Resmi',
+          unit: 'Set',
+          quantity: 1,
+          unitPrice: baseResults.officialCost + baseResults.sgkSalesCost,
+          total: baseResults.officialCost + baseResults.sgkSalesCost,
+          laborShare: 40,
+        },
+        ...baseCommonItems,
+      ]);
+
+      expect(baseTotals.commonCost).toBe(0);
+      expect(baseTotals.totalSum).toBe(baseResults.subTotalCost);
+
+      // 2) Her ikisi de açıkken (manualEqualExtraCost = 400.000 TL, hasInflationBuffer = true %15)
+      const activeParams = createSampleProject({
+        manualEqualExtraCost: 400000,
+        manualEqualExtraCostLabel: 'Belediye Trafo Katkı Payı',
+        hasInflationBuffer: true,
+        inflationBufferRate: 15,
+      });
+      const activeResults = calculateProject(activeParams);
+      expect(activeResults.inflationBufferAmount).toBeGreaterThan(0);
+
+      const activeCommonItems = buildCommonCategoryTakeoffItems(activeParams, activeResults);
+      expect(activeCommonItems).toHaveLength(2);
+
+      const activeTotals = computeTakeoffCategoryTotals([
+        {
+          id: 'k_all',
+          category: 'kaba',
+          name: 'Kaba',
+          unit: 'Set',
+          quantity: 1,
+          unitPrice: activeResults.kabaTotalCost,
+          total: activeResults.kabaTotalCost,
+          laborShare: 30,
+        },
+        {
+          id: 'i_all',
+          category: 'ince',
+          name: 'İnce',
+          unit: 'Set',
+          quantity: 1,
+          unitPrice: activeResults.finishingTotalCost,
+          total: activeResults.finishingTotalCost,
+          laborShare: 40,
+        },
+        {
+          id: 't_all',
+          category: 'tesisat',
+          name: 'Tesisat',
+          unit: 'Set',
+          quantity: 1,
+          unitPrice: activeResults.systemsCost,
+          total: activeResults.systemsCost,
+          laborShare: 20,
+        },
+        {
+          id: 'r_all',
+          category: 'resmi',
+          name: 'Resmi',
+          unit: 'Set',
+          quantity: 1,
+          unitPrice: activeResults.officialCost + activeResults.sgkSalesCost,
+          total: activeResults.officialCost + activeResults.sgkSalesCost,
+          laborShare: 40,
+        },
+        ...activeCommonItems,
+      ]);
+
+      expect(activeTotals.commonCost).toBe(400000 + (activeResults.inflationBufferAmount || 0));
+      expect(activeTotals.commonLabor).toBe((activeResults.inflationBufferAmount || 0) * 0.5);
+      // subTotalCost zaten inflationBufferAmount içerir; manualEqualExtraCost eklendiğinde totalSum ile birebir eşleşir
+      expect(activeTotals.totalSum).toBe(activeResults.subTotalCost + 400000);
+    });
+  });
+
+  describe('2B-2: Teknik Şartname Boş Konfor Bilgi Notu ve Bodrum Sözel Özetleri', () => {
+    it('Hiçbir konfor özelliği seçilmediğinde boş liste döner ve standart bilgi mesajı sabiti tanımlıdır', () => {
+      const params = createSampleProject({
+        hasUnderfloorHeating: false,
+        hasWaterFiltration: false,
+        hasAcOption: false,
+        hasThermostaticShowerMixer: false,
+        hasLinearShowerDrain: false,
+        hasBathroomHumidityFan: false,
+        hasTouchlessKitchenFaucet: false,
+        hasSmartDoorLock: false,
+        hasGenerator: false,
+        hasPorcelainCountertop: false,
+      });
+      const selected = getSelectedSpecificationComfortFeatures(params);
+      expect(selected).toHaveLength(0);
+      expect(SPECIFICATION_EMPTY_COMFORT_MESSAGE).toBe(
+        'İlave opsiyonel konfor donanımı seçilmemiştir; standart teknik şartname donanımları uygulanacaktır.'
+      );
+    });
+
+    it('basementPurpose === "residential" ve çoklu basementConfig kombinasyonlarında sözel özetlerde "Bodrum Dairesi" ifadesini tutarlı üretir', () => {
+      // 1) Tekli basementPurpose === 'residential'
+      const resBasement = formatSpecificationBasementSummary({
+        basementCount: 1,
+        basementPurpose: 'residential',
+        basementShopCount: 2,
+      });
+      expect(resBasement.shortSummary).toContain('2 Adet Bodrum Dairesi');
+      expect(resBasement.htmlSummary).toContain('2 Adet Bodrum Dairesi');
+      expect(resBasement.detailedSummary).toContain('2 Adet Bodrum Dairesi');
+
+      // 2) Çoklu basementConfig kombinasyonu (Bodrum Dairesi + Ticari İşyeri + Kapalı Otopark)
+      const multiBasement = formatSpecificationBasementSummary({
+        basementCount: 2,
+        basementConfig: [
+          { id: 'b1', type: 'residential', count: 1 },
+          { id: 'b2', type: 'commercial_shop', count: 2 },
+          { id: 'b3', type: 'parking', count: 1 },
+        ],
+      });
+      expect(multiBasement.shortSummary).toContain('2 Kat Bodrum');
+      expect(multiBasement.shortSummary).toContain('1 Adet Bodrum Dairesi');
+      expect(multiBasement.shortSummary).toContain('2 Adet Ticari İşyeri / Dükkan');
+      expect(multiBasement.shortSummary).toContain('Kapalı Otopark');
+      expect(multiBasement.detailedSummary).toContain('1 Adet Bodrum Dairesi');
+      expect(multiBasement.detailedSummary).toContain('2 Adet Bodrum Kat Ticari İşyeri / Dükkan');
+      expect(multiBasement.detailedSummary).toContain('kapalı otopark alanları');
+    });
+  });
+
+  describe('2B-3: Aynı Adreste Farklı Proje Alternatiflerinin İzolasyonu ve Sonradan Adres Eklenen Projenin 3D Görsel Koruması', () => {
+    const storageMap = new Map<string, string>();
+    const mockStorage = {
+      getItem: (key: string) => (storageMap.has(key) ? storageMap.get(key)! : null),
+      setItem: (key: string, val: string) => {
+        storageMap.set(key, val);
+      },
+      clear: () => storageMap.clear(),
+    };
+
+    beforeEach(() => {
+      storageMap.clear();
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: mockStorage,
+        configurable: true,
+        writable: true,
+      });
+    });
+
+    it('Aynı arsa adresinde farklı projectName değerine sahip iki proje alternatifinin 3D görselleri birbirine karışmaz', () => {
+      const sharedAddress = 'Cerrahpaşa Mah. 1422 Ada 18 Parsel';
+      const alternativeA = {
+        projectAddress: sharedAddress,
+        projectName: 'Alternatif A - 5 Kat Konut',
+      };
+      const alternativeB = {
+        projectAddress: sharedAddress,
+        projectName: 'Alternatif B - Zemin Ticari + 4 Kat',
+      };
+
+      saveProjectScopedOffer3DPreview({
+        url: 'data:image/jpeg;base64,ALT_A_IMAGE',
+        caption: 'Alternatif A 3D',
+        ...alternativeA,
+      });
+
+      // Alternatif A kendi görselini yükler, ancak aynı adresteki Alternatif B bu görseli yüklemez
+      expect(loadProjectScopedOffer3DPreview(alternativeA)?.url).toBe(
+        'data:image/jpeg;base64,ALT_A_IMAGE'
+      );
+      expect(loadProjectScopedOffer3DPreview(alternativeB)).toBeNull();
+
+      // Alternatif B de kendi görselini kaydettiğinde her iki alternatif kendi görselini bağımsız korur
+      saveProjectScopedOffer3DPreview({
+        url: 'data:image/jpeg;base64,ALT_B_IMAGE',
+        caption: 'Alternatif B 3D',
+        ...alternativeB,
+      });
+
+      expect(loadProjectScopedOffer3DPreview(alternativeA)?.url).toBe(
+        'data:image/jpeg;base64,ALT_A_IMAGE'
+      );
+      expect(loadProjectScopedOffer3DPreview(alternativeB)?.url).toBe(
+        'data:image/jpeg;base64,ALT_B_IMAGE'
+      );
+    });
+
+    it('Önce yalnızca projectName ile oluşturulan projeye daha sonra projectAddress eklendiğinde kaydedilmiş 3D görsel korunur', () => {
+      const initialNameOnlyProject = {
+        projectName: 'Güneş Rezidans',
+        projectAddress: '',
+      };
+
+      saveProjectScopedOffer3DPreview({
+        url: 'data:image/jpeg;base64,GUNES_3D_IMAGE',
+        caption: 'Güneş Rezidans 3D',
+        ...initialNameOnlyProject,
+      });
+
+      expect(loadProjectScopedOffer3DPreview(initialNameOnlyProject)?.url).toBe(
+        'data:image/jpeg;base64,GUNES_3D_IMAGE'
+      );
+
+      // Daha sonra aynı projeye arsa adresi eklensin
+      const projectAfterAddressAdded = {
+        projectName: 'Güneş Rezidans',
+        projectAddress: 'Kocamustafapaşa Mah. 777 Ada 4 Parsel',
+      };
+
+      const preservedPreview = loadProjectScopedOffer3DPreview(projectAfterAddressAdded);
+      expect(preservedPreview).not.toBeNull();
+      expect(preservedPreview?.url).toBe('data:image/jpeg;base64,GUNES_3D_IMAGE');
+    });
+  });
+
+  describe('2B-4: Çatı Tipi (gable/flat) Geçişlerinde roofAtticType Temizliği ve Eski Proje Yükleme Senkronizasyonu', () => {
+    it('mansard veya duplex çatı tipinden gable veya flat tipine geçildiğinde roofAtticType temizlenir ve gable altında roofAtticType atanmaz', () => {
+      let state = createSampleProject({
+        roofType: 'mansard',
+        mansardFlatCount: 3,
+      });
+      expect(state.roofType).toBe('mansard');
+      expect(state.roofAtticType).toBe('independent');
+
+      // gable çatıya geçiş
+      state = applyCalculatorParamsUpdate(state, { roofType: 'gable' });
+      expect(state.roofType).toBe('gable');
+      expect(state.roofAtticType).toBeUndefined();
+
+      // duplex çatıya geçiş
+      state = applyCalculatorParamsUpdate(state, { roofType: 'duplex' });
+      expect(state.roofType).toBe('duplex');
+      expect(state.roofAtticType).toBe('duplex_unified');
+
+      // flat çatıya geçiş
+      state = applyCalculatorParamsUpdate(state, { roofType: 'flat' });
+      expect(state.roofType).toBe('flat');
+      expect(state.roofAtticType).toBeUndefined();
+    });
+
+    it('Eski proje yüklemede savedData.buildingModelParams mevcut olsa bile params içindeki mansardFlatCount, roofType ve shopArea 3D modele senkronize edilir', () => {
+      const legacySavedParams = applyCalculatorParamsUpdate(DEFAULT_PARAMS, {
+        projectName: 'Eski Kayıtlı Proje',
+        projectAddress: 'Fatih Mah. 300 Ada 1 Parsel',
+        hasGroundFloorShop: true,
+        shopCount: 2,
+        shopArea: 145,
+        roofType: 'mansard',
+        mansardFlatCount: 3,
+      });
+
+      // Eski kayıttaki buildingModelParams içinde mansardFlatCount ve shopArea eksik, roofType eski 'gable' kalmış olsun
+      const staleSavedBuildingModel = {
+        ...DEFAULT_BUILDING_PARAMS,
+        roofType: 'gable' as const,
+        mansardFlatCount: undefined,
+        shopArea: undefined,
+      };
+
+      const syncedOnLoad = syncProjectParamsToBuildingModel(
+        staleSavedBuildingModel,
+        legacySavedParams
+      );
+
+      expect(syncedOnLoad.roofType).toBe('mansard');
+      expect(syncedOnLoad.mansardFlatCount).toBe(3);
+      expect(syncedOnLoad.shopArea).toBe(145);
+      expect(syncedOnLoad.flatCount).toBe(legacySavedParams.flatCount);
+    });
+  });
+});
+
+
