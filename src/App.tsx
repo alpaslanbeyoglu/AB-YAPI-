@@ -603,6 +603,7 @@ export default function App() {
     return [];
   });
 
+  const openedArchiveKeyRef = useRef<string | null>(null);
   const latestHistoryRef = useRef(historyList);
   useLayoutEffect(() => {
     latestHistoryRef.current = historyList;
@@ -656,6 +657,7 @@ export default function App() {
           const cloudTabsConfig = cloudActiveState.uiState?.tabsConfig;
 
           if (cloudActiveState.params) {
+            openedArchiveKeyRef.current = null;
             setParams(cloudActiveState.params);
             try {
               localStorage.setItem('ab_yapi_last_params', JSON.stringify(cloudActiveState.params));
@@ -820,23 +822,40 @@ export default function App() {
     }, 4500);
   };
 
+  // The address identifies the archive entry both locally and in Firestore.
+  const activeAddressKey = getSafeProjectKey(params.projectAddress);
+  const addressBelongsToAnotherProject = activeAddressKey !== openedArchiveKeyRef.current &&
+    historyList.some(project => getSafeProjectKey(project.projectAddress) === activeAddressKey);
+
+  const canSaveArchiveAddress = (address: string, allowedKey: string | null = null) => {
+    const key = getSafeProjectKey(address);
+    if (key === allowedKey || !latestHistoryRef.current.some(project => getSafeProjectKey(project.projectAddress) === key)) {
+      return true;
+    }
+    showNotification('error', 'Bu adresle kayıtlı bir proje var. Güncellemek için projeyi arşivden açın veya yeni proje için farklı bir adres girin.');
+    return false;
+  };
+
   const saveProjectToArchive = (offerMeta?: ProjectParams['offerMeta']) => {
     if (!params.projectAddress.trim() || params.projectAddress === 'Yeni Kentsel Dönüşüm Projesi') {
       showNotification('error', 'Projeyi arşive kaydetmek için 1. aşamada yapı adresini veya ada ve parsel bilgisini girin.');
       return false;
     }
 
+    if (!canSaveArchiveAddress(params.projectAddress, openedArchiveKeyRef.current)) return false;
+
+    const existingProject = latestHistoryRef.current.find(project => getSafeProjectKey(project.projectAddress) === activeAddressKey);
     const nowIso = new Date().toISOString();
     const newSnapshot: SavedProjectData = {
       version: '1.0.0',
-      savedAt: nowIso,
+      savedAt: existingProject?.savedAt || nowIso,
       updatedAt: nowIso,
       projectAddress: params.projectAddress,
       params: offerMeta ? { ...params, offerMeta } : params,
       results,
       buildingModelParams, // 3D model parametrelerini de snapshot'a dahil ediyoruz!
     };
-    const updatedHistory = [newSnapshot, ...historyList.filter(p => p.projectAddress !== params.projectAddress)];
+    const updatedHistory = [newSnapshot, ...latestHistoryRef.current.filter(project => project !== existingProject)];
     try {
       localStorage.setItem('ab_yapi_history', JSON.stringify(updatedHistory));
     } catch (error) {
@@ -844,6 +863,7 @@ export default function App() {
       showNotification('error', 'Proje yerel arşive kaydedilemedi. Tarayıcı depolama alanını ve izinlerini kontrol edin.');
       return false;
     }
+    openedArchiveKeyRef.current = getSafeProjectKey(params.projectAddress);
     setHistoryList(updatedHistory);
     try {
       localStorage.setItem('ab_yapi_active_updated_at', nowIso);
@@ -906,35 +926,12 @@ const handleQuickSave = () => {
 };
 
 
-  // Sıfırdan Yeni Proje / İş Emri Başlatma (Mevcut olanı arşive güvenle kaydedip tertemiz sıfırlar)
   const handleStartNewProject = (customAddress?: string) => {
-    // Mevcut projenin adı veya adresi varsa önce arşive al
-    if (params.projectAddress.trim() && params.projectAddress !== 'Yeni Kentsel Dönüşüm Projesi') {
-      const nowIso = new Date().toISOString();
-      const currentSnapshot: SavedProjectData = {
-        version: '1.0.0',
-        savedAt: nowIso,
-        updatedAt: nowIso,
-        projectAddress: params.projectAddress || 'Arşiv Proje',
-        params,
-        results,
-        buildingModelParams,
-      };
-      setHistoryList(prev => {
-        const filtered = prev.filter(p => p.projectAddress !== currentSnapshot.projectAddress);
-        const updated = [currentSnapshot, ...filtered];
-        try {
-          localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
-        } catch (e) {}
-        return updated;
-      });
-      if (user && isLicensed) {
-        saveProjectToCloud(currentSnapshot).catch(err => {
-          console.warn('Arşivlenen proje buluta kaydedilemedi:', err);
-        });
-      }
+    if (!addressBelongsToAnotherProject && params.projectAddress.trim() && params.projectAddress !== 'Yeni Kentsel Dönüşüm Projesi') {
+      if (!saveProjectToArchive()) return;
     }
 
+    openedArchiveKeyRef.current = null;
     const initialP = getInitialProjectParams(customAddress ?? '');
     const initialModel = getInitialBuildingModelParams();
 
@@ -948,7 +945,9 @@ const handleQuickSave = () => {
     activateProjectTabs();
     setActiveTab('kurulum');
     setRequestedSetupStep(1);
-    showNotification('success', 'Yeni proje çalışma alanı açıldı.');
+    showNotification('success', addressBelongsToAnotherProject
+      ? 'Kayıtlı proje korunarak yeni çalışma alanı açıldı.'
+      : 'Yeni proje çalışma alanı açıldı.');
   };
 
   const handleExportJson = (includeHistory = false) => {
@@ -982,6 +981,7 @@ const handleQuickSave = () => {
         const paramsObj = data.params || data;
         if (paramsObj && (paramsObj.landArea !== undefined || paramsObj.projectAddress)) {
           const sanitizedLoadedParams = applyCalculatorParamsUpdate(DEFAULT_PARAMS, paramsObj);
+          openedArchiveKeyRef.current = null;
           setParams(sanitizedLoadedParams);
           if (data.buildingModelParams) {
             setBuildingModelParams(
@@ -1018,6 +1018,7 @@ const handleQuickSave = () => {
     try {
       if (imported.params) {
         const sanitizedLoadedParams = applyCalculatorParamsUpdate(DEFAULT_PARAMS, imported.params);
+        openedArchiveKeyRef.current = null;
         setParams(sanitizedLoadedParams);
         if (imported.buildingModelParams) {
           setBuildingModelParams(
@@ -1044,6 +1045,7 @@ const handleQuickSave = () => {
 
   const handleLoadProject = (savedData: SavedProjectData, targetTab: TabId = 'kurulum') => {
     if (savedData && savedData.params) {
+      openedArchiveKeyRef.current = getSafeProjectKey(savedData.projectAddress);
       const sanitizedLoadedParams = applyCalculatorParamsUpdate(DEFAULT_PARAMS, savedData.params);
       setParams(sanitizedLoadedParams);
       if (savedData.buildingModelParams) {
@@ -1081,6 +1083,8 @@ const handleQuickSave = () => {
   };
 
   const handleAddNewConstructionProject = (newProj: SavedProjectData) => {
+    if (!canSaveArchiveAddress(newProj.projectAddress)) return;
+    openedArchiveKeyRef.current = getSafeProjectKey(newProj.projectAddress);
     const updated = [newProj, ...historyList.filter(p => p.projectAddress !== newProj.projectAddress)];
     setHistoryList(updated);
     try {
@@ -1142,6 +1146,7 @@ const handleQuickSave = () => {
       if (updated.length > 0) {
         handleLoadProjectForProgress(updated[0]);
       } else {
+        openedArchiveKeyRef.current = null;
         setParams(getInitialProjectParams(''));
         setBuildingModelParams(getInitialBuildingModelParams());
         setActiveTab('gecmis');
@@ -1542,6 +1547,7 @@ const handleQuickSave = () => {
               onSyncModelToCalculator={handleSyncModelToCalculator}
               onCalculate={handleCalculate}
               onSaveOffer={saveProjectToArchive}
+              isArchiveAddressConflict={addressBelongsToAnotherProject}
               savedProjects={historyList}
               onSelectProjectForProgress={handleLoadProjectForProgress}
               onAddNewConstructionProject={handleAddNewConstructionProject}
@@ -1615,7 +1621,9 @@ const handleQuickSave = () => {
             />
           )}
 
-          {activeTab === 'surec' && (
+          {activeTab === 'surec' && (addressBelongsToAnotherProject ? (
+            <p role="alert" className="rounded-xl bg-amber-50 p-4 text-amber-900">Bu adresle kayıtlı projeyi şantiye takibi için Proje Arşivi’nden açın.</p>
+          ) : (
             <ConstructionProgressTab
               params={params}
               results={results}
@@ -1630,7 +1638,7 @@ const handleQuickSave = () => {
               onNavigateToOffer={() => setActiveTab('teklif')}
               onNavigateToContract={() => setActiveTab('sozlesme')}
             />
-          )}
+          ))}
 
           {activeTab === 'sozlesme' && (
             <ContractTab

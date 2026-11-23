@@ -135,6 +135,7 @@ interface ProjectSetupTabProps {
   onSyncModelToCalculator?: (modelUpdates: Partial<ProjectParams>) => void;
   onCalculate?: () => void;
   onSaveOffer?: (offerMeta: ProjectParams['offerMeta']) => boolean;
+  isArchiveAddressConflict?: boolean;
   savedProjects?: SavedProjectData[];
   onSelectProjectForProgress?: (project: SavedProjectData) => void;
   onAddNewConstructionProject?: (newProject: SavedProjectData) => void;
@@ -164,6 +165,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   onSyncModelToCalculator,
   onCalculate,
   onSaveOffer,
+  isArchiveAddressConflict,
   savedProjects,
   onSelectProjectForProgress,
   onAddNewConstructionProject,
@@ -4280,7 +4282,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           )}
 
           {/* 9. AŞAMA: PROJE VE ŞANTİYE YÖNETİMİ */}
-          {workbenchStage === 9 && (
+          {workbenchStage === 9 && (isArchiveAddressConflict ? (
+            <p role="alert" className="rounded-xl bg-amber-50 p-4 text-amber-900">Bu adresle kayıtlı projeyi şantiye takibi için Proje Arşivi’nden açın.</p>
+          ) : (
             <ConstructionProgressTab
               params={params}
               results={results}
@@ -4299,7 +4303,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 goToStage(8, undefined, { stage8SubView: 'contract' })
               }
             />
-          )}
+          ))}
         </div>
 
         {/* Sağ Bölüm: Canlı Karar Özeti ve Tıklanabilir Kontroller */}

@@ -222,21 +222,6 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           </div>
         </div>
 
-        {/* 2. ORTA BÖLÜM: Hızlı İşlem Butonu */}
-        {onNewProjectClick && (
-          <div className="hidden lg:flex items-center gap-2 @[1160px]:gap-2.5 shrink-0 order-3 @[1000px]:order-2 w-full @[1000px]:w-auto pt-1 @[1000px]:pt-0 border-t @[1000px]:border-t-0 border-slate-100">
-            <button
-              type="button"
-              onClick={onNewProjectClick}
-              className="h-9 px-2.5 @[1160px]:px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] @[1160px]:text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs whitespace-nowrap leading-none shrink-0"
-              title="Mevcut çalışmayı arşive alıp sıfırdan yeni bir proje başlatır"
-            >
-              <Plus className="w-3.5 h-3.5 shrink-0" />
-              <span>Sıfırla</span>
-            </button>
-          </div>
-        )}
-
         {/* 3. SAĞ BÖLÜM: Tema, İçe/Dışa Aktar ve Kullanıcı / Giriş */}
         <div className="flex items-center gap-2 @[1160px]:gap-2.5 shrink-0 order-2 @[1000px]:order-3">
           {/* Light / Gray Theme Toggle Button */}
