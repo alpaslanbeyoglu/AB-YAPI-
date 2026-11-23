@@ -74,6 +74,8 @@ import { SolarAnalysisPanel } from './SolarAnalysisPanel';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
 import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel';
 
+const appearanceSelectClass = 'mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm focus-visible:outline-2 focus-visible:outline-indigo-600';
+
 const APPEARANCE_PALETTES = [
   { label: 'Açık & Kiremit', wall: '#f8fafc', roof: '#b91c1c', accent: '#b5734c', frame: '#18181b' },
   { label: 'Antrasit & Çinko', wall: '#22252a', roof: '#1e293b', accent: '#b5734c', frame: '#18181b' },
@@ -397,13 +399,12 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   onUpdateBuildingRotation={(rot) => updateParams({ surfaceRotation: rot, buildingRotation: rot })}
                 />
 
-                <section aria-label="Cephe görünümü" className={`space-y-3 rounded-xl border p-3 ${subCardBg}`}>
-                  <h3 className={`text-sm font-bold ${textTitle}`}>Cephe görünümü</h3>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <label className="min-w-0 text-xs font-semibold text-slate-700">
+                <section aria-label="Dış görünüm" className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 text-slate-800 sm:p-4">
+                  <h3 className="text-sm font-bold">Dış görünüm</h3>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <label className="min-w-0 text-xs font-semibold">
                       Cephe tarzı
-                      <select className="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm"
-                        value={modelParams.facadeStyle || 'modern'}
+                      <select className={appearanceSelectClass} value={modelParams.facadeStyle || 'modern'}
                         onChange={event => {
                           const style = FACADE_STYLES.find(option => option.id === event.currentTarget.value);
                           if (style) updateParams({ facadeStyle: style.id, wallColor: style.wallColorHex, accentColor: style.accentColorHex });
@@ -413,76 +414,53 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                     </label>
                     {([
                       ['wallPattern', 'Cephe dokusu', modelParams.wallPattern || 'smooth', WALL_PATTERN_OPTIONS],
+                      ['roofPattern', 'Çatı dokusu', modelParams.roofPattern || 'tiles', ROOF_PATTERN_OPTIONS],
                       ['materialFinish', 'Yüzey bitişi', modelParams.materialFinish || 'satin', MATERIAL_FINISH_OPTIONS],
                     ] as const).map(([field, label, value, options]) => (
-                      <label key={field} className="min-w-0 text-xs font-semibold text-slate-700">
+                      <label key={field} className="min-w-0 text-xs font-semibold">
                         {label}
-                        <select className="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm"
-                          value={value} onChange={event => {
-                            const option = options.find(item => item.id === event.currentTarget.value);
-                            if (option) updateParams({ [field]: option.id });
-                          }}>
+                        <select className={appearanceSelectClass} value={value} onChange={event => {
+                          const option = options.find(item => item.id === event.currentTarget.value);
+                          if (option) updateParams({ [field]: option.id });
+                        }}>
                           {options.map(option => <option key={option.id} value={option.id}>{option.title}</option>)}
                         </select>
                       </label>
                     ))}
                   </div>
-                  <details className="border-t border-slate-200 pt-2">
-                    <summary className="cursor-pointer py-1 text-sm font-semibold text-slate-800">Renkler ve çatı dokusu</summary>
-                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                      <label className="text-xs font-semibold text-slate-700">
-                        Hazır renk paleti
-                        <select className="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm"
-                          value={APPEARANCE_PALETTES.find(palette => palette.wall === modelParams.wallColor && palette.roof === modelParams.roofColor &&
-                            palette.accent === modelParams.accentColor && palette.frame === modelParams.frameColor)?.label || ''}
-                          onChange={event => {
-                            const palette = APPEARANCE_PALETTES.find(item => item.label === event.currentTarget.value);
-                            if (palette) updateParams({ wallColor: palette.wall, roofColor: palette.roof, accentColor: palette.accent, frameColor: palette.frame });
-                          }}>
-                          <option value="" disabled>Özel palet</option>
-                          {APPEARANCE_PALETTES.map(palette => <option key={palette.label}>{palette.label}</option>)}
-                        </select>
-                      </label>
+                  <div className="grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-[minmax(8rem,1fr)_3fr]">
+                    <label className="min-w-0 text-xs font-semibold">
+                      Renk paleti
+                      <select className={appearanceSelectClass}
+                        value={APPEARANCE_PALETTES.find(palette => palette.wall === modelParams.wallColor && palette.roof === modelParams.roofColor &&
+                          palette.accent === modelParams.accentColor && palette.frame === modelParams.frameColor)?.label || ''}
+                        onChange={event => {
+                          const palette = APPEARANCE_PALETTES.find(item => item.label === event.currentTarget.value);
+                          if (palette) updateParams({ wallColor: palette.wall, roofColor: palette.roof, accentColor: palette.accent, frameColor: palette.frame });
+                        }}>
+                        <option value="" disabled>Özel renkler</option>
+                        {APPEARANCE_PALETTES.map(palette => <option key={palette.label}>{palette.label}</option>)}
+                      </select>
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
                       {([
                         ['wallColor', 'Duvar', '#f1f5f9', WALL_COLOR_PRESETS],
                         ['roofColor', 'Çatı', '#b91c1c', ROOF_COLOR_PRESETS],
-                        ['accentColor', 'Söve ve vurgu', '#b5734c', ACCENT_COLOR_PRESETS],
-                        ['frameColor', 'Doğrama ve korkuluk', '#18181b', FRAME_COLOR_PRESETS],
-                      ] as const).map(([field, label, fallback, presets]) => {
-                        const color = modelParams[field] || fallback;
-                        const preset = presets.find(item => item.hex.toLowerCase() === color.toLowerCase());
-                        return (
-                          <div key={field} className="min-w-0">
-                            <p className="mb-1 text-xs font-semibold text-slate-700">{label}</p>
-                            <div className="flex items-center gap-2">
-                              <input type="color" aria-label={`${label} özel rengi`} value={color}
-                                onChange={event => updateParams({ [field]: event.currentTarget.value })}
-                                className="h-10 w-10 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-1" />
-                              <select aria-label={`${label} hazır rengi`} value={preset?.id || ''}
-                                onChange={event => {
-                                  const selected = presets.find(item => item.id === event.currentTarget.value);
-                                  if (selected) updateParams({ [field]: selected.hex });
-                                }}
-                                className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm">
-                                <option value="" disabled>Özel renk</option>
-                                {presets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                              </select>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <label className="text-xs font-semibold text-slate-700">
-                        Çatı dokusu
-                        <select className="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm"
-                          value={modelParams.roofPattern || 'tiles'} onChange={event => {
-                            const option = ROOF_PATTERN_OPTIONS.find(item => item.id === event.currentTarget.value);
-                            if (option) updateParams({ roofPattern: option.id as BuildingModelParams['roofPattern'] });
-                          }}>
-                          {ROOF_PATTERN_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.title}</option>)}
-                        </select>
-                      </label>
+                        ['accentColor', 'Söve', '#b5734c', ACCENT_COLOR_PRESETS],
+                        ['frameColor', 'Doğrama', '#18181b', FRAME_COLOR_PRESETS],
+                      ] as const).map(([field, label, fallback, presets]) => (
+                        <label key={field} className="min-w-0 text-xs font-semibold">
+                          {label}
+                          <input type="color" list={`appearance-${field}`} value={modelParams[field] || fallback}
+                            onChange={event => updateParams({ [field]: event.currentTarget.value })}
+                            className="mt-1 block h-10 w-full cursor-pointer rounded-lg border border-slate-300 bg-white p-1 focus-visible:outline-2 focus-visible:outline-indigo-600" />
+                          <datalist id={`appearance-${field}`}>
+                            {presets.map(preset => <option key={preset.id} value={preset.hex} label={preset.name} />)}
+                          </datalist>
+                        </label>
+                      ))}
                     </div>
-                  </details>
+                  </div>
                 </section>
               </div>
             )}
