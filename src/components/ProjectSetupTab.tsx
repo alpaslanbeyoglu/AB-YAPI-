@@ -78,9 +78,7 @@ import {
   generateFacadeConfigs,
   syncPolygonToCustomFacades,
   calculateFootprint,
-  InteractiveFacadeUpdateResult,
   buildPolygonEditUpdate,
-  buildFacadeEditUpdate,
   buildBaseAreaEditUpdate,
   DEFAULT_CUSTOM_FACADES_4,
   DEFAULT_CUSTOM_FACADES_5,
@@ -107,7 +105,6 @@ import { SpecificationTab } from './SpecificationTab';
 import { AdminReportTab } from './AdminReportTab';
 import { ContractTab } from './ContractTab';
 import { InteractiveFootprintCanvas } from './InteractiveFootprintCanvas';
-import { InteractiveFacadeGeometryPanel } from './InteractiveFacadeGeometryPanel';
 import { getInitialBuildingModelParams } from '../utils/buildingModelUtils';
 import { BuildingModelParams, SavedProjectData } from '../types';
 import {
@@ -2033,46 +2030,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   </div>
                 </div>
 
-                {/* 2D Cephe Ölçüleri & Yol Yönetimi Paneli (Tek Veri Kaynağı — 2. Aşama Poligon ve 4. Aşama 3D Model ile Canlı Senkronize) */}
-                <div className="pt-4 border-t border-slate-100">
-                  <InteractiveFacadeGeometryPanel
-                    facadeWidth={
-                      activeInputMode === 'directArea'
-                        ? directAreaFootprint.effectiveWidth
-                        : (params.facadeWidth || currentPolyBounds.width || 10)
-                    }
-                    facadeDepth={
-                      activeInputMode === 'directArea'
-                        ? directAreaFootprint.effectiveDepth
-                        : (params.facadeDepth || currentPolyBounds.depth || 10)
-                    }
-                    backFacadeLength={
-                      activeInputMode === 'directArea'
-                        ? directAreaFootprint.effectiveWidth
-                        : params.backFacadeLength
-                    }
-                    leftFacadeLength={
-                      activeInputMode === 'directArea'
-                        ? directAreaFootprint.effectiveDepth
-                        : params.leftFacadeLength
-                    }
-                    polygonPoints={activePoints}
-                    roads={activeBuildingModelParams.roads}
-                    mainEntranceIndex={params.mainEntranceFacadeIndex ?? activeBuildingModelParams.mainEntranceFacadeIndex ?? 0}
-                    theme={theme}
-                    compact
-                    title="2D Cephe Ölçüleri ve Yol Yönetimi (3D Model ile Canlı Senkronize)"
-                    onUpdateFacades={(res: InteractiveFacadeUpdateResult) => {
-                      const patch = buildFacadeEditUpdate(params, res);
-                      onChangeParams(patch);
-                      if (!onUpdateBuildingModelParams) {
-                        setInternalBuildingModelParams((prev) => ({ ...prev, ...patch }));
-                      }
-                    }}
-                    onUpdateRoads={(newRoads) => handleUpdateBuildingModel({ roads: newRoads })}
-                    onEditInSmartPolygon={() => goToStage(2)}
-                  />
-                </div>
               </div>
         </div>
 
