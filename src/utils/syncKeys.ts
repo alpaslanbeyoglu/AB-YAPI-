@@ -190,6 +190,7 @@ export function resolveProjectProgressKeys(input: {
   previousAddress?: string | null;
   additionalCandidateAddresses?: readonly (string | null | undefined)[];
   fallbackId?: string | null;
+  registerAliases?: boolean;
 }): ProjectProgressKeyInfo {
   const addr = (input.projectAddress || '').trim();
   const name = (input.projectName || '').trim();
@@ -272,7 +273,9 @@ export function resolveProjectProgressKeys(input: {
     if (prevAddr) {
       currentAddressVariants.push(getSafeProjectKey(prevAddr), getLegacySafeProjectKey(prevAddr));
     }
-    registerIdentityAddressAliases(identityTokens, currentAddressVariants);
+    if (input.registerAliases !== false) {
+      registerIdentityAddressAliases(identityTokens, currentAddressVariants);
+    }
   }
 
   if (candidateKeys.length === 0) {

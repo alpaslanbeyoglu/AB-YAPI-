@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react';
 import {
   CheckCircle2,
   AlertCircle,
@@ -16,13 +16,12 @@ import { Header } from './components/Header';
 import { AdminLicenseManager } from './components/AdminLicenseManager';
 import { TabNavigation } from './components/TabNavigation';
 import { CompactSummaryBar } from './components/CompactSummaryBar';
-import { ConfirmModal } from './components/ConfirmModal';
 import { TabLoadingSkeleton } from './components/TabLoadingSkeleton';
 import { Logo } from './components/Logo';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useFirebaseSync } from './context/FirebaseSyncContext';
-import { getSafeProjectKey, getLegacySafeProjectKey } from './utils/syncKeys';
+import { getSafeProjectKey, getLegacySafeProjectKey, resolveProjectProgressKeys } from './utils/syncKeys';
 
 // Primary tabs imported directly for instant, rock-solid mobile & Safari initial paint
 import { ProjectSetupTab } from './components/ProjectSetupTab';
@@ -604,6 +603,11 @@ export default function App() {
     return [];
   });
 
+  const latestHistoryRef = useRef(historyList);
+  useLayoutEffect(() => {
+    latestHistoryRef.current = historyList;
+  }, [historyList]);
+
   const isCloudInitialSyncDoneRef = useRef(false);
   const lastLocalSignatureRef = useRef<string>('');
 
@@ -621,7 +625,7 @@ export default function App() {
         const cloudProjects = await loadProjectsFromCloud();
         if (cancelled) return;
 
-        const { merged, toUpload } = mergeProjectLists(historyList, cloudProjects || []);
+        const { merged, toUpload } = mergeProjectLists(latestHistoryRef.current, cloudProjects || []);
         setHistoryList(merged);
         try {
           localStorage.setItem('ab_yapi_history', JSON.stringify(merged));
@@ -816,21 +820,32 @@ export default function App() {
     }, 4500);
   };
 
-  const handleCalculate = () => {
+  const saveProjectToArchive = (offerMeta?: ProjectParams['offerMeta']) => {
+    if (!params.projectAddress.trim() || params.projectAddress === 'Yeni Kentsel Dönüşüm Projesi') {
+      showNotification('error', 'Projeyi arşive kaydetmek için 1. aşamada yapı adresini veya ada ve parsel bilgisini girin.');
+      return false;
+    }
+
     const nowIso = new Date().toISOString();
     const newSnapshot: SavedProjectData = {
       version: '1.0.0',
       savedAt: nowIso,
       updatedAt: nowIso,
       projectAddress: params.projectAddress,
-      params,
+      params: offerMeta ? { ...params, offerMeta } : params,
       results,
       buildingModelParams, // 3D model parametrelerini de snapshot'a dahil ediyoruz!
     };
-    const updatedHistory = [newSnapshot, ...historyList.filter(p => p.projectAddress !== params.projectAddress).slice(0, 19)];
-    setHistoryList(updatedHistory);
+    const updatedHistory = [newSnapshot, ...historyList.filter(p => p.projectAddress !== params.projectAddress)];
     try {
       localStorage.setItem('ab_yapi_history', JSON.stringify(updatedHistory));
+    } catch (error) {
+      console.warn('Proje arşive yazılamadı:', error);
+      showNotification('error', 'Proje yerel arşive kaydedilemedi. Tarayıcı depolama alanını ve izinlerini kontrol edin.');
+      return false;
+    }
+    setHistoryList(updatedHistory);
+    try {
       localStorage.setItem('ab_yapi_active_updated_at', nowIso);
     } catch (e) {}
 
@@ -841,7 +856,12 @@ export default function App() {
         showNotification('error', 'Yerel kayıt tamamlandı ancak bulut senkronizasyonu başarısız oldu.');
       });
     }
-    showNotification('success', 'Hesaplama tamamlandı ve tüm tablolar güncellendi!');
+    showNotification('success', 'Proje arşive kaydedildi.');
+    return true;
+  };
+
+  const handleCalculate = () => {
+    saveProjectToArchive();
   };
 
  
@@ -864,7 +884,7 @@ const handleQuickSave = () => {
 
   const updatedHistory = [
     newSnapshot,
-    ...historyList.filter(p => p.projectAddress !== liteParams.projectAddress).slice(0, 19),
+    ...historyList.filter(p => p.projectAddress !== liteParams.projectAddress),
   ];
 
   setHistoryList(updatedHistory);
@@ -889,7 +909,7 @@ const handleQuickSave = () => {
   // Sıfırdan Yeni Proje / İş Emri Başlatma (Mevcut olanı arşive güvenle kaydedip tertemiz sıfırlar)
   const handleStartNewProject = (customAddress?: string) => {
     // Mevcut projenin adı veya adresi varsa önce arşive al
-    if (params.projectAddress || params.projectName) {
+    if (params.projectAddress.trim() && params.projectAddress !== 'Yeni Kentsel Dönüşüm Projesi') {
       const nowIso = new Date().toISOString();
       const currentSnapshot: SavedProjectData = {
         version: '1.0.0',
@@ -902,7 +922,7 @@ const handleQuickSave = () => {
       };
       setHistoryList(prev => {
         const filtered = prev.filter(p => p.projectAddress !== currentSnapshot.projectAddress);
-        const updated = [currentSnapshot, ...filtered.slice(0, 19)];
+        const updated = [currentSnapshot, ...filtered];
         try {
           localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
         } catch (e) {}
@@ -915,7 +935,7 @@ const handleQuickSave = () => {
       }
     }
 
-    const initialP = getInitialProjectParams(customAddress || 'Yeni Kentsel Dönüşüm Projesi');
+    const initialP = getInitialProjectParams(customAddress ?? '');
     const initialModel = getInitialBuildingModelParams();
 
     setParams(initialP);
@@ -928,7 +948,7 @@ const handleQuickSave = () => {
     activateProjectTabs();
     setActiveTab('kurulum');
     setRequestedSetupStep(1);
-    showNotification('success', 'Mevcut çalışma arşive alındı ve sıfırdan yeni bir proje çalışma alanı açıldı.');
+    showNotification('success', 'Yeni proje çalışma alanı açıldı.');
   };
 
   const handleExportJson = (includeHistory = false) => {
@@ -1088,21 +1108,59 @@ const handleQuickSave = () => {
     setActiveTab('surec');
   };
 
-  const handleClearHistory = () => {
-    const oldHistory = [...historyList];
-    setHistoryList([]);
-    try {
-      localStorage.removeItem('ab_yapi_history');
-    } catch (e) {}
+  const deleteArchivedProjects = (targets: SavedProjectData[]) => {
+    const updated = historyList.filter(project => !targets.includes(project));
+    const getProgressKeys = (project: SavedProjectData) => resolveProjectProgressKeys({
+      projectAddress: project.projectAddress,
+      projectName: project.params?.projectName,
+      proposalNumber: project.params?.offerMeta?.proposalNumber,
+      registerAliases: false,
+    }).candidateKeys;
+    const retainedKeys = new Set(updated.flatMap(getProgressKeys));
+    const progressSuffixes = ['stages', 'logs', 'subcontractors', 'notif_history', 'contract_date', 'target_date', 'offer_accepted'];
 
-    if (user && isLicensed) {
-      for (const proj of oldHistory) {
-        deleteProjectFromCloud(proj.projectAddress).catch(err => {
-          console.warn('Geçmiş projesi buluttan silinemedi:', proj.projectAddress, err);
-        });
+    try {
+      localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
+      for (const project of targets) {
+        for (const key of getProgressKeys(project)) {
+          if (retainedKeys.has(key)) continue;
+          for (const suffix of progressSuffixes) {
+            localStorage.removeItem(`ab_yapi_progress_${key}_${suffix}`);
+          }
+          localStorage.removeItem(`ab_yapi_offer_3d_${key}`);
+        }
+      }
+    } catch (error) {
+      console.warn('Yerel arşiv silme hatası:', error);
+      showNotification('error', 'Yerel arşiv temizlenemedi.');
+      return;
+    }
+
+    setHistoryList(updated);
+    const activeProjectKey = getSafeProjectKey(params.projectAddress);
+    if (targets.some(project => getSafeProjectKey(project.projectAddress) === activeProjectKey)) {
+      if (updated.length > 0) {
+        handleLoadProjectForProgress(updated[0]);
+      } else {
+        setParams(getInitialProjectParams(''));
+        setBuildingModelParams(getInitialBuildingModelParams());
+        setActiveTab('gecmis');
       }
     }
-    showNotification('success', 'Hesaplama geçmişi temizlendi.');
+
+    showNotification('success', `${targets.length} proje yerel arşivden silindi.`);
+    if (user && isLicensed) {
+      Promise.allSettled(targets.map(project => deleteProjectFromCloud(project.projectAddress))).then(outcomes => {
+        const failedCount = outcomes.filter(outcome => outcome.status === 'rejected').length;
+        if (failedCount > 0) {
+          showNotification('error', `${failedCount} proje buluttan silinemedi. Yerel kayıtlar temizlendi.`);
+        }
+      });
+    }
+  };
+
+  const handleClearHistory = () => {
+    deleteArchivedProjects(historyList);
   };
 
   const handleDeleteHistoryItem = (identifier: number | string) => {
@@ -1138,51 +1196,7 @@ const handleQuickSave = () => {
     const targetProject = historyList[targetIndex];
     if (!targetProject) return;
 
-    const updated = historyList.filter((_, idx) => idx !== targetIndex);
-    setHistoryList(updated);
-    try {
-      localStorage.setItem('ab_yapi_history', JSON.stringify(updated));
-    } catch (e) {}
-
-    // Permanent cleanup of local storage progress records, 3D preview, and legacy keys for this project
-    try {
-      const safeKey = getSafeProjectKey(targetProject.projectAddress);
-      const legacyKey = getLegacySafeProjectKey(targetProject.projectAddress).slice(0, 128);
-      const suffixes = ['stages', 'logs', 'subcontractors', 'notif_history', 'contract_date', 'target_date', 'offer_accepted'];
-      
-      for (const suffix of suffixes) {
-        localStorage.removeItem(`ab_yapi_progress_${safeKey}_${suffix}`);
-        if (legacyKey && legacyKey !== safeKey) {
-          localStorage.removeItem(`ab_yapi_progress_${legacyKey}_${suffix}`);
-        }
-      }
-      localStorage.removeItem(`ab_yapi_offer_3d_${safeKey}`);
-      if (legacyKey && legacyKey !== safeKey) {
-        localStorage.removeItem(`ab_yapi_offer_3d_${legacyKey}`);
-      }
-    } catch (e) {}
-
-    if (user && targetProject) {
-      deleteProjectFromCloud(targetProject.projectAddress).then(() => {
-        console.log("Proje buluttan başarıyla silindi:", targetProject.projectAddress);
-      }).catch(err => {
-        console.error("Buluttan silme hatası:", err);
-        showNotification('error', 'Bulut sunucusundan silme sırasında bir hata oluştu, yerel kayıt temizlendi.');
-      });
-    }
-
-    // Silinen şantiye aktif projeyse aktif proje seçimini güvenli biçimde temizle veya başka projeye geç
-    if (params.projectAddress === targetProject.projectAddress || getSafeProjectKey(params.projectAddress) === getSafeProjectKey(targetProject.projectAddress)) {
-      if (updated.length > 0) {
-        handleLoadProjectForProgress(updated[0]);
-      } else {
-        const fresh = applyCalculatorParamsUpdate(DEFAULT_PARAMS, {});
-        setParams(fresh);
-        setBuildingModelParams(syncProjectParamsToBuildingModel(DEFAULT_BUILDING_PARAMS, fresh));
-      }
-    }
-
-    showNotification('success', 'Seçilen proje kaydı ve tüm kalıcı verileri başarıyla silindi.');
+    deleteArchivedProjects([targetProject]);
   };
 
   // Group tabs by category
@@ -1239,7 +1253,7 @@ const handleQuickSave = () => {
         {/* DESKTOP SIDEBAR (Hidden on mobile and automatically hidden when Project Flow Diagram is expanded) */}
         <aside
           className={`${
-            activeTab === 'kurulum' && isProjectFlowOpen ? 'hidden' : 'hidden md:flex'
+            activeTab === 'kurulum' && isProjectFlowOpen ? 'hidden md:flex xl:hidden' : 'hidden md:flex'
           } flex-col shrink-0 border-r transition-all duration-300 print:hidden sticky top-0 h-screen z-20 ${
             sidebarOpen ? 'w-64' : 'w-16'
           } ${
@@ -1403,68 +1417,26 @@ const handleQuickSave = () => {
               }}
             />
 
-            {/* Top Menu Bar (Categorized) - MOBILE ONLY */}
-            <div className={`md:hidden border-b shadow-xs transition-colors w-full max-w-full overflow-hidden ${
-              isGray ? 'bg-slate-100/95 border-slate-300' : 'bg-white/95 border-slate-200'
-            }`}>
-              <div className="max-w-7xl mx-auto px-2.5 sm:px-4 py-1.5 flex items-center gap-2.5 sm:gap-4 overflow-x-auto no-scrollbar w-full max-w-full">
-                {categorizedTabs.map((cat, catIdx) => (
-                  <div key={cat.id} className="flex items-center gap-1 shrink-0">
-                    {catIdx > 0 && <div className="w-[1px] h-4 bg-slate-300 mx-1" />}
-                    <div className={`flex flex-col gap-0.5 ${catIdx === 0 ? '' : 'ml-1'}`}>
-                      <span className="text-[8px] uppercase tracking-tighter font-bold text-slate-400 px-1">{cat.label}</span>
-                      <div className="flex items-center gap-1.5">
-                        {cat.tabs.map(tab => {
-                          const Icon = tab.icon;
-                          const isActive = activeTab === tab.id;
-                          return (
-                            <button
-                              key={tab.id}
-                              type="button"
-                              onClick={() => setActiveTab(tab.id)}
-                              title={tab.label}
-                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap shrink-0 ${
-                                isActive
-                                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]'
-                                  : isGray
-                                  ? 'text-slate-700 hover:text-slate-900 hover:bg-slate-200'
-                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                              }`}
-                            >
-                              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : ''}`} />
-                              <span>{tab.shortLabel}</span>
-                              {tab.id === 'gecmis' && (
-                                <span className={`ml-0.5 text-[9px] px-1.5 rounded-full font-bold ${
-                                  isActive ? 'bg-indigo-50 text-white' : 'bg-pink-100 text-pink-800'
-                                }`}>
-                                  {historyList.length}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
+            <nav aria-label="Mobil ana menü" className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 md:hidden print:hidden">
+              <select
+                aria-label="Uygulama bölümü"
+                value={activeTab}
+                onChange={(event) => setActiveTab(event.currentTarget.value as TabId)}
+                className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800"
+              >
+                {TAB_CATEGORIES.map(category => (
+                  <optgroup key={category.id} label={category.label}>
+                    {tabsConfig.filter(tab => tab.category === category.id && (tab.id === activeTab || (tab.visible && (category.id === 'contractor_core' || tab.id === 'kurulum')))).map(tab => (
+                      <option key={tab.id} value={tab.id}>{tab.id === 'kurulum' ? 'Proje Çalışma Masası' : tab.shortLabel}</option>
+                    ))}
+                  </optgroup>
                 ))}
-                
-
- 
-                <button
-                  type="button"
-                  onClick={() => setIsMenuSettingsOpen(true)}
-                  title="Menü Ayarları"
-                  className={`ml-auto self-end mb-0.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 border ${
-                    isGray
-                      ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-slate-300'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
-                  }`}
-                >
-                  <Settings2 className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">Menü</span>
-                </button>
-              </div>
-            </div>
+              </select>
+              <button type="button" aria-label="Menü ayarları" onClick={() => setIsMenuSettingsOpen(true)}
+                className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-slate-300 text-slate-700">
+                <Settings2 className="h-4 w-4" />
+              </button>
+            </nav>
           </div>
 
           {/* Global Live Summary Bar */}
@@ -1569,6 +1541,7 @@ const handleQuickSave = () => {
               onUpdateBuildingModelParams={updateBuildingModelParams}
               onSyncModelToCalculator={handleSyncModelToCalculator}
               onCalculate={handleCalculate}
+              onSaveOffer={saveProjectToArchive}
               savedProjects={historyList}
               onSelectProjectForProgress={handleLoadProjectForProgress}
               onAddNewConstructionProject={handleAddNewConstructionProject}
@@ -1632,7 +1605,7 @@ const handleQuickSave = () => {
               onUpdateParam={(key, val) => updateCalculatorParams({ [key]: val })}
               onUpdateAllParams={updateCalculatorParams}
               onNavigateToSurec={() => setActiveTab('surec')}
-              onSaveOffer={handleCalculate}
+              onSaveOffer={saveProjectToArchive}
               onNavigateToContract={() => setActiveTab('sozlesme')}
               evaluation={evaluateWorkbenchProject(params, results, historyList.some((h) => h.projectAddress === params.projectAddress))}
               onSelectWorkbenchStage={(stage, focusFieldId) => {

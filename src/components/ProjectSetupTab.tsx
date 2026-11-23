@@ -134,6 +134,7 @@ interface ProjectSetupTabProps {
   onUpdateBuildingModelParams?: (updates: Partial<BuildingModelParams>) => void;
   onSyncModelToCalculator?: (modelUpdates: Partial<ProjectParams>) => void;
   onCalculate?: () => void;
+  onSaveOffer?: (offerMeta: ProjectParams['offerMeta']) => boolean;
   savedProjects?: SavedProjectData[];
   onSelectProjectForProgress?: (project: SavedProjectData) => void;
   onAddNewConstructionProject?: (newProject: SavedProjectData) => void;
@@ -162,6 +163,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   onUpdateBuildingModelParams,
   onSyncModelToCalculator,
   onCalculate,
+  onSaveOffer,
   savedProjects,
   onSelectProjectForProgress,
   onAddNewConstructionProject,
@@ -351,6 +353,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     window.setTimeout(() => {
       const el = document.getElementById(focusFieldId);
       if (el) {
+        for (let group = el.closest('details'); group; group = group.parentElement?.closest('details') ?? null) {
+          group.open = true;
+        }
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         if (highlight) {
           el.classList.add('ring-4', 'ring-indigo-500/60', 'ring-offset-2', 'transition-all', 'duration-700');
@@ -922,13 +927,13 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       <div
         className={`grid grid-cols-1 gap-5 items-start ${
           effectiveFlowOpen
-            ? 'lg:grid-cols-[250px_minmax(0,1fr)_290px] xl:grid-cols-[265px_minmax(0,1fr)_310px]'
-            : 'lg:grid-cols-[minmax(0,1fr)_290px] xl:grid-cols-[minmax(0,1fr)_310px]'
+            ? 'xl:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)_290px]'
+            : '2xl:grid-cols-[minmax(0,1fr)_290px]'
         }`}
       >
         {/* Sol Bölüm: Proje Akış Şeması (Genişletildiğinde Gösterilir) */}
         {effectiveFlowOpen && (
-          <div className="lg:sticky lg:top-6">
+          <div className="hidden xl:block xl:sticky xl:top-24">
             <WorkbenchSidebar
               activeWorkbenchStage={workbenchStage}
               onSelectWorkbenchStage={goToStage}
@@ -944,14 +949,31 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
         {/* Orta Bölüm: Aktif Aşama Çalışma Alanı */}
         <div className="space-y-5 min-w-0">
+          {workbenchStage >= 5 && workbenchStage <= 7 && (
+            <dl className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm sm:grid-cols-3">
+              {[
+                ['Toplam proje bedeli', results.grandTotal, 'TL'],
+                ['Ortalama brüt m² bedeli', results.grossCostPerSqM, 'TL/m²'],
+                ['Kalan malik bakiyesi', results.flatResults.reduce((sum, flat) =>
+                  sum + (flat.isContractorShare ? 0 : flat.netRemainingDebt || 0), 0), 'TL'],
+              ].map(([label, value, unit]) => (
+                <div key={label}>
+                  <dt className="text-slate-600">{label}</dt>
+                  <dd className="mt-1 text-base font-bold tabular-nums text-slate-900">
+                    {Number(value).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} {unit}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
           {/* 1. AŞAMA: MÜŞTERİ VE PROJE TANIMLAMA */}
           {workbenchStage === 1 && (
       <div className="space-y-6">
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-6 animate-fade-in`}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  👤 Müşteri / Proje Adı
+                <label htmlFor="projectNameInput" className="block text-sm font-bold text-slate-700 mb-1.5">
+                  Müşteri / Proje Adı
                 </label>
                 <input
                   id="projectNameInput"
@@ -967,13 +989,14 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  📍 Yapı / Proje Adresi (Ada & Parsel)
+                <label htmlFor="projectAddressInput" className="block text-sm font-bold text-slate-700 mb-1.5">
+                  Yapı Adresi veya Ada / Parsel
                 </label>
                 <div className="relative">
                   <input
                     ref={addressInputRef}
                     id="projectAddressInput"
+                    aria-describedby="projectAddressHelp"
                     type="text"
                     value={params.projectAddress || ''}
                     onChange={(e) => onChangeParams({ ...params, projectAddress: e.target.value })}
@@ -981,8 +1004,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     className={inputClass}
                   />
                 </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  İl, ilçe, mahalle ve ada/parsel bilgisini yazabilirsiniz.
+                <span id="projectAddressHelp" className="text-xs text-slate-600 mt-1 block">
+                  Arşive kaydetmek için yapı adresini veya ada ve parsel numarasını girin.
                 </span>
               </div>
             </div>
@@ -1165,7 +1188,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           </div>
 
           {/* 2D Akıllı Poligon & Taban Oturumu Editörü (Tek Veri Kaynağı — 4. Aşama 3D Model ile Canlı Senkronize) */}
-          <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-indigo-200/70 space-y-2.5">
+          <details className="rounded-2xl border border-indigo-200/70 bg-slate-50/70 p-3.5">
+            <summary className="cursor-pointer text-sm font-bold text-slate-800">Parsel çizimi ve taban oturumu</summary>
+            <div className="mt-3 space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
               <div className="flex items-center gap-2">
                 <Compass className="w-4 h-4 text-indigo-600" />
@@ -1216,7 +1241,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               corePositionPreset={activeBuildingModelParams.corePositionPreset}
               onChangeCoreParams={(coreUpdates) => handleUpdateBuildingModel(coreUpdates)}
             />
-          </div>
+            </div>
+          </details>
 
           <div className="space-y-4">
               {/* 1. GRUP: MEVCUT BİNALAR & HAK DAĞILIMI ENVANTERİ */}
@@ -1532,8 +1558,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
                       {/* Normal Kat Sayısı */}
                       <div>
-                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                          🏢 Kat Sayısı (Z+{(params.floorCount || 5) - 1})
+                        <label htmlFor="minimalFloorCountInput" className="block text-xs font-bold text-slate-700 mb-1">
+                          Kat sayısı (zemin dahil, bodrum hariç)
                         </label>
                         <input
                           id="minimalFloorCountInput"
@@ -1550,6 +1576,11 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           }}
                           className={`w-full text-xs font-black font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
                         />
+                        {params.floorCount > 0 && (
+                          <span className="mt-1 block text-xs text-slate-600">
+                            Zemin + {params.floorCount - 1} normal kat
+                          </span>
+                        )}
                       </div>
 
                       {/* Kat Yüksekliği */}
@@ -2689,7 +2720,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
       {/* 2. AŞAMA (DEVAM): OTOPARK HARCI & İMAR MEVZUAT DENETİMİ */}
       {workbenchStage === 2 && (
-        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-5 animate-fade-in`}>
+        <details className={`${bgCard} rounded-2xl p-4 border shadow-xs sm:p-6`}>
+          <summary className="cursor-pointer text-sm font-bold text-slate-800">Otopark hesabı ve imar denetimi</summary>
+          <div className="mt-4 space-y-5">
           {/* OTOPARK HARCI HESAPLAMA VE MEVZUAT TARAMA MODÜLÜ */}
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
@@ -2891,7 +2924,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           <div className="pt-4 border-t border-slate-100">
             <ZoningAuditPanel params={params} theme={theme} />
           </div>
-        </div>
+          </div>
+        </details>
       )}
 
       {/* 4. AŞAMA: 3D TASARIM VE GÖRSELLEŞTİRME (2. ve 3. Aşamayla Tek Kaynaktan Senkronize) */}
@@ -4007,14 +4041,19 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     </div>
                   </div>
 
-                  <CostDetailsTab
-                    params={params}
-                    results={results}
-                    theme={theme}
-                    viewMode="cost"
-                    onChangeParams={onChangeParams}
-                    onCalculate={onCalculate}
-                  />
+                  <details className="rounded-xl border border-slate-200 bg-white p-4">
+                    <summary className="cursor-pointer text-sm font-bold text-slate-800">Maliyet kalemleri ve rayiç ayrıntıları</summary>
+                    <div className="mt-4">
+                      <CostDetailsTab
+                        params={params}
+                        results={results}
+                        theme={theme}
+                        viewMode="cost"
+                        onChangeParams={onChangeParams}
+                        onCalculate={onCalculate}
+                      />
+                    </div>
+                  </details>
                 </>
               )}
 
@@ -4221,7 +4260,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   onUpdateParam={(k, v) => onChangeParams({ [k]: v })}
                   onUpdateAllParams={(partial) => onChangeParams(partial)}
                   onNavigateToSurec={() => goToStage(9)}
-                  onSaveOffer={onCalculate || onQuickSave}
+                  onSaveOffer={onSaveOffer}
                   onNavigateToContract={() => setStage8SubView('contract')}
                   onSelectWorkbenchStage={goToStage}
                   evaluation={workbenchEvaluation}
@@ -4264,7 +4303,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
         </div>
 
         {/* Sağ Bölüm: Canlı Karar Özeti ve Tıklanabilir Kontroller */}
-        <div className="lg:sticky lg:top-6">
+        <div className="2xl:sticky 2xl:top-24">
           <WorkbenchLiveSummary
             params={params}
             results={results}

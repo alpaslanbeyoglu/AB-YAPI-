@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Printer, FileDown, ZoomIn, ZoomOut, Loader2, FileText } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { X, Printer, FileDown, ZoomIn, ZoomOut, Loader2 } from 'lucide-react';
 import { AppTheme } from '../types';
 
 interface PrintPreviewModalProps {
@@ -19,137 +19,104 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   documentTitle,
   onPrint,
   onExportPdf,
-  theme = 'light',
 }) => {
-  const [zoom, setZoom] = useState<number>(85);
-  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const pageWidth = 210 * 96 / 25.4;
+  const pageHeight = 297 * 96 / 25.4;
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [manualZoom, setManualZoom] = useState<number | null>(null);
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState(false);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const viewport = viewportRef.current;
+    if (!isOpen || !dialog || !viewport) return;
+    dialog.showModal();
+    const updateWidth = () => setAvailableWidth(viewport.clientWidth - 24);
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(viewport);
+    return () => {
+      observer.disconnect();
+      dialog.close();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
+  const fitZoom = availableWidth > 0 ? Math.min(100, Math.floor(availableWidth / pageWidth * 100)) : 100;
+  const zoom = manualZoom ?? fitZoom;
+  const scale = zoom / 100;
   const handlePdfClick = async () => {
     if (isExporting) return;
+    setExportError(false);
     setIsExporting(true);
     try {
       await onExportPdf();
     } catch (err) {
       console.error('PDF export failed:', err);
+      setExportError(true);
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/75 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                Yazdırma Önizleme
-                <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                  A4 Sayfa Düzeni
-                </span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-md">
-                {documentTitle}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Zoom Controls */}
-            <div className="hidden sm:flex items-center gap-1 bg-slate-200/60 dark:bg-slate-800 rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => setZoom(Math.max(50, zoom - 15))}
-                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-300 transition-colors"
-                title="Uzaklaştır"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <span className="text-xs font-medium px-2 text-slate-700 dark:text-slate-300 min-w-[48px] text-center">
-                {zoom}%
-              </span>
-              <button
-                type="button"
-                onClick={() => setZoom(Math.min(130, zoom + 15))}
-                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded text-slate-700 dark:text-slate-300 transition-colors"
-                title="Yakınlaştır"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
-              title="Kapat"
-            >
-              <X className="w-5 h-5" />
+    <dialog ref={dialogRef} aria-labelledby="print-preview-title"
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      className="m-auto max-h-none w-[calc(100%_-_1rem)] max-w-5xl overflow-hidden rounded-xl bg-white p-0 shadow-xl backdrop:bg-slate-900/75">
+      <div className="flex h-[92dvh] flex-col">
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 sm:px-5">
+          <h2 id="print-preview-title" className="min-w-0 text-sm font-bold text-slate-900">
+            {documentTitle}
+          </h2>
+          <div className="flex flex-wrap items-center gap-1">
+            <button type="button" onClick={() => setManualZoom(null)}
+              aria-pressed={manualZoom === null}
+              className="min-h-11 rounded-lg px-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">
+              Ekrana sığdır
             </button>
+            <button type="button" aria-label="Uzaklaştır" disabled={zoom <= Math.min(25, fitZoom)}
+              onClick={() => setManualZoom(Math.max(Math.min(25, fitZoom), zoom - 15))}
+              className="grid min-h-11 min-w-11 place-items-center rounded-lg hover:bg-slate-100 disabled:opacity-40">
+              <ZoomOut className="size-4" />
+            </button>
+            <span className="text-xs tabular-nums">{zoom}%</span>
+            <button type="button" aria-label="Yakınlaştır" disabled={zoom >= 130}
+              onClick={() => setManualZoom(Math.min(130, zoom + 15))}
+              className="grid min-h-11 min-w-11 place-items-center rounded-lg hover:bg-slate-100 disabled:opacity-40">
+              <ZoomIn className="size-4" />
+            </button>
+            <button type="button" onClick={onClose} aria-label="Önizlemeyi kapat"
+              className="grid min-h-11 min-w-11 place-items-center rounded-lg hover:bg-slate-100">
+              <X className="size-5" />
+            </button>
+          </div>
+        </header>
+
+        <div ref={viewportRef} className="min-h-0 flex-1 overflow-auto bg-slate-100 p-3">
+          <div className="relative mx-auto bg-white shadow-md" style={{ width: pageWidth * scale, height: pageHeight * scale }}>
+            <iframe srcDoc={htmlContent} title={documentTitle}
+              className="absolute left-0 top-0 origin-top-left border-0"
+              style={{ width: pageWidth, height: pageHeight, transform: `scale(${scale})` }} />
           </div>
         </div>
 
-        {/* Modal Body / Preview Canvas */}
-        <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-6 overflow-auto flex justify-center items-start">
-          <div 
-            className="transition-transform duration-200 origin-top bg-white shadow-2xl rounded-sm my-2"
-            style={{ 
-              width: '210mm', 
-              minHeight: '297mm',
-              transform: `scale(${zoom / 100})`,
-              marginBottom: zoom > 100 ? `${(zoom - 100) * 3}mm` : '0px'
-            }}
-          >
-            <iframe
-              srcDoc={htmlContent}
-              title={documentTitle}
-              className="w-full h-full border-0 min-h-[297mm] pointer-events-auto"
-              style={{ width: '210mm', minHeight: '297mm', background: '#fff' }}
-            />
-          </div>
-        </div>
-
-        {/* Modal Footer / Actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            * Yazdırma işlemi tarayıcınızın yazdırma diyaloğunu açar. PDF indirme belgesi doğrudan diskinize kaydedilir.
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
-            >
-              Kapat
-            </button>
-            <button
-              type="button"
-              onClick={onPrint}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white transition-all cursor-pointer shadow-sm"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Yazdır</span>
-            </button>
-            <button
-              type="button"
-              onClick={handlePdfClick}
-              disabled={isExporting}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer shadow-sm disabled:opacity-50"
-            >
-              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-              <span>{isExporting ? 'Hazırlanıyor...' : 'PDF İndir'}</span>
-            </button>
-          </div>
-        </div>
-
+        <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 p-3">
+          {exportError && <p role="alert" className="mr-auto text-sm text-rose-700">PDF oluşturulamadı. Tekrar deneyin.</p>}
+          <button type="button" onClick={onPrint}
+            className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold">
+            <Printer className="size-4" /> Yazdır
+          </button>
+          <button type="button" onClick={handlePdfClick} disabled={isExporting}
+            className="flex min-h-11 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white disabled:opacity-50">
+            {isExporting ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
+            {isExporting ? 'Hazırlanıyor…' : 'PDF İndir'}
+          </button>
+        </footer>
       </div>
-    </div>
+    </dialog>
   );
 };

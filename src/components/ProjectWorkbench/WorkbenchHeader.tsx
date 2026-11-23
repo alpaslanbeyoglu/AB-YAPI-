@@ -1,4 +1,7 @@
 import React from 'react';
+import { DEFAULT_TABS } from '../../config/tabs';
+
+const projectStages = DEFAULT_TABS.find(tab => tab.id === 'kurulum')?.subTabs ?? [];
 import { ProjectParams, CalculationResult, AppTheme } from '../../types';
 import { WorkbenchEvaluation, WorkbenchStageNavigationOptions } from './WorkbenchLiveSummary';
 import { FileUp, Save, FileText, CheckCircle2, Clock, ArrowRight, MapPin, AlertCircle, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
@@ -190,12 +193,19 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
 
         {/* Sağ: Hızlı Karar ve Geçiş İşlemleri */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {onSelectStage && (
+            <select aria-label="Proje aşaması" value={activeStage}
+              onChange={(event) => onSelectStage(Number(event.currentTarget.value))}
+              className="min-h-11 w-full max-w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 md:w-auto">
+              {projectStages.map(stage => <option key={stage.id} value={stage.step}>{stage.label}</option>)}
+            </select>
+          )}
           {onToggleFlow && (
             <button
               type="button"
               onClick={onToggleFlow}
               aria-expanded={isFlowOpen}
-              className={`px-3 py-2 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 border ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold shadow-2xs transition-all hidden xl:flex items-center gap-1.5 cursor-pointer active:scale-95 border ${
                 isFlowOpen
                   ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
                   : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
@@ -243,7 +253,7 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               type="button"
               onClick={onQuickSave}
               disabled={isSaving}
-              className="px-3 py-2 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+              className="min-h-11 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-600 rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
               title="Projeyi Kaydet ve Hesaplamayı Güncelle"
             >
               <Save className="w-3.5 h-3.5" />

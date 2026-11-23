@@ -1740,6 +1740,32 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      <section aria-label="Şantiye özeti" className="rounded-xl border border-slate-200 bg-white p-4 print:hidden">
+        <dl className="mb-4 grid gap-3 text-sm sm:grid-cols-3">
+          <div><dt className="text-slate-600">İlerleme</dt><dd className="font-bold text-slate-900">%{overallProgress}</dd></div>
+          <div><dt className="text-slate-600">Sıradaki iş</dt><dd className="font-bold text-slate-900">{overallProgress === 100 ? 'Tamamlandı' : currentActiveStage?.name || 'Planlanmadı'}</dd></div>
+          <div><dt className="text-slate-600">Hedef teslim</dt><dd className="font-bold text-slate-900">{plannedCompletionDate ? plannedCompletionDate.split('-').reverse().join('.') : 'Belirlenmedi'}</dd></div>
+        </dl>
+      <nav aria-label="Şantiye bölümleri" className="flex flex-wrap gap-2 print:hidden">
+        {([
+          ['timeline', 'İş Programı'],
+          ['logs', 'Şantiye Günlüğü'],
+          ['subcontractors', 'Taşeronlar ve Ödemeler'],
+          ['portfolio', 'Tüm Şantiyeler'],
+          ['notification', 'Müşteri Bildirimi'],
+          ['report', 'A4 Rapor'],
+        ] as const).map(([id, label]) => (
+          <button key={id} type="button" aria-pressed={activeSubTab === id}
+            onClick={() => setActiveSubTab(id)}
+            className={`min-h-11 rounded-lg border px-3 text-xs font-semibold ${activeSubTab === id
+              ? 'border-indigo-600 bg-indigo-600 text-white'
+              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      </section>
       {/* TOAST FEEDBACK */}
       {toastNotification && (
         <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs font-bold transition-all shadow-md animate-fade-in print:hidden ${
@@ -1975,87 +2001,6 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
             Sözleşme Metnini Gör →
           </button>
         )}
-      </div>
-
-      {/* SUB-TAB NAVIGATOR (print:hidden) */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto no-scrollbar print:hidden">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('timeline')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'timeline'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>12 İnşaat Aşaması & Yol Haritası</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('portfolio')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'portfolio'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>🏗️ Çoklu Şantiye Portföyü ({portfolioList.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('notification')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'notification'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Send className="w-4 h-4" />
-          <span>Müşteri Bilgilendirme Mesaj Motoru</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('logs')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'logs'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>Haftalık / Aylık Şantiye Günlüğü ({logs.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('report')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'report'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Printer className="w-4 h-4" />
-          <span>Resmî Canlı Süreç Raporu (A4)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('subcontractors')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeSubTab === 'subcontractors'
-              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>🏢 Şirket İçi Takip & Taşeron Yönetimi ({subcontractors.length})</span>
-        </button>
       </div>
 
       {/* ------------------------------------------------------------- */}

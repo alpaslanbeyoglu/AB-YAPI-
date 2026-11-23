@@ -98,7 +98,7 @@ interface OfferTabProps {
   onUpdateParam?: (key: keyof ProjectParams, val: any) => void;
   onUpdateAllParams?: (newParams: Partial<ProjectParams>) => void;
   onNavigateToSurec?: () => void;
-  onSaveOffer?: () => void;
+  onSaveOffer?: (offerMeta: ProjectParams['offerMeta']) => boolean;
   onNavigateToContract?: () => void;
   onSelectWorkbenchStage?: (stage: number, focusFieldId?: string) => void;
   evaluation?: WorkbenchEvaluation;
@@ -978,20 +978,19 @@ export const OfferTab: React.FC<OfferTabProps> = ({
   const criticalMissingIssues = (evaluation?.issues || []).filter((i) => i.severity === 'critical');
 
   const handleSaveCurrentOffer = () => {
-    // Eksikse kalıcı teklif kimliğini başlat (eski projelerin durumunu değiştirmeden)
-    if (!params.offerMeta?.proposalNumber) {
-      const initializedMeta = buildInitializedOfferMeta(params, compName);
+    const needsOfferNumber = !params.offerMeta?.proposalNumber;
+    const offerMeta = needsOfferNumber ? buildInitializedOfferMeta(params, compName) : params.offerMeta;
+    if (!onSaveOffer?.(offerMeta)) return;
+
+    if (needsOfferNumber) {
       if (onUpdateAllParams) {
-        onUpdateAllParams({ offerMeta: initializedMeta });
+        onUpdateAllParams({ offerMeta });
       } else if (onUpdateParam) {
-        onUpdateParam('offerMeta', initializedMeta);
+        onUpdateParam('offerMeta', offerMeta);
       }
     }
-    if (onSaveOffer) {
-      onSaveOffer();
-      setOfferSavedNotice(true);
-      setTimeout(() => setOfferSavedNotice(false), 3000);
-    }
+    setOfferSavedNotice(true);
+    setTimeout(() => setOfferSavedNotice(false), 3000);
   };
 
   const currentStatus: ProposalStatus =
@@ -1031,17 +1030,18 @@ export const OfferTab: React.FC<OfferTabProps> = ({
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* ÜST SEÇİM ÇUBUĞU: 3 TEMİZ ANA BÖLÜM + SADE METADATA */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 print:hidden">
-        <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit max-w-full overflow-x-auto no-scrollbar">
+        <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100 p-1">
           {[
-            { id: 'prepare' as OfferMainViewId, label: 'Teklif Hazırlama' },
-            { id: 'preview' as OfferMainViewId, label: 'Müşteri Teklifi' },
-            { id: 'history' as OfferMainViewId, label: 'Teklif Geçmişi ve Yönetimi' },
+            { id: 'prepare' as OfferMainViewId, label: 'Düzenle' },
+            { id: 'preview' as OfferMainViewId, label: 'Önizle ve İndir' },
+            { id: 'history' as OfferMainViewId, label: 'Teklif Geçmişi' },
           ].map((tab) => {
             const isActive = activeView === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
+                aria-pressed={isActive}
                 onClick={() => setActiveView(tab.id)}
                 className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   isActive

@@ -1157,7 +1157,9 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
         {/* BOTTOM SECTION: Dimension & Structural Parameter Input Cards (Teknik Düzenleme modunda) */}
         {!presentationMode && (
-        <>
+        <details open={workbenchVisualizationMode ? undefined : true} className="rounded-xl border border-slate-200 p-4">
+        <summary className="cursor-pointer text-sm font-bold">Mimari ayarlar ve denetim</summary>
+        <div className="mt-4 space-y-4">
         <div className="flex items-center justify-between px-1 py-1">
           <div className="flex items-center gap-2">
             <Palette className="w-4 h-4 text-indigo-600" />
@@ -3019,7 +3021,8 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
         {/* İmar & Yangın Mevzuatı Otomatik Denetim Paneli */}
         <ZoningAuditPanel params={modelParams} theme={theme} />
-        </>
+        </div>
+        </details>
         )}
 
         {/* Informational Technical Note */}

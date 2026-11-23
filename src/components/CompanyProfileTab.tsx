@@ -603,66 +603,6 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
          ======================================================== */}
       {activeView === 'overview' && (
         <div className="space-y-6">
-          {/* 1. ÜST BÖLÜM: GERÇEK ŞİRKET KPI ŞERİDİ (historyList) */}
-          <section aria-label="Şirket Genel Özeti" className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 bg-white border border-slate-200 rounded-xl divide-y md:divide-y-0 md:divide-x divide-slate-200 overflow-hidden">
-              <div className="p-4 flex flex-col justify-between gap-1">
-                <span className="text-xs font-medium text-slate-500">Toplam Proje</span>
-                <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
-                  {companyMetrics.totalProjects}
-                </span>
-                <span className="text-xs text-slate-500 font-mono tabular-nums">
-                  {companyMetrics.totalPortfolioArea > 0
-                    ? `${Math.round(companyMetrics.totalPortfolioArea).toLocaleString('tr-TR')} m² aktif portföy`
-                    : 'Kayıtlı proje yok'}
-                </span>
-              </div>
-
-              <div className="p-4 flex flex-col justify-between gap-1">
-                <span className="text-xs font-medium text-slate-500">Aktif Şantiye</span>
-                <span className="text-2xl font-bold font-mono tabular-nums text-emerald-700">
-                  {companyMetrics.activeAndAccepted}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {companyMetrics.acceptedCount > 0
-                    ? `${companyMetrics.activeSites} sahada · ${companyMetrics.acceptedCount} onaylı`
-                    : 'Onaylanmış ve devam eden'}
-                </span>
-              </div>
-
-              <div className="p-4 flex flex-col justify-between gap-1">
-                <span className="text-xs font-medium text-slate-500">Sunulan Teklif</span>
-                <span className="text-2xl font-bold font-mono tabular-nums text-amber-700">
-                  {companyMetrics.presentedCount}
-                </span>
-                <span className="text-xs text-slate-500">Müşteri dönüşü bekleyen</span>
-              </div>
-
-              <div className="p-4 flex flex-col justify-between gap-1">
-                <span className="text-xs font-medium text-slate-500">Taslak / Hazırlanan</span>
-                <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
-                  {companyMetrics.draftCount}
-                </span>
-                <span className="text-xs text-slate-500">Fizibilite ve teklif aşaması</span>
-              </div>
-
-              <div className="p-4 flex flex-col justify-between gap-1 col-span-2 md:col-span-1">
-                <span className="text-xs font-medium text-slate-500">Aktif Portföy Hacmi</span>
-                <span className="text-xl font-bold font-mono tabular-nums text-slate-900 truncate">
-                  {formatCompactCurrency(companyMetrics.activePortfolioBudget)}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {companyMetrics.archivedCount > 0
-                    ? `${companyMetrics.archivedCount} arşiv proje hariç`
-                    : 'Kayıtlı projeler toplamı'}
-                </span>
-              </div>
-            </div>
-
-            {/* Kompakt Canlı Piyasa Referans Şeridi */}
-            <LiveMarketPricesBar theme={theme as AppTheme} compact />
-          </section>
-
           {/* 2. ANA İŞLEM ALANI: HIZLI İŞLEMLER & AKTİF PROJEYE DEVAM ET */}
           <section
             aria-label="Ana İşlemler"
@@ -678,6 +618,12 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                 >
                   <Plus className="w-4 h-4" />
                   <span>Yeni Proje Oluştur</span>
+                </button>
+              )}
+              {onNavigateToArchive && (
+                <button type="button" onClick={onNavigateToArchive}
+                  className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+                  Proje Arşivi
                 </button>
               )}
             </div>
@@ -738,6 +684,66 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                 </div>
               </div>
             )}
+          </section>
+
+          {/* 1. ÜST BÖLÜM: GERÇEK ŞİRKET KPI ŞERİDİ (historyList) */}
+          <section aria-label="Şirket Genel Özeti" className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 bg-white border border-slate-200 rounded-xl divide-y md:divide-y-0 md:divide-x divide-slate-200 overflow-hidden">
+              <div className="p-4 flex flex-col justify-between gap-1">
+                <span className="text-xs font-medium text-slate-500">Toplam Proje</span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+                  {companyMetrics.totalProjects}
+                </span>
+                <span className="text-xs text-slate-500 font-mono tabular-nums">
+                  {companyMetrics.totalPortfolioArea > 0
+                    ? `${Math.round(companyMetrics.totalPortfolioArea).toLocaleString('tr-TR')} m² aktif portföy`
+                    : 'Kayıtlı proje yok'}
+                </span>
+              </div>
+
+              <div className="p-4 flex flex-col justify-between gap-1">
+                <span className="text-xs font-medium text-slate-500">Aktif Şantiye</span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-emerald-700">
+                  {companyMetrics.activeAndAccepted}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {companyMetrics.acceptedCount > 0
+                    ? `${companyMetrics.activeSites} sahada · ${companyMetrics.acceptedCount} onaylı`
+                    : 'Onaylanmış ve devam eden'}
+                </span>
+              </div>
+
+              <div className="p-4 flex flex-col justify-between gap-1">
+                <span className="text-xs font-medium text-slate-500">Sunulan Teklif</span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-amber-700">
+                  {companyMetrics.presentedCount}
+                </span>
+                <span className="text-xs text-slate-500">Müşteri dönüşü bekleyen</span>
+              </div>
+
+              <div className="p-4 flex flex-col justify-between gap-1">
+                <span className="text-xs font-medium text-slate-500">Taslak / Hazırlanan</span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+                  {companyMetrics.draftCount}
+                </span>
+                <span className="text-xs text-slate-500">Fizibilite ve teklif aşaması</span>
+              </div>
+
+              <div className="p-4 flex flex-col justify-between gap-1 col-span-2 md:col-span-1">
+                <span className="text-xs font-medium text-slate-500">Aktif Portföy Hacmi</span>
+                <span className="text-xl font-bold font-mono tabular-nums text-slate-900 truncate">
+                  {formatCompactCurrency(companyMetrics.activePortfolioBudget)}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {companyMetrics.archivedCount > 0
+                    ? `${companyMetrics.archivedCount} arşiv proje hariç`
+                    : 'Kayıtlı projeler toplamı'}
+                </span>
+              </div>
+            </div>
+
+            {/* Kompakt Canlı Piyasa Referans Şeridi */}
+            <LiveMarketPricesBar theme={theme as AppTheme} compact />
           </section>
 
           {/* 3 & 4. ANA YÖNETİM ALANI: SOL (PROJE YÖNETİMİ) + SAĞ (İŞ TAKİBİ) */}
