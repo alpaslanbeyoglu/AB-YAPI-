@@ -51,7 +51,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   const isGray = theme === 'gray';
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSegment, setFilterSegment] = useState<PortfolioFilter>('all');
-  const [pendingDeletion, setPendingDeletion] = useState<SavedProjectData | 'all' | null>(null);
+  const [pendingDeletion, setPendingDeletion] = useState<SavedProjectData | null>(null);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'area' | 'amount'>('newest');
 
   const cardBg = isGray
@@ -103,13 +103,10 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   const siteRecordCount = archiveItems.filter(({ hasSiteRecord }) => hasSiteRecord).length;
 
   const confirmDeletion = () => {
+    if (!pendingDeletion) return;
+    const index = historyList.indexOf(pendingDeletion);
+    if (index !== -1) onDeleteItem(index);
     setPendingDeletion(null);
-    if (pendingDeletion === 'all') {
-      onClearHistory();
-    } else if (pendingDeletion) {
-      const index = historyList.indexOf(pendingDeletion);
-      if (index !== -1) onDeleteItem(index);
-    }
   };
 
   const filteredHistory = useMemo(() => {
@@ -192,16 +189,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
             </button>
           )}
 
-          {historyList.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setPendingDeletion('all')}
-              className="p-2.5 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 cursor-pointer"
-              title="Tüm Arşiv Kayıtlarını Temizle"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
+
         </div>
       </div>
 
@@ -502,11 +490,9 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
       </details>
       <ConfirmModal
         isOpen={pendingDeletion !== null}
-        title={pendingDeletion === 'all' ? 'Tüm arşiv silinsin mi?' : 'Proje silinsin mi?'}
-        message={pendingDeletion === 'all'
-          ? `Arşivdeki ${historyList.length} proje, bunların şantiye kayıtları ve 3D önizlemeleri silinecek.`
-          : `“${pendingDeletion?.params?.projectName || pendingDeletion?.projectAddress || 'İsimsiz Proje'}” projesi, şantiye kayıtları ve 3D önizlemesi silinecek.`}
-        confirmLabel={pendingDeletion === 'all' ? 'Tümünü sil' : 'Projeyi sil'}
+        title="Proje silinsin mi?"
+        message={`“${pendingDeletion?.params?.projectName || pendingDeletion?.projectAddress || 'İsimsiz Proje'}” projesi, şantiye kayıtları ve 3D önizlemesi silinecek.`}
+        confirmLabel="Projeyi sil"
         isDestructive
         onCancel={() => setPendingDeletion(null)}
         onConfirm={confirmDeletion}
