@@ -71,15 +71,15 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
   const criticalCount = evaluation?.issues.filter((i) => i.severity === 'critical').length || 0;
 
   return (
-    <div className={`${bgCard} rounded-2xl px-5 py-4 border shadow-xs`}>
-      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
+    <div className={`${bgCard} rounded-2xl border px-3 py-3 shadow-xs sm:px-4`}>
+      <div className="flex min-w-0 flex-col gap-3">
         {/* Sol: Proje Künyesi & Hızlı Erişim Bilgileri */}
-        <div className="space-y-1.5 min-w-0 flex-1">
+        <div className="min-w-0 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => onSelectStage?.(1, 'projectNameInput')}
-              className={`text-lg font-black tracking-tight ${textTitle} truncate max-w-xl text-left hover:text-indigo-600 transition-colors cursor-pointer`}
+              className={`text-lg font-black tracking-tight ${textTitle} max-w-full break-words text-left hover:text-indigo-600 transition-colors cursor-pointer`}
               title="Proje adını düzenle (1. Aşama)"
             >
               {projectName}
@@ -152,38 +152,34 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="truncate">{projectAddress}</span>
             </button>
-            <span className="text-slate-300">•</span>
             <button
               type="button"
               onClick={() => onSelectStage?.(2, 'projectLandAreaInput')}
-              className="hover:text-indigo-600 transition-colors cursor-pointer"
+              className="whitespace-nowrap hover:text-indigo-600 transition-colors cursor-pointer"
               title="Arsa ve imar analizine git (2. Aşama)"
             >
               Arsa: <strong className="text-slate-900 font-mono">{(params.landArea || 0).toLocaleString('tr-TR')} m²</strong>
             </button>
-            <span className="text-slate-300">•</span>
             <button
               type="button"
               onClick={() => onSelectStage?.(3, 'minimalFloorCountInput')}
-              className="hover:text-indigo-600 transition-colors cursor-pointer"
+              className="whitespace-nowrap hover:text-indigo-600 transition-colors cursor-pointer"
               title="Mimari tasarıma git (3. Aşama)"
             >
               İnşaat: <strong className="text-slate-900 font-mono">{Math.round(results.totalArea || 0).toLocaleString('tr-TR')} m²</strong>
             </button>
-            <span className="text-slate-300">•</span>
             <button
               type="button"
               onClick={() => onSelectStage?.(3, 'stage3FlatsMatrixSection')}
-              className="hover:text-indigo-600 transition-colors cursor-pointer"
+              className="whitespace-nowrap hover:text-indigo-600 transition-colors cursor-pointer"
               title="Kat ve daire matrisine git (3. Aşama)"
             >
               Bölüm: <strong className="text-slate-900 font-mono">{results.flatCount || 0} Adet</strong>
             </button>
-            <span className="text-slate-300">•</span>
             <button
               type="button"
               onClick={() => onSelectStage?.(6, 'stage6CostParamsCard')}
-              className="hover:text-indigo-600 transition-colors cursor-pointer"
+              className="whitespace-nowrap hover:text-indigo-600 transition-colors cursor-pointer"
               title="Maliyet ve fizibiliteye git (6. Aşama)"
             >
               Teklif Bedeli: <strong className="text-indigo-700 font-mono">{Math.round(results.grandTotal || 0).toLocaleString('tr-TR')} ₺</strong>
@@ -192,11 +188,11 @@ export const WorkbenchHeader: React.FC<WorkbenchHeaderProps> = ({
         </div>
 
         {/* Sağ: Hızlı Karar ve Geçiş İşlemleri */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-slate-200 pt-2.5">
           {onSelectStage && (
             <select aria-label="Proje aşaması" value={activeStage}
               onChange={(event) => onSelectStage(Number(event.currentTarget.value))}
-              className="min-h-11 w-full max-w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 md:w-auto">
+              className="min-h-11 w-full min-w-0 max-w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 md:w-auto">
               {projectStages.map(stage => <option key={stage.id} value={stage.step}>{stage.label}</option>)}
             </select>
           )}
