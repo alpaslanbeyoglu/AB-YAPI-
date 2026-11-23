@@ -1753,104 +1753,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
         </div>
       )}
 
-      {/* MULTI-PROJECT & SITE MANAGER EXECUTIVE BAR */}
-      <div className="bg-slate-900 text-white rounded-3xl p-5 shadow-lg border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print:hidden">
-        <div className="flex items-center gap-3.5 min-w-0">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-400 flex items-center justify-center shrink-0">
-            <Building2 className="w-6 h-6" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                Aktif Şantiye
-              </span>
-              <span className="text-xs text-slate-400">
-                Portföy: {portfolioList.length} Şantiye Projesi
-              </span>
-            </div>
-            <h3 className="text-base font-extrabold text-white truncate mt-0.5">
-              {params.projectName || params.projectAddress || 'Aktif Şantiye'}
-            </h3>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-300 mt-1">
-              <span className="font-bold text-emerald-400">%{overallProgress} Fiziki Gerçekleşme</span>
-              <span>&bull;</span>
-              <span className="text-slate-300">{remainingDays} Gün Kaldı</span>
-              <span>&bull;</span>
-              <span className="text-amber-300 truncate max-w-xs">{currentActiveStage?.name}</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto">
-          {/* Quick Dropdown selector for active sites */}
-          <div className="relative flex-1 md:flex-initial">
-            <select
-              value={safeProjectKey}
-              onChange={(e) => {
-                const selectedKey = e.target.value;
-                if (selectedKey === 'NEW_PROJECT') {
-                  setIsNewProjectModalOpen(true);
-                  return;
-                }
-                const site = portfolioList.find(s => s.id === selectedKey);
-                if (site && site.rawProject && onSelectProject) {
-                  onSelectProject(site.rawProject);
-                } else if (site) {
-                  showToast(`"${site.name}" şantiyesine geçildi.`);
-                }
-              }}
-              className="w-full md:w-auto bg-slate-800 hover:bg-slate-750 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-700 outline-none cursor-pointer"
-            >
-              <optgroup label="Devam Eden Şantiyeler">
-                {portfolioList.map(site => (
-                  <option key={site.id} value={site.id}>
-                    {site.isCurrent ? '✓ ' : ''}{site.name} (%{site.overallProgress} - {site.activeStageName.slice(0, 22)})
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="İşlemler">
-                <option value="NEW_PROJECT">+ Yeni Şantiye Başlat...</option>
-              </optgroup>
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsNewProjectModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
-            title="Aynı anda yeni bir inşaata başlayın ve yönetin"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Yeni Şantiye Ekle</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('portfolio')}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-              activeSubTab === 'portfolio'
-                ? 'bg-white text-slate-900 border-white font-extrabold shadow-sm'
-                : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
-            }`}
-            title="Tüm aktif şantiyeleri tek ekranda görün ve yönetin"
-          >
-            <Briefcase className="w-4 h-4 text-indigo-400" />
-            <span>Portföyüm ({portfolioList.length})</span>
-          </button>
-
-          {!isClientMode && (
-            <button
-              type="button"
-              onClick={() => setIsResetModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 rounded-xl text-xs font-bold border border-slate-700 hover:border-rose-800/60 transition-all cursor-pointer"
-              title="Bu şantiyenin aşamalarını ve takvimini sıfırlayın"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
-              <span className="hidden sm:inline">Aşamaları Sıfırla</span>
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* TOP HEADER & ACTION CONTROLS */}
       <div className={`${cardBg} rounded-3xl border p-6 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 print:hidden`}>
@@ -2466,14 +2369,14 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
                         </button>
                       </div>
 
-                      {/* Delete project button if not current and rawProject exists */}
-                      {!isCurrent && site.rawProject && onDeleteProject && (
+                      {/* Delete project button if not current */}
+                      {!isCurrent && onDeleteProject && (
                         <div className="flex justify-end pt-1">
                           <button
                             type="button"
                             onClick={() => {
                               if (window.confirm(`"${site.name}" şantiyesini ve tüm verilerini silmek istediğinize emin misiniz?`)) {
-                                onDeleteProject(site.rawProject!.projectAddress || site.address);
+                                onDeleteProject(site.rawProject?.projectAddress || site.address || site.id);
                                 showToast(`"${site.name}" şantiyesi silindi.`, 'info');
                               }
                             }}

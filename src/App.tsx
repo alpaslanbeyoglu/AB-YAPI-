@@ -573,7 +573,33 @@ export default function App() {
   const [historyList, setHistoryList] = useState<SavedProjectData[]>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_history');
-      if (saved) return JSON.parse(saved);
+      let list: SavedProjectData[] = saved ? JSON.parse(saved) : [];
+
+      // Auto-discover and synchronize any project existing in localStorage progress keys with project archive
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('ab_yapi_progress_') && key.endsWith('_stages')) {
+          const safeSlug = key.replace('ab_yapi_progress_', '').replace('_stages', '');
+          const exists = list.some(p => getSafeProjectKey(p.projectAddress) === safeSlug);
+          if (!exists) {
+            const addr = safeSlug.replace(/_/g, ' ');
+            const newProj: SavedProjectData = {
+              version: '1.0.0',
+              savedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              projectAddress: addr,
+              params: {
+                ...DEFAULT_PARAMS,
+                projectAddress: addr,
+                projectName: addr,
+              },
+              results: calculateProject(DEFAULT_PARAMS),
+            };
+            list.push(newProj);
+          }
+        }
+      }
+      return list;
     } catch (e) {}
     return [];
   });
@@ -1084,17 +1110,22 @@ const handleQuickSave = () => {
     if (typeof identifier === 'number') {
       targetIndex = identifier;
     } else {
-      const queryStr = String(identifier || '').trim().toLowerCase();
-      const querySafeKey = getSafeProjectKey(String(identifier || ''));
+      const rawId = String(identifier || '').trim();
+      const queryStr = rawId.toLowerCase();
+      const strippedId = rawId.replace(/^ab_yapi_progress_/, '');
+      const querySafeKey = getSafeProjectKey(strippedId);
       targetIndex = historyList.findIndex(p => {
         const pAddr = String(p.projectAddress || '').trim().toLowerCase();
         const pSafeKey = getSafeProjectKey(p.projectAddress || '');
         const pLegacyKey = getLegacySafeProjectKey(p.projectAddress || '').slice(0, 128);
         return (
           pAddr === queryStr ||
+          pAddr === strippedId.toLowerCase() ||
           pSafeKey === querySafeKey ||
+          pSafeKey === getSafeProjectKey(strippedId) ||
           pLegacyKey === querySafeKey ||
-          p.projectAddress === identifier
+          p.projectAddress === identifier ||
+          p.params?.projectName?.trim().toLowerCase() === queryStr
         );
       });
     }
