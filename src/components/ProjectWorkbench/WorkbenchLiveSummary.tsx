@@ -44,7 +44,6 @@ export interface WorkbenchNavigationRequest extends WorkbenchStageNavigationOpti
 }
 
 export const STAGE6_COST_FOCUS_FIELD_IDS = [
-  'stage3UnitPriceInput',
   'stage6CostParamsCard',
   'stage6DurationSelect',
 ] as const;
@@ -276,14 +275,14 @@ export function evaluateWorkbenchProject(
       });
     }
 
-    // 6. Aşama: Manuel m² Birim Fiyat Kontrolü (Maliyet ve Fizibilite)
+    // 2. Aşama: Manuel teklif m² fiyatı kontrolü
     if (params.manualFlatUnitPrice !== undefined && params.manualFlatUnitPrice > 0 && params.manualFlatUnitPrice < 8000) {
       issues.push({
         id: 'low-manual-unit-price',
         severity: 'warning',
-        stage: 6,
-        stageLabel: '6. Aşama',
-        focusFieldId: 'stage3UnitPriceInput',
+        stage: 2,
+        stageLabel: '2. Aşama',
+        focusFieldId: 'stage2OfferUnitPriceInput',
         message: `Manuel m² birim fiyatı (${params.manualFlatUnitPrice.toLocaleString('tr-TR')} ₺) olağandışı düşük`,
       });
     }

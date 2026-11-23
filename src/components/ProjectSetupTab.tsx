@@ -1063,6 +1063,29 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       {/* 2. AŞAMA: ARSA VE İMAR ANALİZİ */}
       {workbenchStage === 2 && (
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-5 animate-fade-in`}>
+          <section aria-labelledby="stage2-offer-prices" className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+            <h3 id="stage2-offer-prices" className="text-sm font-bold text-slate-900">Teklife yansıyacak m² fiyatları</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1 text-sm font-semibold text-slate-800">
+                <span className="block">Konut (TL/m²)</span>
+                <input id="stage2OfferUnitPriceInput" type="number" inputMode="decimal" min={0} step="any"
+                  value={params.manualFlatUnitPrice || ''}
+                  onChange={e => onChangeParams({ manualFlatUnitPrice: Math.max(0, Number(e.target.value)) })}
+                  placeholder="Otomatik hesaplanan fiyat"
+                  className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm" />
+              </label>
+              <label className="space-y-1 text-sm font-semibold text-slate-800">
+                <span className="block">Dükkân (TL/m²)</span>
+                <input id="stage2ShopOfferUnitPriceInput" type="number" inputMode="decimal" min={0} step="any"
+                  value={params.manualShopUnitPrice || ''}
+                  onChange={e => onChangeParams({ manualShopUnitPrice: Math.max(0, Number(e.target.value)) })}
+                  placeholder="Konut fiyatıyla aynı"
+                  className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm" />
+              </label>
+            </div>
+            <p className="text-xs text-slate-600">Konut fiyatı boşsa otomatik hesap kullanılır. Dükkân fiyatı boşsa konut fiyatı uygulanır.</p>
+          </section>
+
           {/* Arsa & Taban Oturumu Temel Girdileri */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-1.5">
@@ -3982,30 +4005,11 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         </div>
                       </div>
 
-                      {/* Birim Maliyetler */}
-                      <div>
-                        <label className="block text-[10px] font-extrabold text-indigo-600 uppercase mb-1">
-                          💰 Manuel Birim m² (TL)
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            id="stage3UnitPriceInput"
-                            type="number"
-                            value={params.manualFlatUnitPrice || ''}
-                            onChange={(e) => onChangeParams({ ...params, manualFlatUnitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
-                            placeholder={`Konut: ${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : '31k'}`}
-                            className="w-full text-xs font-mono font-bold px-2.5 py-2 rounded-lg border border-indigo-200 bg-white"
-                          />
-                          {params.hasGroundFloorShop && (
-                            <input
-                              type="number"
-                              value={params.manualShopUnitPrice || ''}
-                              onChange={(e) => onChangeParams({ ...params, manualShopUnitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
-                              placeholder={`Dükkan: ${results.grossCostPerSqM ? results.grossCostPerSqM.toFixed(0) : '28k'}`}
-                              className="w-full text-xs font-mono font-bold px-2.5 py-2 rounded-lg border border-amber-200 bg-white"
-                            />
-                          )}
-                        </div>
+                      <div className="self-end">
+                        <button type="button" onClick={() => goToStage(2, 'stage2OfferUnitPriceInput')}
+                          className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800">
+                          Teklif m² fiyatlarını düzenle
+                        </button>
                       </div>
                     </div>
                   </div>

@@ -239,8 +239,8 @@ export default function App() {
         break;
       case 'birim-satis':
         targetTab = 'kurulum';
-        setupStep = 6;
-        targetId = 'stage3UnitPriceInput';
+        setupStep = 2;
+        targetId = 'stage2OfferUnitPriceInput';
         break;
       case 'net-maliyet':
         targetTab = 'maliyet';

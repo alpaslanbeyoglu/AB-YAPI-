@@ -163,18 +163,18 @@ describe('Phase 2: 9-Stage Workbench Evaluation & Cross-Routing', () => {
     });
   });
 
-  it('4. Stage 6 issues (low manual unit price & missing costs) target Stage 6 with exact focusFieldId', () => {
+  it('4. Offer unit price and missing costs target their respective stages', () => {
     const lowPriceParams = makeValidProject({ manualFlatUnitPrice: 5000 });
     const lowPriceResults = calculateProject(lowPriceParams);
     const evalLowPrice = evaluateWorkbenchProject(lowPriceParams, lowPriceResults, false);
 
     expect(evalLowPrice.issues.find((i) => i.id === 'low-manual-unit-price')).toMatchObject({
-      stage: 6,
-      stageLabel: '6. Aşama',
-      focusFieldId: 'stage3UnitPriceInput',
+      stage: 2,
+      stageLabel: '2. Aşama',
+      focusFieldId: 'stage2OfferUnitPriceInput',
       severity: 'warning',
     });
-    expect(evalLowPrice.stages[6].status).toBe('needs_check');
+    expect(evalLowPrice.stages[2].status).toBe('needs_check');
     expect(evalLowPrice.stages[6].isOptional).toBe(false);
 
     const noCostResults = { ...lowPriceResults, grandTotal: 0, subTotalCost: 0 };
@@ -279,7 +279,7 @@ describe('Phase 2: 9-Stage Workbench Evaluation & Cross-Routing', () => {
     expect(resolveStage8SubViewForNavigation(stage8SubView)).toBe('contract');
   });
 
-  it('10. Stage 6 external focus: admin_report -> external cost warning switches stage6SubView to cost', () => {
+  it('10. External offer-price warning opens Stage 2 and preserves the Stage 6 sub-view', () => {
     const lowPriceParams = makeValidProject({ manualFlatUnitPrice: 5000 });
     const evalLowPrice = evaluateWorkbenchProject(
       lowPriceParams,
@@ -293,33 +293,23 @@ describe('Phase 2: 9-Stage Workbench Evaluation & Cross-Routing', () => {
     const target = mapIssueToTarget(lowPriceIssue!);
     expect(target).toEqual({
       tab: 'kurulum',
-      setupStep: 6,
-      focusFieldId: 'stage3UnitPriceInput',
+      setupStep: 2,
+      focusFieldId: 'stage2OfferUnitPriceInput',
     });
 
     const currentSubView: Stage6SubView = 'admin_report';
     const nextSubView = resolveStage6SubViewForNavigation(currentSubView, {
       focusFieldId: target.focusFieldId,
     });
-    expect(nextSubView).toBe('cost');
+    expect(nextSubView).toBe('admin_report');
   });
 
-  it('11. Stage 6 three cost targets individually switch admin_report -> cost, while non-cost navigation preserves admin_report', () => {
+  it('11. Stage 6 cost targets individually switch admin_report -> cost, while non-cost navigation preserves admin_report', () => {
     expect(STAGE6_COST_FOCUS_FIELD_IDS).toEqual([
-      'stage3UnitPriceInput',
       'stage6CostParamsCard',
       'stage6DurationSelect',
     ]);
 
-    // 1) stage3UnitPriceInput
-    expect(isStage6CostFocusField('stage3UnitPriceInput')).toBe(true);
-    expect(
-      resolveStage6SubViewForNavigation('admin_report', {
-        focusFieldId: 'stage3UnitPriceInput',
-      })
-    ).toBe('cost');
-
-    // 2) stage6CostParamsCard
     expect(isStage6CostFocusField('stage6CostParamsCard')).toBe(true);
     expect(
       resolveStage6SubViewForNavigation('admin_report', {
