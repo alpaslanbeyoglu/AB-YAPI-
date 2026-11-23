@@ -60,7 +60,6 @@ import {
   ChefHat,
   Lock,
   Printer,
-  Image as ImageIcon,
   FileText,
   FileSpreadsheet,
   ScrollText
@@ -245,15 +244,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const results = useMemo(() => calculateProject(params), [params]);
 
   const [viewMode, setViewMode] = useState<'grid' | 'drawing'>('grid');
-  const [schematicDetailMode, setSchematicDetailMode] = useState<'financial' | 'architectural'>('financial');
+  const [selectedDistributionFloor, setSelectedDistributionFloor] = useState('all');
+  const [schematicDetailMode, setSchematicDetailMode] = useState<'financial' | 'architectural'>('architectural');
   const schematicRef = useRef<HTMLDivElement>(null);
 
   const exportSchematic = async (format: 'png' | 'pdf') => {
     if (!schematicRef.current) return;
-    
-    // Temporarily hide buttons for clean export
-    const buttons = schematicRef.current.querySelector('.export-buttons') as HTMLElement;
-    if (buttons) buttons.style.display = 'none';
 
     try {
       const canvas = await renderElementToCanvas(schematicRef.current, {
@@ -283,8 +279,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       }
     } catch (error) {
       console.error('Export error:', error);
-    } finally {
-      if (buttons) buttons.style.display = 'flex';
     }
   };
   const [backupParams, setBackupParams] = useState<ProjectParams | null>(null);
@@ -304,6 +298,13 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     // Sort floors from top to bottom (highest floor number first)
     return Object.entries(groups).sort((a, b) => Number(b[0]) - Number(a[0]));
   }, [params.flats]);
+
+  const distributionFloor = groupedFlats.some(([floor]) => floor === selectedDistributionFloor)
+    ? selectedDistributionFloor
+    : 'all';
+  const visibleDistributionFloors = distributionFloor === 'all'
+    ? groupedFlats
+    : groupedFlats.filter(([floor]) => floor === distributionFloor);
 
   const getFlatStyles = (flat: any, isContractor: boolean) => {
     if (isContractor) return 'bg-amber-100 border-amber-400 text-amber-950 shadow-sm ring-2 ring-amber-400/50';
@@ -2132,17 +2133,26 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
             {/* Daire ve Dükkan Kat Bazlı Dağılım Grid */}
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-                <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-indigo-600" />
-                    <span>Kat & Daire Paylaşım Şeması</span>
-                  </h4>
-                  <p className="text-[11px] text-slate-500 font-medium">Bölümlere tıklayarak Müteahhit ve Hak Sahibi paylarını değiştirebilirsiniz.</p>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                <h3 className="text-base font-bold text-slate-900">Kat paylaşım şeması</h3>
+                <div role="group" aria-label="Kat paylaşımı görünümü" className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
+                  {([
+                    ['grid', 'Kat listesi'],
+                    ['drawing', 'Bina şeması'],
+                  ] as const).map(([mode, label]) => (
+                    <button key={mode} type="button" aria-pressed={viewMode === mode}
+                      onClick={() => setViewMode(mode)}
+                      className={`min-h-10 rounded-md px-3 text-sm font-semibold ${viewMode === mode
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-700 hover:bg-white'}`}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
-
-                {/* Hızlı Aksiyon Butonları */}
-                <div className="flex items-center gap-2 flex-wrap">
+              </div>
+              <details className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <summary className="cursor-pointer py-1 text-sm font-semibold text-slate-800">Toplu işlemler ve geri yükleme</summary>
+                <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={handleEqualizeFloorAreas}
@@ -2188,21 +2198,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     Tümü Hak Sahibi
                   </button>
 
-                  <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2 ml-1">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode(viewMode === 'grid' ? 'drawing' : 'grid')}
-                      className={`p-1.5 rounded-lg border transition-all flex items-center gap-1.5 px-2 ${
-                        viewMode === 'drawing' 
-                        ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' 
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                      }`}
-                      title={viewMode === 'grid' ? 'Teknik Çizim Görünümü' : 'Klasik Liste Görünümü'}
-                    >
-                      {viewMode === 'grid' ? <Layout className="w-3.5 h-3.5" /> : <Layers className="w-3.5 h-3.5" />}
-                      <span className="text-[10px] font-bold uppercase">{viewMode === 'grid' ? 'Çizim Modu' : 'Liste Modu'}</span>
-                    </button>
-                    
                     <button
                       type="button"
                       onClick={() => {
@@ -2212,7 +2207,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                       title="Geri Yükleme Noktası Oluştur"
                     >
-                      <Save className="w-3.5 h-3.5" />
+                      Geri yükleme noktası oluştur
                     </button>
                     
                     {backupParams && (
@@ -2226,12 +2221,11 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         className="p-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors animate-pulse"
                         title="Geri Yükle"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" />
+                        Geri yükle
                       </button>
                     )}
-                  </div>
                 </div>
-              </div>
+              </details>
 
               {equalizeSuccessToast && (
                 <div className="p-3 bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in shadow-xs">
@@ -2242,28 +2236,29 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
               {/* ÖZET İSTATİSTİK ROZETLERİ */}
               {(() => {
-                const totalFlats = params.flats.length;
-                const contractorFlats = params.flats.filter(
+                const displayedFlats = groupedFlats.flatMap(([, flats]) => flats);
+                const totalFlats = displayedFlats.length;
+                const contractorFlats = displayedFlats.filter(
                   (f) => (params.contractorFlatIds || []).includes(f.id) || !!f.isContractorShare
                 );
-                const ownerFlats = params.flats.filter(
+                const ownerFlats = displayedFlats.filter(
                   (f) => !(params.contractorFlatIds || []).includes(f.id) && !f.isContractorShare
                 );
-                const totalArea = params.flats.reduce((sum, f) => sum + (f.area || 0), 0);
+                const totalArea = displayedFlats.reduce((sum, f) => sum + (f.area || 0), 0);
                 const contractorArea = contractorFlats.reduce((sum, f) => sum + (f.area || 0), 0);
                 const ownerArea = ownerFlats.reduce((sum, f) => sum + (f.area || 0), 0);
 
                 return (
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-between">
+                  <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                    <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200/80 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                       <span className="text-[11px] font-bold text-slate-600">Toplam Bölüm:</span>
                       <span className="font-mono font-black text-slate-900">{totalFlats} Adet ({totalArea.toFixed(0)} m²)</span>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                       <span className="text-[11px] font-bold text-amber-800">Müteahhit Payı:</span>
                       <span className="font-mono font-black text-amber-950">{contractorFlats.length} Adet ({contractorArea.toFixed(0)} m²)</span>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                       <span className="text-[11px] font-bold text-emerald-800">Hak Sahipleri:</span>
                       <span className="font-mono font-black text-emerald-950">{ownerFlats.length} Adet ({ownerArea.toFixed(0)} m²)</span>
                     </div>
@@ -2273,76 +2268,30 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
               <div className="relative">
                 {viewMode === 'drawing' ? (
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 overflow-x-auto min-h-[600px] animate-fade-in shadow-inner">
-                    <div ref={schematicRef} style={{ backgroundColor: '#f8fafc', padding: '52px 24px 32px 24px' }} className="max-w-4xl mx-auto space-y-0 relative">
-                      {/* Architectural Header */}
-                      <div style={{ borderBottom: '1px solid #cbd5e1' }} className="absolute top-0 left-0 right-0 h-12 flex items-center justify-between px-4 bg-slate-50/90 backdrop-blur-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full bg-indigo-600"></div>
-                          <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">AA KESİTİ / BİNA ŞEMATİK ÇİZİMİ</span>
-                          <span className="text-[9px] font-bold text-slate-400 font-mono hidden sm:inline">
-                            ({params.flats.length} Bağımsız Bölüm)
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                           {/* Görünüm Modu Seçici (Mali Detay vs Sade Mimari) */}
-                           <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300">
-                             <button
-                               type="button"
-                               onClick={(e) => { e.stopPropagation(); setSchematicDetailMode('financial'); }}
-                               className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${
-                                 schematicDetailMode === 'financial'
-                                   ? 'bg-white text-indigo-700 shadow-xs'
-                                   : 'text-slate-600 hover:text-slate-900'
-                               }`}
-                               title="Maliyet ve Destek Tutarlarını Göster"
-                             >
-                               Mali Detaylı
-                             </button>
-                             <button
-                               type="button"
-                               onClick={(e) => { e.stopPropagation(); setSchematicDetailMode('architectural'); }}
-                               className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${
-                                 schematicDetailMode === 'architectural'
-                                   ? 'bg-white text-indigo-700 shadow-xs'
-                                   : 'text-slate-600 hover:text-slate-900'
-                               }`}
-                               title="Sadece Daire ve Metraj Bilgilerini Göster (Pafta Modu)"
-                             >
-                               Sade Mimari
-                             </button>
-                           </div>
-
-                           <div className="export-buttons flex items-center gap-1.5 mr-2">
-                             <button 
-                               type="button"
-                               onClick={(e) => { e.stopPropagation(); exportSchematic('png'); }}
-                               style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}
-                               className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
-                             >
-                               <ImageIcon className="w-3 h-3 text-slate-500" />
-                               PNG
-                             </button>
-                             <button 
-                               type="button"
-                               onClick={(e) => { e.stopPropagation(); exportSchematic('pdf'); }}
-                               style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}
-                               className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
-                             >
-                               <FileText className="w-3 h-3 text-slate-500" />
-                               PDF
-                             </button>
-                           </div>
-                           <div className="hidden sm:flex items-center gap-3 pl-2 border-l border-slate-300">
-                             <div className="flex items-center gap-1.5">
-                               <div style={{ backgroundColor: '#fffbeb', border: '1.5px solid #f59e0b' }} className="w-3 h-3 rounded-xs"></div>
-                               <span className="text-[9px] font-bold text-amber-800">MÜTEAHHİT</span>
-                             </div>
-                             <div className="flex items-center gap-1.5">
-                               <div style={{ backgroundColor: '#ffffff', border: '1.5px solid #cbd5e1' }} className="w-3 h-3 rounded-xs"></div>
-                               <span className="text-[9px] font-bold text-slate-600">HAK SAHİBİ</span>
-                             </div>
-                           </div>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                        Şema içeriği
+                        <select value={schematicDetailMode}
+                          onChange={e => setSchematicDetailMode(e.target.value as 'financial' | 'architectural')}
+                          className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm">
+                          <option value="architectural">Mimari görünüm</option>
+                          <option value="financial">Mali detaylar</option>
+                        </select>
+                      </label>
+                      <button type="button" onClick={() => exportSchematic('png')}
+                        className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-semibold">PNG indir</button>
+                      <button type="button" onClick={() => exportSchematic('pdf')}
+                        className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-semibold">PDF indir</button>
+                    </div>
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-2 sm:p-4">
+                    <div ref={schematicRef} style={{ backgroundColor: '#f8fafc', padding: '16px' }}
+                      className="mx-auto min-w-[520px] max-w-4xl">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="text-sm font-bold text-slate-800">Bina paylaşım şeması</h4>
+                        <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                          <span className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-amber-900">Müteahhit</span>
+                          <span className="rounded border border-slate-300 bg-white px-2 py-1 text-slate-800">Hak sahibi</span>
                         </div>
                       </div>
 
@@ -2565,16 +2514,32 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       </div>
                     </div>
                   </div>
+                  </div>
                 ) : (
-                  <div className="space-y-6">
-                    {groupedFlats.map(([floor, floorFlats]) => {
+                  <div className="space-y-4">
+                    {groupedFlats.length > 0 ? (
+                      <label className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                        Gösterilecek kat
+                        <select value={distributionFloor} onChange={e => setSelectedDistributionFloor(e.target.value)}
+                          className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm">
+                          <option value="all">Tüm katlar</option>
+                          {groupedFlats.map(([floor, flats]) => (
+                            <option key={floor} value={floor}>
+                              {Number(floor) === 0 ? 'Zemin kat' : Number(floor) < 0 ? `${Math.abs(Number(floor))}. bodrum kat` : `${floor}. kat`}
+                              {' · '}{flats.length} bölüm
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : <p className="text-sm text-slate-600">Henüz bağımsız bölüm yok.</p>}
+                    {visibleDistributionFloors.map(([floor, floorFlats]) => {
                   const sortedFloorFlats = [...floorFlats].sort((a, b) => a.id - b.id);
                   const isMansardFloor = sortedFloorFlats.some(
                     (f) => f.flatType === 'mansard' || (f.description || '').toLowerCase().includes('mansart')
                   );
                   return (
                     <div key={floor} className="space-y-2.5 border-t-2 border-indigo-200/90 pt-3">
-                      <div className="flex items-center gap-3 px-1">
+                      <div className="flex flex-wrap items-center gap-2 px-1">
                         <div className="flex items-center gap-2 bg-indigo-700 text-white px-3 py-1 rounded-lg shadow-xs">
                           <Building2 className="w-3.5 h-3.5 text-indigo-200" />
                           <span className="text-xs font-black uppercase tracking-wider">
@@ -2587,13 +2552,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                               : `🏢 ${Math.abs(Number(floor))}. BODRUM KAT`}
                           </span>
                         </div>
-                        <div className="h-0.5 flex-1 bg-gradient-to-r from-indigo-300 via-slate-200 to-transparent"></div>
                         <span className="text-[10px] font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
-                          {sortedFloorFlats.length} Bağımsız Bölüm
+                          {sortedFloorFlats.length} bölüm · {sortedFloorFlats.reduce((sum, flat) => sum + (flat.area || 0), 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²
                         </span>
                       </div>
                         
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                           {sortedFloorFlats.map((flat) => {
                             const isContractor = (params.contractorFlatIds || []).includes(flat.id) || !!flat.isContractorShare;
                             const fr = results.flatResults?.find((f) => f.id === flat.id);
@@ -2603,8 +2567,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                                 key={flat.id}
                                 className={`p-3 rounded-2xl border transition-all duration-300 space-y-2 text-xs relative overflow-hidden group ${styles}`}
                               >
-                                <div className="flex items-center justify-between font-bold relative z-10">
-                                  <span className="truncate pr-1">{flat.name}</span>
+                                <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 text-sm font-bold">
+                                  <span className="min-w-0 break-words">{flat.name}</span>
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -2618,13 +2582,15 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                                       );
                                       onChangeParams({ ...params, contractorFlatIds: newIds, flats: updatedFlats });
                                     }}
-                                    className={`px-1.5 py-0.5 text-[9px] font-black rounded-lg cursor-pointer shadow-sm transition-transform active:scale-90 shrink-0 ${
+                                    aria-pressed={isContractor}
+                                    aria-label={`${flat.name}: ${isContractor ? 'Müteahhit' : 'Hak sahibi'}. Payı değiştir`}
+                                    className={`min-h-9 px-2 py-1 text-xs font-semibold rounded-lg cursor-pointer shadow-sm transition-transform active:scale-90 shrink-0 ${
                                       isContractor
                                         ? 'bg-amber-600 text-white hover:bg-amber-700'
                                         : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                                     }`}
                                   >
-                                    {isContractor ? 'MÜTEAHHİT' : 'SAHİBİ'}
+                                    {isContractor ? 'Müteahhit' : 'Hak sahibi'}
                                   </button>
                                 </div>
                                 
@@ -2645,6 +2611,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                                       </div>
                                       <input
                                         type="number"
+                                        aria-label={`${flat.name} satış değeri (TL)`}
                                         value={flat.salePrice || ''}
                                         onChange={(e) => {
                                           const val = parseFloat(e.target.value) || 0;
@@ -2665,6 +2632,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                                         <input
                                           type="number"
                                           step="500"
+                                          aria-label={`${flat.name} özel birim fiyatı (TL/m²)`}
                                           value={flat.manualUnitPrice || ''}
                                           onChange={(e) => {
                                             const val = parseFloat(e.target.value) || 0;
