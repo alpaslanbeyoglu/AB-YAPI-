@@ -695,7 +695,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const sD = safeNum(params?.stairDepth, 4.8, 0.5);
     const eW = safeNum(params?.elevatorWidth, 1.8, 0.5);
     const eD = safeNum(params?.elevatorDepth, 2.0, 0.5);
-    const bD = safeNum(params?.balconyDepth, 1.4, 0.2);
+    const bD = safeNum(params?.balconyDepth, 1.4, 0);
     const roofType = params?.roofType || 'gable';
     const interiorCutMode = params?.interiorCutMode || 'solid';
     const showFurniture = params?.showFurniture ?? true;
@@ -716,7 +716,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     };
 
     const getFacadeCantilever = (idx: number) => {
-      if (isBlindFacade(idx)) return 0;
+      if (!hasCantilever || isBlindFacade(idx)) return 0;
       if (facadeCantilevers && facadeCantilevers[idx] !== undefined) return Math.max(0, facadeCantilevers[idx]);
       if (cantileverDirection === 'all' || cantileverDirection === 'open_facades') return cantileverDepth;
       if (cantileverDirection === 'front_back' && (idx === 0 || idx === 2)) return cantileverDepth;
@@ -2146,10 +2146,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         // --- Elevator Shaft & Doors (Asansör Boşluğu ve Otomatik Kat Kapısı) ---
         const elevW = Math.max(1.2, Math.min(3.0, params.elevatorWidth || 1.8));
         const elevD = Math.max(1.2, Math.min(3.0, params.elevatorDepth || 2.0));
-        const elevCount = Math.max(1, Math.min(2, params.elevatorCount || 1));
+        const elevCount = Math.max(0, Math.min(3, params.elevatorCount ?? 1));
 
         for (let e = 0; e < elevCount; e++) {
-          const eOffset = elevCount === 1 ? 0 : (e === 0 ? -elevW * 0.6 : elevW * 0.6);
+          const eOffset = (e - (elevCount - 1) / 2) * elevW * 1.2;
           const elevPosX = safeSW / 2 + elevW / 2 + 0.3 + eOffset;
           const elevPosZ = 0;
 

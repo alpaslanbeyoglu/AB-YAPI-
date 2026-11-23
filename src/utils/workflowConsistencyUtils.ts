@@ -462,6 +462,10 @@ export function applyCalculatorParamsUpdate(
     roofAtticType: syncedRoof.roofAtticType,
   };
 
+  if (newParams.hasGroundFloorShop && (newParams.shopLocation === 'basement' || newParams.shopLocation === 'both')) {
+    newParams.basementCount = Math.max(1, newParams.basementCount ?? 1);
+  }
+
   // Y-6: Poligon / parsel geometrisi ile baseBuildArea senkronizasyonu
   const baseAreaExplicitlyUpdated = Object.prototype.hasOwnProperty.call(
     newParamsOrUpdates,

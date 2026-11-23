@@ -690,6 +690,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   const newHasShop = !!params.hasGroundFloorShop;
   const newShopCount = params.shopCount || (newHasShop ? 1 : 0);
   const newShopLocation = params.shopLocation || 'ground';
+  const shopRequiresBasement = !!params.hasGroundFloorShop && newShopLocation !== 'ground';
   const newShopArea = params.shopArea || 80;
   const resFloors = newHasShop ? Math.max(0, newFloorCount - 1) : newFloorCount;
   const newFlatCount = calcResult.normalFlats !== undefined ? calcResult.normalFlats : (params.flatCount || (resFloors * newFlatsPerFloor));
@@ -1593,43 +1594,37 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         />
                       </div>
 
-                      {/* Balkon Derinliği */}
                       <div>
-                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                          🖼️ Balkon (m)
+                        <label className="flex min-h-9 items-center gap-2 text-sm font-semibold">
+                          <input type="checkbox" checked={(params.balconyDepth ?? 1.4) > 0}
+                            onChange={e => onChangeParams({ balconyDepth: e.target.checked ? 1.4 : 0 })} />
+                          Balkon
+                          <span aria-hidden="true" className="text-xs text-slate-600">{(params.balconyDepth ?? 1.4) > 0 ? 'Açık' : 'Kapalı'}</span>
                         </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="3.0"
-                          value={params.balconyDepth ?? 1.4}
-                          onChange={(e) => onChangeParams({ balconyDepth: Math.max(0, parseFloat(e.target.value) || 0) })}
-                          className={`w-full text-xs font-bold font-mono px-2.5 py-1.5 rounded-lg border ${inputBg}`}
-                        />
+                        {(params.balconyDepth ?? 1.4) > 0 && (
+                          <input aria-label="Balkon derinliği (m)" type="number" step="0.1" min="0" max="3"
+                            value={params.balconyDepth ?? 1.4}
+                            onChange={e => onChangeParams({ balconyDepth: Math.max(0, Number(e.target.value)) })}
+                            className={`w-full rounded-lg border px-2.5 py-1.5 text-sm ${inputBg}`} />
+                        )}
                       </div>
 
-                      {/* Asansör Sayısı */}
                       <div id="stage3ElevatorGroup">
-                        <label className="block text-[10px] font-extrabold text-slate-500 uppercase mb-1">
-                          🛗 Asansör
+                        <label className="flex min-h-9 items-center gap-2 text-sm font-semibold">
+                          <input type="checkbox" checked={(params.elevatorCount ?? 1) > 0}
+                            onChange={e => onChangeParams({ elevatorCount: e.target.checked ? 1 : 0 })} />
+                          Asansör
+                          <span aria-hidden="true" className="text-xs text-slate-600">{(params.elevatorCount ?? 1) > 0 ? 'Açık' : 'Kapalı'}</span>
                         </label>
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3].map((cnt) => (
-                            <button
-                              key={cnt}
-                              type="button"
-                              onClick={() => onChangeParams({ elevatorCount: cnt })}
-                              className={`flex-1 py-1.5 text-[10px] font-bold rounded-md border transition-all ${
-                                (params.elevatorCount ?? 1) === cnt
-                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                              }`}
-                            >
-                              {cnt}
-                            </button>
-                          ))}
-                        </div>
+                        {(params.elevatorCount ?? 1) > 0 && (
+                          <select aria-label="Asansör adedi" value={params.elevatorCount ?? 1}
+                            onChange={e => onChangeParams({ elevatorCount: Number(e.target.value) })}
+                            className={`w-full rounded-lg border px-2.5 py-1.5 text-sm ${inputBg}`}>
+                            <option value={1}>1 asansör</option>
+                            <option value={2}>2 asansör</option>
+                            <option value={3}>3 asansör</option>
+                          </select>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1733,7 +1728,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       <label className="flex min-h-9 flex-wrap items-center gap-2 text-sm font-semibold text-slate-800 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={params.basementCount !== undefined ? params.basementCount > 0 : true}
+                          checked={(params.basementCount ?? 1) > 0}
+                          disabled={shopRequiresBasement && (params.basementCount ?? 1) > 0}
                           onChange={(e) => onChangeParams({ ...params, basementCount: e.target.checked ? 1 : 0 })}
                           className="w-4 h-4 text-indigo-600 rounded-md cursor-pointer"
                         />
@@ -1742,7 +1738,10 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           {(params.basementCount ?? 1) > 0 ? 'Açık' : 'Kapalı'}
                         </span>
                       </label>
-                      {(params.basementCount !== undefined ? params.basementCount > 0 : true) && (
+                      {shopRequiresBasement && (
+                      <p className="text-xs text-indigo-800">Dükkân konumu bodrum içeriyor. Bodrumu kapatmak için önce dükkân konumunu Zemin yapın veya dükkânı kapatın.</p>
+                    )}
+                    {(params.basementCount !== undefined ? params.basementCount > 0 : true) && (
                         <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-indigo-200">
                           <input
                             type="number"
@@ -1903,12 +1902,18 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         <div className="grid grid-cols-2 gap-2">
                           <select
                             value={params.shopLocation || 'ground'}
-                            onChange={(e) => onChangeParams({ ...params, shopLocation: e.target.value as ShopLocation })}
+                            onChange={(e) => {
+                              const shopLocation = e.target.value as ShopLocation;
+                              onChangeParams({
+                                shopLocation,
+                                basementCount: shopLocation === 'ground' ? params.basementCount : Math.max(1, params.basementCount ?? 1),
+                              });
+                            }}
                             className="text-[10px] font-bold px-2 py-1.5 rounded-lg border bg-white border-amber-100"
                           >
                             <option value="ground">Zemin</option>
                             <option value="basement">Bodrum</option>
-                            <option value="both">Zemin+Bodrum</option>
+                            <option value="both">Zemin + Bodrum</option>
                           </select>
                           <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-amber-100">
                             <span className="text-[9px] text-amber-400 font-black">H:</span>
@@ -2004,13 +2009,14 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           {params.hasCantilever ? 'Açık' : 'Kapalı'}
                         </span>
                       </label>
-                      {params.hasCantilever && (
+                      {params.hasCantilever && params.cantileverDirection !== 'custom' && (
                         <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-emerald-200">
                           <input
                             type="number"
                             step={0.1}
                             min={0.2}
                             max={3.0}
+                            aria-label="Genel çıkma derinliği (m)"
                             value={params.cantileverDepth || 1.2}
                             onChange={(e) => onChangeParams({ ...params, cantileverDepth: parseFloat(e.target.value) || 1.2 })}
                             className="w-10 text-xs font-black font-mono bg-transparent text-emerald-700 outline-none"
@@ -2019,18 +2025,46 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         </div>
                       )}
                     </div>
-                    {params.hasCantilever ? (
-                      <select
-                        value={params.cantileverDirection || 'all'}
-                        onChange={(e) => onChangeParams({ ...params, cantileverDirection: e.target.value as any })}
-                        className="w-full text-[10px] font-bold px-2.5 py-1.5 rounded-lg border bg-white border-emerald-100 text-emerald-900"
-                      >
-                        <option value="all">Tüm Cephelerde Çıkma</option>
-                        <option value="front">Yalnızca Ön Cephe</option>
-                        <option value="front_back">Ön & Arka Cepheler</option>
-                      </select>
-                    ) : (
-                      <div className="text-[10px] text-slate-400 italic">Üst katlarda çıkma planlanmadı</div>
+                    {params.hasCantilever && (
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold">
+                          Çıkma yapılacak cepheler
+                          <select value={params.cantileverDirection === 'open_facades' ? 'all' : params.cantileverDirection || 'front_back'}
+                            onChange={e => onChangeParams({
+                              cantileverDirection: e.target.value as ProjectParams['cantileverDirection'],
+                              facadeCantilevers: e.target.value === 'custom'
+                                ? cantileverInfo.facades.map(facade => facade.cantileverDepth)
+                                : [],
+                            })}
+                            className="mt-1 w-full rounded-lg border border-emerald-100 bg-white px-2.5 py-2 text-sm text-emerald-900">
+                            <option value="all">Uygun tüm cepheler</option>
+                            <option value="front">Ön cephe</option>
+                            <option value="front_back">Ön ve arka cephe</option>
+                            <option value="custom">Cepheye göre ayrı ölçü</option>
+                          </select>
+                        </label>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {cantileverInfo.facades.map(facade => (
+                            <label key={facade.index} className="rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                              <span className="block font-semibold">{facade.name}</span>
+                              {params.cantileverDirection === 'custom' && !facade.isBlind ? (
+                                <input aria-label={`${facade.name} çıkma derinliği (m)`} type="number" min="0" max="3" step="0.1"
+                                  value={facade.cantileverDepth}
+                                  onChange={e => {
+                                    const depth = Math.min(3, Math.max(0, Number(e.target.value)));
+                                    onChangeParams({ facadeCantilevers: cantileverInfo.facades.map(item =>
+                                      item.index === facade.index ? depth : item.cantileverDepth) });
+                                  }}
+                                  className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1" />
+                              ) : (
+                                <span className="mt-1 block text-slate-600">
+                                  {facade.isBlind ? 'Kör / bitişik cephe' : `${facade.cantileverDepth.toLocaleString('tr-TR')} m`}
+                                </span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                   </div>

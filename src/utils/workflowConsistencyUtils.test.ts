@@ -1264,3 +1264,23 @@ describe('FAZ 3 / UYGULAMA 2B: Bağımsız Denetim Tutarsızlık Düzeltmeleri R
 
 
 
+
+describe('optional building features', () => {
+  it('keeps a basement when the shop extends below ground', () => {
+    for (const shopLocation of ['basement', 'both'] as const) {
+      const project = createSampleProject({ hasGroundFloorShop: true, shopLocation, basementCount: 0 });
+      expect(project.basementCount).toBe(1);
+      expect(applyCalculatorParamsUpdate(project, { basementCount: 0 }).basementCount).toBe(1);
+      expect(applyCalculatorParamsUpdate(project, { shopLocation: 'ground', basementCount: 0 }).basementCount).toBe(0);
+    }
+  });
+
+  it('preserves disabled balcony and elevator values in the model and omits elevator cost', () => {
+    const without = createSampleProject({ balconyDepth: 0, elevatorCount: 0 });
+    const withElevator = { ...without, elevatorCount: 1 };
+    const model = syncProjectParamsToBuildingModel(DEFAULT_BUILDING_PARAMS, without);
+    expect(model.balconyDepth).toBe(0);
+    expect(model.elevatorCount).toBe(0);
+    expect(calculateProject(withElevator).systemsCost).toBeGreaterThan(calculateProject(without).systemsCost);
+  });
+});

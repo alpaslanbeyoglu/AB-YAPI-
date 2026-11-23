@@ -139,7 +139,7 @@ export const NanoBananaDrawingGenerator: React.FC<NanoBananaDrawingGeneratorProp
     stairDepth: params.stairDepth || 4.8,
     elevatorWidth: params.elevatorWidth || 1.8,
     elevatorDepth: params.elevatorDepth || 2.1,
-    elevatorCount: params.elevatorCount || 1,
+    elevatorCount: params.elevatorCount ?? 1,
     flats: (params as any).flats || [],
     roomType: params.roomType,
     basementConfig: params.basementConfig as any,

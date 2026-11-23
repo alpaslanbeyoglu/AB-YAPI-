@@ -377,7 +377,7 @@ export function calculateBuildingMetrics(params: Partial<BuildingModelParams> = 
   const elevatorWidth = (params?.elevatorWidth && !isNaN(params.elevatorWidth) && params.elevatorWidth > 0) ? params.elevatorWidth : 1.80;
   const elevatorDepth = (params?.elevatorDepth && !isNaN(params.elevatorDepth) && params.elevatorDepth > 0) ? params.elevatorDepth : 2.00;
   const elevatorCount = (params?.elevatorCount && !isNaN(params.elevatorCount) && params.elevatorCount > 0) ? params.elevatorCount : 1;
-  const balconyDepth = (params?.balconyDepth && !isNaN(params.balconyDepth) && params.balconyDepth > 0) ? params.balconyDepth : 1.40;
+  const balconyDepth = Math.max(0, params?.balconyDepth ?? 1.40);
   
   // Tabla / Konsol Çıkması (Cantilever)
   const hasCantilever = !!params.hasCantilever;

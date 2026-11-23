@@ -239,7 +239,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
 
     const pvcM2 = Math.round(totalArea * pvcAreaFactor * 10) / 10;
     const paintPlasterM2 = Math.round(totalArea * paintPlasterAreaFactor * 10) / 10;
-    const elevatorQty = params.elevatorCount || 1;
+    const elevatorQty = params.elevatorCount ?? 1;
 
     return [
       // KABA İNŞAAT

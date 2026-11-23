@@ -2805,11 +2805,13 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                         <label className="text-[11px] font-semibold text-slate-600">Asansör Adedi</label>
                         <select
                           value={modelParams.elevatorCount ?? 1}
-                          onChange={(e) => updateParams({ elevatorCount: parseInt(e.target.value) || 1 })}
+                          onChange={(e) => updateParams({ elevatorCount: Number(e.target.value) })}
                           className={`w-full p-2.5 rounded-xl border text-xs ${inputBg}`}
                         >
+                          <option value={0}>Asansör yok</option>
                           <option value={1}>1 Asansör</option>
                           <option value={2}>2 Asansör (Çiftli Grup)</option>
+                          <option value={3}>3 Asansör</option>
                         </select>
                       </div>
 

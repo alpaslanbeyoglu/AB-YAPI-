@@ -1017,7 +1017,7 @@ export function calculateProject(params: ProjectParams): CalculationResult {
   const safeCostIntercom = Math.max(0, params.costIntercom ?? 50000);
   const safePriceGas = Math.max(0, params.priceGas ?? 65000);
 
-  const costElevatorTotal = safeCostElevator * (params.elevatorCount || 1);
+  const costElevatorTotal = safeCostElevator * (params.elevatorCount ?? 1);
   const costSmartHomeTotal = effectiveFlatCount * safePriceSmartHome;
   const costIntercomTotal = safeCostIntercom;
   const costGasTotal = effectiveFlatCount * safePriceGas;
