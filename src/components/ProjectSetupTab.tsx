@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
+  FlatItem,
   ProjectParams,
   ExistingBuilding,
   ShopLocation,
@@ -19,11 +20,9 @@ import {
   Home,
   Store,
   Compass,
-  Save,
   ShieldAlert,
   Car,
   Box,
-  RotateCcw,
   Ruler,
   Plus,
   Trash2,
@@ -41,7 +40,6 @@ import {
   Sliders,
   Info,
   Sparkles,
-  Wand2,
   MapPin,
   Maximize2,
   ArrowDownUp,
@@ -281,12 +279,12 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       console.error('Export error:', error);
     }
   };
-  const [backupParams, setBackupParams] = useState<ProjectParams | null>(null);
+
 
   // Group flats by floor for visual consistency and layout logic
   // KURAL: Ortak alanlar (sığınak, otopark, depo) hesaplamalara tam dahil edilir, ancak kat planı şemalarında bağımsız daire kutusu olarak gösterilmez.
   const groupedFlats = useMemo(() => {
-    const groups: Record<number, any[]> = {};
+    const groups: Record<number, FlatItem[]> = {};
     params.flats.forEach(flat => {
       if (flat.flatType === 'shelter' || flat.flatType === 'parking' || flat.flatType === 'storage') {
         return;
@@ -306,33 +304,27 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     ? groupedFlats
     : groupedFlats.filter(([floor]) => floor === distributionFloor);
 
-  const getFlatStyles = (flat: any, isContractor: boolean) => {
-    if (isContractor) return 'bg-amber-100 border-amber-400 text-amber-950 shadow-sm ring-2 ring-amber-400/50';
-    
-    const type = flat.flatType || 'standard';
-    const desc = (flat.description || '').toLowerCase();
-    const floor = flat.floorNumber ?? 0;
-
-    // Bodrum sığınak gri
-    if (desc.includes('sığınak') || desc.includes('depo') || desc.includes('ortak')) {
-      return 'bg-slate-200 border-slate-300 text-slate-700';
-    }
-    
-    // Bodrum daire açık mavi
-    if (floor < 0) {
-      return 'bg-sky-50 border-sky-200 text-sky-800';
-    }
-    
-    // Zemin dükkan mavi
-    if (type === 'shop' || (floor === 0 && desc.includes('dükkan'))) {
-      return 'bg-blue-100 border-blue-300 text-blue-900 shadow-sm';
-    }
-
-    // Dubleks ve Mansart (Ayrı mor/eflatun renk tonu ile Müteahhit sarısından belirgin ayrışır)
-    if (type === 'duplex') return 'bg-purple-50 border-purple-200 text-purple-900';
-    if (type === 'mansard') return 'bg-fuchsia-50/70 border-fuchsia-200 text-fuchsia-900';
-    
-    return 'bg-white border-slate-200 text-slate-800 hover:border-indigo-300';
+  const distributionUnits = groupedFlats.flatMap(([, flats]) => flats);
+  const contractorIds = new Set([
+    ...(params.contractorFlatIds || []),
+    ...params.flats.filter(flat => flat.isContractorShare).map(flat => flat.id),
+  ]);
+  const contractorUnitCount = distributionUnits.filter(flat => contractorIds.has(flat.id)).length;
+  const setDistributionShares = (ids: Set<number>) => {
+    onChangeParams({
+      contractorFlatIds: Array.from(ids),
+      flats: params.flats.map(flat => ({ ...flat, isContractorShare: ids.has(flat.id) })),
+    });
+  };
+  const setDistributionPrice = (id: number, field: 'salePrice' | 'manualUnitPrice', rawValue: string) => {
+    const amount = Number(rawValue);
+    if (!Number.isFinite(amount) || amount < 0) return;
+    onChangeParams({
+      flats: params.flats.map(flat => flat.id === id ? {
+        ...flat,
+        [field]: rawValue === '' || (field === 'manualUnitPrice' && amount === 0) ? undefined : amount,
+      } : flat),
+    });
   };
 
   const setActiveStep = (step: number) => {
@@ -2096,199 +2088,92 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
         </div>
 
-        {/* KAT BAZLI BAĞIMSIZ BÖLÜM ŞEMASI & DAİRE DAĞILIMI (3. Aşama — Mimari Yapılandırma) */}
-        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-4`}>
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <section id="stage3FlatsMatrixSection" aria-labelledby="floor-distribution-title"
+          className={`${bgCard} space-y-3 rounded-2xl border p-3 sm:p-4`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-            <h2 className={`text-base font-bold ${textTitle}`}>Katlara göre bölüm dağılımı</h2>
-            <p className={`mt-1 text-xs ${textMuted}`}>
-              Z+{(params.floorCount || 5) - 1} Kat Yapısı • {params.hasGroundFloorShop ? `${params.shopCount || 1} Dükkan + ` : ''}{newFlatCount} Bağımsız Bölüm • Katta {params.flatsPerFloor || 2} Daire {params.roofType === 'mansard' ? '• Mansart Çatı' : params.roofType === 'duplex' ? '• Çatı Dubleksi' : ''}
-            </p>
+              <h2 id="floor-distribution-title" className={`text-base font-bold ${textTitle}`}>Kat dağılımı ve paylaşım</h2>
+              <p className={`mt-0.5 text-xs ${textMuted}`}>
+                {distributionUnits.length} bölüm · {contractorUnitCount} müteahhit · {distributionUnits.length - contractorUnitCount} hak sahibi
+              </p>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Sığınak, otopark, kazan dairesi, merdiven ve asansör şaftları inşaat alanı ve maliyet hesaplamalarına dahil edilmiştir.">
-                🛡️ Ortak Alanlar Hesaba Dahil
-              </span>
-              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-800">
-                {newTotalConstructionArea.toLocaleString('tr-TR')} m² Toplam İnşaat
-              </span>
-              {wizardMode && (
-                <button
-                  type="button"
-                  onClick={() => goToStage(2)}
-                  className="px-3 py-1 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  title="Arsa ve ölçü parametrelerini düzenle"
-                >
-                  <Edit2 className="w-3 h-3" />
-                  <span>Ölçüleri Düzenle</span>
+            <div role="group" aria-label="Kat paylaşımı görünümü" className="flex gap-1 rounded-lg bg-slate-100 p-1">
+              {([['grid', 'Kat listesi'], ['drawing', 'Bina şeması']] as const).map(([mode, label]) => (
+                <button key={mode} type="button" aria-pressed={viewMode === mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`min-h-9 rounded-md px-3 text-sm font-semibold ${viewMode === mode
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-700 hover:bg-white'}`}>
+                  {label}
                 </button>
-              )}
+              ))}
             </div>
           </div>
 
-          {/* BAĞIMSIZ BÖLÜM VE KAT BAZLI DAĞILIM ŞEMASI */}
-          <div id="stage3FlatsMatrixSection" className="space-y-4">
-            {params.projectModel === 'contractorShare' && (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-amber-950">Kat Karşılığı Müteahhit Paylaşım Ayarları</h3>
-                    <p className="text-xs text-amber-800">Oran belirleyebilir veya daireleri doğrudan listede müteahhide atayabilirsiniz.</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-amber-900">Müteahhit Oranı:</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={params.contractorShareRate ?? 50}
-                    onChange={(e) => onChangeParams({ ...params, contractorShareRate: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
-                    className="w-16 text-xs font-bold font-mono px-2 py-1 rounded-lg border border-amber-300 bg-white text-amber-950 text-center"
-                  />
-                  <span className="text-xs font-bold text-amber-900">%</span>
-                </div>
-              </div>
-            )}
-
-            {/* Daire ve Dükkan Kat Bazlı Dağılım Grid */}
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                <h3 className="text-base font-bold text-slate-900">Kat paylaşım şeması</h3>
-                <div role="group" aria-label="Kat paylaşımı görünümü" className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
-                  {([
-                    ['grid', 'Kat listesi'],
-                    ['drawing', 'Bina şeması'],
-                  ] as const).map(([mode, label]) => (
-                    <button key={mode} type="button" aria-pressed={viewMode === mode}
-                      onClick={() => setViewMode(mode)}
-                      className={`min-h-10 rounded-md px-3 text-sm font-semibold ${viewMode === mode
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-slate-700 hover:bg-white'}`}>
-                      {label}
-                    </button>
+          {viewMode === 'grid' && distributionUnits.length > 0 && (
+            <div className="flex flex-wrap items-start gap-2 border-y border-slate-200 py-2">
+              <label className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                Kat
+                <select value={distributionFloor} onChange={e => setSelectedDistributionFloor(e.target.value)}
+                  className="min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800">
+                  <option value="all">Tüm katlar</option>
+                  {groupedFlats.map(([floor, flats]) => (
+                    <option key={floor} value={floor}>
+                      {Number(floor) === 0 ? 'Zemin kat' : Number(floor) < 0 ? `${Math.abs(Number(floor))}. bodrum kat` : `${floor}. kat`}
+                      {' · '}{flats.length} bölüm
+                    </option>
                   ))}
-                </div>
-              </div>
-              <details className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <summary className="cursor-pointer py-1 text-sm font-semibold text-slate-800">Toplu işlemler ve geri yükleme</summary>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={handleEqualizeFloorAreas}
-                    className="px-2.5 py-1 text-[11px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg shadow-xs transition-transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                    title="Kat alanını kattaki dairelere tam eşit olarak paylaştırır ve kat düzenini hizalar"
-                  >
-                    <Scale className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Kat Alanını Eşit Paylaştır</span>
-                  </button>
-
-                  <button
-                    type="button"
+                </select>
+              </label>
+              <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800">
+                <summary className="min-h-9 cursor-pointer py-2 font-semibold">Toplu işlemler</summary>
+                <div className="flex flex-wrap items-center gap-2 pb-2">
+                  <button type="button" className="min-h-9 rounded-md border bg-white px-2"
                     onClick={() => {
-                      const totalCount = params.flats.length;
-                      const rate = (params.contractorShareRate ?? 50) / 100;
-                      const targetContractorCount = Math.round(totalCount * rate);
-                      // En üst katlardan başlayarak müteahhide ata
-                      const sortedFlatsByFloorDesc = [...params.flats].sort(
-                        (a, b) => (b.floorNumber ?? 0) - (a.floorNumber ?? 0) || b.id - a.id
-                      );
-                      const contractorFlats = sortedFlatsByFloorDesc.slice(0, targetContractorCount);
-                      const contractorIds = contractorFlats.map((f) => f.id);
-                      const updatedFlats = params.flats.map((f) => ({
-                        ...f,
-                        isContractorShare: contractorIds.includes(f.id),
-                      }));
-                      onChangeParams({ ...params, contractorFlatIds: contractorIds, flats: updatedFlats });
-                    }}
-                    className="px-2.5 py-1 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-xs transition-transform active:scale-95 flex items-center gap-1"
-                  >
-                    <Wand2 className="w-3 h-3" />
-                    <span>Otomatik Dağıt (%{params.contractorShareRate ?? 50})</span>
+                      if (window.confirm('Tüm katlarda bölüm alanları eşitlenecek. Elle girilmiş bölüm alanları değişecektir. Uygulansın mı?')) {
+                        handleEqualizeFloorAreas();
+                      }
+                    }}>
+                    Alanları eşitle
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updatedFlats = params.flats.map((f) => ({ ...f, isContractorShare: false }));
-                      onChangeParams({ ...params, contractorFlatIds: [], flats: updatedFlats });
-                    }}
-                    className="px-2.5 py-1 text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-transform active:scale-95"
-                  >
-                    Tümü Hak Sahibi
-                  </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBackupParams(JSON.parse(JSON.stringify(params)));
-                        alert('Geri yükleme noktası oluşturuldu.');
-                      }}
-                      className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-                      title="Geri Yükleme Noktası Oluştur"
-                    >
-                      Geri yükleme noktası oluştur
-                    </button>
-                    
-                    {backupParams && (
-                      <button
-                        type="button"
+                  {params.projectModel === 'contractorShare' && (
+                    <>
+                      <label className="flex items-center gap-1">
+                        Müteahhit oranı (%)
+                        <input type="number" min={0} max={100} value={params.contractorShareRate ?? 50}
+                          onChange={e => onChangeParams({ contractorShareRate: Math.min(100, Math.max(0, Number(e.target.value))) })}
+                          className="w-16 rounded-md border border-slate-300 bg-white p-1" />
+                      </label>
+                      <button type="button" className="min-h-9 rounded-md border bg-white px-2"
                         onClick={() => {
-                          if (confirm('Kaydedilen geri yükleme noktasına dönmek istiyor musunuz? Mevcut değişiklikler kaybolacaktır.')) {
-                            onChangeParams(backupParams);
-                          }
-                        }}
-                        className="p-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors animate-pulse"
-                        title="Geri Yükle"
-                      >
-                        Geri yükle
+                          const count = Math.round(distributionUnits.length * (params.contractorShareRate ?? 50) / 100);
+                          if (!window.confirm(`Üst katlardan başlayarak ${count} bölüm müteahhide atanacak. Mevcut pay dağılımı değişecektir. Uygulansın mı?`)) return;
+                          const units = [...distributionUnits].sort((a, b) => (b.floorNumber ?? 0) - (a.floorNumber ?? 0) || b.id - a.id);
+                          setDistributionShares(new Set(units.slice(0, count).map(flat => flat.id)));
+                        }}>
+                        Otomatik paylaştır
                       </button>
-                    )}
+                    </>
+                  )}
+                  {contractorUnitCount > 0 && (
+                    <button type="button" className="min-h-9 rounded-md border bg-white px-2"
+                      onClick={() => {
+                        if (window.confirm('Tüm katlardaki bağımsız bölümler hak sahibine atanacak. Uygulansın mı?')) {
+                          setDistributionShares(new Set());
+                        }
+                      }}>
+                      Tümünü hak sahibine ata
+                    </button>
+                  )}
                 </div>
               </details>
+            </div>
+          )}
 
-              {equalizeSuccessToast && (
-                <div className="p-3 bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in shadow-xs">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span>{equalizeSuccessToast}</span>
-                </div>
-              )}
-
-              {/* ÖZET İSTATİSTİK ROZETLERİ */}
-              {(() => {
-                const displayedFlats = groupedFlats.flatMap(([, flats]) => flats);
-                const totalFlats = displayedFlats.length;
-                const contractorFlats = displayedFlats.filter(
-                  (f) => (params.contractorFlatIds || []).includes(f.id) || !!f.isContractorShare
-                );
-                const ownerFlats = displayedFlats.filter(
-                  (f) => !(params.contractorFlatIds || []).includes(f.id) && !f.isContractorShare
-                );
-                const totalArea = displayedFlats.reduce((sum, f) => sum + (f.area || 0), 0);
-                const contractorArea = contractorFlats.reduce((sum, f) => sum + (f.area || 0), 0);
-                const ownerArea = ownerFlats.reduce((sum, f) => sum + (f.area || 0), 0);
-
-                return (
-                  <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
-                    <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200/80 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                      <span className="text-[11px] font-bold text-slate-600">Toplam Bölüm:</span>
-                      <span className="font-mono font-black text-slate-900">{totalFlats} Adet ({totalArea.toFixed(0)} m²)</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                      <span className="text-[11px] font-bold text-amber-800">Müteahhit Payı:</span>
-                      <span className="font-mono font-black text-amber-950">{contractorFlats.length} Adet ({contractorArea.toFixed(0)} m²)</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                      <span className="text-[11px] font-bold text-emerald-800">Hak Sahipleri:</span>
-                      <span className="font-mono font-black text-emerald-950">{ownerFlats.length} Adet ({ownerArea.toFixed(0)} m²)</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
+          {equalizeSuccessToast && <p role="status" className="text-xs text-indigo-800">{equalizeSuccessToast}</p>}
+          {distributionUnits.length === 0 ? (
+            <p className={`py-2 text-sm ${textMuted}`}>Henüz bağımsız bölüm yok.</p>
+          ) : (
               <div className="relative">
                 {viewMode === 'drawing' ? (
                   <div className="space-y-3">
@@ -2324,7 +2209,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           const sortedFloorFlats = [...floorFlats].sort((a, b) => a.id - b.id);
                           const floorNum = Number(floor);
                           const isMansard = sortedFloorFlats.some(f => f.flatType === 'mansard' || (f.description || '').toLowerCase().includes('mansart'));
-                          const isShopFloor = floorNum === 0 && sortedFloorFlats.some(f => f.flatType === 'shop');
                           
                           return (
                             <div key={floor} className="flex group min-h-[82px]">
@@ -2332,10 +2216,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                               <div className="w-24 shrink-0 flex items-center justify-end pr-3.5 text-[10px] font-mono border-r-2 border-slate-300 relative bg-slate-50/70 select-none">
                                 <span className="absolute -right-[5px] w-2.5 h-[2px] bg-slate-400"></span>
                                 <div className="text-right">
-                                  <div className="flex items-center justify-end gap-0.5 font-bold text-slate-700 leading-tight">
-                                    <span className="text-[7.5px] text-slate-400">▼</span>
-                                    <span>{floorNum > 0 ? `+${(floorNum * 3).toFixed(2)}` : floorNum === 0 ? '±0.00' : `${(floorNum * 3).toFixed(2)}`}</span>
-                                  </div>
                                   <div className={`text-[8px] font-bold mt-0.5 tracking-wider ${floorNum === 0 ? 'text-blue-700 font-black' : 'text-slate-400'}`}>
                                     {floorNum === 0 ? 'ZEMİN KOTU' : floorNum > 0 ? `${floorNum}. KAT` : `B${Math.abs(floorNum)} BODRUM`}
                                   </div>
@@ -2379,20 +2259,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                                         borderWidth: isContractor ? '2px' : '1.5px',
                                         borderStyle: 'solid'
                                       }}
-                                      onClick={() => {
-                                        const currentIds = params.contractorFlatIds || [];
-                                        const nextIsContractor = !isContractor;
-                                        const newIds = nextIsContractor
-                                          ? [...new Set([...currentIds, flat.id])]
-                                          : currentIds.filter((id) => id !== flat.id);
-                                        const updatedFlats = params.flats.map((f) =>
-                                          f.id === flat.id ? { ...f, isContractorShare: nextIsContractor } : f
-                                        );
-                                        onChangeParams({ ...params, contractorFlatIds: newIds, flats: updatedFlats });
-                                      }}
-                                      className={`flex-1 min-w-[115px] min-h-[72px] rounded-xl flex flex-col justify-between p-2 cursor-pointer transition-all hover:ring-3 hover:ring-indigo-400/30 hover:border-indigo-400 shadow-xs relative group/flat select-none ${
-                                        isContractor ? 'shadow-md -translate-y-0.5 z-10' : ''
-                                      }`}
+                                      className="flex min-h-[72px] min-w-[115px] flex-1 flex-col justify-between rounded-lg p-2"
                                     >
                                       {/* Kart Üst Başlık & Paydaş Rozeti */}
                                       <div className="flex items-start justify-between gap-1 w-full">
@@ -2412,7 +2279,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                                               ? 'bg-amber-500 text-white shadow-xs'
                                               : 'bg-slate-100 text-slate-600 border border-slate-200'
                                           }`}
-                                          title="Tıklayarak Müteahhit / Malik Payı Arasında Değiştirin"
                                         >
                                           {isContractor ? 'Müteahhit' : 'Malik'}
                                         </div>
@@ -2429,11 +2295,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                                           <span>{flat.area} m²</span>
                                         </div>
 
-                                        {flat.effectiveShareRatio ? (
-                                          <span className="text-[8px] font-mono text-slate-400 font-bold">
-                                            %{flat.effectiveShareRatio.toFixed(1)}
-                                          </span>
-                                        ) : null}
                                       </div>
 
                                       {/* Finansal Detaylar (Sadece Hak Sahipleri İçin ve Financial Modda) */}
@@ -2454,52 +2315,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                                         );
                                       })()}
 
-                                      {/* Price Input in Drawing Mode */}
-                                      <div className="absolute inset-x-0 bottom-0 p-1 opacity-0 group-hover/flat:opacity-100 transition-opacity bg-black/10 rounded-b-xl backdrop-blur-xs z-20" onClick={(e) => e.stopPropagation()}>
-                                        {isContractor ? (
-                                          <input
-                                            type="number"
-                                            value={flat.salePrice || ''}
-                                            onChange={(e) => {
-                                              const val = parseFloat(e.target.value) || 0;
-                                              const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, salePrice: val } : f));
-                                              onChangeParams({ ...params, flats: updatedFlats });
-                                            }}
-                                            placeholder="Satış Değeri..."
-                                            title="Müteahhit Dairesi Satış Değeri (TL)"
-                                            className="w-full text-[8.5px] font-bold px-1.5 py-0.5 rounded border border-amber-300 bg-white/95 text-amber-950 focus:outline-hidden"
-                                          />
-                                        ) : (
-                                          <div className="flex items-center gap-0.5 bg-white/95 px-1 py-0.5 rounded border border-slate-300 shadow-2xs">
-                                            <input
-                                              type="number"
-                                              step="500"
-                                              value={flat.manualUnitPrice || ''}
-                                              onChange={(e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, manualUnitPrice: val > 0 ? val : undefined } : f));
-                                                onChangeParams({ ...params, flats: updatedFlats });
-                                              }}
-                                              placeholder={fr ? `${Math.round(fr.effectiveUnitPrice)} ₺` : 'Özel m² ₺'}
-                                              title="Daireye özel m² birim maliyeti (TL). Boş bırakılırsa standart fiyat geçerlidir."
-                                              className="w-full text-[8px] font-mono font-bold text-slate-800 focus:outline-hidden"
-                                            />
-                                            {flat.manualUnitPrice ? (
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, manualUnitPrice: undefined } : f));
-                                                  onChangeParams({ ...params, flats: updatedFlats });
-                                                }}
-                                                className="text-[8px] font-bold text-slate-400 hover:text-red-500 px-0.5"
-                                                title="Standart birim fiyata sıfırla"
-                                              >
-                                                ✕
-                                              </button>
-                                            ) : null}
-                                          </div>
-                                        )}
-                                      </div>
                                     </div>
                                   );
                                 })}
@@ -2509,204 +2324,71 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                         })}
                       </div>
                       
-                      {/* Ground Line & Foundation */}
-                      <div className="w-full mt-2">
-                        {/* Tabii Zemin Seviyesi */}
-                        <div className="flex items-center justify-between px-3 py-1 bg-slate-200/80 border-t-2 border-b border-slate-400 text-slate-700 text-[9px] font-mono font-bold">
-                          <span>▼ ±0.00 TABİİ ZEMİN SEVİYESİ</span>
-                          <span className="text-[8px] opacity-75">Kentsel Dönüşüm Parseli</span>
-                        </div>
-
-                        {/* Betonarme Radye Temel Kesiti */}
-                        <div className="h-9 w-full bg-slate-300 border-b-4 border-slate-600 flex items-center justify-center relative overflow-hidden shadow-inner">
-                          <div className="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-950 via-slate-700 to-transparent"></div>
-                          <div className="flex items-center gap-2 relative z-10">
-                            <Building2 className="w-3.5 h-3.5 text-slate-600" />
-                            <span className="text-[10px] font-black text-slate-700 uppercase tracking-[0.25em]">
-                              RADYE TEMEL & ZEMİN KESİTİ (C35/45 BETONARME)
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Zemin Taşıyıcı Tabakası */}
-                        <div className="h-7 w-full bg-slate-200/60 flex items-center justify-center gap-4 text-[8px] font-mono text-slate-500 border-dashed border-b border-slate-300">
-                          <span className="w-16 h-0.5 bg-slate-300"></span>
-                          <span>ZEMİN ETÜDÜ: ZB/ZC TAŞIYICI TABAKA</span>
-                          <span className="w-16 h-0.5 bg-slate-300"></span>
-                        </div>
-                      </div>
                     </div>
                   </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {groupedFlats.length > 0 ? (
-                      <label className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                        Gösterilecek kat
-                        <select value={distributionFloor} onChange={e => setSelectedDistributionFloor(e.target.value)}
-                          className="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm">
-                          <option value="all">Tüm katlar</option>
-                          {groupedFlats.map(([floor, flats]) => (
-                            <option key={floor} value={floor}>
-                              {Number(floor) === 0 ? 'Zemin kat' : Number(floor) < 0 ? `${Math.abs(Number(floor))}. bodrum kat` : `${floor}. kat`}
-                              {' · '}{flats.length} bölüm
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : <p className="text-sm text-slate-600">Henüz bağımsız bölüm yok.</p>}
+                  <div className="space-y-2">
                     {visibleDistributionFloors.map(([floor, floorFlats]) => {
-                  const sortedFloorFlats = [...floorFlats].sort((a, b) => a.id - b.id);
-                  const isMansardFloor = sortedFloorFlats.some(
-                    (f) => f.flatType === 'mansard' || (f.description || '').toLowerCase().includes('mansart')
-                  );
-                  return (
-                    <div key={floor} className="space-y-2.5 border-t-2 border-indigo-200/90 pt-3">
-                      <div className="flex flex-wrap items-center gap-2 px-1">
-                        <div className="flex items-center gap-2 bg-indigo-700 text-white px-3 py-1 rounded-lg shadow-xs">
-                          <Building2 className="w-3.5 h-3.5 text-indigo-200" />
-                          <span className="text-xs font-black uppercase tracking-wider">
-                            {Number(floor) === 0
-                              ? '🏢 ZEMİN KAT'
-                              : Number(floor) > 0
-                              ? isMansardFloor
-                                ? `🏢 ${floor}. KAT (ÇATIKATI MANSART)`
-                                : `🏢 ${floor}. KAT`
-                              : `🏢 ${Math.abs(Number(floor))}. BODRUM KAT`}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-bold text-indigo-900 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
-                          {sortedFloorFlats.length} bölüm · {sortedFloorFlats.reduce((sum, flat) => sum + (flat.area || 0), 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²
-                        </span>
-                      </div>
-                        
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                          {sortedFloorFlats.map((flat) => {
-                            const isContractor = (params.contractorFlatIds || []).includes(flat.id) || !!flat.isContractorShare;
-                            const fr = results.flatResults?.find((f) => f.id === flat.id);
-                            const styles = getFlatStyles(flat, isContractor);
-                            return (
-                              <div
-                                key={flat.id}
-                                className={`p-3 rounded-2xl border transition-all duration-300 space-y-2 text-xs relative overflow-hidden group ${styles}`}
-                              >
-                                <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 text-sm font-bold">
-                                  <span className="min-w-0 break-words">{flat.name}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const currentIds = params.contractorFlatIds || [];
-                                      const nextIsContractor = !isContractor;
-                                      const newIds = nextIsContractor
-                                        ? [...new Set([...currentIds, flat.id])]
-                                        : currentIds.filter((id) => id !== flat.id);
-                                      const updatedFlats = params.flats.map((f) =>
-                                        f.id === flat.id ? { ...f, isContractorShare: nextIsContractor } : f
-                                      );
-                                      onChangeParams({ ...params, contractorFlatIds: newIds, flats: updatedFlats });
-                                    }}
-                                    aria-pressed={isContractor}
-                                    aria-label={`${flat.name}: ${isContractor ? 'Müteahhit' : 'Hak sahibi'}. Payı değiştir`}
-                                    className={`min-h-9 px-2 py-1 text-xs font-semibold rounded-lg cursor-pointer shadow-sm transition-transform active:scale-90 shrink-0 ${
-                                      isContractor
-                                        ? 'bg-amber-600 text-white hover:bg-amber-700'
-                                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                                    }`}
-                                  >
-                                    {isContractor ? 'Müteahhit' : 'Hak sahibi'}
-                                  </button>
-                                </div>
-                                
-                                <div className="text-[10px] opacity-70 flex items-center justify-between relative z-10">
-                                  <span className="flex items-center gap-1 font-medium truncate">
-                                    {flat.flatType === 'shop' || flat.flatType === 'basement_shop' ? <Store className="w-3 h-3 shrink-0" /> : <Home className="w-3 h-3 shrink-0" />}
-                                    <span className="truncate">{flat.description || flat.flatType || 'Daire'}</span>
-                                  </span>
-                                  <span className="font-bold shrink-0 ml-1">{flat.area} m²</span>
-                                </div>
-                                
-                                <div className="pt-2 border-t border-black/5 relative z-10">
-                                  {isContractor ? (
-                                    <>
-                                      <div className="flex items-center justify-between mb-1">
-                                        <label className="text-[9px] font-bold opacity-60 uppercase tracking-tighter">Satış Değeri</label>
-                                        <span className="text-[9px] font-black text-indigo-600">TL</span>
-                                      </div>
-                                      <input
-                                        type="number"
-                                        aria-label={`${flat.name} satış değeri (TL)`}
-                                        value={flat.salePrice || ''}
-                                        onChange={(e) => {
-                                          const val = parseFloat(e.target.value) || 0;
-                                          const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, salePrice: val } : f));
-                                          onChangeParams({ ...params, flats: updatedFlats });
-                                        }}
-                                        placeholder="0"
-                                        className="w-full text-[11px] font-mono font-bold px-2 py-1 rounded-lg border border-slate-200 bg-white/70 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 outline-hidden transition-all"
-                                      />
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div className="flex items-center justify-between mb-1">
-                                        <label className="text-[9px] font-bold opacity-60 uppercase tracking-tighter">Özel Birim Maliyet</label>
-                                        <span className="text-[9px] font-black text-indigo-600">TL/m²</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <input
-                                          type="number"
-                                          step="500"
-                                          aria-label={`${flat.name} özel birim fiyatı (TL/m²)`}
-                                          value={flat.manualUnitPrice || ''}
-                                          onChange={(e) => {
-                                            const val = parseFloat(e.target.value) || 0;
-                                            const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, manualUnitPrice: val > 0 ? val : undefined } : f));
-                                            onChangeParams({ ...params, flats: updatedFlats });
-                                          }}
-                                          placeholder={fr ? `${Math.round(fr.effectiveUnitPrice)}` : 'Standart'}
-                                          title="Daireye özel m² maliyeti (TL). Boş bırakılırsa standart fiyat uygulanır."
-                                          className={`w-full text-[11px] font-mono font-bold px-2 py-1 rounded-lg border transition-all ${
-                                            flat.manualUnitPrice
-                                              ? 'bg-amber-50 border-amber-400 text-amber-900 ring-1 ring-amber-300'
-                                              : 'border-slate-200 bg-white/70 focus:bg-white focus:ring-2 focus:ring-indigo-500/20'
-                                          }`}
-                                        />
-                                        {flat.manualUnitPrice ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const updatedFlats = params.flats.map((f) => (f.id === flat.id ? { ...f, manualUnitPrice: undefined } : f));
-                                              onChangeParams({ ...params, flats: updatedFlats });
-                                            }}
-                                            className="text-[10px] font-bold text-slate-400 hover:text-red-500 px-1"
-                                            title="Sıfırla"
-                                          >
-                                            ✕
-                                          </button>
-                                        ) : null}
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                                
-                                {/* Background Pattern for specific types */}
-                                {(flat.flatType === 'shop' || flat.flatType === 'basement_shop') && (
-                                  <div className="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12">
-                                    <Store className="w-12 h-12" />
+                      const floorNumber = Number(floor);
+                      const title = floorNumber === 0 ? 'Zemin kat'
+                        : floorNumber < 0 ? `${Math.abs(floorNumber)}. bodrum kat` : `${floorNumber}. kat`;
+                      const area = floorFlats.reduce((sum, flat) => sum + (flat.area || 0), 0);
+                      return (
+                        <section key={floor} className="overflow-hidden rounded-lg border border-slate-200">
+                          <div className="flex flex-wrap items-center justify-between gap-1 bg-slate-100 px-3 py-1.5 text-slate-800">
+                            <h3 className="text-sm font-bold">
+                              {title}{floorFlats.some(flat => flat.flatType === 'mansard') ? ' · Mansart' : ''}
+                            </h3>
+                            <span className="text-xs tabular-nums">{floorFlats.length} bölüm · {area.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</span>
+                          </div>
+                          <ul className="divide-y divide-slate-100 bg-white">
+                            {[...floorFlats].sort((a, b) => a.id - b.id).map(flat => {
+                              const isContractor = contractorIds.has(flat.id);
+                              const result = results.flatResults?.find(item => item.id === flat.id);
+                              const isShop = flat.flatType === 'shop' || flat.flatType === 'basement_shop';
+                              return (
+                                <li key={flat.id} className="grid grid-cols-2 items-center gap-x-2 gap-y-1 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_minmax(0,1fr)]">
+                                  <div className="min-w-0">
+                                    <p className="break-words text-sm font-semibold text-slate-900">{flat.name}</p>
+                                    <p className="break-words text-xs text-slate-600">{flat.description || (isShop ? 'Dükkân' : 'Daire')}</p>
                                   </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        </div>
+                                  <span className="whitespace-nowrap text-right text-xs font-semibold tabular-nums text-slate-700">{flat.area.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</span>
+                                  <select aria-label={`${flat.name} pay türü`}
+                                    value={isContractor ? 'contractor' : 'owner'}
+                                    onChange={e => {
+                                      const ids = new Set(contractorIds);
+                                      if (e.target.value === 'contractor') ids.add(flat.id);
+                                      else ids.delete(flat.id);
+                                      setDistributionShares(ids);
+                                    }}
+                                    className={`min-h-9 w-full min-w-0 rounded-md border px-2 text-xs font-semibold ${isContractor
+                                      ? 'border-amber-300 bg-amber-50 text-amber-900'
+                                      : 'border-slate-300 bg-white text-slate-800'}`}>
+                                    <option value="owner">Hak sahibi</option>
+                                    <option value="contractor">Müteahhit</option>
+                                  </select>
+                                  <label className="min-w-0 text-xs text-slate-600">
+                                    {isContractor ? 'Satış değeri (TL)' : 'Özel fiyat (TL/m²)'}
+                                    <input type="number" inputMode="decimal" min={0} step="any"
+                                      aria-label={`${flat.name} ${isContractor ? 'satış değeri (TL)' : 'özel fiyatı (TL/m²)'}`}
+                                      value={(isContractor ? flat.salePrice : flat.manualUnitPrice) ?? ''}
+                                      placeholder={isContractor ? 'Otomatik' : result ? String(Math.round(result.effectiveUnitPrice)) : 'Standart'}
+                                      onChange={e => setDistributionPrice(flat.id, isContractor ? 'salePrice' : 'manualUnitPrice', e.target.value)}
+                                      className="mt-0.5 min-h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm tabular-nums text-slate-900" />
+                                  </label>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </section>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+          )}
+        </section>
         </div>
       )}
 
