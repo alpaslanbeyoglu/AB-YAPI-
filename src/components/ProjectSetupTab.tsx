@@ -243,6 +243,11 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
 
   const [viewMode, setViewMode] = useState<'grid' | 'drawing'>('grid');
   const [selectedDistributionFloor, setSelectedDistributionFloor] = useState('all');
+  const [floorOperation, setFloorOperation] = useState<{
+    action: 'equalize' | 'auto' | 'owners';
+    project: ProjectParams;
+  } | null>(null);
+  const pendingFloorAction = floorOperation?.project === params ? floorOperation.action : null;
   const [schematicDetailMode, setSchematicDetailMode] = useState<'financial' | 'architectural'>('architectural');
   const schematicRef = useRef<HTMLDivElement>(null);
 
@@ -2100,7 +2105,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             <div role="group" aria-label="Kat paylaşımı görünümü" className="flex gap-1 rounded-lg bg-slate-100 p-1">
               {([['grid', 'Kat listesi'], ['drawing', 'Bina şeması']] as const).map(([mode, label]) => (
                 <button key={mode} type="button" aria-pressed={viewMode === mode}
-                  onClick={() => setViewMode(mode)}
+                  onClick={() => { setFloorOperation(null); setViewMode(mode); }}
                   className={`min-h-9 rounded-md px-3 text-sm font-semibold ${viewMode === mode
                     ? 'bg-indigo-600 text-white'
                     : 'text-slate-700 hover:bg-white'}`}>
@@ -2129,11 +2134,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 <summary className="min-h-9 cursor-pointer py-2 font-semibold">Toplu işlemler</summary>
                 <div className="flex flex-wrap items-center gap-2 pb-2">
                   <button type="button" className="min-h-9 rounded-md border bg-white px-2"
-                    onClick={() => {
-                      if (window.confirm('Tüm katlarda bölüm alanları eşitlenecek. Elle girilmiş bölüm alanları değişecektir. Uygulansın mı?')) {
-                        handleEqualizeFloorAreas();
-                      }
-                    }}>
+                    onClick={() => setFloorOperation({ action: 'equalize', project: params })}>
                     Alanları eşitle
                   </button>
                   {params.projectModel === 'contractorShare' && (
@@ -2145,23 +2146,14 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           className="w-16 rounded-md border border-slate-300 bg-white p-1" />
                       </label>
                       <button type="button" className="min-h-9 rounded-md border bg-white px-2"
-                        onClick={() => {
-                          const count = Math.round(distributionUnits.length * (params.contractorShareRate ?? 50) / 100);
-                          if (!window.confirm(`Üst katlardan başlayarak ${count} bölüm müteahhide atanacak. Mevcut pay dağılımı değişecektir. Uygulansın mı?`)) return;
-                          const units = [...distributionUnits].sort((a, b) => (b.floorNumber ?? 0) - (a.floorNumber ?? 0) || b.id - a.id);
-                          setDistributionShares(new Set(units.slice(0, count).map(flat => flat.id)));
-                        }}>
+                        onClick={() => setFloorOperation({ action: 'auto', project: params })}>
                         Otomatik paylaştır
                       </button>
                     </>
                   )}
                   {contractorUnitCount > 0 && (
                     <button type="button" className="min-h-9 rounded-md border bg-white px-2"
-                      onClick={() => {
-                        if (window.confirm('Tüm katlardaki bağımsız bölümler hak sahibine atanacak. Uygulansın mı?')) {
-                          setDistributionShares(new Set());
-                        }
-                      }}>
+                      onClick={() => setFloorOperation({ action: 'owners', project: params })}>
                       Tümünü hak sahibine ata
                     </button>
                   )}
@@ -2170,6 +2162,37 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
             </div>
           )}
 
+          {viewMode === 'grid' && pendingFloorAction && (
+            <div role="group" aria-label="Toplu işlem onayı" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              <p>
+                <strong>Tüm katlar · {distributionUnits.length} bölüm</strong>
+                <span className="mt-0.5 block text-xs">
+                  {pendingFloorAction === 'equalize'
+                    ? 'Bölüm alanları yeniden dağıtılacak. Elle girilmiş alanlar değişebilir.'
+                    : pendingFloorAction === 'auto'
+                    ? `Üst katlardan başlayarak ${Math.round(distributionUnits.length * (params.contractorShareRate ?? 50) / 100)} bölüm müteahhide atanacak.`
+                    : 'Tüm bağımsız bölümler hak sahibine atanacak.'}
+                </span>
+              </p>
+              <div className="flex gap-2">
+                <button type="button" className="min-h-9 rounded-md border border-amber-300 bg-white px-3"
+                  onClick={() => setFloorOperation(null)}>Vazgeç</button>
+                <button type="button" className="min-h-9 rounded-md bg-amber-900 px-3 font-semibold text-white"
+                  onClick={() => {
+                    setFloorOperation(null);
+                    if (pendingFloorAction === 'equalize') {
+                      handleEqualizeFloorAreas();
+                    } else if (pendingFloorAction === 'owners') {
+                      setDistributionShares(new Set());
+                    } else {
+                      const count = Math.round(distributionUnits.length * (params.contractorShareRate ?? 50) / 100);
+                      const units = [...distributionUnits].sort((a, b) => (b.floorNumber ?? 0) - (a.floorNumber ?? 0) || b.id - a.id);
+                      setDistributionShares(new Set(units.slice(0, count).map(flat => flat.id)));
+                    }
+                  }}>Uygula</button>
+              </div>
+            </div>
+          )}
           {equalizeSuccessToast && <p role="status" className="text-xs text-indigo-800">{equalizeSuccessToast}</p>}
           {distributionUnits.length === 0 ? (
             <p className={`py-2 text-sm ${textMuted}`}>Henüz bağımsız bölüm yok.</p>
