@@ -1730,14 +1730,17 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       : 'bg-slate-50/50 border-slate-200 opacity-80'
                   } space-y-3`}>
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-black text-slate-800 flex items-center gap-2 cursor-pointer">
+                      <label className="flex min-h-9 flex-wrap items-center gap-2 text-sm font-semibold text-slate-800 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={params.basementCount !== undefined ? params.basementCount > 0 : true}
                           onChange={(e) => onChangeParams({ ...params, basementCount: e.target.checked ? 1 : 0 })}
                           className="w-4 h-4 text-indigo-600 rounded-md cursor-pointer"
                         />
-                        <span className="uppercase tracking-tight">🏗️ Bodrum Kat</span>
+                        <span>Bodrum kat</span>
+                        <span aria-hidden="true" className={`rounded-md px-2 py-0.5 text-xs ${(params.basementCount ?? 1) > 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                          {(params.basementCount ?? 1) > 0 ? 'Açık' : 'Kapalı'}
+                        </span>
                       </label>
                       {(params.basementCount !== undefined ? params.basementCount > 0 : true) && (
                         <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-indigo-200">
@@ -1859,7 +1862,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       : 'bg-slate-50/50 border-slate-200 opacity-80'
                   } space-y-3`}>
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-black text-slate-800 flex items-center gap-2 cursor-pointer">
+                      <label className="flex min-h-9 flex-wrap items-center gap-2 text-sm font-semibold text-slate-800 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={!!params.hasGroundFloorShop}
@@ -1876,7 +1879,10 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           }}
                           className="w-4 h-4 text-amber-600 rounded-md cursor-pointer"
                         />
-                        <span className="uppercase tracking-tight">🏪 Zemin Dükkan</span>
+                        <span>Zemin dükkân</span>
+                        <span aria-hidden="true" className={`rounded-md px-2 py-0.5 text-xs ${params.hasGroundFloorShop ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                          {params.hasGroundFloorShop ? 'Açık' : 'Kapalı'}
+                        </span>
                       </label>
                       {params.hasGroundFloorShop && (
                         <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-amber-200">
@@ -1982,7 +1988,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       : 'bg-slate-50/50 border-slate-200 opacity-80'
                   } space-y-3`}>
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-black text-slate-800 flex items-center gap-2 cursor-pointer">
+                      <label className="flex min-h-9 flex-wrap items-center gap-2 text-sm font-semibold text-slate-800 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={!!params.hasCantilever}
@@ -1993,7 +1999,10 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                           })}
                           className="w-4 h-4 text-emerald-600 rounded-md cursor-pointer"
                         />
-                        <span className="uppercase tracking-tight">📐 Konsol Çıkma</span>
+                        <span>Konsol çıkma</span>
+                        <span aria-hidden="true" className={`rounded-md px-2 py-0.5 text-xs ${params.hasCantilever ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                          {params.hasCantilever ? 'Açık' : 'Kapalı'}
+                        </span>
                       </label>
                       {params.hasCantilever && (
                         <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-lg border border-emerald-200">
