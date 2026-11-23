@@ -4448,6 +4448,18 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     };
   }, [params, selectedFloor]);
 
+  const zoomCamera = (factor: number) => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+
+    cameraAnimRef.current.active = false;
+    const offset = camera.position.clone().sub(controls.target);
+    const distance = THREE.MathUtils.clamp(offset.length() * factor, controls.minDistance, controls.maxDistance);
+    camera.position.copy(controls.target).add(offset.setLength(distance));
+    controls.update();
+  };
+
   useEffect(() => {
     if (forcedCameraPreset) {
       const timer = setTimeout(() => {
@@ -4544,6 +4556,19 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   };
 
   return (
+    <>
+      {!hideControls && (
+        <div role="group" aria-label="3D kamera kontrolleri" className="mb-2 flex flex-wrap items-center gap-1.5">
+          <button type="button" onClick={() => { setIsAutoRotate(false); applyCameraPreset('iso'); }}
+            className="min-h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800">
+            Kamerayı sıfırla
+          </button>
+          <button type="button" aria-label="Yakınlaştır" onClick={() => zoomCamera(0.8)}
+            className="min-h-9 min-w-9 rounded-lg border border-slate-300 bg-white text-base font-bold text-slate-800">+</button>
+          <button type="button" aria-label="Uzaklaştır" onClick={() => zoomCamera(1.25)}
+            className="min-h-9 min-w-9 rounded-lg border border-slate-300 bg-white text-base font-bold text-slate-800">−</button>
+        </div>
+      )}
     <div className={`relative w-full h-[540px] sm:h-[620px] rounded-3xl overflow-hidden border ${isGray ? 'border-slate-300' : 'border-slate-200'} shadow-lg transition-colors duration-300`}>
       {/* Three.js canvas container */}
       <div
@@ -5092,5 +5117,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         currentSunTimeHour={sunTimeHour}
       />
     </div>
+    </>
   );
 };
