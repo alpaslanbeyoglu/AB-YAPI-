@@ -1522,15 +1522,16 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       {/* 3. AŞAMA: MİMARİ TASARIM VE YAPILANDIRMA */}
       {workbenchStage === 3 && (
         <div className="space-y-5 animate-fade-in">
-        <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-5`}>
-          <div className="flex items-center justify-end">
+        <div className={`${bgCard} rounded-2xl border p-4 shadow-xs sm:p-6 space-y-5`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className={`text-lg font-bold ${textTitle}`}>Yeni bina planı</h2>
             <button
               type="button"
               onClick={() => goToStage(2)}
               className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
               title="Arsa ve taban oturumunu 2. aşamada düzenle"
             >
-              Taban: {Math.round(params.baseBuildArea || 0)} m² • Z+{(params.floorCount || 5) - 1} Kat (2. Aşamada Düzenle)
+              Taban oturumu {params.baseBuildArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m² · 2. aşamada düzenle
             </button>
           </div>
 
@@ -1542,15 +1543,8 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                     <div className="flex items-center justify-between pb-2 border-b border-slate-200/40">
                       <div className="flex items-center gap-2">
                         <Ruler className="w-4 h-4 text-indigo-600" />
-                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Yapı Geometrisi</span>
+                        <span className="text-sm font-bold text-slate-800">Kat ve yapı ölçüleri</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => goToStage(2)}
-                        className="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
-                      >
-                        Taban: {Math.round(params.baseBuildArea || 0)} m²
-                      </button>
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1644,7 +1638,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                   <div className="md:col-span-6 p-3.5 rounded-xl bg-indigo-50/30 border border-indigo-100/60 space-y-3.5">
                     <div className="flex items-center gap-2 pb-2 border-b border-indigo-200/40">
                       <Layout className="w-4 h-4 text-indigo-600" />
-                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Bağımsız Bölüm Planlama</span>
+                      <span className="text-sm font-bold text-slate-800">Daire planı</span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
@@ -1726,7 +1720,9 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                 </div>
 
                 {/* Alt Satır: Bodrum, Zemin Kat Dükkan, Çatı ve Konsol Çıkma (Modernized Cards) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-slate-100">
+                <section aria-labelledby="stage3-building-options" className="space-y-3 border-t border-slate-200 pt-4">
+                  <h3 id="stage3-building-options" className={`text-sm font-bold ${textTitle}`}>Bodrum, dükkân, çatı ve çıkma</h3>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {/* Bodrum Kat Grubu */}
                   <div id="stage3BasementCard" className={`p-3.5 rounded-xl border transition-all ${
                     (params.basementCount !== undefined ? params.basementCount > 0 : true)
@@ -2028,17 +2024,20 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
                       <div className="text-[10px] text-slate-400 italic">Üst katlarda çıkma planlanmadı</div>
                     )}
                   </div>
-                </div>
-
+                  </div>
+                </section>
               </div>
         </div>
 
         {/* KAT BAZLI BAĞIMSIZ BÖLÜM ŞEMASI & DAİRE DAĞILIMI (3. Aşama — Mimari Yapılandırma) */}
         <div className={`${bgCard} rounded-2xl p-6 border shadow-xs space-y-4`}>
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <p className={`text-xs ${textMuted}`}>
+            <div>
+            <h2 className={`text-base font-bold ${textTitle}`}>Katlara göre bölüm dağılımı</h2>
+            <p className={`mt-1 text-xs ${textMuted}`}>
               Z+{(params.floorCount || 5) - 1} Kat Yapısı • {params.hasGroundFloorShop ? `${params.shopCount || 1} Dükkan + ` : ''}{newFlatCount} Bağımsız Bölüm • Katta {params.flatsPerFloor || 2} Daire {params.roofType === 'mansard' ? '• Mansart Çatı' : params.roofType === 'duplex' ? '• Çatı Dubleksi' : ''}
             </p>
+            </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Sığınak, otopark, kazan dairesi, merdiven ve asansör şaftları inşaat alanı ve maliyet hesaplamalarına dahil edilmiştir.">
                 🛡️ Ortak Alanlar Hesaba Dahil
