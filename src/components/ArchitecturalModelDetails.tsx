@@ -1,4 +1,4 @@
-import { FACADE_ACCENTS, GROUND_FACADE_OPTIONS, FACADE_WINDOW_PROFILES, getFacadeSceneOptions, getNeighborBuildingCount, MAX_NEIGHBOR_BUILDINGS, type FacadeSceneOptions } from '../utils/facadeSceneOptions';
+import { FACADE_ACCENTS, GROUND_FACADE_OPTIONS, FACADE_WINDOW_PROFILES, getFacadeSceneOptions, getNeighborBuildingCount, getNeighborFloorCount, MAX_NEIGHBOR_BUILDINGS, type FacadeSceneOptions } from '../utils/facadeSceneOptions';
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, DoorOpen, Layers, LayoutGrid, Navigation, Plus, Ruler, Sparkles, Trash2 } from 'lucide-react';
 import type { BuildingModelParams, CustomFacadeSide, FacadeDetailConfig, RoadConfig, RoadType } from '../types';
@@ -11,12 +11,13 @@ const ROAD_TYPES_DATA: { id: RoadType; label: string; width: number; color: stri
   { id: 'highway', label: 'Bulvar / Anayol', width: 35, color: '#1e293b' },
 ];
 
-export function ArchitecturalModelDetails({ modelParams, updateParams, compact = false }: {
+export function ArchitecturalModelDetails({ modelParams, updateParams, compact = false, selectedFacadeIndex, onSelectFacade }: {
   modelParams: BuildingModelParams;
   compact?: boolean;
+  selectedFacadeIndex?: number;
+  onSelectFacade?: (index: number) => void;
   updateParams: (updates: Partial<BuildingModelParams>) => void;
 }) {
-  const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null);
   const [collapsedSections, setCollapsedSections] = useState({ dimensions: !compact, entranceCore: true });
   const toggleSection = (section: keyof typeof collapsedSections) =>
     setCollapsedSections(previous => ({ ...previous, [section]: !previous[section] }));
@@ -239,7 +240,7 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                           const isBlind = isAdjacent || (cfg as any).isBlankWall === true || cfg.windowCountPerFloor === 0;
                           const currentRoad = (modelParams.roads || []).find(road => road.facadeIndex === fIdx);
                           const scene = getFacadeSceneOptions(cfg);
-                          const isSelectedInCanvas = selectedEdgeIndex === fIdx;
+                          const isSelectedInCanvas = selectedFacadeIndex === fIdx;
 
                           // Formulated Balcony Combo Key
                           let balconyCombo = 'none';
@@ -256,7 +257,7 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                           return (
                             <div
                               key={facadeItem.id}
-                              onClick={() => setSelectedEdgeIndex(fIdx)}
+                              onFocusCapture={() => onSelectFacade?.(fIdx)}
                               className={`p-3.5 bg-white rounded-2xl border transition-all space-y-3 shadow-2xs relative cursor-pointer ${
                                 isSelectedInCanvas
                                   ? 'ring-2 ring-indigo-500 border-indigo-400 bg-indigo-50/20'
@@ -270,9 +271,10 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                               {/* Facade Title & Length Header */}
                               <div className="flex items-center justify-between pb-2 border-b border-slate-100 gap-1.5">
                                 <div className="min-w-0 flex-1">
-                                  <span className={`text-xs font-bold truncate block ${isEntrance ? 'text-emerald-700' : textTitle}`} title={facadeItem.label}>
+                                  <button type="button" aria-pressed={isSelectedInCanvas} onClick={() => onSelectFacade?.(fIdx)}
+                                    className={`text-left text-xs font-bold truncate block ${isEntrance ? 'text-emerald-700' : textTitle}`} title={facadeItem.label}>
                                     {facadeItem.label}
-                                  </span>
+                                  </button>
                                 </div>
                                 <span className="shrink-0 text-[11px] text-slate-600">{facadeItem.value.toFixed(1)} m</span>
                               </div>
@@ -365,15 +367,39 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                               </div>
 
                               {isAdjacent ? (
-                                <label className="flex items-center justify-between gap-2 text-xs">
-                                  Komşu bina adedi
-                                  <input type="number" min={0} max={MAX_NEIGHBOR_BUILDINGS} step={1}
-                                    value={getNeighborBuildingCount(scene.neighborBuildingCount)}
-                                    onChange={event => updateFacadeDetail(fIdx, {
-                                      neighborBuildingCount: getNeighborBuildingCount(event.currentTarget.valueAsNumber),
-                                    })}
-                                    className="w-16 rounded-md border border-slate-300 px-2 py-1" />
-                                </label>
+                                <div className="space-y-2">
+                                  <label className="flex items-center justify-between gap-2 text-xs">
+                                    Komşu bina adedi
+                                    <input type="number" min={0} max={MAX_NEIGHBOR_BUILDINGS} step={1}
+                                      value={getNeighborBuildingCount(scene.neighborBuildingCount)}
+                                      onChange={event => updateFacadeDetail(fIdx, {
+                                        neighborBuildingCount: getNeighborBuildingCount(event.currentTarget.valueAsNumber),
+                                      })}
+                                      className="w-16 rounded-md border border-slate-300 px-2 py-1" />
+                                  </label>
+                                  {getNeighborBuildingCount(scene.neighborBuildingCount) > 0 && (
+                                    <details className="rounded-md border border-slate-200 p-2">
+                                      <summary className="cursor-pointer text-xs font-semibold">Komşu bina yükseklikleri</summary>
+                                      <div className="mt-2 space-y-1.5">
+                                        {Array.from({ length: getNeighborBuildingCount(scene.neighborBuildingCount) }, (_, index) => (
+                                          <label key={index} className="flex items-center justify-between gap-2 text-xs">
+                                            {index + 1}. bina · kat sayısı
+                                            <input type="number" min={1} max={30} step={1}
+                                              value={getNeighborFloorCount(scene.neighborFloorCounts?.[index], modelParams.floorCount)}
+                                              onChange={event => {
+                                                if (!Number.isFinite(event.currentTarget.valueAsNumber)) return;
+                                                const neighborFloorCounts = Array.from({ length: Math.max(index + 1, scene.neighborFloorCounts?.length ?? 0) },
+                                                  (_, i) => getNeighborFloorCount(scene.neighborFloorCounts?.[i], modelParams.floorCount));
+                                                neighborFloorCounts[index] = getNeighborFloorCount(event.currentTarget.valueAsNumber);
+                                                updateFacadeDetail(fIdx, { neighborFloorCounts });
+                                              }}
+                                              className="w-16 rounded-md border border-slate-300 px-2 py-1" />
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </details>
+                                  )}
+                                </div>
                               ) : !currentRoad && (
                                 <label className="flex items-center gap-2 text-xs">
                                   <input type="checkbox" checked={!!scene.showGarden}

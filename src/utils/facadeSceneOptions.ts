@@ -24,6 +24,7 @@ export const FACADE_ACCENTS = {
 export interface FacadeSceneOptions {
   windowProfile?: keyof typeof FACADE_WINDOW_PROFILES;
   neighborBuildingCount?: number;
+  neighborFloorCounts?: number[];
   showGarden?: boolean;
   groundFacade?: keyof typeof GROUND_FACADE_OPTIONS;
   accentBand?: keyof typeof FACADE_ACCENTS | '';
@@ -37,4 +38,9 @@ export function getNeighborBuildingCount(value: number | undefined): number {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(0, Math.min(MAX_NEIGHBOR_BUILDINGS, Math.trunc(value)))
     : 0;
+}
+
+export function getNeighborFloorCount(value: number | undefined, fallback = 1): number {
+  const input = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return Math.max(1, Math.min(30, Math.trunc(input)));
 }

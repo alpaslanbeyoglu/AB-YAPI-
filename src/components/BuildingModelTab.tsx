@@ -82,6 +82,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   const [lightingMode, setLightingMode] = useState<'day' | 'sunset' | 'night'>('day');
   const [showStreetNames, setShowStreetNames] = useState(true);
   const [facadeEditorOpen, setFacadeEditorOpen] = useState(openFacadeEditorOnMount);
+  const [selectedFacadeIndex, setSelectedFacadeIndex] = useState(0);
   const facadeDialog = React.useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -207,14 +208,15 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
             </header>
             <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-2 p-2 sm:gap-3 sm:p-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
               <div className="min-h-0 min-w-0">
-                <ThreeBuildingView params={modelParams} theme={theme} compactPreview
+                <ThreeBuildingView params={modelParams} theme={theme} compactPreview highlightedFacadeIndex={selectedFacadeIndex}
                   projectName={effectiveProjectName} projectAddress={effectiveProjectAddress}
                   landArea={effectiveLandArea}
                   sceneAppearance={{ lightingMode, showStreetNames, onLightingChange: setLightingMode }} />
               </div>
               <div role="region" aria-label="Cephe ve giriş ayarları" tabIndex={0}
                 className="min-h-0 min-w-0 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 p-2 sm:p-3">
-                <ArchitecturalModelDetails modelParams={modelParams} updateParams={updateParams} compact />
+                <ArchitecturalModelDetails modelParams={modelParams} updateParams={updateParams} compact
+                  selectedFacadeIndex={selectedFacadeIndex} onSelectFacade={setSelectedFacadeIndex} />
               </div>
             </div>
           </div>

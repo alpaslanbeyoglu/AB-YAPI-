@@ -1,4 +1,4 @@
-import { FACADE_ACCENTS, FACADE_WINDOW_PROFILES, getFacadeSceneOptions, getNeighborBuildingCount } from '../utils/facadeSceneOptions';
+import { FACADE_ACCENTS, FACADE_WINDOW_PROFILES, getFacadeSceneOptions, getNeighborBuildingCount, getNeighborFloorCount } from '../utils/facadeSceneOptions';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -521,6 +521,25 @@ function createPolygonHipRoofGeometry(
   return geom;
 }
 
+const SKY_PALETTES = {
+  day: { zenith: '#6494c4', horizon: '#dae6ec', ground: '#aab6ae' },
+  sunset: { zenith: '#535c82', horizon: '#f1bd95', ground: '#9a8277' },
+  night: { zenith: '#10192d', horizon: '#344660', ground: '#303847' },
+};
+
+function paintSky(texture: THREE.CanvasTexture, palette: typeof SKY_PALETTES.day) {
+  const canvas = texture.image as HTMLCanvasElement;
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, palette.zenith);
+  gradient.addColorStop(0.51, palette.horizon);
+  gradient.addColorStop(1, palette.ground);
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  texture.needsUpdate = true;
+}
+
 interface ThreeBuildingViewProps {
   params: BuildingModelParams;
   theme?: 'light' | 'gray' | 'dark';
@@ -534,6 +553,7 @@ interface ThreeBuildingViewProps {
   forcedCameraPreset?: CameraPresetType;
   hideControls?: boolean;
   compactPreview?: boolean;
+  highlightedFacadeIndex?: number;
   presentationMode?: boolean;
   sceneAppearance?: {
     lightingMode: 'day' | 'sunset' | 'night';
@@ -565,6 +585,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   forcedCameraPreset,
   hideControls = false,
   compactPreview = false,
+  highlightedFacadeIndex,
   presentationMode = false,
   sceneAppearance,
   projectName,
@@ -593,6 +614,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const sunSphereMeshRef = useRef<THREE.Mesh | null>(null);
   const compassGroupRef = useRef<THREE.Group | null>(null);
   const roadsGroupRef = useRef<THREE.Group | null>(null);
+  const groundGridRef = useRef<THREE.GridHelper | null>(null);
   const skyMatRef = useRef<THREE.MeshBasicMaterial | null>(null);
   const pmremGeneratorRef = useRef<THREE.PMREMGenerator | null>(null);
   const envRenderTargetRef = useRef<THREE.WebGLRenderTarget | null>(null);
@@ -681,7 +703,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     if (buildingGroupRef.current) {
       scene.remove(buildingGroupRef.current);
       buildingGroupRef.current.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
+        if (child instanceof THREE.InstancedMesh) child.dispose();
+        if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
           child.geometry.dispose();
           if (Array.isArray(child.material)) {
             child.material.forEach((m) => m.dispose());
@@ -2769,17 +2792,35 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                     wallGroup.add(lintelMesh);
                   }
 
-                  const glassMesh = new THREE.Mesh(safeBox(winWidth, winHeight, 0.06), glassMaterial);
-                  glassMesh.position.set(wx, baseY + slabThickness + winSill + winHeight / 2, 0);
-                  wallGroup.add(glassMesh);
-
-                  const frameGeo = safeBox(winWidth + 0.04, winHeight + 0.04, 0.08);
-                  const line = new THREE.LineSegments(
-                    new THREE.EdgesGeometry(frameGeo),
-                    new THREE.LineBasicMaterial({ color: colors.frame })
+                  const frameWidth = Math.min(0.055, winWidth * 0.13, winHeight * 0.13);
+                  const centerY = baseY + slabThickness + winSill + winHeight / 2;
+                  const glass = new THREE.Mesh(
+                    safeBox(winWidth - 2 * frameWidth, winHeight - 2 * frameWidth, 0.025), glassMaterial
                   );
-                  line.position.copy(glassMesh.position);
-                  wallGroup.add(line);
+                  glass.position.set(wx, centerY, wallThick / 2 - 0.06);
+                  wallGroup.add(glass);
+
+                  for (const sign of [-1, 1]) {
+                    const jamb = new THREE.Mesh(safeBox(frameWidth, winHeight, 0.09), frameMaterial);
+                    jamb.position.set(wx + sign * (winWidth - frameWidth) / 2, centerY, wallThick / 2 - 0.035);
+                    wallGroup.add(jamb);
+                    const rail = new THREE.Mesh(
+                      safeBox(winWidth - 2 * frameWidth, frameWidth, 0.09), frameMaterial
+                    );
+                    rail.position.set(wx, centerY + sign * (winHeight - frameWidth) / 2, wallThick / 2 - 0.035);
+                    wallGroup.add(rail);
+                  }
+
+                  if (winWidth >= 1.4) {
+                    const mullion = new THREE.Mesh(safeBox(frameWidth, winHeight - 2 * frameWidth, 0.09), frameMaterial);
+                    mullion.position.set(wx, centerY, wallThick / 2 - 0.035);
+                    wallGroup.add(mullion);
+                  }
+                  if (winSill > 0.2) {
+                    const exteriorSill = new THREE.Mesh(safeBox(winWidth + 0.08, 0.045, 0.12), slabMaterial);
+                    exteriorSill.position.set(wx, baseY + slabThickness + winSill - 0.025, wallThick / 2 + 0.025);
+                    wallGroup.add(exteriorSill);
+                  }
                 }
               }
             }
@@ -3956,7 +3997,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       buildingGroup.add(parcelPad);
     }
 
-    if (selectedFloor === 'all' && !isXRay && !isCutaway) {
+    const showFacadeContext = selectedFloor === 'all' && !isXRay && !isCutaway;
+    if (showFacadeContext || highlightedFacadeIndex !== undefined) {
       const polygon = activePolyPts;
       const bounds = polygon ? getPolygonBounds(polygon) : null;
       const polygonEdges = polygon ? getPolygonEdges(polygon) : [];
@@ -3979,23 +4021,68 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       ];
 
       facadeEdges.forEach(({ x, z, nx, nz, length }, index) => {
-        if (length < 0.2) return;
+        if (!showFacadeContext || length < 0.2) return;
         const config = params.facadeConfigs?.[index];
-        const { neighborBuildingCount, showGarden } = getFacadeSceneOptions(config);
+        const { neighborBuildingCount, neighborFloorCounts, showGarden } = getFacadeSceneOptions(config);
         const count = config?.isAdjacent ? getNeighborBuildingCount(neighborBuildingCount) : 0;
         const heading = Math.atan2(nx, nz);
         if (count > 0) {
           const depth = Math.min(10, Math.max(5, length * 0.75));
           for (let i = 0; i < count; i++) {
-            const height = Math.max(H, (N - 1 + i % 3) * H);
+            const floors = getNeighborFloorCount(neighborFloorCounts?.[i], N);
+            const height = H * floors;
             const distance = (i + 0.5) * depth + 0.025;
-            const neighbor = new THREE.Mesh(safeBox(length, height, depth - 0.025), new THREE.MeshStandardMaterial({
+            const neighbor = new THREE.Group();
+            neighbor.name = `Komşu bina · ${index + 1}. cephe · ${i + 1}`;
+            neighbor.position.set(x + nx * distance, 0, z + nz * distance);
+            neighbor.rotation.y = heading;
+
+            const walls = new THREE.Mesh(safeBox(length, height, depth - 0.025), new THREE.MeshStandardMaterial({
               color: [0xb9ada0, 0xabaeae, 0xc3b9ae][i % 3],
               roughness: 0.9,
             }));
-            neighbor.name = `Komşu bina · ${index + 1}. cephe · ${i + 1}`;
-            neighbor.position.set(x + nx * distance, height / 2, z + nz * distance);
-            neighbor.rotation.y = heading;
+            walls.position.y = height / 2;
+            neighbor.add(walls);
+            const roof = new THREE.Mesh(safeBox(length + 0.12, 0.22, depth - 0.04),
+              new THREE.MeshStandardMaterial({ color: 0x696663, roughness: 0.9 }));
+            roof.position.y = height + 0.11;
+            neighbor.add(roof);
+
+            const bays = Math.max(1, Math.min(5, Math.floor(depth / 2)));
+            const hasOuterFace = i === count - 1;
+            const endBays = hasOuterFace ? Math.max(1, Math.min(5, Math.floor(length / 2))) : 0;
+            const paneWidth = Math.min(0.92, length * 0.5);
+            const panes = new THREE.InstancedMesh(safeBox(paneWidth, Math.min(1.24, H * 0.48), 0.07),
+              new THREE.MeshStandardMaterial({ color: 0x445665, roughness: 0.48, metalness: 0.18 }),
+              floors * (2 * bays + endBays));
+            const trim = new THREE.InstancedMesh(safeBox(length + 0.075, 0.075, depth - 0.04),
+              new THREE.MeshStandardMaterial({ color: 0xe1d9cc, roughness: 0.8 }), floors);
+            const transform = new THREE.Object3D();
+            let paneIndex = 0;
+            for (let level = 0; level < floors; level++) {
+              transform.rotation.y = 0;
+              transform.position.set(0, level * H + 0.12, 0);
+              transform.updateMatrix();
+              trim.setMatrixAt(level, transform.matrix);
+              const sillY = (level + 0.54) * H;
+              for (const side of [-1, 1]) {
+                transform.rotation.y = side * Math.PI / 2;
+                for (let bay = 0; bay < bays; bay++) {
+                  transform.position.set(side * (length / 2 + 0.02), sillY, ((bay + 0.5) / bays - 0.5) * depth);
+                  transform.updateMatrix();
+                  panes.setMatrixAt(paneIndex++, transform.matrix);
+                }
+              }
+              transform.rotation.y = 0;
+              for (let bay = 0; bay < endBays; bay++) {
+                transform.position.set(((bay + 0.5) / endBays - 0.5) * length, sillY, depth / 2 + 0.02);
+                transform.updateMatrix();
+                panes.setMatrixAt(paneIndex++, transform.matrix);
+              }
+            }
+            panes.instanceMatrix.needsUpdate = true;
+            trim.instanceMatrix.needsUpdate = true;
+            neighbor.add(panes, trim);
             buildingGroup.add(neighbor);
           }
         } else if (showGarden && !config?.isAdjacent && !params.roads?.some(road => road.facadeIndex === index)) {
@@ -4010,6 +4097,28 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           buildingGroup.add(garden);
         }
       });
+
+      if (highlightedFacadeIndex !== undefined) {
+        const edge = facadeEdges[highlightedFacadeIndex];
+        if (edge && edge.length > 0.2) {
+          const top = floorBaseYs[totalFloors - 1] + floorHeights[totalFloors - 1];
+          const halfWidth = edge.length / 2;
+          const halfHeight = top / 2;
+          const markerGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-halfWidth, -halfHeight, 0),
+            new THREE.Vector3(halfWidth, -halfHeight, 0),
+            new THREE.Vector3(halfWidth, halfHeight, 0),
+            new THREE.Vector3(-halfWidth, halfHeight, 0),
+          ]);
+          const marker = new THREE.LineLoop(markerGeo, new THREE.LineBasicMaterial({
+            color: 0x45e8ff, depthTest: false, toneMapped: false,
+          }));
+          marker.position.set(edge.x + edge.nx * 0.08, top / 2, edge.z + edge.nz * 0.08);
+          marker.rotation.y = Math.atan2(edge.nx, edge.nz);
+          marker.renderOrder = 5;
+          buildingGroup.add(marker);
+        }
+      }
     }
 
     // Center building at origin
@@ -4032,7 +4141,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       controlsRef.current.target.set(0, focusY, 0);
       controlsRef.current.update();
     }
-  }, [params, effectiveWireframe, effectiveDebugOverlay, selectedFloor, explodeRatio, isLight, isNightScene, landArea, showStreetNames]);
+  }, [params, effectiveWireframe, effectiveDebugOverlay, selectedFloor, explodeRatio, isLight, isNightScene, landArea, showStreetNames, highlightedFacadeIndex]);
 
   // Initialize Three.js Canvas & Animation Loop
   useEffect(() => {
@@ -4060,16 +4169,21 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // Atmospheric Sky Gradient
-    const bgHex = isGray ? 0xd1d5db : 0xf0f9ff;
-    scene.background = new THREE.Color(bgHex);
-    
-    // Add a sky dome for a more immersive feel
+    const skyCanvas = document.createElement('canvas');
+    skyCanvas.width = 4;
+    skyCanvas.height = 256;
+    const skyTexture = new THREE.CanvasTexture(skyCanvas);
+    skyTexture.colorSpace = THREE.SRGBColorSpace;
+    paintSky(skyTexture, SKY_PALETTES.day);
+    scene.background = new THREE.Color(SKY_PALETTES.day.horizon);
+    scene.fog = new THREE.Fog(SKY_PALETTES.day.horizon, 55, 165);
+
     const skyGeo = new THREE.SphereGeometry(450, 32, 32);
     const skyMat = new THREE.MeshBasicMaterial({
-      color: isLight ? 0xbae6fd : 0x94a3b8,
+      map: skyTexture,
       side: THREE.BackSide,
       fog: false,
+      toneMapped: false,
     });
     skyMatRef.current = skyMat;
     const sky = new THREE.Mesh(skyGeo, skyMat);
@@ -4128,7 +4242,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     // Cinematic Hemisphere Light (Sky illumination + Ground bounce)
     const hemiLight = new THREE.HemisphereLight(
       isLight ? 0xe0f2fe : 0xd1d5db, // Sky color
-      isLight ? 0x166534 : 0x334155, // Ground/Grass bounce color
+      isLight ? 0x9ca287 : 0x737984, // Ground/Grass bounce color
       isLight ? 0.78 : 0.58
     );
     hemiLightRef.current = hemiLight;
@@ -4157,11 +4271,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     sunLight.shadow.camera.right = d;
     sunLight.shadow.camera.top = d;
     sunLight.shadow.camera.bottom = -d;
-    sunLight.shadow.bias = -0.0005;
+    sunLight.shadow.bias = -0.00015;
+    sunLight.shadow.normalBias = 0.035;
     sunLightRef.current = sunLight;
     scene.add(sunLight);
 
-    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.35);
+    const fillLight = new THREE.DirectionalLight(0xb5c8df, 0.18);
     fillLight.position.set(-30, 20, -30);
     scene.add(fillLight);
 
@@ -4184,7 +4299,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       canvas.height = 512;
       const ctx = canvas.getContext('2d')!;
       // Base green/grey
-      ctx.fillStyle = isLight ? '#14532d' : '#334155';
+      ctx.fillStyle = isLight ? '#626b4e' : '#60646a';
       ctx.fillRect(0, 0, 512, 512);
       // Add organic noise/texture
       for (let i = 0; i < 8000; i++) {
@@ -4215,7 +4330,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const gridColor2 = isLight ? 0x16a34a : 0x475569;
     const grid = new THREE.GridHelper(100, 50, gridColor1, gridColor2);
     grid.position.y = -0.12;
-    grid.material.opacity = 0.2;
+    grid.material.opacity = 0.10;
+    groundGridRef.current = grid;
     grid.material.transparent = true;
     scene.add(grid);
 
@@ -4526,20 +4642,18 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         effectiveSunAltitude <= 0 ? 0.28 : effectiveSunAltitude < 16 ? 0.65 : 0.82;
     }
 
-    // Dynamic sky and background for sunset & day moods
-    if (skyMatRef.current && sceneRef.current) {
-      if (effectiveSunAltitude < 16 && effectiveSunAltitude > 0) {
-        skyMatRef.current.color.setHex(0xf97316); // Golden sunset horizon dome
-        sceneRef.current.background = new THREE.Color(0x312e81); // Sunset indigo twilight
-      } else if (effectiveSunAltitude <= 0) {
-        skyMatRef.current.color.setHex(0x0f172a);
-        sceneRef.current.background = new THREE.Color(0x030712);
-      } else {
-        skyMatRef.current.color.setHex(isLight ? 0xbae6fd : 0x94a3b8);
-        sceneRef.current.background = new THREE.Color(isGray ? 0xd1d5db : 0xf0f9ff);
-      }
+    const skyPalette = effectiveSunAltitude <= 0
+      ? SKY_PALETTES.night
+      : effectiveSunAltitude < 16 ? SKY_PALETTES.sunset : SKY_PALETTES.day;
+    const skyTexture = skyMatRef.current?.map;
+    if (skyTexture instanceof THREE.CanvasTexture) paintSky(skyTexture, skyPalette);
+    if (sceneRef.current?.fog instanceof THREE.Fog) {
+      sceneRef.current.fog.color.set(skyPalette.horizon);
     }
-  }, [solarMode, lightingMode, sunAltitude, sunAzimuth, effectiveSurfaceRotation, isLight, isGray]);
+    if (groundGridRef.current) groundGridRef.current.visible = !presentationMode || solarMode;
+    if (compassGroupRef.current) compassGroupRef.current.visible = !presentationMode || solarMode;
+
+  }, [solarMode, lightingMode, sunAltitude, sunAzimuth, effectiveSurfaceRotation, isLight, isGray, presentationMode, rendererAttempt]);
 
   // Smooth Camera presets
   const applyCameraPreset = useCallback((preset: CameraPresetType) => {
@@ -4734,6 +4848,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           isGray ? 'bg-slate-200/50' : 'bg-slate-50'
         }`}
       />
+
+      {compactPreview && highlightedFacadeIndex !== undefined && (
+        <div className="pointer-events-none absolute left-2 top-2 z-10 rounded-md border border-cyan-400 bg-slate-900/90 px-2 py-1 text-xs font-semibold text-white">
+          Seçili cephe · {highlightedFacadeIndex + 1}
+        </div>
+      )}
 
       {/* Export Status Toast */}
       {exportFeedback && !hideControls && !compactPreview && (
