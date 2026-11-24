@@ -525,6 +525,11 @@ interface ThreeBuildingViewProps {
   forcedCameraPreset?: CameraPresetType;
   hideControls?: boolean;
   presentationMode?: boolean;
+  sceneAppearance?: {
+    lightingMode: 'day' | 'sunset' | 'night';
+    showStreetNames: boolean;
+    onLightingChange: (mode: 'day' | 'sunset' | 'night') => void;
+  };
   projectName?: string;
   projectAddress?: string;
   landArea?: number;
@@ -550,6 +555,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   forcedCameraPreset,
   hideControls = false,
   presentationMode = false,
+  sceneAppearance,
   projectName,
   projectAddress,
   landArea,
@@ -596,8 +602,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [showDebugOverlay, setShowDebugOverlay] = useState<boolean>(params.showDebugOverlay3D || false);
   const [selectedFloor, setSelectedFloor] = useState<number | 'all' | 'basement'>('all');
   const [cameraPreset, setCameraPreset] = useState<CameraPresetType>(forcedCameraPreset || 'iso');
-  const [lightingMode, setLightingMode] = useState<'day' | 'sunset' | 'night'>('day');
-  const [showStreetNames, setShowStreetNames] = useState<boolean>(true);
+  const [localLightingMode, setLocalLightingMode] = useState<'day' | 'sunset' | 'night'>('day');
+  const [localStreetNames, setShowStreetNames] = useState<boolean>(true);
   const [buildingColor, setBuildingColor] = useState<string>('');
   const [isExportingUSDZ, setIsExportingUSDZ] = useState<boolean>(false);
   const [isExportingGLTF, setIsExportingGLTF] = useState<boolean>(false);
@@ -606,6 +612,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [isAutoRotate, setIsAutoRotate] = useState<boolean>(false);
   const [isPhotorealisticModalOpen, setIsPhotorealisticModalOpen] = useState<boolean>(false);
   const [activeLightingPreset, setActiveLightingPreset] = useState<LightingPresetType>('sunset');
+
+  const lightingMode = sceneAppearance?.lightingMode ?? localLightingMode;
+  const showStreetNames = sceneAppearance?.showStreetNames ?? localStreetNames;
+  const setLightingMode = sceneAppearance?.onLightingChange ?? setLocalLightingMode;
 
   const effectiveSurfaceRotation = surfaceRotation !== undefined ? surfaceRotation : (params.surfaceRotation !== undefined ? params.surfaceRotation : (buildingRotation || params.buildingRotation || 0));
 
@@ -640,7 +650,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     } else if (preset === 'blue_hour') {
       onUpdateSunTimeHour?.(20.8);
     }
-  }, [onUpdateSunTimeHour, solarMode]);
+  }, [onUpdateSunTimeHour, setLightingMode, solarMode]);
 
   // Helper to parse hex colors
   const parseHexColor = (hex?: string, fallback: number = 0xf1f5f9): number => {
@@ -4808,7 +4818,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       {!hideControls && (
         <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-10 hidden sm:flex">
           {/* Lighting Moods & Street Names */}
-          <div className={`flex flex-col gap-1 p-1.5 rounded-2xl border shadow-md ${
+          {!sceneAppearance && <div className={`flex flex-col gap-1 p-1.5 rounded-2xl border shadow-md ${
             isGray ? 'bg-white/95 border-slate-300 text-slate-700' : 'bg-white/95 border-slate-200 text-slate-700'
           }`}>
             {!solarMode && (
@@ -4864,7 +4874,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             >
               <MapPin className="w-4 h-4" />
             </button>
-          </div>
+          </div>}
 
           {/* Camera presets */}
           <div className={`flex flex-col gap-1 p-1.5 rounded-2xl border shadow-md ${

@@ -462,14 +462,6 @@ export default function App() {
     });
   };
 
-  const handleSyncModelToCalculator = (modelUpdates: Partial<ProjectParams>) => {
-    setParams((prev) => applyCalculatorParamsUpdate(prev, modelUpdates));
-    showNotification(
-      'success',
-      '3D Model, Kat Planı ve Hesaplama Paneli ölçüleri anlık olarak senkronize edildi.'
-    );
-  };
-
   const results: CalculationResult = useMemo(() => {
     return calculateProject(params);
   }, [params]);
@@ -1544,7 +1536,6 @@ const handleQuickSave = () => {
               onNavigateToSite={() => setActiveTab('surec')}
               buildingModelParams={buildingModelParams}
               onUpdateBuildingModelParams={updateBuildingModelParams}
-              onSyncModelToCalculator={handleSyncModelToCalculator}
               onCalculate={handleCalculate}
               onSaveOffer={saveProjectToArchive}
               isArchiveAddressConflict={addressBelongsToAnotherProject}
@@ -1566,12 +1557,14 @@ const handleQuickSave = () => {
               projectAddress={params.projectAddress}
               landArea={params.landArea}
               onUpdateParams={updateBuildingModelParams}
-              onSyncWithCalculator={handleSyncModelToCalculator}
               onNavigateToSetup={() => {
                 setRequestedSetupStep(2);
                 setActiveTab('kurulum');
               }}
-              onNavigateToCost={() => setActiveTab('maliyet')}
+              onNavigateToArchitecture={() => {
+                setRequestedSetupStep(3);
+                setActiveTab('kurulum');
+              }}
               onNavigateToOwners={() => setActiveTab('malikler')}
               onNavigateToOffer={() => setActiveTab('teklif')}
               theme={theme}

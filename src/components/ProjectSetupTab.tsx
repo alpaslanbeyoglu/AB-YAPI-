@@ -1,3 +1,4 @@
+import { ArchitecturalModelDetails } from './ArchitecturalModelDetails';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   FlatItem,
@@ -126,7 +127,6 @@ interface ProjectSetupTabProps {
   onNavigateToSite?: () => void;
   buildingModelParams?: BuildingModelParams;
   onUpdateBuildingModelParams?: (updates: Partial<BuildingModelParams>) => void;
-  onSyncModelToCalculator?: (modelUpdates: Partial<ProjectParams>) => void;
   onCalculate?: () => void;
   onSaveOffer?: (offerMeta: ProjectParams['offerMeta']) => boolean;
   isArchiveAddressConflict?: boolean;
@@ -156,7 +156,6 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
   onNavigateToSite,
   buildingModelParams: propBuildingModelParams,
   onUpdateBuildingModelParams,
-  onSyncModelToCalculator,
   onCalculate,
   onSaveOffer,
   isArchiveAddressConflict,
@@ -2093,6 +2092,13 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
         </div>
 
+        <details className="rounded-xl border border-slate-200 p-4">
+          <summary className="cursor-pointer text-sm font-bold">Cephe ve bina giriş ayrıntıları</summary>
+          <div className="mt-3">
+            <ArchitecturalModelDetails modelParams={activeBuildingModelParams} updateParams={handleUpdateBuildingModel} />
+          </div>
+        </details>
+
         <section id="stage3FlatsMatrixSection" aria-labelledby="floor-distribution-title"
           className={`${bgCard} space-y-3 rounded-2xl border p-3 sm:p-4`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2634,12 +2640,10 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
           projectAddress={params.projectAddress}
           landArea={params.landArea}
           onUpdateParams={handleUpdateBuildingModel}
-          onSyncWithCalculator={onSyncModelToCalculator}
           onNavigateToSetup={() => goToStage(2)}
-          onNavigateToCost={() => goToStage(6)}
+          onNavigateToArchitecture={() => goToStage(3)}
           onNavigateToOwners={() => goToStage(7)}
           onNavigateToOffer={() => goToStage(8, undefined, { stage8SubView: 'offer' })}
-          workbenchVisualizationMode={true}
           theme={theme}
         />
       )}
