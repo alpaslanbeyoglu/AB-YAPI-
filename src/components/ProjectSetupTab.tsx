@@ -1,4 +1,3 @@
-import { ArchitecturalModelDetails } from './ArchitecturalModelDetails';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   FlatItem,
@@ -221,6 +220,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     if (requestedStep && requestedStep >= 1 && requestedStep <= 9) return requestedStep;
     return 1;
   });
+  const [openFacadeEditorOnStage4, setOpenFacadeEditorOnStage4] = useState(false);
   const [internalBuildingModelParams, setInternalBuildingModelParams] = useState<BuildingModelParams>(() => {
     return getInitialBuildingModelParams();
   });
@@ -404,6 +404,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
     const normalized = Math.min(9, Math.max(1, stage));
     setWorkbenchStage(normalized);
     setActiveStep(normalized);
+    setOpenFacadeEditorOnStage4(false);
 
     if (normalized === 6) {
       setStage6SubView((prev) =>
@@ -2092,12 +2093,13 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
               </div>
         </div>
 
-        <details className="rounded-xl border border-slate-200 p-4">
-          <summary className="cursor-pointer text-sm font-bold">Cephe ve bina giriş ayrıntıları</summary>
-          <div className="mt-3">
-            <ArchitecturalModelDetails modelParams={activeBuildingModelParams} updateParams={handleUpdateBuildingModel} />
-          </div>
-        </details>
+        <button type="button" onClick={() => {
+          goToStage(4);
+          setOpenFacadeEditorOnStage4(true);
+        }}
+          className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">
+          3D’de cephe ve girişi düzenle →
+        </button>
 
         <section id="stage3FlatsMatrixSection" aria-labelledby="floor-distribution-title"
           className={`${bgCard} space-y-3 rounded-2xl border p-3 sm:p-4`}>
@@ -2635,6 +2637,7 @@ export const ProjectSetupTab: React.FC<ProjectSetupTabProps> = ({
       {workbenchStage === 4 && (
         <BuildingModelTab
           params={activeBuildingModelParams}
+          openFacadeEditorOnMount={openFacadeEditorOnStage4}
           projectParams={params}
           projectName={params.projectName}
           projectAddress={params.projectAddress}

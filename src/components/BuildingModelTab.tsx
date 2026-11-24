@@ -1,3 +1,4 @@
+import { ArchitecturalModelDetails } from './ArchitecturalModelDetails';
 import { ResidentialFloorPlan } from './ResidentialFloorPlan';
 import React, { useState, useEffect } from 'react';
 import {
@@ -60,6 +61,7 @@ interface BuildingModelTabProps {
   onNavigateToOwners?: () => void;
   onNavigateToOffer?: () => void;
   theme?: AppTheme;
+  openFacadeEditorOnMount?: boolean;
 }
 
 export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
@@ -74,10 +76,18 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   onNavigateToOwners,
   onNavigateToOffer,
   theme = 'light',
+  openFacadeEditorOnMount = false,
 }) => {
   const isGray = theme === 'gray';
   const [lightingMode, setLightingMode] = useState<'day' | 'sunset' | 'night'>('day');
   const [showStreetNames, setShowStreetNames] = useState(true);
+  const [facadeEditorOpen, setFacadeEditorOpen] = useState(openFacadeEditorOnMount);
+  const facadeDialog = React.useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = facadeDialog.current;
+    if (facadeEditorOpen && dialog && !dialog.open) dialog.showModal();
+  }, [facadeEditorOpen]);
 
   // Building Model Parameters (local state if not provided from parent)
   const [internalModelParams, setInternalModelParams] = useState<BuildingModelParams>(() => {
@@ -184,6 +194,33 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {facadeEditorOpen && (
+        <dialog ref={facadeDialog} onClose={() => setFacadeEditorOpen(false)} aria-labelledby="facade-editor-title"
+          className="m-auto h-[95dvh] max-h-none w-[min(96vw,90rem)] max-w-none overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-xl backdrop:bg-slate-900/50">
+          <div className="flex h-full min-h-0 flex-col">
+            <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 sm:px-4">
+              <h2 id="facade-editor-title" className="text-sm font-bold sm:text-base">Cephe ve giriş düzenleme</h2>
+              <button type="button" autoFocus onClick={() => facadeDialog.current?.close()}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100">
+                Düzenlemeyi kapat
+              </button>
+            </header>
+            <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,2fr)_minmax(0,3fr)] gap-2 p-2 sm:gap-3 sm:p-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+              <div className="min-h-0 min-w-0">
+                <ThreeBuildingView params={modelParams} theme={theme} compactPreview
+                  projectName={effectiveProjectName} projectAddress={effectiveProjectAddress}
+                  landArea={effectiveLandArea}
+                  sceneAppearance={{ lightingMode, showStreetNames, onLightingChange: setLightingMode }} />
+              </div>
+              <div role="region" aria-label="Cephe ve giriş ayarları" tabIndex={0}
+                className="min-h-0 min-w-0 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 p-2 sm:p-3">
+                <ArchitecturalModelDetails modelParams={modelParams} updateParams={updateParams} compact />
+              </div>
+            </div>
+          </div>
+        </dialog>
+      )}
+
       {/* Feedback Toast */}
       {syncedFeedback && (
         <div className="p-4 rounded-2xl border text-xs flex items-center justify-between shadow-sm animate-fade-in bg-emerald-50 border-emerald-300 text-emerald-800">
@@ -248,6 +285,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
             {viewMode === '3d' && (
               <div className="space-y-3">
+                {!facadeEditorOpen && (
                 <ThreeBuildingView
                   params={modelParams}
                   theme={theme}
@@ -262,6 +300,13 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   onUpdateColors={(colors) => updateParams(colors)}
                   onUpdateBuildingRotation={(rot) => updateParams({ surfaceRotation: rot, buildingRotation: rot })}
                 />
+                )}
+                {!presentationMode && (
+                  <button type="button" onClick={() => setFacadeEditorOpen(true)}
+                    className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                    Cephe ve girişi düzenle
+                  </button>
+                )}
 
                 <section aria-label="Dış görünüm" className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 text-slate-800 sm:p-4">
                   <h3 className="text-sm font-bold">Dış görünüm</h3>

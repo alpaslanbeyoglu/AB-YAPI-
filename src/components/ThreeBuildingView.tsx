@@ -532,6 +532,7 @@ interface ThreeBuildingViewProps {
   isSolarHeatmap?: boolean;
   forcedCameraPreset?: CameraPresetType;
   hideControls?: boolean;
+  compactPreview?: boolean;
   presentationMode?: boolean;
   sceneAppearance?: {
     lightingMode: 'day' | 'sunset' | 'night';
@@ -562,6 +563,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   isSolarHeatmap = false,
   forcedCameraPreset,
   hideControls = false,
+  compactPreview = false,
   presentationMode = false,
   sceneAppearance,
   projectName,
@@ -4611,7 +4613,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   }
 
   return (
-    <>
+    <div className={compactPreview ? "flex h-full min-h-0 flex-col" : "contents"}>
       {!hideControls && (
         <div role="group" aria-label="3D kamera kontrolleri" className="mb-2 flex flex-wrap items-center gap-1.5">
           <button type="button" onClick={() => { setIsAutoRotate(false); applyCameraPreset('iso'); }}
@@ -4624,7 +4626,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             className="min-h-9 min-w-9 rounded-lg border border-slate-300 bg-white text-base font-bold text-slate-800">−</button>
         </div>
       )}
-    <div className={`relative w-full h-[540px] sm:h-[620px] rounded-3xl overflow-hidden border ${isGray ? 'border-slate-300' : 'border-slate-200'} shadow-lg transition-colors duration-300`}>
+    <div className={`relative w-full ${compactPreview ? 'min-h-0 flex-1' : 'h-[540px] sm:h-[620px]'} rounded-3xl overflow-hidden border ${isGray ? 'border-slate-300' : 'border-slate-200'} shadow-lg transition-colors duration-300`}>
       {/* Three.js canvas container */}
       <div
         ref={containerRef}
@@ -4634,7 +4636,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       />
 
       {/* Export Status Toast */}
-      {exportFeedback && !hideControls && (
+      {exportFeedback && !hideControls && !compactPreview && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
           <div className="px-4 py-2 rounded-2xl text-xs font-semibold shadow-xl border flex items-center gap-2 animate-fade-in bg-white text-indigo-700 border-indigo-200">
             <Sparkles className="w-4 h-4 text-indigo-500 animate-spin" />
@@ -4644,7 +4646,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       )}
 
       {/* Top Left Overlay: Building Status & Interactive Facade Style Selector */}
-      {!hideControls && (
+      {!hideControls && !compactPreview && (
         <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none z-20 max-w-[calc(100vw-120px)] sm:max-w-md">
           {/* Status Badge */}
           <div className={`px-3.5 py-2.5 rounded-2xl border shadow-md flex items-center gap-3 ${
@@ -4830,7 +4832,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       )}
 
       {/* Right Toolbar: Camera & Lighting & Render & Export Controls */}
-      {!hideControls && (
+      {!hideControls && !compactPreview && (
         <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-auto z-10 hidden sm:flex">
           {/* Lighting Moods & Street Names */}
           {!sceneAppearance && <div className={`flex flex-col gap-1 p-1.5 rounded-2xl border shadow-md ${
@@ -5041,7 +5043,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       )}
 
       {/* Bottom Bar: Explode Floors Slider & Floor Isolation */}
-      {!hideControls && (
+      {!hideControls && !compactPreview && (
         <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-center sm:justify-between gap-3 pointer-events-none">
         
         <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
@@ -5128,7 +5130,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       </div>
       )}
       {/* Bottom Left: Debug Overlay Legend Panel */}
-      {effectiveDebugOverlay && !hideControls && (
+      {effectiveDebugOverlay && !hideControls && !compactPreview && (
         <div className="absolute bottom-4 left-4 z-20 pointer-events-auto bg-slate-900/95 text-white px-3.5 py-3 rounded-2xl border border-cyan-500/40 shadow-xl max-w-xs text-xs space-y-1.5 animate-fade-in">
           <div className="flex items-center gap-2 font-bold text-cyan-400 border-b border-slate-700/80 pb-1.5">
             <Bug className="w-4 h-4 text-cyan-400" />
@@ -5170,6 +5172,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         currentSunTimeHour={sunTimeHour}
       />
     </div>
-    </>
+    </div>
   );
 };

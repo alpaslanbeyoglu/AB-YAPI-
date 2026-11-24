@@ -10,19 +10,20 @@ const ROAD_TYPES_DATA: { id: RoadType; label: string; width: number; color: stri
   { id: 'highway', label: 'Bulvar / Anayol', width: 35, color: '#1e293b' },
 ];
 
-export function ArchitecturalModelDetails({ modelParams, updateParams }: {
+export function ArchitecturalModelDetails({ modelParams, updateParams, compact = false }: {
   modelParams: BuildingModelParams;
+  compact?: boolean;
   updateParams: (updates: Partial<BuildingModelParams>) => void;
 }) {
   const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null);
-  const [collapsedSections, setCollapsedSections] = useState({ dimensions: true, entranceCore: true });
+  const [collapsedSections, setCollapsedSections] = useState({ dimensions: !compact, entranceCore: true });
   const toggleSection = (section: keyof typeof collapsedSections) =>
     setCollapsedSections(previous => ({ ...previous, [section]: !previous[section] }));
   const cardBg = 'bg-white border-slate-200';
   const inputBg = 'bg-white border-slate-300 text-slate-900';
   const textTitle = 'text-slate-900';
   return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        <div className="grid grid-cols-1 gap-3 items-start">
             {/* Card 1: Facade & Building Dimensions (Expanded Horizontally - Full Width) */}
             <div className={`col-span-full border rounded-3xl overflow-hidden ${cardBg}`}>
               <button
@@ -221,7 +222,7 @@ export function ArchitecturalModelDetails({ modelParams, updateParams }: {
                   <div className="p-4 pt-0">
                     {/* Unified Facade Management Matrix (Tek ve Birleşik Cephe Tablosu) */}
                     <div className="space-y-2.5">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {facadeItems.map((facadeItem, fIdx) => {
                           const cfg = activeCfgs[fIdx] || {
                             id: fIdx + 1,
