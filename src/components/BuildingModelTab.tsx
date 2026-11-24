@@ -8,7 +8,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Eye,
-  Sun,
   Info,
   AlertTriangle,
 } from 'lucide-react';
@@ -29,14 +28,7 @@ import {
 } from '../utils/buildingModelUtils';
 import { calculateFootprint } from '../utils/footprintUtils';
 
-import {
-  SolarLocation,
-  TURKEY_CITIES,
-  SOLAR_SEASONS,
-  calculateSolarPosition,
-} from '../utils/solarCalculations';
 import { ThreeBuildingView } from './ThreeBuildingView';
-import { SolarAnalysisPanel } from './SolarAnalysisPanel';
 import { ZoningAuditPanel } from './ZoningAuditPanel';
 
 const appearanceSelectClass = 'mt-1 block min-h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm focus-visible:outline-2 focus-visible:outline-indigo-600';
@@ -103,8 +95,8 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
   // Collapsible section for Facade & Roof customization
 
-  // Active subview: 3D Model vs Solar Exposure vs 2D Floor Plan
-  const [viewMode, setViewMode] = useState<'3d' | 'solar' | 'plan'>('3d');
+  // Active subview: 3D model or floor plan
+  const [viewMode, setViewMode] = useState<'3d' | 'plan'>('3d');
   // Teknik Düzenleme vs Müşteri Sunumu Modu
   const [presentationMode, setPresentationMode] = useState<boolean>(false);
   const [syncedFeedback, setSyncedFeedback] = useState<string | null>(null);
@@ -116,32 +108,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
     }
   }, [propParams]);
 
-  // Solar Exposure Simulation States
-  const [solarLocation, setSolarLocation] = useState<SolarLocation>(TURKEY_CITIES[0]);
-  const [solarSeasonId, setSolarSeasonId] = useState<string>('summer_solstice');
-  const [solarTimeHour, setSolarTimeHour] = useState<number>(13.5);
-  const [solarBuildingRotation, setSolarBuildingRotation] = useState<number>(0);
-  const [isSolarHeatmap, setIsSolarHeatmap] = useState<boolean>(false);
-  const [isPlayingSolar, setIsPlayingSolar] = useState<boolean>(false);
-
-  // Continuous play animation for solar simulation
-  useEffect(() => {
-    if (!isPlayingSolar) return;
-    const interval = setInterval(() => {
-      setSolarTimeHour((prev) => {
-        const next = prev + 0.15;
-        if (next > 20.0) return 6.0;
-        return Math.round(next * 100) / 100;
-      });
-    }, 60);
-
-    return () => clearInterval(interval);
-  }, [isPlayingSolar]);
-
-  const currentSeasonDay = SOLAR_SEASONS.find(s => s.id === solarSeasonId)?.dayOfYear ?? 172;
-  const solarPos = calculateSolarPosition(solarLocation.lat, currentSeasonDay, solarTimeHour);
-
-  // 2. Collapsible accordion states for each individual measurement card
   // Save to local storage on change
   const updateParams = (updates: Partial<BuildingModelParams>) => {
     if (onUpdateParams) {
@@ -235,7 +201,7 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
       {/* Main Content Layout: Stacked Layout (3D Visualizer Top, Input Cards Below) */}
       <div className="space-y-6">
-        {/* TOP SECTION: 3D Model Canvas / Solar Simulation */}
+        {/* TOP SECTION: 3D Model Canvas / Floor Plan */}
         <div className="space-y-4">
           <div className={`border rounded-2xl p-3 sm:p-4 ${cardBg}`}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -243,7 +209,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 {([
                   ['3d', '3D Model', Box],
                   ['plan', 'Kat ön planı', Layers],
-                  ['solar', 'Güneş Analizi', Sun],
                 ] as const).map(([mode, label, Icon]) => (
                   <button key={mode} type="button" aria-pressed={viewMode === mode}
                     onClick={() => setViewMode(mode)}
@@ -382,46 +347,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
             )}
 
             {viewMode === 'plan' && <ResidentialFloorPlan model={modelParams} flats={projectParams?.flats} />}
-
-            {viewMode === 'solar' && (
-              <div className="space-y-4 animate-fade-in">
-                <ThreeBuildingView
-                  params={modelParams}
-                  theme={theme}
-                  presentationMode={presentationMode}
-                  projectName={effectiveProjectName}
-                  projectAddress={effectiveProjectAddress}
-                  landArea={effectiveLandArea}
-                  onAttachToOffer={handleAttachSnapshotToOffer}
-                  solarMode={true}
-                  sunAltitude={solarPos.altitude}
-                  sunAzimuth={solarPos.azimuth}
-                  sunTimeHour={solarTimeHour}
-                  buildingRotation={solarBuildingRotation}
-                  isSolarHeatmap={isSolarHeatmap}
-                  onUpdateColors={(colors) => updateParams(colors)}
-                  onUpdateSunTimeHour={setSolarTimeHour}
-                  onUpdateBuildingRotation={setSolarBuildingRotation}
-                  isPlayingSun={isPlayingSolar}
-                  onToggleSunPlay={() => setIsPlayingSolar(!isPlayingSolar)}
-                />
-                <SolarAnalysisPanel
-                  location={solarLocation}
-                  onChangeLocation={setSolarLocation}
-                  selectedSeasonId={solarSeasonId}
-                  onChangeSeasonId={setSolarSeasonId}
-                  timeHour={solarTimeHour}
-                  onChangeTimeHour={setSolarTimeHour}
-                  buildingRotation={solarBuildingRotation}
-                  onChangeBuildingRotation={setSolarBuildingRotation}
-                  isSolarHeatmap={isSolarHeatmap}
-                  onChangeSolarHeatmap={setIsSolarHeatmap}
-                  isPlaying={isPlayingSolar}
-                  onTogglePlay={() => setIsPlayingSolar(!isPlayingSolar)}
-                  theme={theme}
-                />
-              </div>
-            )}
 
             <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-2 rounded-lg border border-slate-200 px-3 py-2 text-xs">
               {[
