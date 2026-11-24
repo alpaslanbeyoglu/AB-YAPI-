@@ -828,20 +828,19 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
     activeLoadedKey,
   ]);
 
-  // Debounced cloud sync for construction progress details to avoid rapid Firestore writes
+  const matchingSavedProject = savedProjects.find(project =>
+    project.projectAddress === params.projectAddress
+  );
+
+  // An unsaved workspace cannot become an archive entry by opening this screen.
   useEffect(() => {
-    if (!user || activeLoadedKey !== safeProjectKey) return;
+    if (!user || activeLoadedKey !== safeProjectKey || !matchingSavedProject) return;
     const timer = setTimeout(() => {
-      const matchingSaved = savedProjects.find(sp => sp.projectAddress === params.projectAddress);
-      const nowIso = new Date().toISOString();
       const currentSnapshot: SavedProjectData = {
-        version: '1.0.0',
-        savedAt: matchingSaved?.savedAt || nowIso,
-        updatedAt: nowIso,
-        projectAddress: params.projectAddress,
+        ...matchingSavedProject,
+        updatedAt: new Date().toISOString(),
         params,
         results,
-        buildingModelParams: matchingSaved?.buildingModelParams,
       };
       saveProjectToCloud(currentSnapshot).catch(err => {
         console.warn("Cloud construction progress sync error:", err);
@@ -851,7 +850,7 @@ export const ConstructionProgressTab: React.FC<ConstructionProgressTabProps> = (
       });
     }, 1500); // 1.5 seconds debounce
     return () => clearTimeout(timer);
-  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, safeProjectKey, activeLoadedKey, user]);
+  }, [stages, logs, isOfferAccepted, contractDate, plannedCompletionDate, subcontractors, safeProjectKey, activeLoadedKey, user, matchingSavedProject]);
 
   // Overall progress calculation (weighted sum of stages)
   const overallProgress = useMemo(() => {

@@ -24,6 +24,7 @@ import {
 import { SavedProjectData, AppTheme } from '../types';
 import { getLocalProgressItemByKeys, resolveProjectProgressKeys } from '../utils/syncKeys';
 import { ConfirmModal } from './ConfirmModal';
+import { isLegacyAutomaticArchiveEntry } from '../utils/projectArchive';
 
 interface HistoryTabProps {
   historyList: SavedProjectData[];
@@ -49,6 +50,12 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   onNewProject,
 }) => {
   const isGray = theme === 'gray';
+  const [showAutomaticEntries, setShowAutomaticEntries] = useState(false);
+  const visibleHistory = useMemo(() => showAutomaticEntries
+    ? historyList
+    : historyList.filter(project => !isLegacyAutomaticArchiveEntry(project)),
+  [historyList, showAutomaticEntries]);
+  const automaticEntryCount = useMemo(() => historyList.filter(isLegacyAutomaticArchiveEntry).length, [historyList]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSegment, setFilterSegment] = useState<PortfolioFilter>('all');
   const [pendingDeletion, setPendingDeletion] = useState<SavedProjectData | null>(null);
@@ -65,16 +72,16 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
   // Portfolio Aggregates
   const portfolioStats = useMemo(() => {
-    const totalProjects = historyList.length;
-    const totalArea = historyList.reduce((acc, p) => acc + (p.results?.totalArea || 0), 0);
-    const totalFlats = historyList.reduce((acc, p) => acc + (p.params?.flatCount || p.results?.flatCount || 0), 0);
-    const totalValue = historyList.reduce((acc, p) => acc + (p.results?.grandTotal || 0), 0);
+    const totalProjects = visibleHistory.length;
+    const totalArea = visibleHistory.reduce((acc, p) => acc + (p.results?.totalArea || 0), 0);
+    const totalFlats = visibleHistory.reduce((acc, p) => acc + (p.params?.flatCount || p.results?.flatCount || 0), 0);
+    const totalValue = visibleHistory.reduce((acc, p) => acc + (p.results?.grandTotal || 0), 0);
 
-    const constructionCount = historyList.filter(p => p.params?.isOfferAccepted).length;
+    const constructionCount = visibleHistory.filter(p => p.params?.isOfferAccepted).length;
     const draftCount = historyList.filter(p => !p.params?.isOfferAccepted).length;
 
     return { totalProjects, totalArea, totalFlats, totalValue, constructionCount, draftCount };
-  }, [historyList]);
+  }, [visibleHistory]);
 
   const archiveItems = useMemo(() => {
     const keyCounts = new Map<string, number>();
@@ -91,7 +98,8 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
       return { item, originalIndex, keys };
     });
 
-    return projects.map(({ item, originalIndex, keys }) => {
+    const visible = new Set(visibleHistory);
+    return projects.filter(({ item }) => visible.has(item)).map(({ item, originalIndex, keys }) => {
       // A shared legacy key or project name cannot identify a single archive entry.
       const candidateKeys = keys.candidateKeys.filter(
         key => key === keys.primaryKey || keyCounts.get(key) === 1,
@@ -99,7 +107,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
       const hasSiteRecord = getLocalProgressItemByKeys(candidateKeys, 'stages') !== null;
       return { item, originalIndex, hasSiteRecord };
     });
-  }, [historyList]);
+  }, [historyList, visibleHistory]);
   const siteRecordCount = archiveItems.filter(({ hasSiteRecord }) => hasSiteRecord).length;
 
   const confirmDeletion = () => {
@@ -162,7 +170,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
           </div>
           <div>
             <h1 className={`font-extrabold text-lg ${textTitle}`}>Proje Arşivi</h1>
-            <p className={`text-sm ${textMuted}`}>{historyList.length} kayıtlı proje</p>
+            <p className={`text-sm ${textMuted}`}>{visibleHistory.length} kayıtlı proje</p>
           </div>
         </div>
 
@@ -198,7 +206,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
         {/* Segment Filter Pills */}
         <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
           {[
-            { id: 'all' as PortfolioFilter, label: `Tüm Projeler (${historyList.length})` },
+            { id: 'all' as PortfolioFilter, label: `Tüm Projeler (${visibleHistory.length})` },
             { id: 'construction' as PortfolioFilter, label: `Teklifi kabul edilenler (${portfolioStats.constructionCount})` },
             { id: 'draft' as PortfolioFilter, label: `Kabul bekleyenler (${portfolioStats.draftCount})` },
             { id: 'site-record' as PortfolioFilter, label: `Şantiye kaydı olanlar (${siteRecordCount})` },
@@ -257,8 +265,16 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
         </div>
       </div>
 
+      {automaticEntryCount > 0 && (
+        <label className="flex items-center gap-2 px-1 text-sm text-slate-600">
+          <input type="checkbox" checked={showAutomaticEntries}
+            onChange={event => setShowAutomaticEntries(event.currentTarget.checked)} />
+          Önceki sürümün otomatik kayıtlarını göster ({automaticEntryCount})
+        </label>
+      )}
+
       {/* PROJECT CARDS GRID */}
-      {historyList.length === 0 ? (
+      {visibleHistory.length === 0 ? (
         <div className={`rounded-3xl border border-dashed p-12 text-center text-xs space-y-3 bg-white border-slate-300 text-slate-500`}>
           <div className="w-12 h-12 rounded-2xl border flex items-center justify-center mx-auto bg-indigo-50 border-indigo-200 text-indigo-600">
             <Building2 className="w-6 h-6" />

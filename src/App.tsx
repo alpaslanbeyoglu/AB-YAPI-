@@ -70,6 +70,7 @@ import { DEFAULT_PARAMS, calculateProject, synchronizeFlats, calculateFlatCount,
 import { DEFAULT_BUILDING_PARAMS, getInitialBuildingModelParams } from './utils/buildingModelUtils';
 import { calculateFootprint } from './utils/footprintUtils';
 import { mergeProjectLists, shouldApplyCloudActiveState } from './utils/syncKeys';
+import { isLegacyAutomaticArchiveEntry } from './utils/projectArchive';
 import {
   applyCalculatorParamsUpdate,
   applyBuildingModelUpdateToProjectParams,
@@ -564,36 +565,15 @@ export default function App() {
   const [historyList, setHistoryList] = useState<SavedProjectData[]>(() => {
     try {
       const saved = localStorage.getItem('ab_yapi_history');
-      let list: SavedProjectData[] = saved ? JSON.parse(saved) : [];
-
-      // Auto-discover and synchronize any project existing in localStorage progress keys with project archive
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('ab_yapi_progress_') && key.endsWith('_stages')) {
-          const safeSlug = key.replace('ab_yapi_progress_', '').replace('_stages', '');
-          const exists = list.some(p => getSafeProjectKey(p.projectAddress) === safeSlug);
-          if (!exists) {
-            const addr = safeSlug.replace(/_/g, ' ');
-            const newProj: SavedProjectData = {
-              version: '1.0.0',
-              savedAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              projectAddress: addr,
-              params: {
-                ...DEFAULT_PARAMS,
-                projectAddress: addr,
-                projectName: addr,
-              },
-              results: calculateProject(DEFAULT_PARAMS),
-            };
-            list.push(newProj);
-          }
-        }
-      }
-      return list;
+      const list = saved ? JSON.parse(saved) : [];
+      return Array.isArray(list) ? list : [];
     } catch (e) {}
     return [];
   });
+
+  const archiveProjectCount = useMemo(() => historyList.filter(
+    project => !isLegacyAutomaticArchiveEntry(project)
+  ).length, [historyList]);
 
   const openedArchiveKeyRef = useRef<string | null>(null);
   const latestHistoryRef = useRef(historyList);
@@ -1329,7 +1309,7 @@ const handleQuickSave = () => {
                             <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-extrabold ${
                               isActive ? 'bg-indigo-500 text-white' : 'bg-pink-100 text-pink-800'
                             }`}>
-                              {historyList.length}
+                              {archiveProjectCount}
                             </span>
                           )}
                         </button>
