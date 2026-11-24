@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import { BuildingModelParams, CameraPresetType, FacadeStyleType, LightingPresetType } from '../types';
 import { calculateFootprint, generateFacadeConfigs, getPolygonEdges, getPolygonBounds, isPointInPolygon, getPolygonCentroid, buildQuadrilateralPolygon, resolveThreeBuildingFootprint } from '../utils/footprintUtils';
-import { WALL_COLOR_PRESETS, ROOF_COLOR_PRESETS, ACCENT_COLOR_PRESETS, FRAME_COLOR_PRESETS } from '../utils/buildingModelUtils';
+import { getFacadeStyleConfig, WALL_COLOR_PRESETS, ROOF_COLOR_PRESETS, ACCENT_COLOR_PRESETS, FRAME_COLOR_PRESETS } from '../utils/buildingModelUtils';
 import { PhotorealisticRenderModal } from './PhotorealisticRenderModal';
 
 // Safe geometry constructors to completely prevent any NaN/null/zero bounding sphere errors in Three.js
@@ -604,7 +604,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const [cameraPreset, setCameraPreset] = useState<CameraPresetType>(forcedCameraPreset || 'iso');
   const [localLightingMode, setLocalLightingMode] = useState<'day' | 'sunset' | 'night'>('day');
   const [localStreetNames, setShowStreetNames] = useState<boolean>(true);
-  const [buildingColor, setBuildingColor] = useState<string>('');
   const [isExportingUSDZ, setIsExportingUSDZ] = useState<boolean>(false);
   const [isExportingGLTF, setIsExportingGLTF] = useState<boolean>(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
@@ -684,7 +683,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     buildingGroupRef.current = buildingGroup;
 
     const colors = {
-      wall: parseHexColor(buildingColor || params.wallColor, 0xf1f5f9),
+      wall: parseHexColor(params.wallColor, 0xf1f5f9),
       roof: parseHexColor(params.roofColor, 0xb91c1c),
       woodAccent: parseHexColor(params.accentColor, 0xb5734c),
       slab: parseHexColor(params.slabColor, 0xcbd5e1),
@@ -744,11 +743,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const isXRay = interiorCutMode === 'xray';
     const isCutaway = interiorCutMode === 'cutaway';
 
-    const isConcreteFacade =
-      params?.facadeStyle === 'concrete_brutalist' ||
-      params?.wallPattern === 'concrete' ||
-      (params?.wallColor && ['#94a3b8', '#8b9bb4', '#64748b', '#cbd5e1'].includes(params.wallColor.toLowerCase()));
-
     // Procedural Facade Wall Pattern Textures
     const createWallPatternTexture = (pattern: string, baseHex: string) => {
       const canvas = document.createElement('canvas');
@@ -756,6 +750,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       canvas.height = 512;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
+
+      // Keep the same grain whenever changing the scene rebuilds the walls.
+      let seed = 1828;
+      const random = () => {
+        seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
+        return seed / 0x100000000;
+      };
 
       // Base background fill
       ctx.fillStyle = baseHex || '#f1f5f9';
@@ -765,20 +766,20 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         // Doğal Taş & Traverten
         // 1. Subtle mineral speckles & veins
         for (let i = 0; i < 9000; i++) {
-          const alpha = Math.random() * 0.06 + 0.01;
-          ctx.fillStyle = Math.random() > 0.5 ? `rgba(60, 45, 30, ${alpha})` : `rgba(255, 255, 255, ${alpha * 1.6})`;
-          ctx.fillRect(Math.random() * 512, Math.random() * 512, Math.random() * 6 + 1, Math.random() * 2 + 1);
+          const alpha = random() * 0.06 + 0.01;
+          ctx.fillStyle = random() > 0.5 ? `rgba(60, 45, 30, ${alpha})` : `rgba(255, 255, 255, ${alpha * 1.6})`;
+          ctx.fillRect(random() * 512, random() * 512, random() * 6 + 1, random() * 2 + 1);
         }
         // 2. Travertine stone organic horizontal veins
         for (let v = 0; v < 16; v++) {
-          const y = Math.random() * 512;
-          ctx.strokeStyle = `rgba(100, 80, 60, ${Math.random() * 0.12 + 0.04})`;
-          ctx.lineWidth = Math.random() * 2.5 + 1;
+          const y = random() * 512;
+          ctx.strokeStyle = `rgba(100, 80, 60, ${random() * 0.12 + 0.04})`;
+          ctx.lineWidth = random() * 2.5 + 1;
           ctx.beginPath();
           ctx.moveTo(0, y);
           let curY = y;
           for (let x = 0; x <= 512; x += 32) {
-            curY += (Math.random() - 0.5) * 8;
+            curY += (random() - 0.5) * 8;
             ctx.lineTo(x, curY);
           }
           ctx.stroke();
@@ -814,13 +815,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           const isShifted = r % 2 === 1;
           const startX = isShifted ? -brickW / 2 : 0;
           for (let x = startX; x < 512 + brickW; x += brickW + 4) {
-            const shadeVar = (Math.random() - 0.5) * 0.16;
+            const shadeVar = (random() - 0.5) * 0.16;
             ctx.fillStyle = shadeVar > 0 ? `rgba(255, 255, 255, ${shadeVar})` : `rgba(0, 0, 0, ${-shadeVar})`;
             ctx.fillRect(x + 2, r * rowH + 2, brickW, rowH - 4);
 
             for (let s = 0; s < 10; s++) {
-              ctx.fillStyle = `rgba(0, 0, 0, ${Math.random() * 0.08})`;
-              ctx.fillRect(x + 2 + Math.random() * brickW, r * rowH + 2 + Math.random() * (rowH - 4), 2, 2);
+              ctx.fillStyle = `rgba(0, 0, 0, ${random() * 0.08})`;
+              ctx.fillRect(x + 2 + random() * brickW, r * rowH + 2 + random() * (rowH - 4), 2, 2);
             }
           }
         }
@@ -842,13 +843,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             ctx.stroke();
           }
         }
-      } else if (pattern === 'concrete' || isConcreteFacade) {
+      } else if (pattern === 'concrete') {
         // Brüt Beton Panel
         for (let i = 0; i < 15000; i++) {
-          const isDark = Math.random() > 0.45;
-          const alpha = Math.random() * 0.08 + 0.02;
+          const isDark = random() > 0.45;
+          const alpha = random() * 0.08 + 0.02;
           ctx.fillStyle = isDark ? `rgba(15, 23, 42, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
-          ctx.fillRect(Math.random() * 512, Math.random() * 512, Math.random() * 2 + 1, Math.random() * 2 + 1);
+          ctx.fillRect(random() * 512, random() * 512, random() * 2 + 1, random() * 2 + 1);
         }
         ctx.strokeStyle = 'rgba(15, 23, 42, 0.32)';
         ctx.lineWidth = 2.5;
@@ -877,7 +878,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           ctx.fillStyle = 'rgba(20, 10, 5, 0.45)';
           ctx.fillRect(x + slatW - 3, 0, 3, 512);
           for (let g = 0; g < 3; g++) {
-            ctx.strokeStyle = `rgba(40, 20, 10, ${Math.random() * 0.15 + 0.05})`;
+            ctx.strokeStyle = `rgba(40, 20, 10, ${random() * 0.15 + 0.05})`;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(x + g * 4 + 2, 0);
@@ -906,9 +907,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       } else {
         // 'smooth' - Pürüzsüz Sıva / Mineral Gren Dokusu
         for (let i = 0; i < 10000; i++) {
-          const alpha = Math.random() * 0.04 + 0.01;
-          ctx.fillStyle = Math.random() > 0.5 ? `rgba(0, 0, 0, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
-          ctx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
+          const alpha = random() * 0.04 + 0.01;
+          ctx.fillStyle = random() > 0.5 ? `rgba(0, 0, 0, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+          ctx.fillRect(random() * 512, random() * 512, 1.5, 1.5);
         }
       }
 
@@ -1022,9 +1023,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     }
 
     // Textures
-    const wallEffectivePattern = params?.wallPattern || (isConcreteFacade ? 'concrete' : 'smooth');
-    const wallTexture = !isXRay ? createWallPatternTexture(wallEffectivePattern, params?.wallColor || '#f1f5f9') : null;
-    const roofTexture = !isXRay ? createRoofPatternTexture(params?.roofPattern || 'tiles', params?.roofColor || '#b91c1c') : null;
+    const wallEffectivePattern = params.wallPattern ?? getFacadeStyleConfig(params.facadeStyle || 'modern').wallPattern;
+    const wallTexture = !isXRay ? createWallPatternTexture(wallEffectivePattern, '#' + colors.wall.toString(16).padStart(6, '0')) : null;
+    const roofTexture = !isXRay ? createRoofPatternTexture(params?.roofPattern || 'tiles', '#' + colors.roof.toString(16).padStart(6, '0')) : null;
 
     // Materials
     const slabMaterial = new THREE.MeshStandardMaterial({
@@ -1037,7 +1038,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
     // Exterior Wall Material (Transparent in X-Ray mode so rooms are visible!)
     const wallMaterial = new THREE.MeshStandardMaterial({
-      color: isXRay ? (isLight ? 0x94a3b8 : 0x38bdf8) : colors.wall,
+      color: isXRay ? (isLight ? 0x94a3b8 : 0x38bdf8) : wallTexture ? 0xffffff : colors.wall,
       roughness: wallRoughness,
       metalness: wallMetalness,
       map: wallTexture,
@@ -1048,7 +1049,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     });
 
     const roofMaterial = new THREE.MeshStandardMaterial({
-      color: colors.roof,
+      color: roofTexture ? 0xffffff : colors.roof,
       roughness: roofRoughness,
       metalness: roofMetalness,
       map: roofTexture,
@@ -1076,18 +1077,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     });
 
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-      color: isNightScene ? 0xfef3c7 : 0xbae6fd,
+      color: isNightScene ? 0xfef3c7 : colors.glass,
       emissive: isNightScene ? 0xf59e0b : 0x000000,
       emissiveIntensity: isNightScene ? 0.32 : 0,
-      roughness: 0.05,
-      metalness: 0.1,
-      transmission: isNightScene ? 0.2 : 0.9,
-      thickness: 0.5,
-      transparent: true,
-      opacity: isXRay ? 0.25 : isNightScene ? 0.78 : 0.6,
-      reflectivity: 0.9,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.03,
+      roughness: 0.14,
+      metalness: 0.14,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.08,
       wireframe: effectiveWireframe,
     });
 
@@ -1095,19 +1091,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       color: colors.frame,
       roughness: frameRoughness,
       metalness: frameMetalness
-    });
-
-    // Turkish Architectural Balcony Materials
-    const glassBalconyMat = new THREE.MeshPhysicalMaterial({
-      color: 0x7dd3fc,
-      roughness: 0.08,
-      metalness: 0.2,
-      transmission: 0.85,
-      thickness: 0.4,
-      transparent: true,
-      opacity: isXRay ? 0.3 : 0.65,
-      clearcoat: 1.0,
-      wireframe: effectiveWireframe,
     });
 
     const antraciteAluminumMat = new THREE.MeshStandardMaterial({
@@ -1391,8 +1374,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           bisectX /= bLen;
           bisectZ /= bLen;
 
-          const colX = px + bisectX * (colSize * 0.45);
-          const colZ = pz + bisectZ * (colSize * 0.45);
+          const projection = Math.abs(bisectX * inN1X + bisectZ * inN1Z);
+          const halfSpan = colSize / 2 * Math.max(Math.abs(inN1X) + Math.abs(inN1Z), Math.abs(inN2X) + Math.abs(inN2Z));
+          const inset = (halfSpan + 0.015) / Math.max(0.15, projection);
+          const colX = px + bisectX * inset;
+          const colZ = pz + bisectZ * inset;
+          if (!isPointInPolygon(colX + bounds.centerX, colZ + bounds.centerY, activePolyPts)) return;
 
           const colMesh = new THREE.Mesh(colGeo, columnMaterial);
           colMesh.position.set(colX, midY, colZ);
@@ -1431,8 +1418,12 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           }
         }
       } else {
-        const colXCoords = [-floorW / 2 + colSize / 2, 0, floorW / 2 - colSize / 2];
-        const colZCoords = [floorCenterZ - floorD / 2 + colSize / 2, floorCenterZ, floorCenterZ + floorD / 2 - colSize / 2];
+        // Keep perimeter columns just behind the facade plane.
+        const inset = colSize / 2 + 0.015;
+        const colX = Math.max(0, floorW / 2 - inset);
+        const colZ = Math.max(0, floorD / 2 - inset);
+        const colXCoords = [floorCenterX - colX, floorCenterX, floorCenterX + colX];
+        const colZCoords = [floorCenterZ - colZ, floorCenterZ, floorCenterZ + colZ];
 
         colXCoords.forEach((cx) => {
           colZCoords.forEach((cz) => {
@@ -2313,9 +2304,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
           const wallDefs = [
             { name: 'Ön Cephe', length: floorW, x: floorCenterX, z: floorCenterZ + floorD / 2 - backWallThick / 2, rotationY: 0, idx: 0 },
-            { name: 'Sağ Cephe', length: floorD, x: floorCenterX + floorW / 2 - backWallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, idx: 1 },
+            { name: 'Sağ Cephe', length: Math.max(0.1, floorD - 2 * backWallThick), x: floorCenterX + floorW / 2 - backWallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, idx: 1 },
             { name: 'Arka Cephe', length: floorW, x: floorCenterX, z: floorCenterZ - floorD / 2 + backWallThick / 2, rotationY: Math.PI, idx: 2 },
-            { name: 'Sol Cephe', length: floorD, x: floorCenterX - floorW / 2 + backWallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, idx: 3 },
+            { name: 'Sol Cephe', length: Math.max(0.1, floorD - 2 * backWallThick), x: floorCenterX - floorW / 2 + backWallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, idx: 3 },
           ];
 
           wallDefs.forEach((wall) => {
@@ -2410,7 +2401,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         }
       } else if (!isBasement) {
         const wallThick = 0.22;
-        const currentMat = f % 2 === 0 ? woodMaterial : wallMaterial;
         const isGroundFloor = floorIndex === 0;
 
         // Resolve active facade configurations
@@ -2475,9 +2465,9 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         } else {
           wallDefs = [
             { name: 'Ön Cephe', length: floorW, x: floorCenterX, z: floorCenterZ + floorD / 2 - wallThick / 2, rotationY: 0, isCustom: false },
-            { name: 'Sağ Cephe', length: floorD, x: floorCenterX + floorW / 2 - wallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, isCustom: false },
+            { name: 'Sağ Cephe', length: Math.max(0.1, floorD - 2 * wallThick), x: floorCenterX + floorW / 2 - wallThick / 2, z: floorCenterZ, rotationY: Math.PI / 2, isCustom: false },
             { name: 'Arka Cephe', length: floorW, x: floorCenterX, z: floorCenterZ - floorD / 2 + wallThick / 2, rotationY: Math.PI, isCustom: false },
-            { name: 'Sol Cephe', length: floorD, x: floorCenterX - floorW / 2 + wallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, isCustom: false },
+            { name: 'Sol Cephe', length: Math.max(0.1, floorD - 2 * wallThick), x: floorCenterX - floorW / 2 + wallThick / 2, z: floorCenterZ, rotationY: -Math.PI / 2, isCustom: false },
           ];
         }
 
@@ -2515,13 +2505,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             const rightPierW = Math.max(0.2, (localW / 2 - doorOffsetX - doorW / 2));
 
             // Left pier
-            const leftPier = new THREE.Mesh(safeBox(leftPierW, roomHeight, wallThick), currentMat);
+            const leftPier = new THREE.Mesh(safeBox(leftPierW, roomHeight, wallThick), wallMaterial);
             leftPier.position.set(-localW / 2 + leftPierW / 2, midY, 0);
             leftPier.castShadow = !isXRay; leftPier.receiveShadow = true;
             wallGroup.add(leftPier);
 
             // Right pier
-            const rightPier = new THREE.Mesh(safeBox(rightPierW, roomHeight, wallThick), currentMat);
+            const rightPier = new THREE.Mesh(safeBox(rightPierW, roomHeight, wallThick), wallMaterial);
             rightPier.position.set(localW / 2 - rightPierW / 2, midY, 0);
             rightPier.castShadow = !isXRay; rightPier.receiveShadow = true;
             wallGroup.add(rightPier);
@@ -2544,11 +2534,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             // Entrance Door Safety Glass
             const doorGlass = new THREE.Mesh(safeBox(doorW - 0.2, doorH - 0.2, 0.06), glassMaterial);
             doorGlass.position.copy(doorFrameMesh.position);
+            doorGlass.position.z += 0.04;
             wallGroup.add(doorGlass);
 
             // Vertical Center Mullion for Double Leaf Entrance Door
             const centerMullion = new THREE.Mesh(safeBox(0.06, doorH - 0.1, 0.1), frameMaterial);
-            centerMullion.position.copy(doorFrameMesh.position);
+            centerMullion.position.copy(doorGlass.position);
+            centerMullion.position.z += 0.01;
             wallGroup.add(centerMullion);
 
             // Stainless Steel Door Pull Handles (Krom Giriş Kapısı Kolları)
@@ -2598,10 +2590,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
             // Illuminated Building Name & Address Plate (Işıklı Bina Giriş Tabelası)
             const signMesh = new THREE.Mesh(safeBox(doorW * 0.85, 0.35, 0.04), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-            signMesh.position.set(doorOffsetX, baseY + slabThickness + doorH + 0.38, 0.02);
+            signMesh.position.set(doorOffsetX, baseY + slabThickness + doorH + 0.38, wallThick / 2 + 0.021);
             wallGroup.add(signMesh);
           } else if (winCount === 0) {
-            const solidWall = new THREE.Mesh(safeBox(localW, roomHeight, wallThick), currentMat);
+            const solidWall = new THREE.Mesh(safeBox(localW, roomHeight, wallThick), wallMaterial);
             solidWall.position.set(0, midY, 0);
             solidWall.castShadow = !isXRay; solidWall.receiveShadow = true;
             wallGroup.add(solidWall);
@@ -2644,7 +2636,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
             for (let p = 0; p <= winCount; p++) {
               const px = -localW / 2 + pierW / 2 + p * (pierW + winWidth);
-              const pierMesh = new THREE.Mesh(safeBox(pierW, roomHeight, wallThick), currentMat);
+              const pierMesh = new THREE.Mesh(safeBox(pierW, roomHeight, wallThick), wallMaterial);
               pierMesh.position.set(px, midY, 0);
               pierMesh.castShadow = !isXRay; pierMesh.receiveShadow = true;
               wallGroup.add(pierMesh);
@@ -2681,7 +2673,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                   const frameGeo = safeBox(winWidth, glassH, 0.08);
                   const line = new THREE.LineSegments(
                     new THREE.EdgesGeometry(frameGeo),
-                    new THREE.LineBasicMaterial({ color: isLight ? 0x334155 : 0x1e293b })
+                    new THREE.LineBasicMaterial({ color: colors.frame })
                   );
                   line.position.copy(glassMesh.position);
                   wallGroup.add(line);
@@ -2729,7 +2721,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                   const frameGeo = safeBox(winWidth + 0.04, winHeight + 0.04, 0.08);
                   const line = new THREE.LineSegments(
                     new THREE.EdgesGeometry(frameGeo),
-                    new THREE.LineBasicMaterial({ color: isLight ? 0x64748b : 0x27272a })
+                    new THREE.LineBasicMaterial({ color: colors.frame })
                   );
                   line.position.copy(glassMesh.position);
                   wallGroup.add(line);
@@ -2799,13 +2791,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
                 // Alt mermer küpeşte bazası / parapet
                 const parapetH = 0.35;
-                const parapetMesh = new THREE.Mesh(safeBox(balcWidth, parapetH, 0.08), currentMat);
+                const parapetMesh = new THREE.Mesh(safeBox(balcWidth, parapetH, 0.08), woodMaterial);
                 parapetMesh.position.set(balcX, baseY + slabThickness + parapetH / 2, balcOffsetZ + bD / 2 - 0.04);
                 wallGroup.add(parapetMesh);
 
                 // Yan parapetler
                 for (const sideSign of [-1, 1]) {
-                  const sideParapet = new THREE.Mesh(safeBox(0.08, parapetH, bD), currentMat);
+                  const sideParapet = new THREE.Mesh(safeBox(0.08, parapetH, bD), wallMaterial);
                   sideParapet.position.set(balcX + sideSign * (balcWidth / 2 - 0.04), baseY + slabThickness + parapetH / 2, balcOffsetZ);
                   wallGroup.add(sideParapet);
                 }
@@ -2816,7 +2808,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
                 // Ön katlanır cam panelleri (4 adet temperli katlanır kanat)
                 const glassFrontZ = balcOffsetZ + bD / 2 - 0.04;
-                const frontGlass = new THREE.Mesh(safeBox(balcWidth - 0.08, glassHeight, 0.03), glassBalconyMat);
+                const frontGlass = new THREE.Mesh(safeBox(balcWidth - 0.08, glassHeight, 0.03), glassMaterial);
                 frontGlass.position.set(balcX, glassCenterY, glassFrontZ);
                 wallGroup.add(frontGlass);
 
@@ -2832,7 +2824,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
                 // İki yan katlanır cam panelleri
                 for (const sideSign of [-1, 1]) {
-                  const sideGlass = new THREE.Mesh(safeBox(0.03, glassHeight, bD - 0.08), glassBalconyMat);
+                  const sideGlass = new THREE.Mesh(safeBox(0.03, glassHeight, bD - 0.08), glassMaterial);
                   sideGlass.position.set(balcX + sideSign * (balcWidth / 2 - 0.04), glassCenterY, balcOffsetZ);
                   wallGroup.add(sideGlass);
 
@@ -2856,7 +2848,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                 // İki yanda masif cephe duvarı kanatları (mahremiyet sağlayan lojya yan duvarları)
                 const wingThick = 0.25;
                 for (const sideSign of [-1, 1]) {
-                  const sideWall = new THREE.Mesh(safeBox(wingThick, roomHeight, recDepth), currentMat);
+                  const sideWall = new THREE.Mesh(safeBox(wingThick, roomHeight, recDepth), wallMaterial);
                   sideWall.position.set(balcX + sideSign * (balcWidth / 2 - wingThick / 2), midY, balcOffsetZ);
                   sideWall.castShadow = true;
                   wallGroup.add(sideWall);
@@ -2902,13 +2894,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
                 // 0.85m Masif alt parapet duvarı
                 const parapetH = 0.85;
-                const parapetFront = new THREE.Mesh(safeBox(balcWidth, parapetH, 0.12), currentMat);
+                const parapetFront = new THREE.Mesh(safeBox(balcWidth, parapetH, 0.12), woodMaterial);
                 parapetFront.position.set(balcX, baseY + slabThickness + parapetH / 2, balcOffsetZ + cDepth / 2 - 0.06);
                 wallGroup.add(parapetFront);
 
                 // Yan parapetler
                 for (const sideSign of [-1, 1]) {
-                  const sideP = new THREE.Mesh(safeBox(0.12, parapetH, cDepth), currentMat);
+                  const sideP = new THREE.Mesh(safeBox(0.12, parapetH, cDepth), wallMaterial);
                   sideP.position.set(balcX + sideSign * (balcWidth / 2 - 0.06), baseY + slabThickness + parapetH / 2, balcOffsetZ);
                   wallGroup.add(sideP);
                 }
@@ -3915,7 +3907,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       controlsRef.current.target.set(0, focusY, 0);
       controlsRef.current.update();
     }
-  }, [params, effectiveWireframe, effectiveDebugOverlay, selectedFloor, explodeRatio, isLight, buildingColor, isNightScene, landArea, showStreetNames]);
+  }, [params, effectiveWireframe, effectiveDebugOverlay, selectedFloor, explodeRatio, isLight, isNightScene, landArea, showStreetNames]);
 
   // Initialize Three.js Canvas & Animation Loop
   useEffect(() => {

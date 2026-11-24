@@ -1,4 +1,4 @@
-import { BuildingModelParams, RoomType, FacadeStyleType } from '../types';
+import { BuildingModelParams, RoomType, FacadeStyleType, WallPatternType } from '../types';
 import { DEFAULT_CUSTOM_FACADES_4, calculateFootprint } from './footprintUtils';
 import { calculateCantileverDetails } from './calculatorEngine';
 
@@ -9,6 +9,7 @@ export interface FacadeStyleOption {
   category: 'Modern & Lüks' | 'Doğal & Sıcak' | 'Minimalist' | 'Karakterli & Endüstriyel';
   wallColorHex: string;
   accentColorHex: string;
+  wallPattern: WallPatternType;
   colors: {
     wall: number;
     woodAccent: number;
@@ -28,6 +29,7 @@ export const FACADE_STYLES: FacadeStyleOption[] = [
     category: 'Karakterli & Endüstriyel',
     wallColorHex: '#94a3b8',
     accentColorHex: '#27272a',
+    wallPattern: 'concrete',
     colors: {
       wall: 0x94a3b8,
       woodAccent: 0x27272a,
@@ -45,6 +47,7 @@ export const FACADE_STYLES: FacadeStyleOption[] = [
     category: 'Modern & Lüks',
     wallColorHex: '#f1f5f9',
     accentColorHex: '#6366f1',
+    wallPattern: 'smooth',
     colors: {
       wall: 0xf1f5f9,
       woodAccent: 0x6366f1,
@@ -62,6 +65,7 @@ export const FACADE_STYLES: FacadeStyleOption[] = [
     category: 'Modern & Lüks',
     wallColorHex: '#22252a',
     accentColorHex: '#b5734c',
+    wallPattern: 'composite_panel',
     colors: {
       wall: 0x22252a,
       woodAccent: 0xb5734c,
@@ -79,6 +83,7 @@ export const FACADE_STYLES: FacadeStyleOption[] = [
     category: 'Modern & Lüks',
     wallColorHex: '#eaddcf',
     accentColorHex: '#8c6239',
+    wallPattern: 'stone',
     colors: {
       wall: 0xeaddcf,
       woodAccent: 0x8c6239,
@@ -96,6 +101,7 @@ export const FACADE_STYLES: FacadeStyleOption[] = [
     category: 'Minimalist',
     wallColorHex: '#e2e8f0',
     accentColorHex: '#0284c7',
+    wallPattern: 'smooth',
     colors: {
       wall: 0xe2e8f0,
       woodAccent: 0x0284c7,
@@ -113,6 +119,7 @@ export const FACADE_STYLES: FacadeStyleOption[] = [
     category: 'Doğal & Sıcak',
     wallColorHex: '#9a3412',
     accentColorHex: '#451a03',
+    wallPattern: 'brick',
     colors: {
       wall: 0x9a3412,
       woodAccent: 0x451a03,

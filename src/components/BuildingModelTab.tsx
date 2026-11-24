@@ -21,6 +21,7 @@ import {
   ACCENT_COLOR_PRESETS,
   FRAME_COLOR_PRESETS,
   FACADE_STYLES,
+  getFacadeStyleConfig,
   MATERIAL_FINISH_OPTIONS,
   WALL_PATTERN_OPTIONS,
   ROOF_PATTERN_OPTIONS,
@@ -270,13 +271,18 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                       <select className={appearanceSelectClass} value={modelParams.facadeStyle || 'modern'}
                         onChange={event => {
                           const style = FACADE_STYLES.find(option => option.id === event.currentTarget.value);
-                          if (style) updateParams({ facadeStyle: style.id, wallColor: style.wallColorHex, accentColor: style.accentColorHex });
+                          if (style) updateParams({
+                            facadeStyle: style.id,
+                            wallColor: style.wallColorHex,
+                            accentColor: style.accentColorHex,
+                            wallPattern: style.wallPattern,
+                          });
                         }}>
                         {FACADE_STYLES.map(style => <option key={style.id} value={style.id}>{style.title}</option>)}
                       </select>
                     </label>
                     {([
-                      ['wallPattern', 'Cephe dokusu', modelParams.wallPattern || 'smooth', WALL_PATTERN_OPTIONS],
+                      ['wallPattern', 'Cephe dokusu', modelParams.wallPattern ?? getFacadeStyleConfig(modelParams.facadeStyle || 'modern').wallPattern, WALL_PATTERN_OPTIONS],
                       ['roofPattern', 'Çatı dokusu', modelParams.roofPattern || 'tiles', ROOF_PATTERN_OPTIONS],
                       ['materialFinish', 'Yüzey bitişi', modelParams.materialFinish || 'satin', MATERIAL_FINISH_OPTIONS],
                     ] as const).map(([field, label, value, options]) => (
