@@ -77,9 +77,7 @@ export function ResidentialFloorPlan({ model, flats }: Props) {
   else if (inaccessible) reason = 'Çekirdek konumu en az bir odanın hole açılmasını engelliyor.';
   else if (blocked) reason = 'Ön ve arka cephedeki pencere ayarları bu oda dağılımına yetmiyor.';
 
-  const compactPlan = reason && standardRoomFloor && rectangular && !model.hasCantilever
-    ? renderCompactResidentialPlan({ model, width: W, depth: D, bedrooms: beds })
-    : null;
+  const compactPlan = renderCompactResidentialPlan({ model, width: W, depth: D, bedrooms: beds, activePolyPts });
 
   const polygonBounds = activePolyPts ? getPolygonBounds(activePolyPts) : null;
   const footprint = activePolyPts && polygonBounds
