@@ -1077,13 +1077,15 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     });
 
     const glassMaterial = new THREE.MeshPhysicalMaterial({
-      color: isNightScene ? 0xfef3c7 : colors.glass,
+      color: new THREE.Color(0xf1f5f9).lerp(new THREE.Color(colors.glass), 0.22),
       emissive: isNightScene ? 0xf59e0b : 0x000000,
-      emissiveIntensity: isNightScene ? 0.32 : 0,
-      roughness: 0.14,
-      metalness: 0.14,
-      clearcoat: 0.85,
-      clearcoatRoughness: 0.08,
+      emissiveIntensity: isNightScene ? 0.14 : 0,
+      // Rough transmission softens the view through the pane and keeps glass reflections.
+      transmission: 0.9,
+      roughness: 0.68,
+      thickness: 0.08,
+      clearcoat: 0.2,
+      clearcoatRoughness: 0.32,
       wireframe: effectiveWireframe,
     });
 
