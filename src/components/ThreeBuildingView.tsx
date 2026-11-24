@@ -199,6 +199,16 @@ function getSafePoint(
   return { x: bestX, z: bestZ };
 }
 
+function setRoofGeometrySurface(geometry: THREE.BufferGeometry, positions: number[]) {
+  const uv: number[] = [];
+  for (let i = 0; i < positions.length; i += 3) {
+    uv.push(positions[i] / 6, positions[i + 2] / 6);
+  }
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geometry.computeVertexNormals();
+}
+
 function createRectangularHipRoofGeometry(
   W: number,
   D: number,
@@ -262,8 +272,7 @@ function createRectangularHipRoofGeometry(
     positions.push(eFR.x, 0, eFR.z, r1.x, roofHeight, r1.z, r2.x, roofHeight, r2.z);
   }
 
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geom.computeVertexNormals();
+  setRoofGeometrySurface(geom, positions);
 
   return geom;
 }
@@ -506,8 +515,7 @@ function createPolygonHipRoofGeometry(
     pushTriangle(p0, p1, p2);
   }
 
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geom.computeVertexNormals();
+  setRoofGeometrySurface(geom, positions);
 
   return geom;
 }
@@ -3241,18 +3249,34 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             }
           }
         } else {
-          const lowerGeo = createRectangularHipRoofGeometry(topFloorW, topFloorD, mansardLowerH, eavesOverhang);
+          const lowerHalfW = topFloorW / 2 + eavesOverhang;
+          const lowerHalfD = topFloorD / 2 + eavesOverhang;
+          const inset = Math.min(1.25, minSpan * 0.2);
+          const shoulderHalfW = lowerHalfW - inset;
+          const shoulderHalfD = lowerHalfD - inset;
+          const corners = [[-1, 1], [1, 1], [1, -1], [-1, -1]];
+          const outer = corners.map(([x, z]) => [x * lowerHalfW, 0, z * lowerHalfD]);
+          const shoulder = corners.map(([x, z]) => [x * shoulderHalfW, mansardLowerH, z * shoulderHalfD]);
+          const positions: number[] = [];
+          for (let i = 0; i < corners.length; i++) {
+            const next = (i + 1) % corners.length;
+            positions.push(...outer[i], ...outer[next], ...shoulder[next]);
+            positions.push(...outer[i], ...shoulder[next], ...shoulder[i]);
+          }
+
+          const lowerGeo = new THREE.BufferGeometry();
+          setRoofGeometrySurface(lowerGeo, positions);
           const lowerMesh = new THREE.Mesh(lowerGeo, roofMaterial);
           lowerMesh.position.set(topFloorCenterX, topFloorY, topFloorCenterZ);
           lowerMesh.castShadow = true;
           roofGroup.add(lowerMesh);
 
-          const setback = 0.8;
-          const upperCapGeo = safeBox(Math.max(1, topFloorW - setback * 2), 0.15, Math.max(1, topFloorD - setback * 2));
-          const upperCapMesh = new THREE.Mesh(upperCapGeo, roofMaterial);
-          upperCapMesh.position.set(topFloorCenterX, topFloorY + mansardLowerH + 0.08, topFloorCenterZ);
-          upperCapMesh.castShadow = true;
-          roofGroup.add(upperCapMesh);
+          const upperHeight = Math.min(0.8, minSpan * 0.08);
+          const upperGeo = createRectangularHipRoofGeometry(shoulderHalfW * 2, shoulderHalfD * 2, upperHeight, 0);
+          const upperMesh = new THREE.Mesh(upperGeo, roofMaterial);
+          upperMesh.position.set(topFloorCenterX, topFloorY + mansardLowerH, topFloorCenterZ);
+          upperMesh.castShadow = true;
+          roofGroup.add(upperMesh);
 
           const dormerCount = Math.max(2, Math.floor(topFloorW / 4));
           const dormerW = 1.2;
@@ -3280,10 +3304,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             roofGroup.add(dRoof);
           }
 
-          const crestGeo = safeBox(Math.max(1, topFloorW - setback * 2 + 0.1), 0.08, Math.max(1, topFloorD - setback * 2 + 0.1));
-          const crestMesh = new THREE.Mesh(crestGeo, frameMaterial);
-          crestMesh.position.set(topFloorCenterX, topFloorY + mansardLowerH + 0.2, topFloorCenterZ);
-          roofGroup.add(crestMesh);
+
         }
       } else if (roofType === 'duplex') {
         // 3. DUPLEX PENTHOUSE ROOF (Çatı Dubleksi - Teras, Pergola, Çatı Katı Dairesi)
@@ -4638,7 +4659,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                 </div>
               )}
               <span className="font-bold tracking-wide block">
-                {params.floorCount} Kat{params.basementCount > 0 ? ` + ${params.basementCount} Bodrum` : ''} ({params.roomType}) · Kat Başına {params.flatsPerFloor} Daire
+                Zemin{params.floorCount > 1 ? ` + ${params.floorCount - 1} Normal Kat` : ''}{params.basementCount > 0 ? ` + ${params.basementCount} Bodrum` : ''} ({params.roomType}) · Kat Başına {params.flatsPerFloor} Daire
               </span>
               <span className="text-[10px] font-mono text-slate-500">
                 Ön: {params.facadeWidth.toFixed(1)}m × Yan: {params.facadeDepth.toFixed(1)}m
@@ -5097,8 +5118,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
                   ? params.hasGroundFloorShop
                     ? 'Zemin Kat (Dükkan / Mağaza)'
                     : 'Zemin Kat (Giriş / Daireler)'
-                  : i === 1 && params.hasCantilever
-                  ? '1. Kat (Çıkmalı Normal Kat)'
                   : i === params.floorCount - 1 && params.roofType === 'duplex'
                   ? `${i}. Kat (Dubleks Alt Kat)`
                   : `${i}. Normal Kat`}
