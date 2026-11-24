@@ -713,6 +713,7 @@ export function generateFacadeConfigs(
     const cantileverDepth = isBlind ? 0 : (existing?.cantileverDepth !== undefined ? existing.cantileverDepth : 1.2);
 
     return {
+      ...existing,
       id: i + 1,
       name: existing?.name || names[i] || `${i + 1}. Cephe`,
       length: len,

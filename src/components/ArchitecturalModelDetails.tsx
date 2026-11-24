@@ -1,7 +1,8 @@
+import { FACADE_ACCENTS, GROUND_FACADE_OPTIONS, FACADE_WINDOW_PROFILES, getFacadeSceneOptions, getNeighborBuildingCount, MAX_NEIGHBOR_BUILDINGS, type FacadeSceneOptions } from '../utils/facadeSceneOptions';
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, DoorOpen, Layers, LayoutGrid, Navigation, Plus, Ruler, Sparkles, Trash2 } from 'lucide-react';
 import type { BuildingModelParams, CustomFacadeSide, FacadeDetailConfig, RoadConfig, RoadType } from '../types';
-import { generateFacadeConfigs, getDefaultCustomFacades, getPolygonEdges, syncPolygonToCustomFacades } from '../utils/footprintUtils';
+import { generateFacadeConfigs, getDefaultCustomFacades, getPolygonEdges, resolveThreeBuildingFootprint, syncPolygonToCustomFacades } from '../utils/footprintUtils';
 
 const ROAD_TYPES_DATA: { id: RoadType; label: string; width: number; color: string }[] = [
   { id: 'street', label: 'Sokak', width: 7, color: '#64748b' },
@@ -44,12 +45,10 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
               </button>
 
               {!collapsedSections.dimensions && (() => {
-                const isPolyDrawMode = modelParams.footprintInputMode === 'polygonDraw' || (modelParams.polygonPoints && modelParams.polygonPoints.length > 4);
-                const polygonEdges = (modelParams.polygonPoints && modelParams.polygonPoints.length >= 3)
-                  ? getPolygonEdges(modelParams.polygonPoints)
-                  : [];
+                const { activePolyPts } = resolveThreeBuildingFootprint(modelParams);
+                const polygonEdges = activePolyPts ? getPolygonEdges(activePolyPts) : [];
 
-                const facadeItems = isPolyDrawMode && polygonEdges.length > 0
+                const facadeItems = polygonEdges.length > 0
                   ? polygonEdges.map((edge, idx) => ({
                       id: idx + 1,
                       key: `edge_${idx}`,
@@ -69,16 +68,14 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                     ];
 
                 const activeCfgs = generateFacadeConfigs(
-                  isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3
-                    ? modelParams.polygonPoints
-                    : (modelParams.customFacades && modelParams.customFacades.length > 4 ? modelParams.customFacades.length : 4),
+                  activePolyPts ?? 4,
                   modelParams.facadeConfigs,
                   modelParams.mainEntranceFacadeIndex || 0
                 );
 
                 const currentDefaultCantilever = modelParams.cantileverDepth || 1.2;
 
-                const updateFacadeDetail = (fIdx: number, updates: Partial<FacadeDetailConfig>) => {
+                const updateFacadeDetail = (fIdx: number, updates: Partial<FacadeDetailConfig> & FacadeSceneOptions) => {
                   const newCfgs = [...activeCfgs];
                   const currentCfg: FacadeDetailConfig = newCfgs[fIdx] || {
                     id: fIdx + 1,
@@ -111,12 +108,12 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
 
                   if (updates.isEntrance) {
                     newCfgs.forEach((c, i) => {
-                      if (i !== fIdx) c.isEntrance = false;
+                      if (i !== fIdx) newCfgs[i] = { ...c, isEntrance: false };
                     });
                   }
 
                   let customList: CustomFacadeSide[] = [];
-                  if (isPolyDrawMode && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3) {
+                  if (modelParams.footprintInputMode === 'polygonDraw' && modelParams.polygonPoints && modelParams.polygonPoints.length >= 3) {
                     customList = syncPolygonToCustomFacades(
                       modelParams.polygonPoints,
                       modelParams.customFacades,
@@ -241,6 +238,7 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                           const isAdjacent = (cfg as any).isAdjacent === true;
                           const isBlind = isAdjacent || (cfg as any).isBlankWall === true || cfg.windowCountPerFloor === 0;
                           const currentRoad = (modelParams.roads || []).find(road => road.facadeIndex === fIdx);
+                          const scene = getFacadeSceneOptions(cfg);
                           const isSelectedInCanvas = selectedEdgeIndex === fIdx;
 
                           // Formulated Balcony Combo Key
@@ -283,6 +281,7 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                               <div className="grid grid-cols-2 gap-1.5" onClick={(e) => e.stopPropagation()}>
                                 <button
                                   type="button"
+                                  disabled={isAdjacent}
                                   onClick={() => updateFacadeDetail(fIdx, { isEntrance: true })}
                                   className={`py-1 px-1.5 text-[10px] font-bold rounded-lg border transition-all flex items-center justify-center gap-1 ${
                                     isEntrance
@@ -299,6 +298,7 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                                   onClick={() => {
                                     const nextAdj = !isAdjacent;
                                     updateFacadeDetail(fIdx, {
+                                      neighborBuildingCount: nextAdj ? scene.neighborBuildingCount ?? 1 : scene.neighborBuildingCount,
                                       isAdjacent: nextAdj,
                                       isBlankWall: nextAdj,
                                       windowCountPerFloor: nextAdj ? 0 : 2,
@@ -364,14 +364,32 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                                 )}
                               </div>
 
+                              {isAdjacent ? (
+                                <label className="flex items-center justify-between gap-2 text-xs">
+                                  Komşu bina adedi
+                                  <input type="number" min={0} max={MAX_NEIGHBOR_BUILDINGS} step={1}
+                                    value={getNeighborBuildingCount(scene.neighborBuildingCount)}
+                                    onChange={event => updateFacadeDetail(fIdx, {
+                                      neighborBuildingCount: getNeighborBuildingCount(event.currentTarget.valueAsNumber),
+                                    })}
+                                    className="w-16 rounded-md border border-slate-300 px-2 py-1" />
+                                </label>
+                              ) : !currentRoad && (
+                                <label className="flex items-center gap-2 text-xs">
+                                  <input type="checkbox" checked={!!scene.showGarden}
+                                    onChange={event => updateFacadeDetail(fIdx, { showGarden: event.currentTarget.checked })} />
+                                  Bahçeyi göster
+                                </label>
+                              )}
+
                               {/* Pencere & Balkon Seçimi */}
                               <div className="space-y-2 pt-1 border-t border-slate-100/80" onClick={(e) => e.stopPropagation()}>
                                 {/* Pencereler */}
                                 <div className="flex items-center justify-between text-[11px]">
                                   <span className="text-slate-600 font-medium">Pencereler:</span>
                                   <select
-                                    disabled={isBlind}
-                                    value={isBlind ? 0 : cfg.windowCountPerFloor}
+                                    disabled={isAdjacent}
+                                    value={isAdjacent ? 0 : cfg.windowCountPerFloor}
                                     onChange={(e) => {
                                       const wCount = parseInt(e.target.value, 10);
                                       updateFacadeDetail(fIdx, {
@@ -380,7 +398,7 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                                       });
                                     }}
                                     className={`w-28 px-1.5 py-0.5 text-xs font-semibold rounded-md border ${
-                                      isBlind ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : inputBg
+                                      isAdjacent ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' : inputBg
                                     }`}
                                   >
                                     <option value={0}>0 (Penceresiz)</option>
@@ -392,6 +410,51 @@ export function ArchitecturalModelDetails({ modelParams, updateParams, compact =
                                     <option value={6}>6 Pencere</option>
                                   </select>
                                 </div>
+
+                                {!isBlind && (
+                                  <label className="flex items-center justify-between gap-2 text-xs">
+                                    Pencere tipi
+                                    <select className="w-28 rounded-md border border-slate-300 px-1.5 py-1"
+                                      value={scene.windowProfile ?? 'standard'}
+                                      onChange={event => updateFacadeDetail(fIdx, {
+                                        windowProfile: event.currentTarget.value as FacadeSceneOptions['windowProfile'],
+                                      })}>
+                                      {Object.entries(FACADE_WINDOW_PROFILES).map(([key, profile]) => (
+                                        <option key={key} value={key}>{profile.label}</option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                )}
+
+                                {!isAdjacent && !isEntrance && !modelParams.hasGroundFloorShop && (
+                                  <label className="flex items-center justify-between gap-2 text-xs">
+                                    Zemin kat
+                                    <select className="w-28 rounded-md border border-slate-300 px-1.5 py-1"
+                                      value={scene.groundFacade ?? 'project'}
+                                      onChange={event => updateFacadeDetail(fIdx, {
+                                        groundFacade: event.currentTarget.value as FacadeSceneOptions['groundFacade'],
+                                      })}>
+                                      {Object.entries(GROUND_FACADE_OPTIONS).map(([key, label]) => (
+                                        <option key={key} value={key}>{label}</option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                )}
+                                {!isAdjacent && (
+                                  <label className="flex items-center justify-between gap-2 text-xs">
+                                    Kat silmesi
+                                    <select className="w-28 rounded-md border border-slate-300 px-1.5 py-1"
+                                      value={scene.accentBand ?? ''}
+                                      onChange={event => updateFacadeDetail(fIdx, {
+                                        accentBand: event.currentTarget.value as FacadeSceneOptions['accentBand'],
+                                      })}>
+                                      <option value="">Varsayılan</option>
+                                      {Object.entries(FACADE_ACCENTS).map(([key, accent]) => (
+                                        <option key={key} value={key}>{accent.label}</option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                )}
 
                                 {/* Balkonlar */}
                                 <div className="flex items-center justify-between text-[11px]">

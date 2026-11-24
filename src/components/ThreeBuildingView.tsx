@@ -1,3 +1,4 @@
+import { FACADE_ACCENTS, FACADE_WINDOW_PROFILES, getFacadeSceneOptions, getNeighborBuildingCount } from '../utils/facadeSceneOptions';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -673,6 +674,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   const buildScene = useCallback(() => {
     if (!sceneRef.current) return;
     const scene = sceneRef.current;
+
+    const previousBuildingRotation = buildingGroupRef.current?.rotation.y ?? roadsGroupRef.current?.rotation.y ?? 0;
 
     // Remove existing building group
     if (buildingGroupRef.current) {
@@ -2417,9 +2420,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
 
         // Resolve active facade configurations
         const activeFacadeConfigs = generateFacadeConfigs(
-          params.polygonPoints && params.polygonPoints.length >= 3
-            ? params.polygonPoints
-            : (params.customFacades || 4),
+          activePolyPts ?? 4,
           params.facadeConfigs,
           params.mainEntranceFacadeIndex || 0
         );
@@ -2490,9 +2491,10 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             balconyCountPerFloor: wIdx === 0 ? 1 : 0,
             balconyType: 'standard',
             isEntrance: wIdx === (params.mainEntranceFacadeIndex || 0),
+            isAdjacent: false,
           };
 
-          const isEntranceFacade = cfg.isEntrance || wIdx === (params.mainEntranceFacadeIndex || 0);
+          const isEntranceFacade = !cfg.isAdjacent && (cfg.isEntrance || wIdx === (params.mainEntranceFacadeIndex || 0));
           const winCount = typeof cfg.windowCountPerFloor === 'number' ? cfg.windowCountPerFloor : (wIdx === 0 ? 3 : 2);
           
           // Under TR regulations, a blind facade (windowCountPerFloor === 0) cannot have balconies
@@ -2505,8 +2507,45 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
           floorGroup.add(wallGroup);
 
           const localW = wDef.length;
-          
-          if (isGroundFloor && isEntranceFacade) {
+          const { groundFacade, accentBand, windowProfile } = getFacadeSceneOptions(activeFacadeConfigs[wIdx]);
+          const accent = accentBand ? FACADE_ACCENTS[accentBand] : undefined;
+          if (accent && !cfg.isAdjacent && !isXRay) {
+            const band = new THREE.Mesh(safeBox(localW, 0.12, 0.035), new THREE.MeshStandardMaterial({
+              color: accent.color, roughness: 0.75,
+            }));
+            band.position.set(0, baseY + slabThickness / 2, wallThick / 2 + 0.03);
+            wallGroup.add(band);
+          }
+
+          const groundTreatment = isGroundFloor && !isEntranceFacade && !cfg.isAdjacent ? groundFacade : 'project';
+          if ((groundTreatment === 'garage' || groundTreatment === 'storefront') && localW >= 2.2) {
+            const garage = groundTreatment === 'garage';
+            const openingWidth = Math.min(garage ? 3.6 : 5.4, localW - 0.6);
+            const openingHeight = Math.min(garage ? 2.45 : 2.7, roomHeight - 0.15);
+            const pierWidth = (localW - openingWidth) / 2;
+            for (const sign of [-1, 1]) {
+              const pier = new THREE.Mesh(safeBox(pierWidth, roomHeight, wallThick), wallMaterial);
+              pier.position.set(sign * (openingWidth + pierWidth) / 2, midY, 0);
+              wallGroup.add(pier);
+            }
+            const lintelHeight = roomHeight - openingHeight;
+            const lintel = new THREE.Mesh(safeBox(openingWidth, lintelHeight, wallThick), wallMaterial);
+            lintel.position.set(0, baseY + slabThickness + openingHeight + lintelHeight / 2, 0);
+            wallGroup.add(lintel);
+
+            const panel = new THREE.Mesh(safeBox(openingWidth, openingHeight, 0.06), garage ? frameMaterial : glassMaterial);
+            panel.position.set(0, baseY + slabThickness + openingHeight / 2, 0);
+            wallGroup.add(panel);
+            for (let bar = 1; bar <= (garage ? 5 : 2); bar++) {
+              const trim = new THREE.Mesh(
+                garage ? safeBox(openingWidth, 0.025, 0.025) : safeBox(0.055, openingHeight, 0.045),
+                garage ? columnMaterial : frameMaterial,
+              );
+              trim.position.set(garage ? 0 : openingWidth * (bar / 3 - 0.5),
+                baseY + slabThickness + openingHeight * (garage ? bar / 6 : 0.5), 0.045);
+              wallGroup.add(trim);
+            }
+          } else if (isGroundFloor && isEntranceFacade) {
             const doorW = Math.max(1.2, Math.min(localW - 0.6, params.entranceDoorWidth || 2.2));
             const doorH = Math.min(params.entranceDoorHeight || 2.4, roomHeight - 0.2);
             const userOffset = params.entranceOffset || 0;
@@ -2610,9 +2649,13 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
             solidWall.castShadow = !isXRay; solidWall.receiveShadow = true;
             wallGroup.add(solidWall);
           } else {
-            const winWidth = Math.min(1.8, (localW - 1) / (winCount + 1));
-            const winHeight = 1.5;
-            const winSill = 0.9;
+            const profile = FACADE_WINDOW_PROFILES[windowProfile ?? 'standard']
+              ?? FACADE_WINDOW_PROFILES.standard;
+            const openingWidth = Math.max(0.05, (localW - (winCount + 1) * 0.12) / winCount);
+            const winWidth = Math.min(profile.width, openingWidth,
+              profile === FACADE_WINDOW_PROFILES.standard ? Math.max(0.05, (localW - 1) / (winCount + 1)) : Infinity);
+            const winSill = Math.min(profile.sill, roomHeight * 0.45);
+            const winHeight = Math.min(profile.height, roomHeight - winSill);
             const pierW = (localW - winCount * winWidth) / (winCount + 1);
 
             // Pre-calculate balcony center positions on this wall
@@ -3913,8 +3956,65 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       buildingGroup.add(parcelPad);
     }
 
+    if (selectedFloor === 'all' && !isXRay && !isCutaway) {
+      const polygon = activePolyPts;
+      const bounds = polygon ? getPolygonBounds(polygon) : null;
+      const polygonEdges = polygon ? getPolygonEdges(polygon) : [];
+      const signedArea = polygonEdges.reduce((sum, edge) =>
+        sum + edge.start.x * edge.end.y - edge.end.x * edge.start.y, 0);
+      const facadeEdges = bounds ? polygonEdges.map(edge => {
+        const dx = edge.end.x - edge.start.x;
+        const dz = edge.end.y - edge.start.y;
+        const length = Math.hypot(dx, dz);
+        const winding = signedArea >= 0 ? 1 : -1;
+        return {
+          x: edge.midpoint.x - bounds.centerX, z: edge.midpoint.y - bounds.centerY,
+          nx: winding * dz / (length || 1), nz: -winding * dx / (length || 1), length,
+        };
+      }) : [
+        { x: 0, z: D / 2, nx: 0, nz: 1, length: W },
+        { x: W / 2, z: 0, nx: 1, nz: 0, length: D },
+        { x: 0, z: -D / 2, nx: 0, nz: -1, length: W },
+        { x: -W / 2, z: 0, nx: -1, nz: 0, length: D },
+      ];
+
+      facadeEdges.forEach(({ x, z, nx, nz, length }, index) => {
+        if (length < 0.2) return;
+        const config = params.facadeConfigs?.[index];
+        const { neighborBuildingCount, showGarden } = getFacadeSceneOptions(config);
+        const count = config?.isAdjacent ? getNeighborBuildingCount(neighborBuildingCount) : 0;
+        const heading = Math.atan2(nx, nz);
+        if (count > 0) {
+          const depth = Math.min(10, Math.max(5, length * 0.75));
+          for (let i = 0; i < count; i++) {
+            const height = Math.max(H, (N - 1 + i % 3) * H);
+            const distance = (i + 0.5) * depth + 0.025;
+            const neighbor = new THREE.Mesh(safeBox(length, height, depth - 0.025), new THREE.MeshStandardMaterial({
+              color: [0xb9ada0, 0xabaeae, 0xc3b9ae][i % 3],
+              roughness: 0.9,
+            }));
+            neighbor.name = `Komşu bina · ${index + 1}. cephe · ${i + 1}`;
+            neighbor.position.set(x + nx * distance, height / 2, z + nz * distance);
+            neighbor.rotation.y = heading;
+            buildingGroup.add(neighbor);
+          }
+        } else if (showGarden && !config?.isAdjacent && !params.roads?.some(road => road.facadeIndex === index)) {
+          const depth = Math.min(5, Math.max(2, length * 0.3));
+          const garden = new THREE.Mesh(safeBox(length, 0.04, depth), new THREE.MeshStandardMaterial({
+            color: 0x638747,
+            roughness: 1,
+          }));
+          garden.name = `Bahçe · ${index + 1}. cephe`;
+          garden.position.set(x + nx * depth / 2, 0.01, z + nz * depth / 2);
+          garden.rotation.y = heading;
+          buildingGroup.add(garden);
+        }
+      });
+    }
+
     // Center building at origin
     buildingGroup.position.set(0, 0, 0);
+    buildingGroup.rotation.y = previousBuildingRotation;
 
     // Explicitly enable shadows for all meshes in the building group
     buildingGroup.traverse((child) => {
