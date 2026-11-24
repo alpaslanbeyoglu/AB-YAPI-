@@ -78,7 +78,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
     const totalValue = visibleHistory.reduce((acc, p) => acc + (p.results?.grandTotal || 0), 0);
 
     const constructionCount = visibleHistory.filter(p => p.params?.isOfferAccepted).length;
-    const draftCount = historyList.filter(p => !p.params?.isOfferAccepted).length;
+    const draftCount = visibleHistory.filter(p => !p.params?.isOfferAccepted).length;
 
     return { totalProjects, totalArea, totalFlats, totalValue, constructionCount, draftCount };
   }, [visibleHistory]);

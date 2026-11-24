@@ -67,6 +67,7 @@ export interface CompanyProfileTabProps {
   onNavigateToCRM?: () => void;
   onNavigateToCost?: () => void;
   onSelectProject?: (project: SavedProjectData, targetTab?: string) => void;
+  onDeleteProject?: (addressOrKey: string | number) => void;
   params?: ProjectParams;
   results?: CalculationResult;
 }
@@ -166,6 +167,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
   onNavigateToArchive,
   onNavigateToPortfolio,
   onSelectProject,
+  onDeleteProject,
   params,
   results,
 }) => {

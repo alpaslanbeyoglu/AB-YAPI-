@@ -1663,6 +1663,7 @@ const handleQuickSave = () => {
               }}
               onNavigateToArchive={() => setActiveTab('gecmis')}
               onNavigateToPortfolio={() => setActiveTab('tamamlanan')}
+              onDeleteProject={handleDeleteHistoryItem}
             />
           )}
 
