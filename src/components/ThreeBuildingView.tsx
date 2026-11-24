@@ -561,6 +561,8 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
   isPlayingSun = false,
   onToggleSunPlay,
 }) => {
+  const [webglUnavailable, setWebglUnavailable] = useState(false);
+  const [rendererAttempt, setRendererAttempt] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -3912,6 +3914,21 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     const width = container.clientWidth || 800;
     const height = container.clientHeight || 550;
 
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        preserveDrawingBuffer: true,
+        logarithmicDepthBuffer: true,
+        powerPreference: 'high-performance',
+      });
+    } catch (error) {
+      console.warn('3D görüntüleyici başlatılamadı:', error);
+      setWebglUnavailable(true);
+      return;
+    }
+
     // 1. Scene
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -3936,14 +3953,6 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
     cameraRef.current = camera;
     camera.position.set(32, 24, 38);
 
-    // 3. Renderer
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      preserveDrawingBuffer: true,
-      logarithmicDepthBuffer: true,
-      powerPreference: 'high-performance'
-    });
     const gl = renderer.getContext();
     const debugInfo = gl?.getExtension('WEBGL_debug_renderer_info');
     const glRenderer = debugInfo ? String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '') : '';
@@ -4268,7 +4277,7 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
         containerRef.current.innerHTML = '';
       }
     };
-  }, [isLight]);
+  }, [isLight, rendererAttempt]);
 
   // Re-build geometry on params change
   useEffect(() => {
@@ -4554,6 +4563,27 @@ export const ThreeBuildingView: React.FC<ThreeBuildingViewProps> = ({
       setIsExportingGLTF(false);
     }
   };
+
+  if (webglUnavailable) {
+    return (
+      <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+        <p className="font-semibold">3D önizleme açılamadı</p>
+        <p className="mt-1 text-slate-600">Tarayıcı WebGL başlatamadı.</p>
+        {!hideControls && (
+          <button
+            type="button"
+            className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold"
+            onClick={() => {
+              setWebglUnavailable(false);
+              setRendererAttempt(attempt => attempt + 1);
+            }}
+          >
+            3D önizlemeyi yeniden dene
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
