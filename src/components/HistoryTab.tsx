@@ -24,7 +24,7 @@ import {
 import { SavedProjectData, AppTheme } from '../types';
 import { getLocalProgressItemByKeys, resolveProjectProgressKeys } from '../utils/syncKeys';
 import { ConfirmModal } from './ConfirmModal';
-import { isLegacyAutomaticArchiveEntry } from '../utils/projectArchive';
+import { getCurrentArchiveProjects } from '../utils/projectArchive';
 
 interface HistoryTabProps {
   historyList: SavedProjectData[];
@@ -50,12 +50,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   onNewProject,
 }) => {
   const isGray = theme === 'gray';
-  const [showAutomaticEntries, setShowAutomaticEntries] = useState(false);
-  const visibleHistory = useMemo(() => showAutomaticEntries
-    ? historyList
-    : historyList.filter(project => !isLegacyAutomaticArchiveEntry(project)),
-  [historyList, showAutomaticEntries]);
-  const automaticEntryCount = useMemo(() => historyList.filter(isLegacyAutomaticArchiveEntry).length, [historyList]);
+  const visibleHistory = useMemo(() => getCurrentArchiveProjects(historyList), [historyList]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSegment, setFilterSegment] = useState<PortfolioFilter>('all');
   const [pendingDeletion, setPendingDeletion] = useState<SavedProjectData | null>(null);
@@ -264,14 +259,6 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
           </select>
         </div>
       </div>
-
-      {automaticEntryCount > 0 && (
-        <label className="flex items-center gap-2 px-1 text-sm text-slate-600">
-          <input type="checkbox" checked={showAutomaticEntries}
-            onChange={event => setShowAutomaticEntries(event.currentTarget.checked)} />
-          Önceki sürümün otomatik kayıtlarını göster ({automaticEntryCount})
-        </label>
-      )}
 
       {/* PROJECT CARDS GRID */}
       {visibleHistory.length === 0 ? (

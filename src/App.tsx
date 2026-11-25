@@ -70,7 +70,7 @@ import { DEFAULT_PARAMS, calculateProject, synchronizeFlats, calculateFlatCount,
 import { DEFAULT_BUILDING_PARAMS, getInitialBuildingModelParams } from './utils/buildingModelUtils';
 import { calculateFootprint } from './utils/footprintUtils';
 import { mergeProjectLists, shouldApplyCloudActiveState } from './utils/syncKeys';
-import { isLegacyAutomaticArchiveEntry } from './utils/projectArchive';
+import { getCurrentArchiveProjects } from './utils/projectArchive';
 import {
   applyCalculatorParamsUpdate,
   applyBuildingModelUpdateToProjectParams,
@@ -571,9 +571,8 @@ export default function App() {
     return [];
   });
 
-  const archiveProjectCount = useMemo(() => historyList.filter(
-    project => !isLegacyAutomaticArchiveEntry(project)
-  ).length, [historyList]);
+  const currentArchive = useMemo(() => getCurrentArchiveProjects(historyList), [historyList]);
+  const archiveProjectCount = currentArchive.length;
 
   const openedArchiveKeyRef = useRef<string | null>(null);
   const latestHistoryRef = useRef(historyList);
@@ -1643,7 +1642,7 @@ const handleQuickSave = () => {
               theme={theme}
               params={params}
               results={results}
-              historyList={historyList}
+              historyList={currentArchive}
               onSelectProject={(project, targetTab) => {
                 handleLoadProject(project, (targetTab as TabId) || 'kurulum');
               }}
