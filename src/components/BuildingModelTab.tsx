@@ -1,9 +1,6 @@
 import { ArchitecturalModelDetails } from './ArchitecturalModelDetails';
-import { ResidentialFloorPlan } from './ResidentialFloorPlan';
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Layers,
   Sliders,
   ArrowRight,
   CheckCircle2,
@@ -96,7 +93,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
   // Collapsible section for Facade & Roof customization
 
   // Active subview: 3D model or floor plan
-  const [viewMode, setViewMode] = useState<'3d' | 'plan'>('3d');
   // Teknik Düzenleme vs Müşteri Sunumu Modu
   const [presentationMode, setPresentationMode] = useState<boolean>(false);
   const [syncedFeedback, setSyncedFeedback] = useState<string | null>(null);
@@ -201,25 +197,10 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
       {/* Main Content Layout: Stacked Layout (3D Visualizer Top, Input Cards Below) */}
       <div className="space-y-6">
-        {/* TOP SECTION: 3D Model Canvas / Floor Plan */}
+        {/* TOP SECTION: 3D Model Canvas */}
         <div className="space-y-4">
           <div className={`border rounded-2xl p-3 sm:p-4 ${cardBg}`}>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div role="group" aria-label="Model görünümü" className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
-                {([
-                  ['3d', '3D Model', Box],
-                  ['plan', 'Kat ön planı', Layers],
-                ] as const).map(([mode, label, Icon]) => (
-                  <button key={mode} type="button" aria-pressed={viewMode === mode}
-                    onClick={() => setViewMode(mode)}
-                    className={`flex min-h-9 items-center gap-1 rounded-md px-2.5 text-sm font-semibold ${viewMode === mode
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-slate-700 hover:bg-white'}`}>
-                    <Icon aria-hidden="true" className="size-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
+            <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
                 {/* Teknik Düzenleme vs Müşteri Sunumu */}
                 <div className={`flex items-center p-0.5 rounded-xl border ${subCardBg}`}>
                   <button
@@ -250,7 +231,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
 
             </div>
 
-            {viewMode === '3d' && (
               <div className="space-y-3">
                 {!facadeEditorOpen && (
                 <ThreeBuildingView
@@ -344,9 +324,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   </div>
                 </section>
               </div>
-            )}
-
-            {viewMode === 'plan' && <ResidentialFloorPlan model={modelParams} flats={projectParams?.flats} />}
 
             <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-2 rounded-lg border border-slate-200 px-3 py-2 text-xs">
               {[
@@ -364,7 +341,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                 </div>
               ))}
             </dl>
-            {viewMode === '3d' && (
               <section aria-labelledby="model-view-settings" className="mt-3 space-y-3 rounded-xl border border-slate-200 bg-white p-4">
                 <h3 id="model-view-settings" className="text-sm font-bold text-slate-900">Görünüm ve sunum</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -408,7 +384,6 @@ export const BuildingModelTab: React.FC<BuildingModelTabProps> = ({
                   )}
                 </div>
               </section>
-            )}
 
             {/* Honest Model Data Source & Assumptions Banner */}
             {!presentationMode && (
