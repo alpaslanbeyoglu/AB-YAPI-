@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 30568)
+Total output lines: 2564
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as d3 from 'd3';
 import {
@@ -40,7 +43,7 @@ import {
   buildKitchenAndDoorTakeoffItems,
   computeTakeoffCategoryTotals,
 } from '../utils/workflowConsistencyUtils';
-import { useMarketData } from '../hooks/useMarketData';
+import { DEFAULT_PARAMS as BASE_COSTS } from '../utils/calculatorEngine';
 
 interface CostDetailsTabProps {
   params: ProjectParams;
@@ -100,31 +103,11 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   const isTakeoffOnly = viewMode === 'takeoff';
   const isCostOnly = viewMode === 'cost';
 
-  // Unified Live Market Data Hook
-  const market = useMarketData();
-  const usdTry = market.USD;
-  const eurTry = market.EUR;
-  const [isLiveActive, setIsLiveActive] = useState<boolean>(true);
-  const [lastUpdated, setLastUpdated] = useState<string>(new Date(market.lastUpdated).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
-  const [isFetchingRates, setIsFetchingRates] = useState<boolean>(false);
-  const steelPrice = params.priceSteel || market.REBAR;
-  const concretePrice = params.priceConcrete || market.CONCRETE;
-
   // Simulation states
   const [simBase, setSimBase] = useState<number>(0);
   const [simFx, setSimFx] = useState<number>(10);
   const [simMat, setSimMat] = useState<number>(15);
   const [simLab, setSimLab] = useState<number>(20);
-
-  const fetchLiveRates = () => {
-    setIsFetchingRates(true);
-    setLastUpdated(new Date(market.lastUpdated).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
-    setTimeout(() => setIsFetchingRates(false), 400);
-  };
-
-  useEffect(() => {
-    setLastUpdated(new Date(market.lastUpdated).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
-  }, [market]);
 
   const donutSvgRef = useRef<SVGSVGElement>(null);
   const stackedSvgRef = useRef<SVGSVGElement>(null);
@@ -133,7 +116,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
   const isGray = theme === 'gray';
 
   // Currency multiplier
-  const effectiveUsdRate = params.usdRate > 0 ? params.usdRate : usdTry > 0 ? usdTry : 34.5;
+  const effectiveUsdRate = params.usdRate > 0 ? params.usdRate : BASE_COSTS.usdRate;
   const rate = currency === 'TL' ? 1 : 1 / effectiveUsdRate;
   const sym = currency === 'TL' ? '₺' : '$';
 
@@ -871,7 +854,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                 <h2 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                   Maliyet & Metraj Detay Analizi
                   <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    2026 Canlı Rayiç
+                    Proje fiyatları
                   </span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -1156,7 +1139,6 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                         onChange={(e) => updateParam('priceConcrete', Math.max(0, Number(e.target.value) || 0))}
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
                       />
-                      <span className="text-[9px] text-slate-400 mt-0.5 block">2026 Piyasa: 3.750 - 4.100 ₺</span>
                     </div>
                   </div>
 
@@ -1208,7 +1190,6 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                         onChange={(e) => updateParam('priceSteel', Math.max(0, Number(e.target.value) || 0))}
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
                       />
-                      <span className="text-[9px] text-slate-400 mt-0.5 block">2026 Piyasa: 35.000 - 37.500 ₺</span>
                     </div>
                   </div>
 
@@ -1418,49 +1399,7 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                     type="number"
                     value={params.priceGas ?? 65000}
                     onChange={(e) => updateParam('priceGas', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                    Akıllı Ev Otomasyonu (₺/Daire)
-                  </label>
-                  <input
-                    type="number"
-                    value={params.priceSmartHome ?? 15000}
-                    onChange={(e) => updateParam('priceSmartHome', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                    Görüntülü Diafon Merkezi (₺)
-                  </label>
-                  <input
-                    type="number"
-                    value={params.costIntercom ?? 50000}
-                    onChange={(e) => updateParam('costIntercom', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
-                  />
-                </div>
-              </div>
-            )}
-
-            {activeSettingsTab === 'resmi' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                    Belediye Ruhsat & Projeler (₺/m²)
-                  </label>
-                  <input
-                    type="number"
-                    value={params.priceProjectPermit ?? 580}
-                    onChange={(e) => updateParam('priceProjectPermit', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                    className="w-full px-3 py-…568 tokens truncated…ck text-[10px] font-bold text-slate-600 uppercase mb-1">
                     SGK Asgari İşçilik (₺/m²)
                   </label>
                   <input
@@ -1674,74 +1613,6 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
 
       {/* 3. CANLI PİYASA GİRDİLERİ & BÜTÇE SAPMA SİMÜLATÖRÜ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Canlı Piyasa Göstergeleri */}
-        <div
-          className={`lg:col-span-2 p-5 rounded-2xl border ${
-            isGray ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200'
-          } shadow-sm space-y-4`}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                Canlı Piyasa Girdi Fiyatları & İnternet Endeksi
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Serbest piyasa ve resmi inşaat endeksleriyle senkronize malzeme birim maliyetleri.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                id="btn-refresh-rates"
-                onClick={fetchLiveRates}
-                disabled={isFetchingRates}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 transition-colors cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isFetchingRates ? 'animate-spin' : ''}`} />
-                <span>Kurları Yenile</span>
-              </button>
-              <div className="text-[10px] bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg font-bold font-mono">
-                {lastUpdated || 'Canlı'}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase block">USD / TRY</span>
-              <span className="text-base font-extrabold text-slate-900 block mt-1 font-mono">{usdTry.toFixed(2)} ₺</span>
-              <span className="text-[9px] text-emerald-600 font-semibold">▲ Canlı Kur</span>
-            </div>
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase block">EUR / TRY</span>
-              <span className="text-base font-extrabold text-slate-900 block mt-1 font-mono">{eurTry.toFixed(2)} ₺</span>
-              <span className="text-[9px] text-emerald-600 font-semibold">▲ Canlı Kur</span>
-            </div>
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase block truncate" title={getSteelTypeName(params)}>
-                {getSteelTypeName(params)}
-              </span>
-              <span className="text-xs font-extrabold text-indigo-700 block mt-1.5 font-mono">
-                {(params.priceSteel || steelPrice).toLocaleString('tr-TR')} ₺/Ton
-              </span>
-              <span className="text-[9px] text-slate-500 font-semibold">İşçilik: +{(params.priceSteelLabor || 4800).toLocaleString('tr-TR')} ₺</span>
-            </div>
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-              <span className="text-[10px] text-slate-400 font-semibold uppercase block truncate" title={getConcreteGradeName(params)}>
-                {getConcreteGradeName(params)}
-              </span>
-              <span className="text-xs font-extrabold text-sky-700 block mt-1.5 font-mono">
-                {(params.priceConcrete || concretePrice).toLocaleString('tr-TR')} ₺/m³
-              </span>
-              <span className="text-[9px] text-emerald-600 font-semibold">● KDV & Pompa Dahil</span>
-            </div>
-          </div>
-        </div>
-
         {/* Bütçe & Enflasyon Simülatörü */}
         <div
           className={`p-5 rounded-2xl border ${

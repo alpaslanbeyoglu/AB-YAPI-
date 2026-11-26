@@ -745,7 +745,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
             </div>
 
             {/* Kompakt Canlı Piyasa Referans Şeridi */}
-            <LiveMarketPricesBar theme={theme as AppTheme} compact />
+            <LiveMarketPricesBar />
           </section>
 
           {/* 3 & 4. ANA YÖNETİM ALANI: SOL (PROJE YÖNETİMİ) + SAĞ (İŞ TAKİBİ) */}

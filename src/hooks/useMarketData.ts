@@ -1,81 +1,61 @@
 import { useEffect, useState } from 'react';
+import type { Exchange } from '../utils/companyPrices';
 
-const EXCHANGE_API = 'https://open.er-api.com/v6/latest/USD';
-const GOLD_API = 'https://api.gold-api.com/price/XAU';
-
-export const useMarketData = () => {
-  const [data, setData] = useState({
-    USD: 36.45,
-    EUR: 38.20,
-    GOLD: 3140.0,
-    REBAR: 36200.0,
-    CONCRETE: 3850.0,
-    CEMENT: 215.0,
-    lastUpdated: new Date(),
-  });
-
+const fxUrl = 'https://api.frankfurter.dev/v2/rates?base=USD&quotes=TRY&providers=TCMB';
+export const indexUrl = 'https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/sts_copi_m?geo=TR&indic_bt=COST&unit=I21&s_adj=NSA&cpa2_1=CPA_F41001_X_410014&freq=M&sinceTimePeriod=2020-01';
+type References = { fx: Exchange | null; series: Record<string, number> };
+const cacheKey = 'ab_yapi_public_price_references_v1';
+function readCache(): References {
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+    if (cached && typeof cached.series === 'object' && cached.series !== null) return cached;
+  } catch {}
+  return { fx: null, series: {} };
+}
+export function latestExchange() { return readCache().fx; }
+async function json(url: string) {
+  const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error('Kaynak yanıt vermedi');
+  return response.json();
+}
+async function getFx(): Promise<Exchange> {
+  const rows = await json(fxUrl);
+  const row = rows.find((v: {base: string; quote: string}) => v.base === 'USD' && v.quote === 'TRY');
+  if (!row || !Number.isFinite(row.rate) || row.rate <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) throw new Error('Kur doğrulanamadı');
+  return { rate: row.rate, date: row.date };
+}
+async function getSeries() {
+  const data = await json(indexUrl);
+  const series: Record<string, number> = {};
+  for (const [month, idx] of Object.entries(data.dimension.time.category.index)) {
+    const v = data.value[String(idx)];
+    if (/^\d{4}-\d{2}$/.test(month) && Number.isFinite(v) && v > 0) series[month] = v;
+  }
+  if (!Object.keys(series).length) throw new Error('Endeks doğrulanamadı');
+  return series;
+}
+export function useMarketData() {
+  const [data, setData] = useState(readCache);
+  const [message, setMessage] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [indexVerified, setIndexVerified] = useState(false);
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
-    const fetchLiveMarket = async () => {
-      try {
-        let usdRate = 36.45;
-        let eurRate = 38.20;
-        let goldGram = 3140.0;
-
-        // 1. Fetch live currency rates (USD & EUR to TRY)
-        try {
-          const resEx = await fetch(EXCHANGE_API);
-          const jsonEx = await resEx.json();
-          if (jsonEx && jsonEx.rates) {
-            const tryPerUsd = jsonEx.rates.TRY;
-            const eurPerUsd = jsonEx.rates.EUR;
-            if (tryPerUsd) {
-              usdRate = tryPerUsd;
-              if (eurPerUsd) {
-                eurRate = tryPerUsd / eurPerUsd;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("Live exchange rate fetch error, using baseline", e);
-        }
-
-        // 2. Fetch live gold ounce & calculate gram gold in TRY
-        try {
-          const resGold = await fetch(GOLD_API);
-          const jsonGold = await resGold.json();
-          if (jsonGold && jsonGold.price) {
-            const ounceUsd = jsonGold.price;
-            // 1 Troy Ounce = 31.1035 grams
-            goldGram = Math.round(((ounceUsd * usdRate) / 31.1035) * 10) / 10;
-          }
-        } catch (e) {
-          goldGram = Math.round(usdRate * 86.5 * 10) / 10;
-          console.warn("Live gold price fetch error, using dynamic calculation", e);
-        }
-
-        // 3. Dynamic live calculation for construction materials (Rebar/Demir & Concrete/Beton & Cement/Çimento)
-        const rebarDynamic = Math.max(30000, Math.round(36200 * (usdRate / 34.0)));
-        const concreteDynamic = Math.max(3200, Math.round(3850 * (usdRate / 34.0)));
-        const cementDynamic = Math.max(180, Math.round(215 * (usdRate / 34.0)));
-
-        setData({
-          USD: usdRate,
-          EUR: eurRate,
-          GOLD: goldGram,
-          REBAR: rebarDynamic,
-          CONCRETE: concreteDynamic,
-          CEMENT: cementDynamic,
-          lastUpdated: new Date(),
-        });
-      } catch (error) {
-        console.error('Error fetching live market data:', error);
-      }
-    };
-
-    fetchLiveMarket();
-    const interval = setInterval(fetchLiveMarket, 30000); // Update every 30 seconds
-    return () => clearInterval(interval);
-  }, []);
-
-  return data;
-};
+    let active = true;
+    setBusy(true);
+    Promise.allSettled([getFx(), getSeries()]).then(([fx, series]) => {
+      if (!active) return;
+      const cached = readCache();
+      const next = { fx: fx.status === 'fulfilled' ? fx.value : cached.fx, series: series.status === 'fulfilled' ? series.value : cached.series };
+      try { localStorage.setItem(cacheKey, JSON.stringify(next)); } catch {}
+      setIndexVerified(series.status === 'fulfilled');
+      setData(next);
+      const failed = [fx.status === 'rejected' && 'Kur', series.status === 'rejected' && 'Endeks'].filter(Boolean);
+      setMessage(failed.length ? failed.join(' / ') + ' doğrulanamadı. Varsa son alınan değer gösteriliyor.' : 'Kaynaklar doğrulandı.');
+      setBusy(false);
+    });
+    const timer = window.setTimeout(() => setAttempt(n => n + 1), 3600000);
+    return () => { active = false; clearTimeout(timer); };
+  }, [attempt]);
+  return { ...data, indexVerified, busy, message, refresh: () => setAttempt(n => n + 1) };
+}

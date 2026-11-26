@@ -90,7 +90,13 @@ import {
   AppTheme,
 } from './types';
 
+import { useCompanyProfile } from './context/CompanyProfileContext';
+import { projectBasePrices } from './utils/companyPrices';
+import { latestExchange } from './hooks/useMarketData';
+
 export default function App() {
+  const { profile } = useCompanyProfile();
+  const newPriceDefaults = () => projectBasePrices(profile, latestExchange());
   const { 
     user, 
     isLicensed,
@@ -314,7 +320,7 @@ export default function App() {
         };
       }
     } catch (e) {}
-    return DEFAULT_PARAMS;
+    return { ...DEFAULT_PARAMS, ...newPriceDefaults() };
   });
 
   const [buildingModelParams, setBuildingModelParams] = useState<BuildingModelParams>(() => {
@@ -476,7 +482,7 @@ export default function App() {
       }
     } catch (e) {}
     return {
-      ...DEFAULT_PARAMS,
+      ...DEFAULT_PARAMS, ...newPriceDefaults(),
       projectName: 'Hızlı Sözlü Teklif',
       projectAddress: 'Hızlı Teklif Sahası',
       floorCount: 5,
@@ -903,7 +909,7 @@ const handleQuickSave = () => {
     }
 
     openedArchiveKeyRef.current = null;
-    const initialP = getInitialProjectParams(customAddress ?? '');
+    const initialP = { ...getInitialProjectParams(customAddress ?? ''), ...newPriceDefaults() };
     const initialModel = getInitialBuildingModelParams();
 
     setParams(initialP);
@@ -1118,7 +1124,7 @@ const handleQuickSave = () => {
         handleLoadProjectForProgress(updated[0]);
       } else {
         openedArchiveKeyRef.current = null;
-        setParams(getInitialProjectParams(''));
+        setParams({ ...getInitialProjectParams(''), ...newPriceDefaults() });
         setBuildingModelParams(getInitialBuildingModelParams());
         setActiveTab('gecmis');
       }
