@@ -1176,9 +1176,14 @@ const handleQuickSave = () => {
   };
 
   // Group tabs by category
+  const workbenchVisible = tabsConfig.some(tab => tab.id === 'kurulum' && tab.visible);
   const categorizedTabs = TAB_CATEGORIES.map(cat => ({
     ...cat,
-    tabs: tabsConfig.filter(t => t.category === cat.id && t.visible && (activeTab !== 'profile' || t.category !== 'project_studio')).sort((a, b) => a.order - b.order)
+    tabs: tabsConfig.filter(tab =>
+      tab.category === cat.id && tab.visible &&
+      (cat.id !== 'project_studio' ||
+        (activeTab !== 'profile' && (!workbenchVisible || tab.id === 'kurulum')))
+    ).sort((a, b) => a.order - b.order)
   }));
 
   const handleRootErrorReset = () => {
@@ -1323,7 +1328,7 @@ const handleQuickSave = () => {
                                   key={sub.id}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (sub.step) setRequestedSetupStep(sub.step);
+                                    if (sub.step) navigateToWorkbenchStage(sub.step);
                                   }}
                                   className={`w-full text-left py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 ${
                                     isSubActive
