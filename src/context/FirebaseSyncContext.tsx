@@ -15,6 +15,7 @@ import {
   deleteDoc,
   getDoc,
   getDocFromServer,
+  runTransaction,
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { SavedProjectData, CompanyProfile } from '../types';
@@ -584,10 +585,17 @@ export const FirebaseSyncProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const safeKey = getSafeProjectKey(projectAddress);
     const legacyKey = getLegacySafeProjectKey(projectAddress).slice(0, 128);
     try {
-      await deleteDoc(doc(db, 'users', userId, 'projects', safeKey));
-      if (legacyKey && legacyKey !== safeKey && /^[a-zA-Z0-9_-]{1,128}$/.test(legacyKey)) {
-        await deleteDoc(doc(db, 'users', userId, 'projects', legacyKey)).catch(() => {});
-      }
+      const keys = new Set([safeKey, legacyKey].filter(key => /^[a-zA-Z0-9_-]{1,128}$/.test(key)));
+      await runTransaction(db, async transaction => {
+        const documents = await Promise.all(Array.from(keys, key =>
+          transaction.get(doc(db, 'users', userId, 'projects', key))
+        ));
+        for (const document of documents) {
+          if (document.exists() && document.data().projectAddress === projectAddress) {
+            transaction.delete(document.ref);
+          }
+        }
+      });
       setSyncStatus('synced');
     } catch (error) {
       setSyncStatus('error');
