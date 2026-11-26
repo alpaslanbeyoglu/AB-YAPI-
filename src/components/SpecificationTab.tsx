@@ -1,11 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { CheckCircle2, AlertCircle, Sparkles, ShieldCheck, FileText, FileSpreadsheet, Layers, Compass, Building, Check, Copy, Search, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Sparkles, ShieldCheck, FileText, FileSpreadsheet, Compass, Check, Copy, Search, X } from 'lucide-react';
 import { ProjectParams, CalculationResult, AppTheme } from '../types';
 import { exportElementToPdf, printHtmlContent } from '../utils/pdfExport';
 import { PrintAndPdfButtons } from './PrintAndPdfButtons';
 import { Logo } from './Logo';
 import { getRoofInfo, getRoomTypeDescription } from '../utils/roofUtils';
-import { getSteelTypeName, getConcreteGradeName } from '../utils/calculatorEngine';
 import {
   getSelectedSpecificationComfortFeatures,
   formatSpecificationBasementSummary,
@@ -13,6 +12,8 @@ import {
   SPECIFICATION_EMPTY_COMFORT_MESSAGE,
 } from '../utils/workflowConsistencyUtils';
 import { useCompanyProfile } from '../context/CompanyProfileContext';
+
+const structuralMaterialsClause = 'Beton ve donatı çeliği, ilgili taşıyıcı eleman için onaylı statik projede belirtilen malzeme sınıflarına uygun olarak kullanılacaktır.';
 
 interface SpecificationTabProps {
   params: ProjectParams;
@@ -38,8 +39,6 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   const safeTotalArea = Math.max(0, results.totalArea || 0);
   const safeFlatCount = Math.max(0, results.flatCount || 0);
   const safeShopCount = Math.max(0, params.shopCount || 0);
-  const safeConcrete = Math.max(0, results.concreteM3 || 0);
-  const safeSteel = Math.max(0, results.steelTon || 0);
   const safeMonths = Math.max(1, results.finalMonths || 12);
   const safeFloorCount = Math.max(1, params.floorCount || 1);
   const safeBasementCount = Math.max(0, params.basementCount ?? 1);
@@ -273,7 +272,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Şartnamede ara (örn: C30, asansör, mantolama, çatı, seramik, radon)..."
+              placeholder="Şartnamede ara (örn: beton, asansör, mantolama, çatı, seramik, radon)..."
               className="w-full text-xs pl-9 pr-8 py-2 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
             {searchQuery && (
@@ -346,11 +345,9 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
                   </h4>
                   <ul className="list-disc pl-5 space-y-1 text-slate-600">
                     <li>{highlightText('Binanın taşıyıcı sistemi betonarme karkas olup, en son deprem yönetmeliğine uygun projelendirilecektir.')}</li>
-                    <li>{highlightText('Hazır beton sınıfı asgari C30 standardında temin edilecek, demir donatı olarak S420 nervürlü TSE belgeli sismik çelik kullanılacaktır. Beton döküm test sonuçları paydaşlara sunulacaktır.')}</li>
+                    <li>{highlightText(structuralMaterialsClause)}</li>
+                    <li>{highlightText('Beton döküm test sonuçları paydaşlara sunulacaktır.')}</li>
                   </ul>
-                  <div className="bg-indigo-50/30 border border-slate-200 border-l-4 border-l-indigo-600 rounded-xl p-3 text-[11px] text-slate-800 leading-relaxed mt-2">
-                    <span className="font-bold text-indigo-900">{highlightText('Proje Çeşitliliği / Esneklik:')}</span> {highlightText('Bodrum kat perdeleri ve bina yüksekliğine/statik hesaplara göre beton sınıfları (C30, C35 vb.) mühendislik hesapları baz alınarak projeye özel optimize edilir.')}
-                  </div>
                 </div>
 
                 <div className="space-y-1.5">
@@ -603,38 +600,11 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
             {/* C-02 */}
             <div>
               <h3 className="font-extrabold text-indigo-900 text-xs sm:text-sm border-b-2 border-slate-200 pb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="text-indigo-600 font-mono">02.</span> {highlightText('TAŞIYICI SİSTEM MÜHENDİSLİK METRAJLARI')}
+                <span className="text-indigo-600 font-mono">02.</span> {highlightText('TAŞIYICI SİSTEM MALZEMELERİ')}
               </h3>
               <p className="text-slate-600 text-xs mt-2">
-                Aşağıdaki değerler, binanın toplam kat alanı ve yapı geometrisine bağlı statik katsayılar göz önünde bulundurularak hesaplanan tahmini kaba yapı hakediş metrajlarıdır:
+                {highlightText(structuralMaterialsClause)}
               </p>
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex items-center gap-3">
-                  <div className="p-2.5 bg-indigo-600 text-white rounded-xl">
-                    <Building className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="block text-[10px] font-bold text-indigo-400 uppercase">Tahmini Hazır Beton Hacmi</span>
-                    <p className="text-sm font-bold text-indigo-950 font-mono">
-                      {safeConcrete.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m³
-                    </p>
-                    <span className="text-[10px] text-indigo-600 font-semibold">{getConcreteGradeName(params)}</span>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl flex items-center gap-3">
-                  <div className="p-2.5 bg-blue-600 text-white rounded-xl">
-                    <Layers className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="block text-[10px] font-bold text-blue-400 uppercase">Tahmini Sismik Demir Çelik</span>
-                    <p className="text-sm font-bold text-blue-950 font-mono">
-                      {safeSteel.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} Ton
-                    </p>
-                    <span className="text-[10px] text-blue-600 font-semibold">{getSteelTypeName(params)}</span>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* C-03 */}
