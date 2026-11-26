@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 30568)
-Total output lines: 2564
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as d3 from 'd3';
 import {
@@ -1399,7 +1396,49 @@ export const CostDetailsTab: React.FC<CostDetailsTabProps> = ({
                     type="number"
                     value={params.priceGas ?? 65000}
                     onChange={(e) => updateParam('priceGas', Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full px-3 py-…568 tokens truncated…ck text-[10px] font-bold text-slate-600 uppercase mb-1">
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                    Akıllı Ev Otomasyonu (₺/Daire)
+                  </label>
+                  <input
+                    type="number"
+                    value={params.priceSmartHome ?? 15000}
+                    onChange={(e) => updateParam('priceSmartHome', Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                    Görüntülü Diafon Merkezi (₺)
+                  </label>
+                  <input
+                    type="number"
+                    value={params.costIntercom ?? 50000}
+                    onChange={(e) => updateParam('costIntercom', Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeSettingsTab === 'resmi' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
+                    Belediye Ruhsat & Projeler (₺/m²)
+                  </label>
+                  <input
+                    type="number"
+                    value={params.priceProjectPermit ?? 580}
+                    onChange={(e) => updateParam('priceProjectPermit', Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-bold font-mono focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
                     SGK Asgari İşçilik (₺/m²)
                   </label>
                   <input
