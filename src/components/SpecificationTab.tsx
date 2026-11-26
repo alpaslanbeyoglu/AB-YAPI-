@@ -26,7 +26,7 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   theme = 'light',
 }) => {
   const { profile } = useCompanyProfile();
-  const [activeTab, setActiveTab] = useState<'common' | 'project'>('common');
+  const [activeTab, setActiveTab] = useState<'common' | 'project'>('project');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedStatus, setCopiedStatus] = useState(false);
   const specContainerRef = useRef<HTMLDivElement>(null);
@@ -54,10 +54,8 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   const companyLegalName = profile.legalName || profile.companyName || 'AB YAPI MÜTEAHHİTLİK';
 
   const specTitle = "KENTSEL DÖNÜŞÜM ORTAK TEKNİK ŞARTNAMESİ";
-  const specSubtitle = `${profile.companyName} Proje Çeşitlilikleri, Malzeme ve Uygulama Esasları`;
 
   const projectTitle = "PROJEYE ÖZEL KENTSEL DÖNÜŞÜM YAPIM ŞARTNAMESİ";
-  const projectSubtitle = `Adres: ${safeAddress} | Özel Mühendislik ve Malzeme Listesi`;
 
   const currentRoof = getRoofInfo(params.roofType);
   const currentRoom = getRoomTypeDescription(params.roomType);
@@ -111,415 +109,39 @@ export const SpecificationTab: React.FC<SpecificationTabProps> = ({
   };
 
   const generateSpecHtml = () => {
-    const compLogo = profile.logoBase64 || '';
-    const compName = profile.companyName || 'AB YAPI';
-    const compLegal = companyLegalName;
-    const compWeb = profile.website || (profile.companyName === 'AB YAPI' ? 'https://ab-yapi.com.tr/' : '');
+    const source = specContainerRef.current;
+    if (!source) return '';
 
-    if (activeTab === 'common') {
-      return `<!DOCTYPE html>
-<html lang="tr">
-<head>
-  <meta charset="UTF-8">
-  <title>${specTitle}</title>
-  <style>
-    @page {
-      size: A4 portrait;
-      margin: 12mm 10mm 15mm 10mm;
-      @bottom-right {
-        content: "Sayfa " counter(page) " / " counter(pages);
-        font-size: 9px;
-        color: #64748b;
-        font-weight: bold;
-        font-family: sans-serif;
-      }
-      @bottom-left {
-        content: "${compName}${compWeb ? ` • ${compWeb}` : ''} - Ortak Teknik Şartname";
-        font-size: 9px;
-        color: #64748b;
-        font-family: sans-serif;
-      }
+    const output = document.implementation.createHTMLDocument(activeTab === 'common' ? specTitle : projectTitle);
+    output.documentElement.lang = 'tr';
+    const charset = output.createElement('meta');
+    charset.setAttribute('charset', 'utf-8');
+    output.head.prepend(charset);
+
+    for (const sheet of document.querySelectorAll<HTMLStyleElement | HTMLLinkElement>('style, link[rel="stylesheet"]')) {
+      const copy = sheet.cloneNode(true) as HTMLStyleElement | HTMLLinkElement;
+      if (sheet instanceof HTMLLinkElement && copy instanceof HTMLLinkElement) copy.href = sheet.href;
+      output.head.append(copy);
     }
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 0; color: #0f172a; max-width: 960px; margin: 0 auto; line-height: 1.5; font-size: 11px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    h2 { color: #0f172a; text-align: left; font-size: 15px; margin: 0; font-weight: bold; }
-    .section-title { font-size: 12px; font-weight: 800; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 3px; margin-top: 20px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .subsection-title { font-size: 11px; font-weight: 700; color: #1e293b; border-left: 3px solid #f59e0b; padding-left: 8px; margin-top: 14px; margin-bottom: 8px; }
-    ul { padding-left: 18px; margin: 4px 0 8px 0; }
-    li { margin-bottom: 4px; }
-    .flexibility-box { background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 10px; margin: 8px 0; font-size: 10.5px; color: #78350f; }
-    .flexibility-box strong { color: #92400e; }
-    .footer-table { width: 100%; margin-top: 30px; border-collapse: collapse; }
-    .footer-table td { width: 50%; text-align: center; vertical-align: top; font-size: 11px; }
-    .footer-meta { text-align: center; font-size: 10px; color: #64748b; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-    .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
-  </style>
-</head>
-<body>
-  <div class="avoid-break" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:16px;">
-    <div style="display:flex;align-items:center;gap:12px;">
-      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
-      <div>
-        <h2>${specTitle}</h2>
-        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;font-weight:600;">${compLegal}</p>
-        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')} | Belge No: ${compName}-2026/TŞ-01 | Kentsel Dönüşüm Ortak Standartları</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="section-title">01. KABA YAPI, ZEMİN VE STATİK KRİTERLERİ</div>
-  
-  <div class="subsection-title">Zemin Etüdü ve Statik Projelendirme</div>
-  <ul>
-    <li>Zemin etütleri ruhsat aşamasında yetkili zemin mekaniği firmalarına yaptırılarak ilgili belediyeye onaylattırılacaktır.</li>
-    <li>Statik hesaplamalar; zemin emniyet gerilmeleri ve yürürlükteki Deprem Yönetmeliği esas alınarak hazırlanacaktır.</li>
-  </ul>
-  <div class="flexibility-box">
-    <strong>Proje Çeşitliliği / Esneklik:</strong> Parsel oturum alanına ve zemin sınıfına (Z1-Z5) bağlı olarak temel tipi (Radye Jeneral, İyileştirmeli veya projeye göre gerekli görüldüğünde kuyu temel sistemleri) statik gerekler doğrultusunda farklılık gösterebilir.
-  </div>
-
-  <div class="subsection-title">Betonarme Taşıyıcı Sistem ve Malzemeler</div>
-  <ul>
-    <li>Binanın taşıyıcı sistemi betonarme karkas olup, en son deprem yönetmeliğine uygun projelendirilecektir.</li>
-    <li>Hazır beton sınıfı asgari C30 standardında temin edilecek, demir donatı olarak S420 nervürlü TSE belgeli sismik çelik kullanılacaktır. Beton döküm test sonuçları paydaşlara sunulacaktır.</li>
-  </ul>
-  <div class="flexibility-box">
-    <strong>Proje Çeşitliliği / Esneklik:</strong> Bodrum kat perdeleri ve bina yüksekliğine/statik hesaplara göre beton sınıfları (C30, C35 vb.) mühendislik hesapları baz alınarak projeye özel optimize edilir.
-  </div>
-
-  <div class="subsection-title">Su Yalıtımı ve Drenaj Sistemleri</div>
-  <ul>
-    <li>Temel ve toprak altı bodrum perdelerinde bina ömrünü korumak amacıyla su yalıtımı (bohçalama veya uygun perde yalıtımları) uygulanacaktır.</li>
-    <li>Perde duvarlarda yalıtımı korumak amacıyla yüksek dansite XPS levhalar ve drenaj levhaları konumlandırılacaktır.</li>
-  </ul>
-
-  <div class="section-title">02. DUVARLAR VE ÇATI İMALAT ÇEŞİTLİLİKLERİ</div>
-  
-  <div class="subsection-title">Bölücü Duvarlar ve Ses / Isı Yalıtımı</div>
-  <ul>
-    <li>Dış duvarlar ve ıslak hacim duvarları projesine uygun tuğla veya yalıtımlı blok elemanlarla örülecektir.</li>
-  </ul>
-  <div class="flexibility-box">
-    <strong>Proje Çeşitliliği / Esneklik:</strong> Duvar kalınlıkları (8.5 cm, 13.5 cm) ve iki daire arası ses/ısı yalıtım detayları (çift duvar uygulaması veya akustik tuğla/taş yünü yalıtım katmanları); mimari akslara ve akustik yönetmelik gereksinimlerine göre her projede farklılık gösterebilir. Kesin bir tek tip duvar detayı dayatılmaz.
-  </div>
-
-  <div class="subsection-title">Çatı Konstrüksiyonu ve Yalıtım Detayları</div>
-  <ul>
-    <li>Çatı sistemleri onaylı mimari projeye uygun olarak çelik veya ahşap karkas konstrüksiyon şeklinde imal edilecektir.</li>
-    <li>Çatı kaplamasında OSB, su yalıtım membranı ve shingle / kenet sac alternatifleri projenin mimari çizgisine göre uygulanacaktır. Isı yalıtımı için taş yünü veya poliüretan köpük sistemleri tercih edilecektir.</li>
-  </ul>
-
-  <div class="section-title">03. DIŞ CEPHE VE DOĞRAMA ÇEŞİTLİLİKLERİ</div>
-  
-  <div class="subsection-title">Dış Cephe Mantolama ve Tasarım</div>
-  <ul>
-    <li>Bina dış cepheleri ısı yalıtım projesi (BEP) değerlerini sağlayacak kalınlık ve yoğunlukta mantolama (EPS veya Taşyünü) ile kaplanacaktır.</li>
-    <li>Belediye onaylı dış cephe renk ve kompozit/dekoratif kaplama alternatifleri uygulanarak üst segment dış cephe boyaları tercih edilecektir.</li>
-  </ul>
-
-  <div class="subsection-title">Doğramalar ve Cam Sistemleri</div>
-  <ul>
-    <li>Pencereler ve balkon kapıları projenin mimari rengine uyumlu üst segment PVC doğrama (Egepen, Fıratpen, Pimapen veya muadili) olacaktır.</li>
-    <li>Camlar konfor ısıcam (çift cam kombinasyonları) olarak uygulanacak, Fransız balkon önlerinde projeye uygun lamine/temperli cam korkuluklar yer alacaktır.</li>
-  </ul>
-
-  <div class="section-title">04. İÇ MEKÂN, KAPLAMA VE DONATI SEÇENEKLERİ</div>
-  
-  <div class="subsection-title">Zeminler ve İç Yüzeyler</div>
-  <ul>
-    <li>Salon ve odalarda 1. sınıf laminat parke (AGT, Çamsan, Terraclick veya muadili), antre ve mutfakta 1. sınıf granit/seramik kaplama kullanılacaktır.</li>
-    <li>Duvarlar alçı sıva üzeri su bazlı silinebilir saten boya ile tamamlanacak, ıslak hacimlerde 1. sınıf seramik kaplama tercih edilecektir.</li>
-  </ul>
-  <div class="flexibility-box">
-    <strong>Proje Çeşitliliği / Esneklik:</strong> Daire sahiplerine sunulacak renk, ebat (örn. 60x60 veya 60x120 seramik) ve model alternatifleri; projenin konseptine ve o dönemsel üretici kataloglarına göre çeşitlilik arz edebilir.
-  </div>
-
-  <div class="subsection-title">Mutfak, Banyo ve İç Kapılar</div>
-  <ul>
-    <li>Mutfak dolapları gövde MDF, kapaklar Highgloss veya Lake; tezgahlar ise 1. sınıf granit/kuvars esaslı malzemeden yapılacaktır.</li>
-    <li>Konut banyolarında gömme rezervuar, TSE belgeli armatürler, duşakabin ve suya dayanıklı banyo dolabı uygulanacaktır. Ticari dükkan/işyeri birimlerinde duş bulunmayıp yalnızca bağımsız lavabo ve WC tesisatı yer alır. İç kapılar PVC kaplamalı veya Lake ahşap kapı olacaktır.</li>
-  </ul>
-
-  <div class="section-title">05. MEKANİK, ELEKTRİK VE ASANSÖR STANDARTLARI</div>
-  
-  <div class="subsection-title">Asansör Sistemlerinde Esneklik</div>
-  <ul>
-    <li>Binaya tesis edilecek asansörler; ilgili belediye imar mevzuatına, Asansör Yönetmeliği'ne ve TSE standartlarına tam uygun, yeşil etiketli olacaktır.</li>
-  </ul>
-  <div class="flexibility-box">
-    <strong>Proje Çeşitliliği / Esneklik:</strong> Asansörün kişi kapasitesi, taşıma tonajı (örn. 630 kg / 8 kişilik veya parsele/binaya özel mimari kuyu boyutlarına göre 4-6 kişilik alternatifler) ve kabin tasarımı; her binanın arsa oturumuna, kat sayısına ve ruhsat projesine göre değişkenlik gösterir. Sabit bir kişi sayısı dayatılmaz.
-  </div>
-
-  <div class="subsection-title">Isıtma, Elektrik ve Güvenlik Altyapısı</div>
-  <ul>
-    <li>Her bağımsız bölümde bağımsız kombili doğalgaz ısıtma altyapısı, radyatörler ve klima tesisat altyapısı bulunacaktır.</li>
-    <li>Tüm elektrik tesisatında TSE belgeli kablolar, kaçak akım röleleri, merkezi uydu ve fiber internet altyapısı kurulacaktır.</li>
-    <li>Audio marka görüntülü diafon sistemi ve bina çevresi güvenlik kamera altyapısı tesis edilecektir.</li>
-  </ul>
-
-  <div class="section-title">06. YIKIM VE UYGULAMA ESASLARI</div>
-  
-  <div class="subsection-title">Yıkım ve Proje Yönetimi</div>
-  <ul>
-    <li>Eski binaların yıkımı, yasal ruhsatlar alındıktan sonra iş güvenliği kurallarına tam uygun olarak ${profile.companyName} güvencesiyle gerçekleştirilecektir. Hafriyat ve yıkım maliyetleri yükleniciye aittir.</li>
-    <li>Tüm imalatlar onaylı mimari, statik ve tesisat projeleri ile yapı denetim denetiminde yürütülecektir. Yüklenici, kalite standardından ödün vermemek şartıyla eşdeğer muadil malzeme uygulama hakkına sahiptir.</li>
-  </ul>
-
-  <table class="footer-table">
-    <tr>
-      <td>
-        <strong>KAT MALİKLERİ ONAYI</strong><br><br>
-        <div style="height: 30px;"></div>
-        İmza: .......................................<br>
-        <span style="font-size:10px; color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
-      </td>
-      <td>
-        <strong>${companyLegalName.toUpperCase()} ONAYI</strong><br>
-        ${profile.stampUrl ? `<img src="${profile.stampUrl}" style="max-height: 48px; margin: 4px auto; display:block;" />` : ''}
-        <div style="font-size: 11px; color: #1e293b; margin-top: 4px;">
-          ${showFirstAuth ? `<strong>${profile.authorizedPerson}</strong> (${profile.authorizedTitle})<br>` : ''}
-          ${showSecondAuth && profile.authorizedPerson2 ? `<strong>${profile.authorizedPerson2}</strong> (${profile.authorizedTitle2 || ''})<br>` : ''}
-        </div>
-        Kaşe / İmza: .......................................<br>
-        <span style="font-size:10px; color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
-      </td>
-    </tr>
-  </table>
-
-  <div class="footer-meta">
-    ${profile.companyName} - Güvene Yükselen Yapılar | Ortak Teknik Şartname${compWeb ? ` | <a href="${compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}" target="_blank" style="color:#64748b;text-decoration:none;">${compWeb}</a>` : ''}
-  </div>
-</body>
-</html>`;
-    } else {
-      // Dynamic Project-Specific HTML
-      const isShop = params.hasGroundFloorShop 
-        ? `Var (${safeShopCount} Adet Zemin Kat Ticari Dükkan)` 
-        : "Yok (Tamamı Konut)";
-      const roofInfo = getRoofInfo(params.roofType);
-      const bType = params.buildingType === 'standard' ? 'Standart Konut (A Sınıfı)' : params.buildingType === 'luxury' ? 'Lüks Konut / Rezidans' : 'Ticari + Konut Karma Yapı';
-      const cantDesc = params.hasCantilever 
-        ? `Var (Konsol Çıkma: ${Math.max(0, params.cantileverDepth || 1.2)}m, Yön: ${params.cantileverDirection === 'front_back' ? 'Ön-Arka Cepheler' : params.cantileverDirection === 'front' ? 'Yalnızca Ön Cephe' : 'Ayrık / Tüm Cepheler'})` 
-        : 'Yok (Düz Prizmatik Kütle)';
-      const basementDesc = basementSummary.htmlSummary;
-      const totalUnits = params.hasGroundFloorShop 
-        ? `${safeFlatCount} Adet Konut + ${safeShopCount} Adet Ticari Dükkan (Toplam ${safeFlatCount + safeShopCount} Bağımsız Bölüm)` 
-        : `${safeFlatCount} Adet Konut`;
-
-      return `<!DOCTYPE html>
-<html lang="tr">
-<head>
-  <meta charset="UTF-8">
-  <title>${projectTitle}</title>
-  <style>
-    @page {
-      size: A4 portrait;
-      margin: 12mm 10mm 15mm 10mm;
-      @bottom-right {
-        content: "Sayfa " counter(page) " / " counter(pages);
-        font-size: 9px;
-        color: #64748b;
-        font-weight: bold;
-        font-family: sans-serif;
+    const style = output.createElement('style');
+    style.textContent = `
+      @page { size: A4 portrait; margin: 12mm 10mm; }
+      body { background: white; }
+      @media print {
+        table { break-inside: auto !important; page-break-inside: auto !important; }
+        thead { display: table-header-group; }
+        h2, h3, h4 { break-after: avoid; }
+        .overflow-x-auto { overflow: visible; }
       }
-      @bottom-left {
-        content: "${compName}${compWeb ? ` • ${compWeb}` : ''} - Projeye Özel Şartname";
-        font-size: 9px;
-        color: #64748b;
-        font-family: sans-serif;
-      }
-    }
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 0; color: #0f172a; max-width: 960px; margin: 0 auto; line-height: 1.5; font-size: 11px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    h2 { color: #0f172a; text-align: left; font-size: 15px; margin: 0; font-weight: bold; }
-    .specs-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; font-size: 10px; }
-    .specs-table th, .specs-table td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
-    .specs-table th { background: #f8fafc; font-weight: bold; width: 30%; color: #334155; }
-    .section-title { font-size: 12px; font-weight: 800; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 3px; margin-top: 20px; margin-bottom: 10px; text-transform: uppercase; }
-    .footer-table { width: 100%; margin-top: 30px; border-collapse: collapse; }
-    .footer-table td { width: 50%; text-align: center; vertical-align: top; font-size: 11px; }
-    .footer-meta { text-align: center; font-size: 10px; color: #64748b; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-    .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
-  </style>
-</head>
-<body>
-  <div class="avoid-break" style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:16px;">
-    <div style="display:flex;align-items:center;gap:12px;">
-      ${compLogo ? `<img src="${compLogo}" alt="${compName}" style="max-height:50px;max-width:130px;object-fit:contain;" />` : ''}
-      <div>
-        <h2>${projectTitle}</h2>
-        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;font-weight:600;">${compLegal}</p>
-        <p style="margin:2px 0 0 0;font-size:10px;color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')} | Belge No: ${compName}-2026/TŞ-02 | Adres: ${safeAddress}</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="section-title">01. PROJE GENEL METRAJ KÜNYESİ</div>
-  <table class="specs-table">
-    <tr>
-      <th>Proje Adresi</th>
-      <td>${safeAddress}</td>
-    </tr>
-    <tr>
-      <th>Yapı Tipi Sınıfı</th>
-      <td>${bType}</td>
-    </tr>
-    <tr>
-      <th>Taban Oturum Alanı</th>
-      <td>${safeBaseArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</td>
-    </tr>
-    <tr>
-      <th>Toplam İnşaat Alanı</th>
-      <td>${safeTotalArea.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} m²</td>
-    </tr>
-    <tr>
-      <th>Kat Yapısı</th>
-      <td>${results.floorStructure?.detailedLabel || `${safeFloorCount} Katlı Yapı`}</td>
-    </tr>
-    <tr>
-      <th>Kat Dağılımı ve Daire Sayısı</th>
-      <td>Katta ${params.flatsPerFloor || 2} Bağımsız Bölüm (Kat alanı kattaki daire sayısına eşit bölünerek paylaştırılmıştır)${params.roofType === 'mansard' ? ' • En üst katta mansart çatı bağımsız bölümleri' : ''}</td>
-    </tr>
-    <tr>
-      <th>Bodrum Kat Durumu</th>
-      <td>${basementDesc}</td>
-    </tr>
-    <tr>
-      <th>Bağımsız Bölüm Dağılımı</th>
-      <td>${results.unitBreakdown?.detailedLabel || totalUnits}</td>
-    </tr>
-    <tr>
-      <th>Daire Tipi (Oda + Salon Sayısı)</th>
-      <td>${currentRoom} Yapı Standardı</td>
-    </tr>
-    <tr>
-      <th>Zemin Kat Dükkan Seçeneği</th>
-      <td>${isShop} ${params.hasGroundFloorShop ? `(${params.shopCount || 1} Adet Ticari Dükkan - Zemin kat alanı eşit paylaşımlı)` : ''}</td>
-    </tr>
-    <tr>
-      <th>Tahmini Yapım Süresi</th>
-      <td>${safeMonths} Ay</td>
-    </tr>
-  </table>
-
-  <div class="section-title">02. TAHMİNİ TAŞIYICI SİSTEM METRAJLARI (HAKEDİŞE ESAS)</div>
-  <table class="specs-table">
-    <tr>
-      <th>Betonarme Karkas Beton Sınıfı</th>
-      <td>${getConcreteGradeName(params)}</td>
-    </tr>
-    <tr>
-      <th>Tahmini Beton Hacmi</th>
-      <td>${safeConcrete.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} m³</td>
-    </tr>
-    <tr>
-      <th>Demir Donatı Kalitesi & Tipi</th>
-      <td>${getSteelTypeName(params)}</td>
-    </tr>
-    <tr>
-      <th>Tahmini Çelik Tonajı</th>
-      <td>${safeSteel.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} Ton</td>
-    </tr>
-  </table>
-
-  <div class="section-title">03. CEPHE, ÇATI VE MİMARİ BİLEŞENLER AYRINTILARI</div>
-  <table class="specs-table">
-    <tr>
-      <th>1. Kattan Sonra Çıkma Durumu</th>
-      <td>${cantDesc}</td>
-    </tr>
-    <tr>
-      <th>Mimari Çatı Konstrüksiyonu</th>
-      <td>
-        <strong>${roofInfo.title}</strong> (${roofInfo.badge})<br />
-        <span style="font-size:11px; color:#475569; display:block; margin-top:4px;">${roofInfo.technicalSpecification} ${params.roofType === 'mansard' ? 'Mansart bağımsız bölümler imar kuralları uyarınca yalnızca en üst katta teşkil edilir.' : ''}</span>
-      </td>
-    </tr>
-    <tr>
-      <th>Bodrum & Ortak Alanlar</th>
-      <td>${basementSummary.detailedSummary}</td>
-    </tr>
-    <tr>
-      <th>Dış Cephe Yalıtımı (Mantolama) & Renk</th>
-      <td>Projede seçilen özel renk kombinasyonları (${params.facadeColor || params.wallColor || 'Kullanıcı Tercihi Renk'}), TS 825 standartlarında minimum 5 cm Karbonlu EPS mantolama, dekoratif mineral sıva ve silikon esaslı dış cephe boyası.</td>
-    </tr>
-    <tr>
-      <th>İç Mekân, Banyo & Konfor Donanımları</th>
-      <td>
-        ${
-          selectedComfortFeatures.length > 0
-            ? selectedComfortFeatures
-                .map((item) => `<strong>${item.title}:</strong> ${item.description}`)
-                .join('<br>')
-            : SPECIFICATION_EMPTY_COMFORT_MESSAGE
-        }
-      </td>
-    </tr>
-    ${params.hasGroundFloorShop || safeBasementCount > 0 ? `
-    <tr>
-      <th>Dükkan & Ticari Alanlar Teslim Standardı</th>
-      <td>
-        Ticari dükkan/işyeri bağımsız bölümlerinde konut tipi duşakabin, termostatik duş bataryası ve lineer duş süzgeci bulunmaz. Bağımsız WC, lavabo ve soğuk/sıcak su tesisatı ile standart yer süzgeci tesis edilir.
-      </td>
-    </tr>` : ''}
-  </table>
-
-  <div class="section-title">04. PAYDAŞ MALİK KATILIM LİSTESİ</div>
-  <table class="specs-table" style="font-size:11px;">
-    <thead>
-      <tr style="background:#f1f5f9;">
-        <th>Bağımsız Bölüm & Kat</th>
-        <th>Hak Sahibi Ad Soyad</th>
-        <th>T.C. Kimlik Numarası</th>
-        <th>Nitelik</th>
-        <th>Hisse Alanı (m²)</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${results.flatResults.map(f => {
-        const { floorText, unitTitle, unitTypeBadge } = formatSpecificationUnitLabels(
-          f,
-          params.flatsPerFloor || 2
-        );
-        return `
-      <tr>
-        <td><strong>${unitTitle}</strong> (${floorText})</td>
-        <td>${f.name}</td>
-        <td>${f.tc}</td>
-        <td>${unitTypeBadge}</td>
-        <td>${f.area} m²</td>
-      </tr>`;
-      }).join('')}
-    </tbody>
-  </table>
-
-  <table class="footer-table">
-    <tr>
-      <td>
-        <strong>KAT MALİKLERİ ONAYI</strong><br><br>
-        <div style="height: 30px;"></div>
-        İmza: .......................................<br>
-        <span style="font-size:10px; color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
-      </td>
-      <td>
-        <strong>${companyLegalName.toUpperCase()} ONAYI</strong><br>
-        ${profile.stampUrl ? `<img src="${profile.stampUrl}" style="max-height: 48px; margin: 4px auto; display:block;" />` : ''}
-        <div style="font-size: 11px; color: #1e293b; margin-top: 4px;">
-          ${showFirstAuth ? `<strong>${profile.authorizedPerson}</strong> (${profile.authorizedTitle})<br>` : ''}
-          ${showSecondAuth && profile.authorizedPerson2 ? `<strong>${profile.authorizedPerson2}</strong> (${profile.authorizedTitle2 || ''})<br>` : ''}
-        </div>
-        Kaşe / İmza: .......................................<br>
-        <span style="font-size:10px; color:#64748b;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
-      </td>
-    </tr>
-  </table>
-
-  <div class="footer-meta">
-    ${profile.companyName} - Güvene Yükselen Yapılar | Projeye Özel Teknik Şartname${compWeb ? ` | <a href="${compWeb.startsWith('http') ? compWeb : `https://${compWeb}`}" target="_blank" style="color:#64748b;text-decoration:none;">${compWeb}</a>` : ''}
-  </div>
-</body>
-</html>`;
-    }
+    `;
+    output.head.append(style);
+    const copy = source.cloneNode(true) as HTMLElement;
+    const images = source.querySelectorAll('img');
+    copy.querySelectorAll('img').forEach((image, index) => {
+      image.src = images[index].currentSrc || images[index].src;
+    });
+    output.body.append(copy);
+    return '<!DOCTYPE html>' + output.documentElement.outerHTML;
   };
 
   const cardBg = isGray
