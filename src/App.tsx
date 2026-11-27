@@ -4,8 +4,6 @@ import {
   AlertCircle,
   Settings2,
   Menu as MenuIcon,
-  ChevronLeft,
-  ChevronRight,
   Check,
   PanelLeftClose,
   PanelLeft,
@@ -14,7 +12,6 @@ import {
 } from 'lucide-react';
 import { Header } from './components/Header';
 import { AdminLicenseManager } from './components/AdminLicenseManager';
-import { TabNavigation } from './components/TabNavigation';
 import { CompactSummaryBar } from './components/CompactSummaryBar';
 import { TabLoadingSkeleton } from './components/TabLoadingSkeleton';
 import { Logo } from './components/Logo';
@@ -27,7 +24,6 @@ import { getSafeProjectKey, getLegacySafeProjectKey, resolveProjectProgressKeys 
 import { ProjectSetupTab } from './components/ProjectSetupTab';
 import { LiteMobileView } from './components/LiteMobileView';
 import { ProjectTransferModal } from './components/ProjectTransferModal';
-import { ProjectLifecycleBar } from './components/ProjectLifecycleBar';
 import {
   evaluateWorkbenchProject,
   WorkbenchNavigationRequest,
@@ -74,9 +70,7 @@ import { getCurrentArchiveProjects } from './utils/projectArchive';
 import {
   applyCalculatorParamsUpdate,
   applyBuildingModelUpdateToProjectParams,
-  buildOfferAcceptanceTransitionPatch,
   buildProposalStatusChangePatch,
-  resolveEffectiveOfferAccepted,
   resolveEffectiveProposalStatus,
   sanitizeContractorFlatIds,
   syncFlatsContractorShareFlags,
@@ -1439,36 +1433,6 @@ const handleQuickSave = () => {
           )}
 
           <main className={`flex-1 w-full ${activeTab === 'kurulum' ? (isProjectFlowOpen ? 'max-w-none' : 'max-w-[1600px]') : 'max-w-7xl'} mx-auto p-3 sm:p-6 pb-12 print:p-0 print:m-0 print:max-w-none print:w-full print:pb-0 flex flex-col gap-6 overflow-x-hidden min-w-0`}>
-            {/* Proje Yaşam Döngüsü & Hiyerarşik Faz Çubuğu (Proje Kurulumu hariç diğer Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
-            {activeTab !== 'kurulum' && tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
-              <ProjectLifecycleBar
-                activeTab={activeTab}
-                onNavigate={setActiveTab}
-                isOfferAccepted={resolveEffectiveOfferAccepted(params)}
-                onToggleOfferAccepted={(val) => {
-                  const patch = buildOfferAcceptanceTransitionPatch(params, val);
-                  updateCalculatorParams(patch);
-                  if (val) {
-                    showNotification('success', 'Teklif kabul edildi olarak işaretlendi. Şantiye süreci başlatıldı!');
-                  } else {
-                    showNotification('success', 'Teklif değerlendirme aşamasına alındı.');
-                  }
-                }}
-                projectName={params.projectName || params.projectAddress}
-                theme={theme}
-              />
-            )}
-
-            {/* Top Navigation (Proje Kurulumu hariç diğer Aktif Proje Stüdyosu sekmelerinde gösterilir) */}
-            {activeTab !== 'kurulum' && tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
-              <TabNavigation
-                activeTab={activeTab}
-                tabs={tabsConfig}
-                onNavigate={setActiveTab}
-                theme={theme}
-              />
-            )}
-
             {/* Tab Views */}
             <div className="flex-1 w-full min-w-0 max-w-full overflow-x-hidden">
           {feedback && (
@@ -1706,14 +1670,6 @@ const handleQuickSave = () => {
           </Suspense>
         </ErrorBoundary>
         
-        {activeTab !== 'kurulum' && tabsConfig.find(t => t.id === activeTab)?.category === 'project_studio' && (
-          <TabNavigation
-            activeTab={activeTab}
-            tabs={tabsConfig}
-            onNavigate={setActiveTab}
-            theme={theme}
-          />
-        )}
       </div>
     </main>
     </div>

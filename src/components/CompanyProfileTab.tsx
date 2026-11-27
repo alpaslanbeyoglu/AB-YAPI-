@@ -668,13 +668,6 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                     <>
                       <button
                         type="button"
-                        onClick={() => onContinueActiveProject('teklif')}
-                        className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-                      >
-                        Teklif
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => onContinueActiveProject('kurulum')}
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                       >
@@ -968,13 +961,7 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                                   >
                                     Aç
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => onSelectProject?.(proj, 'teklif')}
-                                    className="px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:text-indigo-700 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-md transition-colors cursor-pointer"
-                                  >
-                                    Teklif
-                                  </button>
+
                                   {(status === 'active_site' || status === 'accepted') && (
                                     <button
                                       type="button"
@@ -1075,15 +1062,6 @@ export const CompanyProfileTab: React.FC<CompanyProfileTabProps> = ({
                         >
                           <span className="truncate">{activeWarningIssues[0].message}</span>
                           <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-                        </button>
-                      )}
-                      {onContinueActiveProject && (
-                        <button
-                          type="button"
-                          onClick={() => onContinueActiveProject('teklif')}
-                          className="w-full py-2 px-3 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
-                        >
-                          Teklif Ekranına Geç
                         </button>
                       )}
                     </div>
